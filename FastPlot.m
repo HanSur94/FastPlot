@@ -16,7 +16,8 @@ classdef FastPlot < handle
 
     properties (SetAccess = private)
         Lines      = struct('X', {}, 'Y', {}, 'Options', {}, ...
-                            'DownsampleMethod', {}, 'hLine', {})
+                            'DownsampleMethod', {}, 'hLine', {}, ...
+                            'Pyramid', {})
         Thresholds = struct('Value', {}, 'Direction', {}, ...
                             'ShowViolations', {}, 'Color', {}, ...
                             'LineStyle', {}, 'Label', {}, ...
@@ -37,6 +38,7 @@ classdef FastPlot < handle
     properties (Constant, Access = private)
         MIN_POINTS_FOR_DOWNSAMPLE = 5000  % below this, plot raw data
         DOWNSAMPLE_FACTOR = 2             % points per pixel (min + max)
+        PYRAMID_REDUCTION = 100           % reduction factor per pyramid level
     end
 
     methods (Access = public)
@@ -103,6 +105,7 @@ classdef FastPlot < handle
             lineStruct.DownsampleMethod = dsMethod;
             lineStruct.Options = opts;
             lineStruct.hLine = [];
+            lineStruct.Pyramid = {};
 
             % Append
             if isempty(obj.Lines)
@@ -365,37 +368,115 @@ classdef FastPlot < handle
         function updateLines(obj)
             pw = obj.PixelWidth;
             xlims = get(obj.hAxes, 'XLim');
+            target = 2 * pw;
 
             for i = 1:numel(obj.Lines)
                 L = obj.Lines(i);
+                nTotal = numel(L.X);
 
-                % Binary search for visible range
+                % Binary search on raw X for visible range
                 idxStart = binary_search(L.X, xlims(1), 'left');
                 idxEnd   = binary_search(L.X, xlims(2), 'right');
-
-                % Pad by 1 on each side for line continuity at edges
                 idxStart = max(1, idxStart - 1);
-                idxEnd   = min(numel(L.X), idxEnd + 1);
-
-                xVis = L.X(idxStart:idxEnd);
-                yVis = L.Y(idxStart:idxEnd);
-
-                % Downsample if needed
+                idxEnd   = min(nTotal, idxEnd + 1);
                 nVis = idxEnd - idxStart + 1;
-                if nVis > obj.MIN_POINTS_FOR_DOWNSAMPLE
-                    if strcmp(L.DownsampleMethod, 'lttb')
-                        [xd, yd] = lttb_downsample(xVis, yVis, pw);
-                    else
-                        [xd, yd] = minmax_downsample(xVis, yVis, pw);
-                    end
+
+                if nVis <= obj.MIN_POINTS_FOR_DOWNSAMPLE
+                    % Small enough to plot raw
+                    xd = L.X(idxStart:idxEnd);
+                    yd = L.Y(idxStart:idxEnd);
                 else
-                    xd = xVis;
-                    yd = yVis;
+                    % Select best pyramid level
+                    [lvl, obj.Lines(i)] = obj.selectPyramidLevel(L, nVis, nTotal, target);
+
+                    if lvl == 0
+                        % Use raw data
+                        xVis = L.X(idxStart:idxEnd);
+                        yVis = L.Y(idxStart:idxEnd);
+                    else
+                        % Query pyramid level
+                        P = obj.Lines(i).Pyramid{lvl};
+                        pStart = binary_search(P.X, xlims(1), 'left');
+                        pEnd   = binary_search(P.X, xlims(2), 'right');
+                        pStart = max(1, pStart - 1);
+                        pEnd   = min(numel(P.X), pEnd + 1);
+                        xVis = P.X(pStart:pEnd);
+                        yVis = P.Y(pStart:pEnd);
+                    end
+
+                    % Downsample visible slice to screen resolution
+                    if numel(xVis) > obj.MIN_POINTS_FOR_DOWNSAMPLE
+                        if strcmp(L.DownsampleMethod, 'lttb')
+                            [xd, yd] = lttb_downsample(xVis, yVis, pw);
+                        else
+                            [xd, yd] = minmax_downsample(xVis, yVis, pw);
+                        end
+                    else
+                        xd = xVis;
+                        yd = yVis;
+                    end
                 end
 
-                % Update line (no recreation)
                 set(L.hLine, 'XData', xd, 'YData', yd);
             end
+        end
+
+        function [lvl, L] = selectPyramidLevel(obj, L, nVis, nTotal, target)
+            %SELECTPYRAMIDLEVEL Pick the smallest pyramid level with enough
+            %   resolution for the visible range. Builds levels lazily.
+            visFrac = nVis / nTotal;
+            R = obj.PYRAMID_REDUCTION;
+
+            % How many levels could exist?
+            maxLevels = 0;
+            sz = nTotal;
+            while sz / R > target
+                maxLevels = maxLevels + 1;
+                sz = sz / R;
+            end
+
+            % Try from coarsest (highest level) to finest
+            lvl = 0;
+            for k = maxLevels:-1:1
+                levelSize = nTotal / (R ^ k);
+                levelVisible = levelSize * visFrac;
+                if levelVisible >= target
+                    % This level has enough resolution
+                    % Build if needed
+                    if numel(L.Pyramid) < k || isempty(L.Pyramid{k})
+                        L = obj.buildPyramidLevel(L, k);
+                    end
+                    lvl = k;
+                    return;
+                end
+            end
+        end
+
+        function L = buildPyramidLevel(obj, L, level)
+            %BUILDPYRAMIDLEVEL Build a pyramid level from the nearest source.
+            R = obj.PYRAMID_REDUCTION;
+
+            % Ensure cell array is large enough
+            if numel(L.Pyramid) < level
+                L.Pyramid{level} = [];
+            end
+
+            % Build from previous level if available, otherwise raw
+            if level == 1
+                srcX = L.X;
+                srcY = L.Y;
+            else
+                % Ensure previous level exists
+                if numel(L.Pyramid) < level - 1 || isempty(L.Pyramid{level - 1})
+                    L = obj.buildPyramidLevel(L, level - 1);
+                end
+                srcX = L.Pyramid{level - 1}.X;
+                srcY = L.Pyramid{level - 1}.Y;
+            end
+
+            numBuckets = max(1, round(numel(srcX) / R));
+            [px, py] = minmax_downsample(srcX, srcY, numBuckets);
+            L.Pyramid{level} = struct('X', px, 'Y', py);
         end
 
         function updateViolations(obj)
