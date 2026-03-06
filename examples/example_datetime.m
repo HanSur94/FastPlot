@@ -3,22 +3,25 @@
 
 addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
 
-%% Single day at 1-second resolution
-n = 86400;
-x = datenum(2024,1,1) + (0:n-1)/86400;
-y = sin((1:n) * 2*pi/3600) + 0.2*randn(1,n);
+%% Multi-day temperature-like signal at 1-second resolution
+n = 1000000;
+x = datenum(2024,1,1) + (0:n-1)/86400;  % ~11.6 days
+t = (0:n-1) / 86400;  % time in days
+y = 20 + 5*sin(t * 2*pi - pi/2) ...  % daily cycle (peak at midday)
+    + 0.3*sin(t * 2*pi*24) ...        % hourly ripple
+    + 0.1*randn(1,n);                 % sensor noise
 
-fprintf('Datetime example: %d points (1 day, 1-second resolution)...\n', n);
+fprintf('Datetime example: %d points (~11.6 days, 1-second resolution)...\n', n);
 tic;
 
 fp = FastPlot('Theme', 'dark');
 fp.addLine(x, y, 'DisplayName', 'Sensor', 'XType', 'datenum');
-fp.addThreshold(1.2, 'Direction', 'upper', 'ShowViolations', true);
+fp.addThreshold(24, 'Direction', 'upper', 'ShowViolations', true);
 fp.render();
 title(fp.hAxes, 'Datetime Axis — zoom to see format change');
 
 tb = FastPlotToolbar(fp);
 
 fprintf('Rendered in %.3f seconds.\n', toc);
-fprintf('Zoom in: tick labels change from "Jan 01 10:00" to "HH:MM" to "HH:MM:SS"\n');
+fprintf('Zoom in: tick labels adapt from "mmm dd HH:MM" to "HH:MM" to "HH:MM:SS"\n');
 fprintf('Try the crosshair and data cursor — they show datetime values too.\n');
