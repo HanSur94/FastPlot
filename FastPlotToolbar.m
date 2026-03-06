@@ -60,6 +60,14 @@ classdef FastPlotToolbar < handle
                 obj.autoscaleYOnAxes(obj.FastPlots{i});
             end
         end
+
+        function exportPNG(obj, filepath)
+            if nargin < 2
+                obj.onExportPNG();
+                return;
+            end
+            print(obj.hFigure, '-dpng', '-r150', filepath);
+        end
     end
 
     methods (Access = private)
@@ -195,6 +203,10 @@ classdef FastPlotToolbar < handle
         end
 
         function onExportPNG(obj)
+            [fname, fpath] = uiputfile('*.png', 'Export as PNG');
+            if isequal(fname, 0); return; end
+            fullpath = fullfile(fpath, fname);
+            obj.exportPNG(fullpath);
         end
 
         function [fp, ax] = getActiveTarget(obj)

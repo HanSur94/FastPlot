@@ -87,5 +87,16 @@ function test_toolbar()
         sprintf('testAutoscaleY: YLim(2) should be < 5, got %.1f', ylims(2)));
     close(fp.hFigure);
 
-    fprintf('    All 8 toolbar tests passed.\n');
+    % testExportPNG
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.render();
+    tb = FastPlotToolbar(fp);
+    tmpFile = [tempname, '.png'];
+    tb.exportPNG(tmpFile);
+    assert(exist(tmpFile, 'file') == 2, 'testExportPNG: file should exist');
+    delete(tmpFile);
+    close(fp.hFigure);
+
+    fprintf('    All 9 toolbar tests passed.\n');
 end
