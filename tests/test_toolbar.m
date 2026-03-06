@@ -55,5 +55,21 @@ function test_toolbar()
     assert(~strcmp(gridBefore, gridAfter), 'testToggleGrid: should toggle');
     close(fp.hFigure);
 
-    fprintf('    All 6 toolbar tests passed.\n');
+    % testToggleLegend
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100), 'DisplayName', 'TestLine');
+    fp.render();
+    tb = FastPlotToolbar(fp);
+    tb.toggleLegend();
+    hLeg = findobj(fp.hFigure, 'Type', 'axes', 'Tag', 'legend');
+    if isempty(hLeg)
+        hLeg = legend(fp.hAxes);
+    end
+    vis1 = get(hLeg, 'Visible');
+    tb.toggleLegend();
+    vis2 = get(hLeg, 'Visible');
+    assert(~strcmp(vis1, vis2), 'testToggleLegend: should toggle');
+    close(fp.hFigure);
+
+    fprintf('    All 7 toolbar tests passed.\n');
 end

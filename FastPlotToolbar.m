@@ -48,6 +48,12 @@ classdef FastPlotToolbar < handle
                 obj.toggleGridOnAxes(obj.FastPlots{i}.hAxes);
             end
         end
+
+        function toggleLegend(obj)
+            for i = 1:numel(obj.FastPlots)
+                obj.toggleLegendOnAxes(obj.FastPlots{i}.hAxes);
+            end
+        end
     end
 
     methods (Access = private)
@@ -125,6 +131,23 @@ classdef FastPlotToolbar < handle
         end
 
         function onToggleLegend(obj)
+            [~, ax] = obj.getActiveTarget();
+            if isempty(ax)
+                for i = 1:numel(obj.FastPlots)
+                    obj.toggleLegendOnAxes(obj.FastPlots{i}.hAxes);
+                end
+            else
+                obj.toggleLegendOnAxes(ax);
+            end
+        end
+
+        function toggleLegendOnAxes(~, ax)
+            hLeg = legend(ax);
+            if strcmp(get(hLeg, 'Visible'), 'on')
+                set(hLeg, 'Visible', 'off');
+            else
+                set(hLeg, 'Visible', 'on');
+            end
         end
 
         function onAutoscaleY(obj)
