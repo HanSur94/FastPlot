@@ -31,4 +31,12 @@ title(fp2.hAxes, 'Without datenum — same data, raw numeric axis');
 tb2 = FastPlotToolbar(fp2);
 fprintf('Numeric plot rendered in %.3f seconds.\n', toc);
 
-fprintf('Compare both windows — same data, different X axis formatting.\n');
+%% Plot 3: Same data, no toolbar
+tic;
+fp3 = FastPlot('Theme', 'dark');
+fp3.addLine(x, y, 'DisplayName', 'Temperature', 'XType', 'datenum');
+fp3.render();
+title(fp3.hAxes, 'With datenum — no toolbar');
+fprintf('No-toolbar plot rendered in %.3f seconds.\n', toc);
+
+fprintf('Compare all three windows — same data, different configurations.\n');
