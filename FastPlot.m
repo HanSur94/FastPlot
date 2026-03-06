@@ -23,6 +23,9 @@ classdef FastPlot < handle
                             'ShowViolations', {}, 'Color', {}, ...
                             'LineStyle', {}, 'Label', {}, ...
                             'hLine', {}, 'hMarkers', {})
+        Bands      = struct('YLow', {}, 'YHigh', {}, 'FaceColor', {}, ...
+                            'FaceAlpha', {}, 'EdgeColor', {}, 'Label', {}, ...
+                            'hPatch', {})
         IsRendered    = false
         hFigure       = []
         hAxes         = []
@@ -179,6 +182,44 @@ classdef FastPlot < handle
             end
         end
 
+        function addBand(obj, yLow, yHigh, varargin)
+            %ADDBAND Add a horizontal band fill (constant y bounds).
+            %   fp.addBand(yLow, yHigh)
+            %   fp.addBand(yLow, yHigh, 'FaceColor', [1 0.9 0.9], 'FaceAlpha', 0.3)
+
+            if obj.IsRendered
+                error('FastPlot:alreadyRendered', ...
+                    'Cannot add bands after render() has been called.');
+            end
+
+            b.YLow      = yLow;
+            b.YHigh     = yHigh;
+            b.FaceColor = obj.Theme.ThresholdColor;
+            b.FaceAlpha = obj.Theme.BandAlpha;
+            b.EdgeColor = 'none';
+            b.Label     = '';
+            b.hPatch    = [];
+
+            for k = 1:2:numel(varargin)
+                switch lower(varargin{k})
+                    case 'facecolor'
+                        b.FaceColor = varargin{k+1};
+                    case 'facealpha'
+                        b.FaceAlpha = varargin{k+1};
+                    case 'edgecolor'
+                        b.EdgeColor = varargin{k+1};
+                    case 'label'
+                        b.Label = varargin{k+1};
+                end
+            end
+
+            if isempty(obj.Bands)
+                obj.Bands = b;
+            else
+                obj.Bands(end+1) = b;
+            end
+        end
+
         function render(obj)
             %RENDER Create the plot with all configured lines and thresholds.
 
@@ -202,6 +243,33 @@ classdef FastPlot < handle
             hold(obj.hAxes, 'on');
             obj.PixelWidth = obj.getAxesPixelWidth();
             obj.applyTheme();
+
+            % --- Compute full X range (X is sorted, just check endpoints) ---
+            xmin = Inf; xmax = -Inf;
+            for i = 1:numel(obj.Lines)
+                xi = obj.Lines(i).X;
+                if xi(1) < xmin; xmin = xi(1); end
+                if xi(end) > xmax; xmax = xi(end); end
+            end
+
+            % --- Render bands (constant y, full x span, back layer) ---
+            for i = 1:numel(obj.Bands)
+                B = obj.Bands(i);
+                patchX = [xmin, xmax, xmax, xmin];
+                patchY = [B.YLow, B.YLow, B.YHigh, B.YHigh];
+                hP = patch(patchX, patchY, B.FaceColor, ...
+                    'Parent', obj.hAxes, ...
+                    'FaceAlpha', B.FaceAlpha, ...
+                    'EdgeColor', B.EdgeColor, ...
+                    'HandleVisibility', 'off');
+                udB.FastPlot = struct( ...
+                    'Type', 'band', ...
+                    'Name', B.Label, ...
+                    'LineIndex', [], ...
+                    'ThresholdValue', []);
+                set(hP, 'UserData', udB);
+                obj.Bands(i).hPatch = hP;
+            end
 
             % --- Render data lines ---
             for i = 1:numel(obj.Lines)
@@ -243,14 +311,6 @@ classdef FastPlot < handle
                 set(h, 'UserData', ud);
 
                 obj.Lines(i).hLine = h;
-            end
-
-            % --- Compute full X range (X is sorted, just check endpoints) ---
-            xmin = Inf; xmax = -Inf;
-            for i = 1:numel(obj.Lines)
-                xi = obj.Lines(i).X;
-                if xi(1) < xmin; xmin = xi(1); end
-                if xi(end) > xmax; xmax = xi(end); end
             end
 
             % --- Render threshold lines and violation markers (per threshold) ---
