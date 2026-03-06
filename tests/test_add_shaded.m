@@ -66,5 +66,28 @@ function test_add_shaded()
     assert(isrow(fp.Shadings(1).Y1), 'testShadedColumnVectors: Y1 row');
     assert(isrow(fp.Shadings(1).Y2), 'testShadedColumnVectors: Y2 row');
 
-    fprintf('    All 6 addShaded tests passed.\n');
+    % testAddFill
+    fp = FastPlot();
+    x = 1:50;
+    y = rand(1,50);
+    fp.addFill(x, y, 'FaceColor', [0 0.5 1], 'FaceAlpha', 0.2);
+    assert(numel(fp.Shadings) == 1, 'testAddFill: creates shading');
+    assert(all(fp.Shadings(1).Y2 == 0), 'testAddFill: baseline is 0');
+
+    % testAddFillCustomBaseline
+    fp = FastPlot();
+    fp.addFill(1:10, rand(1,10), 'Baseline', -1);
+    assert(all(fp.Shadings(1).Y2 == -1), 'testAddFillCustomBaseline');
+
+    % testAddFillRendered
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.addFill(1:100, rand(1,100), 'FaceColor', [0 1 0]);
+    fp.render();
+    assert(ishandle(fp.Shadings(1).hPatch), 'testAddFillRendered: valid patch');
+    ud = get(fp.Shadings(1).hPatch, 'UserData');
+    assert(strcmp(ud.FastPlot.Type, 'shaded'), 'testAddFillRendered: type is shaded');
+    close(fp.hFigure);
+
+    fprintf('    All 9 addShaded/addFill tests passed.\n');
 end

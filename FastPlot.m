@@ -324,6 +324,31 @@ classdef FastPlot < handle
             end
         end
 
+        function addFill(obj, x, y, varargin)
+            %ADDFILL Add an area fill from a line to a baseline.
+            %   fp.addFill(x, y)
+            %   fp.addFill(x, y, 'Baseline', -1, 'FaceColor', [0 0.5 1])
+
+            baseline = 0;
+            filteredArgs = {};
+            k = 1;
+            while k <= numel(varargin)
+                if strcmpi(varargin{k}, 'Baseline')
+                    baseline = varargin{k+1};
+                    k = k + 2;
+                else
+                    filteredArgs{end+1} = varargin{k};   %#ok<AGROW>
+                    filteredArgs{end+1} = varargin{k+1};  %#ok<AGROW>
+                    k = k + 2;
+                end
+            end
+
+            if ~isrow(x); x = x(:)'; end
+            if ~isrow(y); y = y(:)'; end
+            y2 = ones(size(x)) * baseline;
+            obj.addShaded(x, y, y2, filteredArgs{:});
+        end
+
         function render(obj)
             %RENDER Create the plot with all configured lines and thresholds.
 
