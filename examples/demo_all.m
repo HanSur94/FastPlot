@@ -8,9 +8,9 @@
 %     cd FastPlot/examples
 %     demo_all
 %
-%   From terminal (Octave):
+%   From terminal (Octave — requires GUI for interactive zoom/pan):
 %     cd FastPlot
-%     octave --no-gui --eval "addpath('.'); addpath('private'); addpath('examples'); demo_all;"
+%     octave --gui --eval "addpath('.'); addpath('private'); addpath('examples'); demo_all;"
 
 addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
 addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'private'));

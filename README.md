@@ -238,12 +238,7 @@ cd FastPlot/examples
 demo_all
 ```
 
-From the terminal (Octave):
-
-```bash
-cd FastPlot
-octave --no-gui --eval "addpath('.'); addpath('private'); addpath('examples'); demo_all;"
-```
+> **Note:** Interactive zoom/pan requires a GUI. In Octave, run from the Octave GUI or use `octave --gui`. The `--no-gui` mode renders plots but does not support interactive mouse zoom/pan.
 
 ### Run all examples (non-interactive)
 
