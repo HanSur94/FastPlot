@@ -60,13 +60,12 @@ void mexFunction(int nlhs, mxArray *plhs[],
 
         size_t i = base + 1;
 
-        /* SIMD pass: find min/max values (not indices) */
+        /* SIMD pass: find min/max VALUES, then targeted scalar for indices */
 #if SIMD_WIDTH > 1
         {
             simd_double vmin = simd_set1(ymin_val);
             simd_double vmax = simd_set1(ymax_val);
 
-            /* Align to SIMD_WIDTH boundary from current position */
             size_t simd_end = base + ((end - base) / SIMD_WIDTH) * SIMD_WIDTH;
 
             size_t j;
@@ -79,15 +78,21 @@ void mexFunction(int nlhs, mxArray *plhs[],
             ymin_val = simd_hmin(vmin);
             ymax_val = simd_hmax(vmax);
 
-            /* Now find the actual indices with a scalar pass */
+            /* Scalar remainder for values */
+            for (j = simd_end; j < end; j++) {
+                if (y[j] < ymin_val) ymin_val = y[j];
+                if (y[j] > ymax_val) ymax_val = y[j];
+            }
+
+            /* Find first indices matching the known min/max (early exit) */
             imin = base;
             imax = base;
+            int found_min = 0, found_max = 0;
             for (j = base; j < end; j++) {
-                if (y[j] < y[imin]) imin = j;
-                if (y[j] > y[imax]) imax = j;
+                if (!found_min && y[j] == ymin_val) { imin = j; found_min = 1; }
+                if (!found_max && y[j] == ymax_val) { imax = j; found_max = 1; }
+                if (found_min && found_max) break;
             }
-            ymin_val = y[imin];
-            ymax_val = y[imax];
         }
 #else
         /* Scalar path */

@@ -1,0 +1,471 @@
+classdef FastPlotToolbar < handle
+    %FASTPLOTTOOLBAR Custom toolbar for FastPlot figures.
+    %   tb = FastPlotToolbar(fp)        — attach to a FastPlot
+    %   tb = FastPlotToolbar(fig)       — attach to a FastPlotFigure
+
+    properties (SetAccess = private)
+        Target        = []    % FastPlot or FastPlotFigure
+        hFigure       = []    % figure handle
+        hToolbar      = []    % uitoolbar handle
+        FastPlots     = {}    % cell array of all FastPlot instances
+        Mode          = 'none'  % 'none' | 'cursor' | 'crosshair'
+        hCursorBtn    = []    % uitoggletool handle
+        hCrosshairBtn = []    % uitoggletool handle
+        hCrosshairH   = []    % horizontal crosshair line
+        hCrosshairV   = []    % vertical crosshair line
+        hCrosshairTxt = []    % crosshair text annotation
+        hCursorDot    = []    % data cursor marker
+        hCursorTxt    = []    % data cursor text box
+        SavedCallbacks = struct() % saved figure callbacks to restore
+    end
+
+    methods (Access = public)
+        function obj = FastPlotToolbar(target)
+            obj.Target = target;
+
+            % Resolve figure handle and FastPlot instances
+            if isa(target, 'FastPlotFigure')
+                obj.hFigure = target.hFigure;
+                obj.FastPlots = {};
+                for i = 1:numel(target.Tiles)
+                    if ~isempty(target.Tiles{i})
+                        obj.FastPlots{end+1} = target.Tiles{i};
+                    end
+                end
+            elseif isa(target, 'FastPlot')
+                obj.hFigure = target.hFigure;
+                obj.FastPlots = {target};
+            else
+                error('FastPlotToolbar:invalidTarget', ...
+                    'Target must be a FastPlot or FastPlotFigure instance.');
+            end
+
+            obj.createToolbar();
+        end
+
+        function toggleGrid(obj)
+            for i = 1:numel(obj.FastPlots)
+                obj.toggleGridOnAxes(obj.FastPlots{i}.hAxes);
+            end
+        end
+
+        function toggleLegend(obj)
+            for i = 1:numel(obj.FastPlots)
+                obj.toggleLegendOnAxes(obj.FastPlots{i}.hAxes);
+            end
+        end
+
+        function autoscaleY(obj)
+            for i = 1:numel(obj.FastPlots)
+                obj.autoscaleYOnAxes(obj.FastPlots{i});
+            end
+        end
+
+        function exportPNG(obj, filepath)
+            if nargin < 2
+                obj.onExportPNG();
+                return;
+            end
+            print(obj.hFigure, '-dpng', '-r150', filepath);
+        end
+
+        function setCrosshair(obj, on)
+            if on
+                if strcmp(obj.Mode, 'cursor')
+                    obj.cleanupCursor();
+                    set(obj.hCursorBtn, 'State', 'off');
+                end
+                obj.Mode = 'crosshair';
+                set(obj.hCrosshairBtn, 'State', 'on');
+                try zoom(obj.hFigure, 'off'); catch; end
+                obj.SavedCallbacks.WindowButtonMotionFcn = get(obj.hFigure, 'WindowButtonMotionFcn');
+                set(obj.hFigure, 'WindowButtonMotionFcn', @(s,e) obj.onMouseMove());
+            else
+                obj.cleanupCrosshair();
+                obj.Mode = 'none';
+                set(obj.hCrosshairBtn, 'State', 'off');
+                try zoom(obj.hFigure, 'on'); catch; end
+            end
+        end
+
+        function setCursor(obj, on)
+            if on
+                if strcmp(obj.Mode, 'crosshair')
+                    obj.cleanupCrosshair();
+                    set(obj.hCrosshairBtn, 'State', 'off');
+                end
+                obj.Mode = 'cursor';
+                set(obj.hCursorBtn, 'State', 'on');
+                try zoom(obj.hFigure, 'off'); catch; end
+                obj.SavedCallbacks.WindowButtonDownFcn = get(obj.hFigure, 'WindowButtonDownFcn');
+                set(obj.hFigure, 'WindowButtonDownFcn', @(s,e) obj.onMouseClick());
+            else
+                obj.cleanupCursor();
+                obj.Mode = 'none';
+                set(obj.hCursorBtn, 'State', 'off');
+                try zoom(obj.hFigure, 'on'); catch; end
+            end
+        end
+
+        function [sx, sy, lineIdx] = snapToNearest(~, fp, xClick, yClick)
+            sx = []; sy = []; lineIdx = [];
+            bestDist = Inf;
+            ax = fp.hAxes;
+            xlims = get(ax, 'XLim');
+            ylims = get(ax, 'YLim');
+            xRange = xlims(2) - xlims(1);
+            yRange = ylims(2) - ylims(1);
+            if xRange == 0; xRange = 1; end
+            if yRange == 0; yRange = 1; end
+            for i = 1:numel(fp.Lines)
+                xData = fp.Lines(i).X;
+                yData = fp.Lines(i).Y;
+                idx = binary_search(xData, xClick, 'left');
+                idx = max(1, min(idx, numel(xData)));
+                for j = max(1, idx-1):min(numel(xData), idx+1)
+                    if isnan(yData(j)); continue; end
+                    dx = (xData(j) - xClick) / xRange;
+                    dy = (yData(j) - yClick) / yRange;
+                    d = dx^2 + dy^2;
+                    if d < bestDist
+                        bestDist = d;
+                        sx = xData(j);
+                        sy = yData(j);
+                        lineIdx = i;
+                    end
+                end
+            end
+        end
+    end
+
+    methods (Access = private)
+        function createToolbar(obj)
+            obj.hToolbar = uitoolbar(obj.hFigure);
+
+            % Buttons: cursor, crosshair, grid, legend, autoscale, export
+            obj.hCursorBtn = uitoggletool(obj.hToolbar, ...
+                'CData', FastPlotToolbar.makeIcon('cursor'), ...
+                'TooltipString', 'Data Cursor', ...
+                'OnCallback',  @(s,e) obj.onCursorOn(), ...
+                'OffCallback', @(s,e) obj.onCursorOff());
+
+            obj.hCrosshairBtn = uitoggletool(obj.hToolbar, ...
+                'CData', FastPlotToolbar.makeIcon('crosshair'), ...
+                'TooltipString', 'Crosshair', ...
+                'OnCallback',  @(s,e) obj.onCrosshairOn(), ...
+                'OffCallback', @(s,e) obj.onCrosshairOff());
+
+            uipushtool(obj.hToolbar, ...
+                'CData', FastPlotToolbar.makeIcon('grid'), ...
+                'TooltipString', 'Toggle Grid', ...
+                'ClickedCallback', @(s,e) obj.onToggleGrid());
+
+            uipushtool(obj.hToolbar, ...
+                'CData', FastPlotToolbar.makeIcon('legend'), ...
+                'TooltipString', 'Toggle Legend', ...
+                'ClickedCallback', @(s,e) obj.onToggleLegend());
+
+            uipushtool(obj.hToolbar, ...
+                'CData', FastPlotToolbar.makeIcon('autoscale'), ...
+                'TooltipString', 'Autoscale Y', ...
+                'ClickedCallback', @(s,e) obj.onAutoscaleY());
+
+            uipushtool(obj.hToolbar, ...
+                'CData', FastPlotToolbar.makeIcon('export'), ...
+                'TooltipString', 'Export PNG', ...
+                'ClickedCallback', @(s,e) obj.onExportPNG());
+        end
+
+        function onCursorOn(obj)
+            obj.setCursor(true);
+        end
+
+        function onCursorOff(obj)
+            obj.setCursor(false);
+        end
+
+        function onCrosshairOn(obj)
+            obj.setCrosshair(true);
+        end
+
+        function onCrosshairOff(obj)
+            obj.setCrosshair(false);
+        end
+
+        function onMouseMove(obj)
+            if ~strcmp(obj.Mode, 'crosshair'); return; end
+            [~, ax] = obj.getActiveTarget();
+            if isempty(ax)
+                obj.hideCrosshairLines();
+                return;
+            end
+            cp = get(ax, 'CurrentPoint');
+            xp = cp(1,1); yp = cp(1,2);
+            xlims = get(ax, 'XLim');
+            ylims = get(ax, 'YLim');
+            if xp < xlims(1) || xp > xlims(2) || yp < ylims(1) || yp > ylims(2)
+                obj.hideCrosshairLines();
+                return;
+            end
+            if isempty(obj.hCrosshairH) || ~ishandle(obj.hCrosshairH)
+                hold(ax, 'on');
+                obj.hCrosshairH = line(xlims, [yp yp], 'Parent', ax, ...
+                    'Color', [0.5 0.5 0.5], 'LineStyle', ':', ...
+                    'HandleVisibility', 'off', 'HitTest', 'off');
+                obj.hCrosshairV = line([xp xp], ylims, 'Parent', ax, ...
+                    'Color', [0.5 0.5 0.5], 'LineStyle', ':', ...
+                    'HandleVisibility', 'off', 'HitTest', 'off');
+                obj.hCrosshairTxt = text(xlims(2), ylims(2), '', 'Parent', ax, ...
+                    'FontSize', 8, 'HorizontalAlignment', 'right', ...
+                    'VerticalAlignment', 'top', 'BackgroundColor', 'w', ...
+                    'EdgeColor', [0.5 0.5 0.5], 'Margin', 2, ...
+                    'HandleVisibility', 'off', 'HitTest', 'off');
+            else
+                set(obj.hCrosshairH, 'Parent', ax, 'XData', xlims, 'YData', [yp yp]);
+                set(obj.hCrosshairV, 'Parent', ax, 'XData', [xp xp], 'YData', ylims);
+                set(obj.hCrosshairTxt, 'Parent', ax, ...
+                    'Position', [xlims(2), ylims(2), 0], ...
+                    'String', sprintf('x=%.4g  y=%.4g', xp, yp));
+            end
+        end
+
+        function onMouseClick(obj)
+            if ~strcmp(obj.Mode, 'cursor'); return; end
+            [fp, ax] = obj.getActiveTarget();
+            if isempty(fp); return; end
+            cp = get(ax, 'CurrentPoint');
+            xp = cp(1,1); yp = cp(1,2);
+            [sx, sy, lineIdx] = obj.snapToNearest(fp, xp, yp);
+            if isempty(sx); return; end
+            if ~isempty(obj.hCursorDot) && ishandle(obj.hCursorDot)
+                delete(obj.hCursorDot);
+                delete(obj.hCursorTxt);
+            end
+            hold(ax, 'on');
+            lineColor = get(fp.Lines(lineIdx).hLine, 'Color');
+            obj.hCursorDot = line(sx, sy, 'Parent', ax, ...
+                'LineStyle', 'none', 'Marker', 'o', 'MarkerSize', 8, ...
+                'Color', lineColor, 'MarkerFaceColor', lineColor, ...
+                'HandleVisibility', 'off', 'HitTest', 'off');
+            label = sprintf('(%.4g, %.4g)', sx, sy);
+            obj.hCursorTxt = text(sx, sy, label, 'Parent', ax, ...
+                'FontSize', 8, 'VerticalAlignment', 'bottom', ...
+                'HorizontalAlignment', 'left', ...
+                'BackgroundColor', 'w', 'EdgeColor', [0.5 0.5 0.5], ...
+                'Margin', 3, 'HandleVisibility', 'off', 'HitTest', 'off');
+        end
+
+        function hideCrosshairLines(obj)
+            if ~isempty(obj.hCrosshairH) && ishandle(obj.hCrosshairH)
+                set(obj.hCrosshairH, 'Visible', 'off');
+                set(obj.hCrosshairV, 'Visible', 'off');
+                set(obj.hCrosshairTxt, 'Visible', 'off');
+            end
+        end
+
+        function cleanupCrosshair(obj)
+            if ~isempty(obj.hCrosshairH) && ishandle(obj.hCrosshairH)
+                delete(obj.hCrosshairH);
+                delete(obj.hCrosshairV);
+                delete(obj.hCrosshairTxt);
+            end
+            obj.hCrosshairH = [];
+            obj.hCrosshairV = [];
+            obj.hCrosshairTxt = [];
+            if isfield(obj.SavedCallbacks, 'WindowButtonMotionFcn')
+                set(obj.hFigure, 'WindowButtonMotionFcn', obj.SavedCallbacks.WindowButtonMotionFcn);
+            end
+        end
+
+        function cleanupCursor(obj)
+            if ~isempty(obj.hCursorDot) && ishandle(obj.hCursorDot)
+                delete(obj.hCursorDot);
+                delete(obj.hCursorTxt);
+            end
+            obj.hCursorDot = [];
+            obj.hCursorTxt = [];
+            if isfield(obj.SavedCallbacks, 'WindowButtonDownFcn')
+                set(obj.hFigure, 'WindowButtonDownFcn', obj.SavedCallbacks.WindowButtonDownFcn);
+            end
+        end
+
+    end
+
+    methods (Access = private)
+        function onToggleGrid(obj)
+            [~, ax] = obj.getActiveTarget();
+            if isempty(ax)
+                for i = 1:numel(obj.FastPlots)
+                    obj.toggleGridOnAxes(obj.FastPlots{i}.hAxes);
+                end
+            else
+                obj.toggleGridOnAxes(ax);
+            end
+        end
+
+        function toggleGridOnAxes(~, ax)
+            if strcmp(get(ax, 'XGrid'), 'on')
+                grid(ax, 'off');
+            else
+                grid(ax, 'on');
+            end
+        end
+
+        function onToggleLegend(obj)
+            [~, ax] = obj.getActiveTarget();
+            if isempty(ax)
+                for i = 1:numel(obj.FastPlots)
+                    obj.toggleLegendOnAxes(obj.FastPlots{i}.hAxes);
+                end
+            else
+                obj.toggleLegendOnAxes(ax);
+            end
+        end
+
+        function toggleLegendOnAxes(~, ax)
+            hLeg = legend(ax);
+            if strcmp(get(hLeg, 'Visible'), 'on')
+                set(hLeg, 'Visible', 'off');
+            else
+                set(hLeg, 'Visible', 'on');
+            end
+        end
+
+        function onAutoscaleY(obj)
+            [fp, ~] = obj.getActiveTarget();
+            if isempty(fp)
+                for i = 1:numel(obj.FastPlots)
+                    obj.autoscaleYOnAxes(obj.FastPlots{i});
+                end
+            else
+                obj.autoscaleYOnAxes(fp);
+            end
+        end
+
+        function autoscaleYOnAxes(~, fp)
+            ax = fp.hAxes;
+            xlims = get(ax, 'XLim');
+            ymin = Inf; ymax = -Inf;
+            for i = 1:numel(fp.Lines)
+                xData = fp.Lines(i).X;
+                yData = fp.Lines(i).Y;
+                idxStart = binary_search(xData, xlims(1), 'left');
+                idxEnd   = binary_search(xData, xlims(2), 'right');
+                idxStart = max(1, idxStart);
+                idxEnd   = min(numel(xData), idxEnd);
+                ySlice = yData(idxStart:idxEnd);
+                ySlice = ySlice(~isnan(ySlice));
+                if ~isempty(ySlice)
+                    lo = min(ySlice);
+                    hi = max(ySlice);
+                    if lo < ymin; ymin = lo; end
+                    if hi > ymax; ymax = hi; end
+                end
+            end
+            if isfinite(ymin) && isfinite(ymax)
+                yPad = (ymax - ymin) * 0.05;
+                if yPad == 0; yPad = 1; end
+                set(ax, 'YLim', [ymin - yPad, ymax + yPad]);
+            end
+        end
+
+        function onExportPNG(obj)
+            [fname, fpath] = uiputfile('*.png', 'Export as PNG');
+            if isequal(fname, 0); return; end
+            fullpath = fullfile(fpath, fname);
+            obj.exportPNG(fullpath);
+        end
+
+        function [fp, ax] = getActiveTarget(obj)
+            %GETACTIVETARGET Find the FastPlot instance under the mouse.
+            fp = [];
+            ax = [];
+            cp = get(obj.hFigure, 'CurrentPoint');
+            for i = 1:numel(obj.FastPlots)
+                a = obj.FastPlots{i}.hAxes;
+                if ~ishandle(a); continue; end
+                oldUnits = get(a, 'Units');
+                set(a, 'Units', 'pixels');
+                pos = get(a, 'Position');
+                set(a, 'Units', oldUnits);
+                if cp(1) >= pos(1) && cp(1) <= pos(1)+pos(3) && ...
+                   cp(2) >= pos(2) && cp(2) <= pos(2)+pos(4)
+                    fp = obj.FastPlots{i};
+                    ax = a;
+                    return;
+                end
+            end
+        end
+    end
+
+    methods (Static)
+        function icon = makeIcon(name)
+            %MAKEICON Generate a 16x16x3 RGB icon for toolbar buttons.
+            icon = ones(16, 16, 3) * 0.94;  % light gray background
+            fg = [0.2 0.2 0.2];  % dark foreground
+
+            switch name
+                case 'cursor'
+                    % Crosshair with center dot
+                    icon(8, 3:13, :) = repmat(reshape(fg,1,1,3), 1, 11, 1);
+                    icon(3:13, 8, :) = repmat(reshape(fg,1,1,3), 11, 1, 1);
+                    for dr = -1:1
+                        for dc = -1:1
+                            icon(8+dr, 8+dc, :) = reshape(fg,1,1,3);
+                        end
+                    end
+
+                case 'crosshair'
+                    % Thin + cross
+                    icon(8, 2:14, :) = repmat(reshape(fg,1,1,3), 1, 13, 1);
+                    icon(2:14, 8, :) = repmat(reshape(fg,1,1,3), 13, 1, 1);
+
+                case 'grid'
+                    % Grid lines
+                    icon(4, 2:14, :)  = repmat(reshape(fg,1,1,3), 1, 13, 1);
+                    icon(8, 2:14, :)  = repmat(reshape(fg,1,1,3), 1, 13, 1);
+                    icon(12, 2:14, :) = repmat(reshape(fg,1,1,3), 1, 13, 1);
+                    icon(2:14, 4, :)  = repmat(reshape(fg,1,1,3), 13, 1, 1);
+                    icon(2:14, 8, :)  = repmat(reshape(fg,1,1,3), 13, 1, 1);
+                    icon(2:14, 12, :) = repmat(reshape(fg,1,1,3), 13, 1, 1);
+
+                case 'legend'
+                    % Box with lines
+                    icon(3, 3:13, :)  = repmat(reshape(fg,1,1,3), 1, 11, 1);
+                    icon(13, 3:13, :) = repmat(reshape(fg,1,1,3), 1, 11, 1);
+                    icon(3:13, 3, :)  = repmat(reshape(fg,1,1,3), 11, 1, 1);
+                    icon(3:13, 13, :) = repmat(reshape(fg,1,1,3), 11, 1, 1);
+                    icon(6, 5:7, :)   = repmat(reshape([0.8 0.2 0.2],1,1,3), 1, 3, 1);
+                    icon(6, 9:11, :)  = repmat(reshape(fg,1,1,3), 1, 3, 1);
+                    icon(10, 5:7, :)  = repmat(reshape([0.2 0.2 0.8],1,1,3), 1, 3, 1);
+                    icon(10, 9:11, :) = repmat(reshape(fg,1,1,3), 1, 3, 1);
+
+                case 'autoscale'
+                    % Vertical double arrow
+                    icon(2:14, 8, :) = repmat(reshape(fg,1,1,3), 13, 1, 1);
+                    % Up arrow
+                    icon(3, 7:9, :) = repmat(reshape(fg,1,1,3), 1, 3, 1);
+                    icon(4, 6:10, :) = repmat(reshape(fg,1,1,3), 1, 5, 1);
+                    % Down arrow
+                    icon(13, 7:9, :) = repmat(reshape(fg,1,1,3), 1, 3, 1);
+                    icon(12, 6:10, :) = repmat(reshape(fg,1,1,3), 1, 5, 1);
+
+                case 'export'
+                    % Camera shape
+                    icon(5, 5:11, :)  = repmat(reshape(fg,1,1,3), 1, 7, 1);
+                    icon(12, 4:12, :) = repmat(reshape(fg,1,1,3), 1, 9, 1);
+                    icon(5:12, 4, :)  = repmat(reshape(fg,1,1,3), 8, 1, 1);
+                    icon(5:12, 12, :) = repmat(reshape(fg,1,1,3), 8, 1, 1);
+                    icon(4, 6:8, :)   = repmat(reshape(fg,1,1,3), 1, 3, 1);
+                    % Lens circle (approximate)
+                    for r = [7 8 9]
+                        for c = [7 8 9]
+                            if (r-8)^2 + (c-8)^2 <= 2
+                                icon(r, c, :) = reshape(fg,1,1,3);
+                            end
+                        end
+                    end
+            end
+        end
+    end
+end
