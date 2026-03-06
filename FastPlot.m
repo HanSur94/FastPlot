@@ -29,6 +29,10 @@ classdef FastPlot < handle
         Markers    = struct('X', {}, 'Y', {}, 'Marker', {}, ...
                             'MarkerSize', {}, 'Color', {}, 'Label', {}, ...
                             'hLine', {})
+        Shadings   = struct('X', {}, 'Y1', {}, 'Y2', {}, ...
+                            'FaceColor', {}, 'FaceAlpha', {}, ...
+                            'EdgeColor', {}, 'DisplayName', {}, ...
+                            'hPatch', {})
         IsRendered    = false
         hFigure       = []
         hAxes         = []
@@ -264,6 +268,62 @@ classdef FastPlot < handle
             end
         end
 
+        function addShaded(obj, x, y1, y2, varargin)
+            %ADDSHADED Add a shaded region between two curves.
+            %   fp.addShaded(x, y_upper, y_lower)
+            %   fp.addShaded(x, y1, y2, 'FaceColor', [0 0 1], 'FaceAlpha', 0.2)
+
+            if obj.IsRendered
+                error('FastPlot:alreadyRendered', ...
+                    'Cannot add shaded regions after render() has been called.');
+            end
+
+            if ~isrow(x); x = x(:)'; end
+            if ~isrow(y1); y1 = y1(:)'; end
+            if ~isrow(y2); y2 = y2(:)'; end
+
+            if numel(x) ~= numel(y1) || numel(x) ~= numel(y2)
+                error('FastPlot:sizeMismatch', ...
+                    'X, Y1, and Y2 must have the same number of elements.');
+            end
+
+            if numel(x) > 1
+                dx = diff(x);
+                if any(dx(~isnan(dx)) < 0)
+                    error('FastPlot:nonMonotonicX', ...
+                        'X must be monotonically increasing.');
+                end
+            end
+
+            s.X           = x;
+            s.Y1          = y1;
+            s.Y2          = y2;
+            s.FaceColor   = [0 0.45 0.74];
+            s.FaceAlpha   = 0.15;
+            s.EdgeColor   = 'none';
+            s.DisplayName = '';
+            s.hPatch      = [];
+
+            for k = 1:2:numel(varargin)
+                switch lower(varargin{k})
+                    case 'facecolor'
+                        s.FaceColor = varargin{k+1};
+                    case 'facealpha'
+                        s.FaceAlpha = varargin{k+1};
+                    case 'edgecolor'
+                        s.EdgeColor = varargin{k+1};
+                    case 'displayname'
+                        s.DisplayName = varargin{k+1};
+                end
+            end
+
+            if isempty(obj.Shadings)
+                obj.Shadings = s;
+            else
+                obj.Shadings(end+1) = s;
+            end
+        end
+
         function render(obj)
             %RENDER Create the plot with all configured lines and thresholds.
 
@@ -313,6 +373,25 @@ classdef FastPlot < handle
                     'ThresholdValue', []);
                 set(hP, 'UserData', udB);
                 obj.Bands(i).hPatch = hP;
+            end
+
+            % --- Render shaded regions ---
+            for i = 1:numel(obj.Shadings)
+                S = obj.Shadings(i);
+                patchX = [S.X, fliplr(S.X)];
+                patchY = [S.Y1, fliplr(S.Y2)];
+                hP = patch(patchX, patchY, S.FaceColor, ...
+                    'Parent', obj.hAxes, ...
+                    'FaceAlpha', S.FaceAlpha, ...
+                    'EdgeColor', S.EdgeColor, ...
+                    'HandleVisibility', 'off');
+                udS.FastPlot = struct( ...
+                    'Type', 'shaded', ...
+                    'Name', S.DisplayName, ...
+                    'LineIndex', [], ...
+                    'ThresholdValue', []);
+                set(hP, 'UserData', udS);
+                obj.Shadings(i).hPatch = hP;
             end
 
             % --- Render data lines ---
@@ -513,6 +592,7 @@ classdef FastPlot < handle
             obj.CachedXLim = newXLim;
 
             obj.updateLines();
+            obj.updateShadings();
             obj.updateViolations();
 
             % Propagate to linked axes
@@ -531,7 +611,43 @@ classdef FastPlot < handle
             if newPW ~= obj.PixelWidth
                 obj.PixelWidth = newPW;
                 obj.updateLines();
+                obj.updateShadings();
                 obj.drawnowLimitRate();
+            end
+        end
+
+        function updateShadings(obj)
+            pw = obj.PixelWidth;
+            xlims = get(obj.hAxes, 'XLim');
+
+            for i = 1:numel(obj.Shadings)
+                S = obj.Shadings(i);
+                if isempty(S.hPatch) || ~ishandle(S.hPatch)
+                    continue;
+                end
+
+                nTotal = numel(S.X);
+                idxStart = binary_search(S.X, xlims(1), 'left');
+                idxEnd   = binary_search(S.X, xlims(2), 'right');
+                idxStart = max(1, idxStart - 1);
+                idxEnd   = min(nTotal, idxEnd + 1);
+                nVis = idxEnd - idxStart + 1;
+
+                xVis  = S.X(idxStart:idxEnd);
+                y1Vis = S.Y1(idxStart:idxEnd);
+                y2Vis = S.Y2(idxStart:idxEnd);
+
+                if nVis > obj.MIN_POINTS_FOR_DOWNSAMPLE
+                    [xd, y1d] = minmax_downsample(xVis, y1Vis, pw);
+                    [~, y2d]  = minmax_downsample(xVis, y2Vis, pw);
+                    patchX = [xd, fliplr(xd)];
+                    patchY = [y1d, fliplr(y2d)];
+                else
+                    patchX = [xVis, fliplr(xVis)];
+                    patchY = [y1Vis, fliplr(y2Vis)];
+                end
+
+                set(S.hPatch, 'XData', patchX, 'YData', patchY);
             end
         end
 
