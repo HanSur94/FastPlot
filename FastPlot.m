@@ -30,6 +30,8 @@ classdef FastPlot < handle
         Listeners     = []    % event listeners (XLim, resize)
         CachedXLim    = []    % for lazy recomputation
         PixelWidth    = 1920  % cached axes width in pixels
+        IsPropagating = false % guard against re-entrant link propagation
+        HasLimitRate  = []    % cached: does drawnow support 'limitrate'?
     end
 
     properties (Constant, Access = private)
@@ -324,7 +326,7 @@ classdef FastPlot < handle
 
     methods (Access = private)
         function onXLimChanged(obj, ~, ~)
-            if ~obj.IsRendered || ~ishandle(obj.hAxes)
+            if ~obj.IsRendered || ~ishandle(obj.hAxes) || obj.IsPropagating
                 return;
             end
 
@@ -344,7 +346,7 @@ classdef FastPlot < handle
                 obj.propagateXLim(newXLim);
             end
 
-            drawnow;
+            obj.drawnowLimitRate();
         end
 
         function onResize(obj, ~, ~)
@@ -355,12 +357,12 @@ classdef FastPlot < handle
             if newPW ~= obj.PixelWidth
                 obj.PixelWidth = newPW;
                 obj.updateLines();
-                drawnow;
+                obj.drawnowLimitRate();
             end
         end
 
         function updateLines(obj)
-            pw = obj.getAxesPixelWidth();
+            pw = obj.PixelWidth;
             xlims = get(obj.hAxes, 'XLim');
 
             for i = 1:numel(obj.Lines)
@@ -429,6 +431,17 @@ classdef FastPlot < handle
             end
         end
 
+        function drawnowLimitRate(obj)
+            if isempty(obj.HasLimitRate)
+                obj.HasLimitRate = exist('OCTAVE_VERSION', 'builtin') == 0;
+            end
+            if obj.HasLimitRate
+                drawnow limitrate;
+            else
+                drawnow;
+            end
+        end
+
         function pw = getAxesPixelWidth(obj)
             oldUnits = get(obj.hAxes, 'Units');
             set(obj.hAxes, 'Units', 'pixels');
@@ -442,10 +455,12 @@ classdef FastPlot < handle
             for i = 1:numel(members)
                 other = members{i};
                 if other.hAxes ~= obj.hAxes && ishandle(other.hAxes)
+                    other.IsPropagating = true;
                     other.CachedXLim = newXLim;
                     set(other.hAxes, 'XLim', newXLim);
                     other.updateLines();
                     other.updateViolations();
+                    other.IsPropagating = false;
                 end
             end
         end
