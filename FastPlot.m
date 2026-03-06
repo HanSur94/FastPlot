@@ -601,6 +601,8 @@ classdef FastPlot < handle
             set(obj.hAxes, 'XLimMode', 'manual');
             set(obj.hAxes, 'YLimMode', 'manual');
 
+            obj.updateDatetimeTicks();
+
             obj.CachedXLim = get(obj.hAxes, 'XLim');
 
             % --- Install listeners ---
@@ -677,6 +679,7 @@ classdef FastPlot < handle
             end
 
             obj.drawnowLimitRate();
+            obj.updateDatetimeTicks();
         end
 
         function onResize(obj, ~, ~)
@@ -887,6 +890,27 @@ classdef FastPlot < handle
                     set(obj.Thresholds(t).hMarkers, 'XData', NaN, 'YData', NaN);
                 end
             end
+        end
+
+        function updateDatetimeTicks(obj)
+            if ~strcmp(obj.XType, 'datenum'); return; end
+            xlims = get(obj.hAxes, 'XLim');
+            xRange = xlims(2) - xlims(1);  % in days
+
+            if xRange > 1
+                fmt = 'mmm dd HH:MM';
+            elseif xRange > 1/60     % > 1 minute
+                fmt = 'HH:MM';
+            else
+                fmt = 'HH:MM:SS';
+            end
+
+            ticks = get(obj.hAxes, 'XTick');
+            labels = cell(size(ticks));
+            for i = 1:numel(ticks)
+                labels{i} = datestr(ticks(i), fmt);
+            end
+            set(obj.hAxes, 'XTickLabel', labels);
         end
 
         function drawnowLimitRate(obj)
