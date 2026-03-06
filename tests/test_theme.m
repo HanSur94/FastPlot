@@ -44,5 +44,44 @@ function test_theme()
     end
     assert(threw, 'testInvalidPresetErrors');
 
-    fprintf('    All 4 theme tests passed.\n');
+    % testDarkPreset
+    t = FastPlotTheme('dark');
+    assert(all(t.Background < [0.2 0.2 0.2]), 'testDarkPreset: Background should be dark');
+    assert(all(t.ForegroundColor > [0.7 0.7 0.7]), 'testDarkPreset: ForegroundColor should be light');
+    assert(size(t.LineColorOrder, 2) == 3, 'testDarkPreset: LineColorOrder Nx3');
+
+    % testLightPreset
+    t = FastPlotTheme('light');
+    assert(all(t.Background > [0.9 0.9 0.9]), 'testLightPreset: Background');
+    assert(size(t.LineColorOrder, 2) == 3, 'testLightPreset: LineColorOrder Nx3');
+
+    % testIndustrialPreset
+    t = FastPlotTheme('industrial');
+    assert(t.LineWidth >= 1.0, 'testIndustrialPreset: LineWidth');
+    assert(size(t.LineColorOrder, 2) == 3, 'testIndustrialPreset: LineColorOrder Nx3');
+
+    % testScientificPreset
+    t = FastPlotTheme('scientific');
+    assert(strcmp(t.FontName, 'Times New Roman'), 'testScientificPreset: FontName');
+    assert(t.GridAlpha == 0, 'testScientificPreset: no grid');
+    assert(t.LineWidth < 1.0, 'testScientificPreset: thin lines');
+    assert(size(t.LineColorOrder, 2) == 3, 'testScientificPreset: LineColorOrder Nx3');
+
+    % testStructAsPreset
+    custom = struct('Background', [0 0 0], 'FontSize', 16);
+    t = FastPlotTheme(custom);
+    assert(isequal(t.Background, [0 0 0]), 'testStructAsPreset: Background');
+    assert(t.FontSize == 16, 'testStructAsPreset: FontSize');
+    assert(isfield(t, 'GridColor'), 'testStructAsPreset: inherits defaults');
+
+    % testPaletteResolution
+    t = FastPlotTheme('default');
+    assert(size(t.LineColorOrder, 1) >= 6, 'testPaletteResolution: at least 6 colors');
+
+    % testCustomPaletteMatrix
+    customColors = [1 0 0; 0 1 0; 0 0 1];
+    t = FastPlotTheme('default', 'LineColorOrder', customColors);
+    assert(isequal(t.LineColorOrder, customColors), 'testCustomPaletteMatrix');
+
+    fprintf('    All 11 theme tests passed.\n');
 end
