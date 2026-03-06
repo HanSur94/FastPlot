@@ -106,6 +106,36 @@ classdef FastPlotToolbar < handle
                 zoom(obj.hFigure, 'on');
             end
         end
+
+        function [sx, sy, lineIdx] = snapToNearest(~, fp, xClick, yClick)
+            sx = []; sy = []; lineIdx = [];
+            bestDist = Inf;
+            ax = fp.hAxes;
+            xlims = get(ax, 'XLim');
+            ylims = get(ax, 'YLim');
+            xRange = xlims(2) - xlims(1);
+            yRange = ylims(2) - ylims(1);
+            if xRange == 0; xRange = 1; end
+            if yRange == 0; yRange = 1; end
+            for i = 1:numel(fp.Lines)
+                xData = fp.Lines(i).X;
+                yData = fp.Lines(i).Y;
+                idx = binary_search(xData, xClick, 'left');
+                idx = max(1, min(idx, numel(xData)));
+                for j = max(1, idx-1):min(numel(xData), idx+1)
+                    if isnan(yData(j)); continue; end
+                    dx = (xData(j) - xClick) / xRange;
+                    dy = (yData(j) - yClick) / yRange;
+                    d = dx^2 + dy^2;
+                    if d < bestDist
+                        bestDist = d;
+                        sx = xData(j);
+                        sy = yData(j);
+                        lineIdx = i;
+                    end
+                end
+            end
+        end
     end
 
     methods (Access = private)
@@ -259,36 +289,9 @@ classdef FastPlotToolbar < handle
             end
         end
 
-        function [sx, sy, lineIdx] = snapToNearest(~, fp, xClick, yClick)
-            sx = []; sy = []; lineIdx = [];
-            bestDist = Inf;
-            ax = fp.hAxes;
-            xlims = get(ax, 'XLim');
-            ylims = get(ax, 'YLim');
-            xRange = xlims(2) - xlims(1);
-            yRange = ylims(2) - ylims(1);
-            if xRange == 0; xRange = 1; end
-            if yRange == 0; yRange = 1; end
-            for i = 1:numel(fp.Lines)
-                xData = fp.Lines(i).X;
-                yData = fp.Lines(i).Y;
-                idx = binary_search(xData, xClick, 'left');
-                idx = max(1, min(idx, numel(xData)));
-                for j = max(1, idx-1):min(numel(xData), idx+1)
-                    if isnan(yData(j)); continue; end
-                    dx = (xData(j) - xClick) / xRange;
-                    dy = (yData(j) - yClick) / yRange;
-                    d = dx^2 + dy^2;
-                    if d < bestDist
-                        bestDist = d;
-                        sx = xData(j);
-                        sy = yData(j);
-                        lineIdx = i;
-                    end
-                end
-            end
-        end
+    end
 
+    methods (Access = private)
         function onToggleGrid(obj)
             [~, ax] = obj.getActiveTarget();
             if isempty(ax)

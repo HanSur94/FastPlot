@@ -122,5 +122,26 @@ function test_toolbar()
     assert(strcmp(get(tb.hCursorBtn, 'State'), 'off'), 'testMutualExcl: cursor btn off');
     close(fp.hFigure);
 
-    fprintf('    All 11 toolbar tests passed.\n');
+    % testCursorMode
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.render();
+    tb = FastPlotToolbar(fp);
+    tb.setCursor(true);
+    assert(strcmp(tb.Mode, 'cursor'), 'testCursorMode: on');
+    tb.setCursor(false);
+    assert(strcmp(tb.Mode, 'none'), 'testCursorMode: off');
+    close(fp.hFigure);
+
+    % testSnapToNearest
+    fp = FastPlot();
+    fp.addLine([1 2 3 4 5], [10 20 30 40 50]);
+    fp.render();
+    tb = FastPlotToolbar(fp);
+    [sx, sy, ~] = tb.snapToNearest(fp, 2.8, 25);
+    assert(sx == 3, sprintf('testSnapToNearest: x should be 3, got %g', sx));
+    assert(sy == 30, sprintf('testSnapToNearest: y should be 30, got %g', sy));
+    close(fp.hFigure);
+
+    fprintf('    All 13 toolbar tests passed.\n');
 end
