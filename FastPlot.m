@@ -18,7 +18,7 @@ classdef FastPlot < handle
     properties (SetAccess = private)
         Lines      = struct('X', {}, 'Y', {}, 'Options', {}, ...
                             'DownsampleMethod', {}, 'hLine', {}, ...
-                            'Pyramid', {})
+                            'Pyramid', {}, 'HasNaN', {})
         Thresholds = struct('Value', {}, 'Direction', {}, ...
                             'ShowViolations', {}, 'Color', {}, ...
                             'LineStyle', {}, 'Label', {}, ...
@@ -98,10 +98,12 @@ classdef FastPlot < handle
                     'X and Y must have the same number of elements.');
             end
 
-            % Fast monotonicity check (vectorized)
-            if numel(x) > 1
-                dx = diff(x);
-                % NaN diffs (NaN neighbors) are fine — only check real decreases
+            % Monotonicity check (chunked vectorized — limits peak memory)
+            chunkSize = 1000000;
+            nX = numel(x);
+            for ci = 1:chunkSize:nX-1
+                ce = min(ci + chunkSize, nX);
+                dx = diff(x(ci:ce));
                 if any(dx(~isnan(dx)) < 0)
                     error('FastPlot:nonMonotonicX', ...
                         'X must be monotonically increasing.');
@@ -138,6 +140,7 @@ classdef FastPlot < handle
             lineStruct.Options = opts;
             lineStruct.hLine = [];
             lineStruct.Pyramid = {};
+            lineStruct.HasNaN = any(isnan(y));
 
             % Append
             if isempty(obj.Lines)
@@ -288,8 +291,11 @@ classdef FastPlot < handle
                     'X, Y1, and Y2 must have the same number of elements.');
             end
 
-            if numel(x) > 1
-                dx = diff(x);
+            chunkSize = 1000000;
+            nX = numel(x);
+            for ci = 1:chunkSize:nX-1
+                ce = min(ci + chunkSize, nX);
+                dx = diff(x(ci:ce));
                 if any(dx(~isnan(dx)) < 0)
                     error('FastPlot:nonMonotonicX', ...
                         'X must be monotonically increasing.');
@@ -453,7 +459,7 @@ classdef FastPlot < handle
                     if strcmp(L.DownsampleMethod, 'lttb')
                         [xd, yd] = lttb_downsample(L.X, L.Y, numBuckets);
                     else
-                        [xd, yd] = minmax_downsample(L.X, L.Y, numBuckets);
+                        [xd, yd] = minmax_downsample(L.X, L.Y, numBuckets, L.HasNaN);
                     end
                 else
                     xd = L.X;
@@ -504,19 +510,24 @@ classdef FastPlot < handle
 
                 % Violation markers (use already-downsampled data)
                 if T.ShowViolations
-                    vxAll = [];
-                    vyAll = [];
-                    for i = 1:numel(obj.Lines)
+                    nLines = numel(obj.Lines);
+                    vxCell = cell(1, nLines);
+                    vyCell = cell(1, nLines);
+                    nViols = 0;
+                    for i = 1:nLines
                         xd = get(obj.Lines(i).hLine, 'XData');
                         yd = get(obj.Lines(i).hLine, 'YData');
                         [vx, vy] = compute_violations( ...
                             xd, yd, T.Value, T.Direction);
                         if ~isempty(vx)
-                            vxAll = [vxAll, vx, NaN]; %#ok<AGROW>
-                            vyAll = [vyAll, vy, NaN]; %#ok<AGROW>
+                            nViols = nViols + 1;
+                            vxCell{nViols} = [vx, NaN];
+                            vyCell{nViols} = [vy, NaN];
                         end
                     end
-                    if ~isempty(vxAll)
+                    if nViols > 0
+                        vxAll = [vxCell{1:nViols}];
+                        vyAll = [vyCell{1:nViols}];
                         vxAll = vxAll(1:end-1);
                         vyAll = vyAll(1:end-1);
                     else
@@ -717,28 +728,27 @@ classdef FastPlot < handle
             target = 2 * pw;
 
             for i = 1:numel(obj.Lines)
-                L = obj.Lines(i);
-                nTotal = numel(L.X);
+                nTotal = numel(obj.Lines(i).X);
 
                 % Binary search on raw X for visible range
-                idxStart = binary_search(L.X, xlims(1), 'left');
-                idxEnd   = binary_search(L.X, xlims(2), 'right');
+                idxStart = binary_search(obj.Lines(i).X, xlims(1), 'left');
+                idxEnd   = binary_search(obj.Lines(i).X, xlims(2), 'right');
                 idxStart = max(1, idxStart - 1);
                 idxEnd   = min(nTotal, idxEnd + 1);
                 nVis = idxEnd - idxStart + 1;
 
                 if nVis <= obj.MIN_POINTS_FOR_DOWNSAMPLE
                     % Small enough to plot raw
-                    xd = L.X(idxStart:idxEnd);
-                    yd = L.Y(idxStart:idxEnd);
+                    xd = obj.Lines(i).X(idxStart:idxEnd);
+                    yd = obj.Lines(i).Y(idxStart:idxEnd);
                 else
                     % Select best pyramid level
-                    [lvl, obj.Lines(i)] = obj.selectPyramidLevel(L, nVis, nTotal, target);
+                    lvl = obj.selectPyramidLevel(i, nVis, nTotal, target);
 
                     if lvl == 0
                         % Use raw data
-                        xVis = L.X(idxStart:idxEnd);
-                        yVis = L.Y(idxStart:idxEnd);
+                        xVis = obj.Lines(i).X(idxStart:idxEnd);
+                        yVis = obj.Lines(i).Y(idxStart:idxEnd);
                     else
                         % Query pyramid level
                         P = obj.Lines(i).Pyramid{lvl};
@@ -752,10 +762,10 @@ classdef FastPlot < handle
 
                     % Downsample visible slice to screen resolution
                     if numel(xVis) > obj.MIN_POINTS_FOR_DOWNSAMPLE
-                        if strcmp(L.DownsampleMethod, 'lttb')
+                        if strcmp(obj.Lines(i).DownsampleMethod, 'lttb')
                             [xd, yd] = lttb_downsample(xVis, yVis, pw);
                         else
-                            [xd, yd] = minmax_downsample(xVis, yVis, pw);
+                            [xd, yd] = minmax_downsample(xVis, yVis, pw, obj.Lines(i).HasNaN);
                         end
                     else
                         xd = xVis;
@@ -763,11 +773,11 @@ classdef FastPlot < handle
                     end
                 end
 
-                set(L.hLine, 'XData', xd, 'YData', yd);
+                set(obj.Lines(i).hLine, 'XData', xd, 'YData', yd);
             end
         end
 
-        function [lvl, L] = selectPyramidLevel(obj, L, nVis, nTotal, target)
+        function lvl = selectPyramidLevel(obj, lineIdx, nVis, nTotal, target)
             %SELECTPYRAMIDLEVEL Pick the smallest pyramid level with enough
             %   resolution for the visible range. Builds levels lazily.
             visFrac = nVis / nTotal;
@@ -789,8 +799,8 @@ classdef FastPlot < handle
                 if levelVisible >= target
                     % This level has enough resolution
                     % Build if needed
-                    if numel(L.Pyramid) < k || isempty(L.Pyramid{k})
-                        L = obj.buildPyramidLevel(L, k);
+                    if numel(obj.Lines(lineIdx).Pyramid) < k || isempty(obj.Lines(lineIdx).Pyramid{k})
+                        obj.buildPyramidLevel(lineIdx, k);
                     end
                     lvl = k;
                     return;
@@ -798,31 +808,31 @@ classdef FastPlot < handle
             end
         end
 
-        function L = buildPyramidLevel(obj, L, level)
+        function buildPyramidLevel(obj, lineIdx, level)
             %BUILDPYRAMIDLEVEL Build a pyramid level from the nearest source.
             R = obj.PYRAMID_REDUCTION;
 
             % Ensure cell array is large enough
-            if numel(L.Pyramid) < level
-                L.Pyramid{level} = [];
+            if numel(obj.Lines(lineIdx).Pyramid) < level
+                obj.Lines(lineIdx).Pyramid{level} = [];
             end
 
             % Build from previous level if available, otherwise raw
             if level == 1
-                srcX = L.X;
-                srcY = L.Y;
+                srcX = obj.Lines(lineIdx).X;
+                srcY = obj.Lines(lineIdx).Y;
             else
                 % Ensure previous level exists
-                if numel(L.Pyramid) < level - 1 || isempty(L.Pyramid{level - 1})
-                    L = obj.buildPyramidLevel(L, level - 1);
+                if numel(obj.Lines(lineIdx).Pyramid) < level - 1 || isempty(obj.Lines(lineIdx).Pyramid{level - 1})
+                    obj.buildPyramidLevel(lineIdx, level - 1);
                 end
-                srcX = L.Pyramid{level - 1}.X;
-                srcY = L.Pyramid{level - 1}.Y;
+                srcX = obj.Lines(lineIdx).Pyramid{level - 1}.X;
+                srcY = obj.Lines(lineIdx).Pyramid{level - 1}.Y;
             end
 
             numBuckets = max(1, round(numel(srcX) / R));
             [px, py] = minmax_downsample(srcX, srcY, numBuckets);
-            L.Pyramid{level} = struct('X', px, 'Y', py);
+            obj.Lines(lineIdx).Pyramid{level} = struct('X', px, 'Y', py);
         end
 
         function updateViolations(obj)
@@ -834,9 +844,11 @@ classdef FastPlot < handle
                     continue;
                 end
 
-                vxAll = [];
-                vyAll = [];
-                for i = 1:numel(obj.Lines)
+                nLines = numel(obj.Lines);
+                vxCell = cell(1, nLines);
+                vyCell = cell(1, nLines);
+                nViols = 0;
+                for i = 1:nLines
                     % Use already-downsampled data from the line handle
                     xd = get(obj.Lines(i).hLine, 'XData');
                     yd = get(obj.Lines(i).hLine, 'YData');
@@ -844,15 +856,17 @@ classdef FastPlot < handle
                     [vx, vy] = compute_violations(xd, yd, ...
                         obj.Thresholds(t).Value, obj.Thresholds(t).Direction);
                     if ~isempty(vx)
-                        vxAll = [vxAll, vx, NaN]; %#ok<AGROW>
-                        vyAll = [vyAll, vy, NaN]; %#ok<AGROW>
+                        nViols = nViols + 1;
+                        vxCell{nViols} = [vx, NaN];
+                        vyCell{nViols} = [vy, NaN];
                     end
                 end
 
-                if ~isempty(vxAll)
-                    vxAll = vxAll(1:end-1);
-                    vyAll = vyAll(1:end-1);
-                    set(obj.Thresholds(t).hMarkers, 'XData', vxAll, 'YData', vyAll);
+                if nViols > 0
+                    vxAll = [vxCell{1:nViols}];
+                    vyAll = [vyCell{1:nViols}];
+                    % Remove trailing NaN
+                    set(obj.Thresholds(t).hMarkers, 'XData', vxAll(1:end-1), 'YData', vyAll(1:end-1));
                 else
                     set(obj.Thresholds(t).hMarkers, 'XData', NaN, 'YData', NaN);
                 end
@@ -887,6 +901,7 @@ classdef FastPlot < handle
                     other.CachedXLim = newXLim;
                     set(other.hAxes, 'XLim', newXLim);
                     other.updateLines();
+                    other.updateShadings();
                     other.updateViolations();
                     other.IsPropagating = false;
                 end

@@ -1,11 +1,13 @@
-function [xOut, yOut] = minmax_downsample(x, y, numBuckets)
+function [xOut, yOut] = minmax_downsample(x, y, numBuckets, hasNaN)
 %MINMAX_DOWNSAMPLE Reduce time series to min/max pairs per bucket.
 %   [xOut, yOut] = minmax_downsample(x, y, numBuckets)
+%   [xOut, yOut] = minmax_downsample(x, y, numBuckets, hasNaN)
 %
 %   Splits data at NaN boundaries, downsamples each contiguous segment
 %   independently, and rejoins with NaN separators.
 %
 %   If total non-NaN points <= 2*numBuckets, returns data unchanged.
+%   Optional hasNaN flag skips the NaN scan when known false.
 
     persistent useMex;
     if isempty(useMex)
@@ -15,7 +17,9 @@ function [xOut, yOut] = minmax_downsample(x, y, numBuckets)
     n = numel(y);
 
     % Fast path: no NaN (common case)
-    hasNaN = any(isnan(y));
+    if nargin < 4
+        hasNaN = any(isnan(y));
+    end
 
     if ~hasNaN
         if n <= 2 * numBuckets
