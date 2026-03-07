@@ -504,7 +504,15 @@ classdef FastPlot < handle
 
                 % Apply user options (batch — single graphics update)
                 if ~isempty(fieldnames(L.Options))
-                    set(h, L.Options);
+                    try
+                        set(h, L.Options);
+                    catch
+                        % Octave fallback: struct form not supported
+                        fnames = fieldnames(L.Options);
+                        for f = 1:numel(fnames)
+                            set(h, fnames{f}, L.Options.(fnames{f}));
+                        end
+                    end
                 end
 
                 % Tag with UserData

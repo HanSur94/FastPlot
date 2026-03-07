@@ -160,6 +160,7 @@ classdef FastPlotFigure < handle
                 if ~isempty(obj.Tiles{i}) && ~obj.Tiles{i}.IsRendered
                     obj.Tiles{i}.DeferDraw = true;
                     obj.Tiles{i}.render();
+                    obj.Tiles{i}.DeferDraw = false;
                 end
             end
             set(obj.hFigure, 'Visible', 'on');

@@ -94,6 +94,7 @@ function test_render()
     fp.render();
     assert(fp.IsRendered, 'testDeferDraw: should be rendered');
     assert(ishandle(fp.Lines(1).hLine), 'testDeferDraw: line created');
+    assert(strcmp(get(fig, 'Visible'), 'off'), 'testDeferDraw: figure stays invisible');
     close(fig);
 
     fprintf('    All 9 render tests passed.\n');
