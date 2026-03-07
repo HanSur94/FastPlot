@@ -17,8 +17,11 @@ function test_live()
     testRefreshLoadsFile();
     testSetViewMode();
     testStartLiveRequiresRender();
+    testFigureStartLive();
+    testFigureStopLive();
+    testFigureRefresh();
 
-    fprintf('    All 10 live mode tests passed.\n');
+    fprintf('    All 13 live mode tests passed.\n');
 end
 
 function testUpdateDataReplacesLineData()
@@ -189,4 +192,63 @@ function testStartLiveRequiresRender()
         threw = true;
     end
     assert(threw, 'startLive: should throw before render');
+end
+
+function testFigureStartLive()
+    fig = FastPlotFigure(1, 2);
+    fp1 = fig.tile(1); fp1.addLine(1:100, rand(1,100));
+    fp2 = fig.tile(2); fp2.addLine(1:100, rand(1,100));
+    fig.renderAll();
+
+    tmpFile = [tempname, '.mat'];
+    s.x = 1:100; s.y1 = rand(1,100); s.y2 = rand(1,100);
+    save(tmpFile, '-struct', 's');
+
+    updateFcn = @(fig, d) updateBothTiles(fig, d);
+    fig.startLive(tmpFile, updateFcn, 'Interval', 2);
+
+    assert(fig.LiveIsActive, 'fig startLive: should be active');
+    fig.stopLive();
+    close(fig.hFigure);
+    delete(tmpFile);
+end
+
+function updateBothTiles(fig, d)
+    fig.tile(1).updateData(1, d.x, d.y1);
+    fig.tile(2).updateData(1, d.x, d.y2);
+end
+
+function testFigureStopLive()
+    fig = FastPlotFigure(1, 1);
+    fp1 = fig.tile(1); fp1.addLine(1:100, rand(1,100));
+    fig.renderAll();
+
+    tmpFile = [tempname, '.mat'];
+    s.x = 1:100; s.y = rand(1,100);
+    save(tmpFile, '-struct', 's');
+
+    fig.startLive(tmpFile, @(fig, d) fig.tile(1).updateData(1, d.x, d.y));
+    fig.stopLive();
+
+    assert(~fig.LiveIsActive, 'fig stopLive: should not be active');
+    close(fig.hFigure);
+    delete(tmpFile);
+end
+
+function testFigureRefresh()
+    fig = FastPlotFigure(1, 1);
+    fp1 = fig.tile(1); fp1.addLine(1:100, zeros(1,100));
+    fig.renderAll();
+
+    tmpFile = [tempname, '.mat'];
+    s.x = 1:100; s.y = ones(1,100) * 99;
+    save(tmpFile, '-struct', 's');
+
+    fig.LiveFile = tmpFile;
+    fig.LiveUpdateFcn = @(fig, d) fig.tile(1).updateData(1, d.x, d.y);
+    fig.refresh();
+
+    assert(all(fig.tile(1).Lines(1).Y == 99), 'fig refresh: data should be 99');
+    close(fig.hFigure);
+    delete(tmpFile);
 end
