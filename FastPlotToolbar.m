@@ -3,6 +3,10 @@ classdef FastPlotToolbar < handle
     %   tb = FastPlotToolbar(fp)        — attach to a FastPlot
     %   tb = FastPlotToolbar(fig)       — attach to a FastPlotFigure
 
+    properties (SetAccess = private, GetAccess = public)
+        MetadataEnabled = false  % whether metadata is shown in tooltips
+    end
+
     properties (SetAccess = private)
         Target        = []    % FastPlot or FastPlotFigure
         hFigure       = []    % figure handle
@@ -19,6 +23,7 @@ classdef FastPlotToolbar < handle
         SavedCallbacks = struct() % saved figure callbacks to restore
         hLiveBtn      = []    % uitoggletool handle for live mode
         hRefreshBtn   = []    % uipushtool handle for refresh
+        hMetadataBtn  = []    % uitoggletool handle for metadata
     end
 
     methods (Access = public)
@@ -131,6 +136,15 @@ classdef FastPlotToolbar < handle
             end
         end
 
+        function setMetadata(obj, on)
+            obj.MetadataEnabled = on;
+            if on
+                set(obj.hMetadataBtn, 'State', 'on');
+            else
+                set(obj.hMetadataBtn, 'State', 'off');
+            end
+        end
+
         function [sx, sy, lineIdx] = snapToNearest(~, fp, xClick, yClick)
             sx = []; sy = []; lineIdx = [];
             bestDist = Inf;
@@ -209,6 +223,12 @@ classdef FastPlotToolbar < handle
                 'TooltipString', 'Live Mode', ...
                 'OnCallback',  @(s,e) obj.onLiveOn(), ...
                 'OffCallback', @(s,e) obj.onLiveOff());
+
+            obj.hMetadataBtn = uitoggletool(obj.hToolbar, ...
+                'CData', FastPlotToolbar.makeIcon('metadata'), ...
+                'TooltipString', 'Metadata', ...
+                'OnCallback',  @(s,e) obj.onMetadataOn(), ...
+                'OffCallback', @(s,e) obj.onMetadataOff());
         end
 
         function onRefresh(obj)
@@ -221,6 +241,14 @@ classdef FastPlotToolbar < handle
 
         function onLiveOff(obj)
             obj.toggleLive();
+        end
+
+        function onMetadataOn(obj)
+            obj.MetadataEnabled = true;
+        end
+
+        function onMetadataOff(obj)
+            obj.MetadataEnabled = false;
         end
 
         function onCursorOn(obj)
@@ -538,6 +566,18 @@ classdef FastPlotToolbar < handle
                             end
                         end
                     end
+
+                case 'metadata'
+                    % "M" letter icon
+                    icon(4:12, 3, :) = repmat(reshape(fg,1,1,3), 9, 1, 1);
+                    icon(4:12, 13, :) = repmat(reshape(fg,1,1,3), 9, 1, 1);
+                    icon(4, 4:5, :) = repmat(reshape(fg,1,1,3), 1, 2, 1);
+                    icon(5, 5:6, :) = repmat(reshape(fg,1,1,3), 1, 2, 1);
+                    icon(6, 6:7, :) = repmat(reshape(fg,1,1,3), 1, 2, 1);
+                    icon(7, 7:9, :) = repmat(reshape(fg,1,1,3), 1, 3, 1);
+                    icon(6, 9:10, :) = repmat(reshape(fg,1,1,3), 1, 2, 1);
+                    icon(5, 10:11, :) = repmat(reshape(fg,1,1,3), 1, 2, 1);
+                    icon(4, 11:12, :) = repmat(reshape(fg,1,1,3), 1, 2, 1);
             end
         end
     end

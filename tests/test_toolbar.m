@@ -31,8 +31,8 @@ function test_toolbar()
     fp.render();
     tb = FastPlotToolbar(fp);
     children = get(tb.hToolbar, 'Children');
-    assert(numel(children) == 8, ...
-        sprintf('testToolbarHasEightButtons: got %d', numel(children)));
+    assert(numel(children) == 9, ...
+        sprintf('testToolbarHasNineButtons: got %d', numel(children)));
     close(fp.hFigure);
 
     % testIconsAre16x16x3

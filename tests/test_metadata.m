@@ -15,8 +15,11 @@ function test_metadata()
     testLookupMetadataAfterLast();
     testLookupMetadataNoMetadata();
     testLookupMetadataExactMatch();
+    testMetadataToolbarButton();
+    testMetadataToggle();
+    testMetadataIconSize();
 
-    fprintf('    All 8 metadata tests passed.\n');
+    fprintf('    All 11 metadata tests passed.\n');
 end
 
 function testAddLineWithMetadata()
@@ -97,4 +100,33 @@ function testLookupMetadataExactMatch()
     result = fp.lookupMetadata(1, 50);
     assert(strcmp(result.operator, 'Bob'), 'lookupExact: should be Bob');
     close(fp.hFigure);
+end
+
+function testMetadataToolbarButton()
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.render();
+    tb = FastPlotToolbar(fp);
+    children = get(tb.hToolbar, 'Children');
+    assert(numel(children) == 9, ...
+        sprintf('testMetadataToolbarButton: expected 9 buttons, got %d', numel(children)));
+    close(fp.hFigure);
+end
+
+function testMetadataToggle()
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.render();
+    tb = FastPlotToolbar(fp);
+    assert(~tb.MetadataEnabled, 'testMetadataToggle: should start off');
+    tb.setMetadata(true);
+    assert(tb.MetadataEnabled, 'testMetadataToggle: should be on');
+    tb.setMetadata(false);
+    assert(~tb.MetadataEnabled, 'testMetadataToggle: should be off again');
+    close(fp.hFigure);
+end
+
+function testMetadataIconSize()
+    icon = FastPlotToolbar.makeIcon('metadata');
+    assert(isequal(size(icon), [16 16 3]), 'testMetadataIconSize');
 end
