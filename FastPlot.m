@@ -24,7 +24,7 @@ classdef FastPlot < handle
     properties (SetAccess = private)
         Lines      = struct('X', {}, 'Y', {}, 'Options', {}, ...
                             'DownsampleMethod', {}, 'hLine', {}, ...
-                            'Pyramid', {}, 'HasNaN', {})
+                            'Pyramid', {}, 'HasNaN', {}, 'Metadata', {})
         Thresholds = struct('Value', {}, 'Direction', {}, ...
                             'ShowViolations', {}, 'Color', {}, ...
                             'LineStyle', {}, 'Label', {}, ...
@@ -122,6 +122,7 @@ classdef FastPlot < handle
 
             % Parse name-value pairs manually (avoid inputParser overhead)
             dsMethod = 'minmax';
+            meta = [];
             opts = struct();
             k = 1;
             while k <= numel(varargin)
@@ -129,6 +130,8 @@ classdef FastPlot < handle
                 val = varargin{k+1};
                 if strcmpi(key, 'DownsampleMethod')
                     dsMethod = val;
+                elseif strcmpi(key, 'Metadata')
+                    meta = val;
                 else
                     opts.(key) = val;
                 end
@@ -151,6 +154,7 @@ classdef FastPlot < handle
             lineStruct.hLine = [];
             lineStruct.Pyramid = {};
             lineStruct.HasNaN = any(isnan(y));
+            lineStruct.Metadata = meta;
 
             % Append
             if isempty(obj.Lines)
