@@ -12,8 +12,13 @@ function test_live()
     testUpdateDataUpdatesViolations();
     testUpdateDataDifferentLength();
     testUpdateDataInvalidIndex();
+    testStartLiveSetsProperties();
+    testStopLiveClearsTimer();
+    testRefreshLoadsFile();
+    testSetViewMode();
+    testStartLiveRequiresRender();
 
-    fprintf('    All 5 updateData tests passed.\n');
+    fprintf('    All 10 live mode tests passed.\n');
 end
 
 function testUpdateDataReplacesLineData()
@@ -98,4 +103,90 @@ function testUpdateDataInvalidIndex()
     end
     assert(threw, 'updateData: should throw for invalid index');
     close(fp.hFigure);
+end
+
+function testStartLiveSetsProperties()
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.render();
+
+    tmpFile = [tempname, '.mat'];
+    s.x = 1:100; s.y = rand(1,100);
+    save(tmpFile, '-struct', 's');
+
+    updateFcn = @(fp, data) fp.updateData(1, data.x, data.y);
+    fp.startLive(tmpFile, updateFcn, 'Interval', 3, 'ViewMode', 'preserve');
+
+    assert(fp.LiveIsActive, 'startLive: should be active');
+    assert(strcmp(fp.LiveFile, tmpFile), 'startLive: file path');
+    assert(fp.LiveInterval == 3, 'startLive: interval');
+    assert(strcmp(fp.LiveViewMode, 'preserve'), 'startLive: view mode');
+
+    fp.stopLive();
+    close(fp.hFigure);
+    delete(tmpFile);
+end
+
+function testStopLiveClearsTimer()
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.render();
+
+    tmpFile = [tempname, '.mat'];
+    s.x = 1:100; s.y = rand(1,100);
+    save(tmpFile, '-struct', 's');
+
+    fp.startLive(tmpFile, @(fp, d) fp.updateData(1, d.x, d.y));
+    fp.stopLive();
+
+    assert(~fp.LiveIsActive, 'stopLive: should not be active');
+
+    close(fp.hFigure);
+    delete(tmpFile);
+end
+
+function testRefreshLoadsFile()
+    fp = FastPlot();
+    fp.addLine(1:100, zeros(1,100));
+    fp.render();
+
+    tmpFile = [tempname, '.mat'];
+    s.x = 1:100; s.y = ones(1,100) * 42;
+    save(tmpFile, '-struct', 's');
+
+    fp.LiveFile = tmpFile;
+    fp.LiveUpdateFcn = @(fp, d) fp.updateData(1, d.x, d.y);
+    fp.refresh();
+
+    assert(all(fp.Lines(1).Y == 42), 'refresh: data should be updated to 42');
+
+    close(fp.hFigure);
+    delete(tmpFile);
+end
+
+function testSetViewMode()
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.render();
+
+    fp.setViewMode('follow');
+    assert(strcmp(fp.LiveViewMode, 'follow'), 'setViewMode: should be follow');
+
+    fp.setViewMode('reset');
+    assert(strcmp(fp.LiveViewMode, 'reset'), 'setViewMode: should be reset');
+
+    close(fp.hFigure);
+end
+
+function testStartLiveRequiresRender()
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+
+    threw = false;
+    try
+        fp.startLive('dummy.mat', @(fp, d) disp('nope'));
+    catch
+        threw = true;
+    end
+    assert(threw, 'startLive: should throw before render');
 end

@@ -15,6 +15,10 @@ classdef FastPlot < handle
         Theme      = []       % theme struct (from FastPlotTheme)
         Verbose    = false       % print diagnostics to console
         LiveViewMode = ''  % 'preserve' | 'follow' | 'reset' (empty = no view mode applied)
+        LiveFile       = ''        % path to .mat file for live mode
+        LiveUpdateFcn  = []        % @(fp, data) callback for live updates
+        LiveIsActive   = false     % whether live polling is running
+        LiveInterval   = 2.0       % poll interval in seconds
     end
 
     properties (SetAccess = private)
@@ -48,6 +52,8 @@ classdef FastPlot < handle
         IsPropagating = false % guard against re-entrant link propagation
         HasLimitRate  = []    % cached: does drawnow support 'limitrate'?
         ColorIndex    = 0     % tracks auto color cycling position
+        LiveTimer      = []        % timer object for live polling
+        LiveFileDate   = 0         % last known file modification datenum
     end
 
     properties (Constant, Access = private)
@@ -675,9 +681,152 @@ classdef FastPlot < handle
 
             obj.drawnowLimitRate();
         end
+
+        function startLive(obj, filepath, updateFcn, varargin)
+            %STARTLIVE Start live mode — poll a .mat file for changes.
+            %   fp.startLive('data.mat', @(fp, s) fp.updateData(1, s.x, s.y))
+            %   fp.startLive('data.mat', updateFcn, 'Interval', 2, 'ViewMode', 'preserve')
+
+            if ~obj.IsRendered
+                error('FastPlot:notRendered', ...
+                    'Cannot start live mode before render() has been called.');
+            end
+
+            % Stop existing live mode if active
+            if obj.LiveIsActive
+                obj.stopLive();
+            end
+
+            obj.LiveFile = filepath;
+            obj.LiveUpdateFcn = updateFcn;
+
+            % Parse options
+            for k = 1:2:numel(varargin)
+                switch lower(varargin{k})
+                    case 'interval'
+                        obj.LiveInterval = varargin{k+1};
+                    case 'viewmode'
+                        obj.LiveViewMode = varargin{k+1};
+                end
+            end
+
+            % Default view mode if not set
+            if isempty(obj.LiveViewMode)
+                obj.LiveViewMode = 'preserve';
+            end
+
+            % Record current file date
+            if exist(obj.LiveFile, 'file')
+                d = dir(obj.LiveFile);
+                obj.LiveFileDate = d.datenum;
+            end
+
+            % Create and start timer (MATLAB only; Octave lacks timer)
+            try
+                obj.LiveTimer = timer( ...
+                    'ExecutionMode', 'fixedSpacing', ...
+                    'Period', obj.LiveInterval, ...
+                    'TimerFcn', @(~,~) obj.onLiveTimer(), ...
+                    'ErrorFcn', @(~,~) []);
+                start(obj.LiveTimer);
+            catch
+                % Octave: no timer support — use manual refresh() instead
+                obj.LiveTimer = struct('Tag', 'OctavePlaceholder');
+            end
+
+            obj.LiveIsActive = true;
+
+            % Install cleanup on figure close
+            existingDeleteFcn = get(obj.hFigure, 'DeleteFcn');
+            set(obj.hFigure, 'DeleteFcn', @(s,e) obj.onFigureCloseLive(existingDeleteFcn, s, e));
+
+            if obj.Verbose
+                fprintf('[FastPlot] live mode started: %s (%.1fs interval, %s mode)\n', ...
+                    filepath, obj.LiveInterval, obj.LiveViewMode);
+            end
+        end
+
+        function stopLive(obj)
+            %STOPLIVE Stop live mode polling.
+            if ~isempty(obj.LiveTimer) && ~isstruct(obj.LiveTimer)
+                try
+                    stop(obj.LiveTimer);
+                    delete(obj.LiveTimer);
+                catch
+                end
+            end
+            obj.LiveTimer = [];
+            obj.LiveIsActive = false;
+
+            if obj.Verbose
+                fprintf('[FastPlot] live mode stopped\n');
+            end
+        end
+
+        function refresh(obj)
+            %REFRESH Manual one-shot reload from LiveFile.
+            if isempty(obj.LiveFile) || isempty(obj.LiveUpdateFcn)
+                error('FastPlot:noLiveSource', ...
+                    'No live source configured. Call startLive() first or set LiveFile and LiveUpdateFcn.');
+            end
+            if ~exist(obj.LiveFile, 'file')
+                warning('FastPlot:fileNotFound', 'Live file not found: %s', obj.LiveFile);
+                return;
+            end
+
+            try
+                data = load(obj.LiveFile);
+                obj.LiveUpdateFcn(obj, data);
+            catch e
+                if obj.Verbose
+                    fprintf('[FastPlot] refresh error: %s\n', e.message);
+                end
+            end
+
+            d = dir(obj.LiveFile);
+            obj.LiveFileDate = d.datenum;
+        end
+
+        function setViewMode(obj, mode)
+            %SETVIEWMODE Change the live view mode at runtime.
+            obj.LiveViewMode = mode;
+        end
     end
 
     methods (Access = private)
+        function onLiveTimer(obj)
+            %ONLIVETIMER Timer callback — check file and refresh if changed.
+            if ~exist(obj.LiveFile, 'file')
+                return;
+            end
+            try
+                d = dir(obj.LiveFile);
+                if d.datenum > obj.LiveFileDate
+                    obj.LiveFileDate = d.datenum;
+                    data = load(obj.LiveFile);
+                    obj.LiveUpdateFcn(obj, data);
+                    obj.drawnowLimitRate();
+                    if obj.Verbose
+                        fprintf('[FastPlot] live update: %s\n', datestr(now, 'HH:MM:SS'));
+                    end
+                end
+            catch e
+                if obj.Verbose
+                    fprintf('[FastPlot] live timer error: %s\n', e.message);
+                end
+            end
+        end
+
+        function onFigureCloseLive(obj, existingDeleteFcn, src, evt)
+            %ONFIGURECLOSELIVE Cleanup timer when figure closes.
+            obj.stopLive();
+            if ~isempty(existingDeleteFcn)
+                if isa(existingDeleteFcn, 'function_handle')
+                    existingDeleteFcn(src, evt);
+                end
+            end
+        end
+
         function applyViewMode(obj, newX)
             %APPLYVIEWMODE Adjust axes limits based on LiveViewMode.
             if isempty(obj.LiveViewMode)
