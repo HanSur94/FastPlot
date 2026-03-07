@@ -1,7 +1,7 @@
 function test_add_threshold()
 %TEST_ADD_THRESHOLD Tests for FastPlot.addThreshold method.
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
+    add_private_path();
 
     % testAddUpperThreshold
     fp = FastPlot();

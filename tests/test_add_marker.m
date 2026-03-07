@@ -1,8 +1,7 @@
 function test_add_marker()
 %TEST_ADD_MARKER Tests for FastPlot.addMarker method.
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'private'));
+    add_private_path();
 
     % testAddMarker
     fp = FastPlot();

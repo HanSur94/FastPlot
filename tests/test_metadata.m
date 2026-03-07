@@ -1,7 +1,7 @@
 function test_metadata()
 %TEST_METADATA Tests for metadata support.
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
+    add_private_path();
 
     close all force;
     drawnow;

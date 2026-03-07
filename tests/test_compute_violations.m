@@ -1,8 +1,7 @@
 function test_compute_violations()
 %TEST_COMPUTE_VIOLATIONS Tests for compute_violations private function.
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'private'));
+    add_private_path();
 
     % testUpperViolation
     x = 1:10;

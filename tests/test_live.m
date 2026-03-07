@@ -1,8 +1,7 @@
 function test_live()
 %TEST_LIVE Tests for live mode functionality.
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'private'));
+    add_private_path();
 
     close all force;
     drawnow;
