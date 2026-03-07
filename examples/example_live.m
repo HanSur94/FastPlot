@@ -46,21 +46,32 @@ tb = FastPlotToolbar(fig);
 fprintf('Live mode active. Toolbar has Live and Refresh buttons.\n');
 fprintf('Simulating %d data updates...\n\n', 10);
 
-% Simulate background process updating the file
-for i = 1:10
-    pause(2);
-    if ~ishandle(fig.hFigure)
-        fprintf('Figure closed. Stopping.\n');
-        break;
-    end
+% In Octave: start blocking poll loop (keeps GUI responsive)
+% In MATLAB: the timer is already running, runLive() is a no-op
+fprintf('Starting live poll loop. Update the file externally to see changes.\n');
+fprintf('Close the figure or press Ctrl+C to exit.\n\n');
 
-    % Extend data (simulate new samples arriving)
-    nNew = nPoints + i * 10000;
-    s.time = linspace(0, 100 + i*10, nNew);
-    s.pressure = sin(s.time * 2*pi/10) + 0.3*randn(1, nNew) + 0.1*i;
-    s.temperature = 50 + 5*cos(s.time * 2*pi/20) + 0.5*randn(1, nNew) + 0.2*i;
-    save(tmpFile, '-struct', 's');
-    fprintf('  Update %d: %d points written\n', i, nNew);
+% For demo purposes, write a few updates from a background process
+% (In real use, another program writes the file)
+try
+    if exist('OCTAVE_VERSION', 'builtin')
+        % Write updates in foreground with short pauses between poll cycles
+        for i = 1:10
+            pause(2);
+            if ~ishandle(fig.hFigure); break; end
+            nNew = nPoints + i * 10000;
+            s.time = linspace(0, 100 + i*10, nNew);
+            s.pressure = sin(s.time * 2*pi/10) + 0.3*randn(1, nNew) + 0.1*i;
+            s.temperature = 50 + 5*cos(s.time * 2*pi/20) + 0.5*randn(1, nNew) + 0.2*i;
+            save(tmpFile, '-struct', 's');
+            fprintf('  Update %d: %d points written\n', i, nNew);
+            fig.refresh();
+            drawnow;
+        end
+    else
+        fig.runLive();
+    end
+catch
 end
 
 fprintf('\nDemo complete. Close figure to exit.\n');

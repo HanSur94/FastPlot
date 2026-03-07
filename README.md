@@ -149,6 +149,7 @@ end
 | `refresh()` | Manual one-shot reload from file |
 | `updateData(lineIdx, newX, newY)` | Replace data for a line and re-downsample |
 | `setViewMode(mode)` | Change view mode at runtime |
+| `runLive()` | Blocking poll loop (Octave); no-op on MATLAB |
 
 **Options for `startLive`:**
 
@@ -159,7 +160,12 @@ end
 
 **Toolbar buttons:** The Live toggle button starts/stops polling. The Refresh button triggers a one-shot reload.
 
-> **Note:** Auto-polling via timer requires MATLAB. In Octave, use `refresh()` for manual updates — all other live mode features work fully.
+**Octave compatibility:** Octave lacks MATLAB's `timer`, so call `runLive()` after `startLive()` to enter a blocking poll loop. The GUI stays responsive (zoom/pan work). Exit by closing the figure or pressing Ctrl+C.
+
+```matlab
+fp.startLive('data.mat', @(fp, d) fp.updateData(1, d.x, d.y));
+fp.runLive();  % blocks on Octave, no-op on MATLAB
+```
 
 ## Installation
 
