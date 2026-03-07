@@ -113,21 +113,11 @@ classdef FastPlot < handle
                     'X and Y must have the same number of elements.');
             end
 
-            % Monotonicity check (chunked vectorized — limits peak memory)
-            chunkSize = 1000000;
-            nX = numel(x);
-            for ci = 1:chunkSize:nX-1
-                ce = min(ci + chunkSize, nX);
-                dx = diff(x(ci:ce));
-                if any(dx(~isnan(dx)) < 0)
-                    error('FastPlot:nonMonotonicX', ...
-                        'X must be monotonically increasing.');
-                end
-            end
-
             % Parse name-value pairs manually (avoid inputParser overhead)
             dsMethod = 'minmax';
             meta = [];
+            assumeSorted = false;
+            hasNaNOverride = [];
             opts = struct();
             k = 1;
             while k <= numel(varargin)
@@ -137,10 +127,28 @@ classdef FastPlot < handle
                     dsMethod = val;
                 elseif strcmpi(key, 'Metadata')
                     meta = val;
+                elseif strcmpi(key, 'AssumeSorted')
+                    assumeSorted = val;
+                elseif strcmpi(key, 'HasNaN')
+                    hasNaNOverride = val;
                 else
                     opts.(key) = val;
                 end
                 k = k + 2;
+            end
+
+            % Monotonicity check (chunked vectorized — limits peak memory)
+            if ~assumeSorted
+                chunkSize = 1000000;
+                nX = numel(x);
+                for ci = 1:chunkSize:nX-1
+                    ce = min(ci + chunkSize, nX);
+                    dx = diff(x(ci:ce));
+                    if any(dx(~isnan(dx)) < 0)
+                        error('FastPlot:nonMonotonicX', ...
+                            'X must be monotonically increasing.');
+                    end
+                end
             end
 
             % Auto-assign color from theme palette if not explicitly set
@@ -158,7 +166,11 @@ classdef FastPlot < handle
             lineStruct.Options = opts;
             lineStruct.hLine = [];
             lineStruct.Pyramid = {};
-            lineStruct.HasNaN = any(isnan(y));
+            if ~isempty(hasNaNOverride)
+                lineStruct.HasNaN = hasNaNOverride;
+            else
+                lineStruct.HasNaN = any(isnan(y));
+            end
             lineStruct.Metadata = meta;
 
             % Append
