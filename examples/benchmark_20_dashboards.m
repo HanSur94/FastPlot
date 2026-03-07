@@ -1,8 +1,9 @@
 %% benchmark_20_dashboards.m — Create 20 dashboards with 3x3 tiles
 %
-% Each dashboard has 9 tiles with 500K points per tile (4.5M total per
-% dashboard, 90M points across all 20). Tests rendering speed and
-% downsampling performance at scale.
+% Each dashboard has 9 tiles with 10M points per tile (90M total per
+% dashboard, 1.8B points across all 20). Each tile has 4 thresholds:
+% yellow warning (inner) and red alarm (outer), upper and lower.
+% All dashboards stay open for visual inspection.
 %
 % Usage:
 %   >> cd /path/to/FastPlot
@@ -68,7 +69,18 @@ for d = 1:nDashboards
         y = offset + (noise*3)*sin(x*2*pi/freq + phase) + noise*randn(1, nPointsPerTile);
 
         fp.addLine(x, y, 'DisplayName', signals{t,1}, 'Color', colors(t,:));
-        fp.addThreshold(offset + noise*6, 'Direction', 'upper', 'ShowViolations', true);
+
+        % Yellow warning thresholds (inner)
+        fp.addThreshold(offset + noise*4, 'Direction', 'upper', 'ShowViolations', true, ...
+            'Color', [1 0.8 0.0]);
+        fp.addThreshold(offset - noise*4, 'Direction', 'lower', 'ShowViolations', true, ...
+            'Color', [1 0.8 0.0]);
+
+        % Red alarm thresholds (outer)
+        fp.addThreshold(offset + noise*6, 'Direction', 'upper', 'ShowViolations', true, ...
+            'Color', [1 0.2 0.2]);
+        fp.addThreshold(offset - noise*6, 'Direction', 'lower', 'ShowViolations', true, ...
+            'Color', [1 0.2 0.2]);
     end
     t_create = toc;
 
@@ -94,7 +106,6 @@ for d = 1:nDashboards
     fprintf('  Dashboard %2d/%d: create %.3fs + render %.3fs = %.3fs  (%d pts rendered, %.1f%% reduction)\n', ...
         d, nDashboards, t_create, t_render, t_total, total_pts, reduction);
 
-    close(fig.hFigure);
 end
 
 % --- Summary ---
