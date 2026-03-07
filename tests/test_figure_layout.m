@@ -111,5 +111,20 @@ function test_figure_layout()
     % No error = pass
     close(fig.hFigure);
 
-    fprintf('    All 12 figure layout tests passed.\n');
+    % testRenderAllDefersDraw
+    fig = FastPlotFigure(2, 2);
+    for i = 1:4
+        fp = fig.tile(i);
+        fp.addLine(1:50, rand(1,50));
+    end
+    fig.renderAll();
+    for i = 1:4
+        fp = fig.tile(i);
+        assert(fp.IsRendered, sprintf('testRenderAllDefersDraw: tile %d rendered', i));
+        assert(ishandle(fp.Lines(1).hLine), sprintf('testRenderAllDefersDraw: tile %d line', i));
+    end
+    assert(strcmp(get(fig.hFigure, 'Visible'), 'on'), 'testRenderAllDefersDraw: visible');
+    close(fig.hFigure);
+
+    fprintf('    All 13 figure layout tests passed.\n');
 end

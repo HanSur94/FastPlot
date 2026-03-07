@@ -158,6 +158,7 @@ classdef FastPlotFigure < handle
             %RENDERALL Render all tiles that haven't been rendered yet.
             for i = 1:numel(obj.Tiles)
                 if ~isempty(obj.Tiles{i}) && ~obj.Tiles{i}.IsRendered
+                    obj.Tiles{i}.DeferDraw = true;
                     obj.Tiles{i}.render();
                 end
             end
