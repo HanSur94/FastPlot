@@ -687,9 +687,10 @@ classdef FastPlot < handle
             end
         end
 
-        function updateData(obj, lineIdx, newX, newY, skipViewMode)
+        function updateData(obj, lineIdx, newX, newY, varargin)
             %UPDATEDATA Replace data for a line and re-downsample.
             %   fp.updateData(1, newX, newY)
+            %   fp.updateData(1, newX, newY, 'Metadata', meta)
 
             if ~obj.IsRendered
                 error('FastPlot:notRendered', ...
@@ -709,6 +710,25 @@ classdef FastPlot < handle
                     'X and Y must have the same number of elements.');
             end
 
+            % Parse optional name-value pairs
+            skipViewMode = false;
+            newMeta = [];
+            hasMeta = false;
+            for k = 1:2:numel(varargin)
+                if islogical(varargin{k}) || isnumeric(varargin{k})
+                    % Legacy: positional skipViewMode argument
+                    skipViewMode = varargin{k};
+                    break;
+                end
+                switch lower(varargin{k})
+                    case 'metadata'
+                        newMeta = varargin{k+1};
+                        hasMeta = true;
+                    case 'skipviewmode'
+                        skipViewMode = varargin{k+1};
+                end
+            end
+
             % Replace raw data
             obj.Lines(lineIdx).X = newX;
             obj.Lines(lineIdx).Y = newY;
@@ -717,8 +737,13 @@ classdef FastPlot < handle
             % Clear pyramid cache (will rebuild lazily)
             obj.Lines(lineIdx).Pyramid = {};
 
+            % Update metadata if provided
+            if hasMeta
+                obj.Lines(lineIdx).Metadata = newMeta;
+            end
+
             % Apply view mode before re-downsample
-            if nargin < 5 || ~skipViewMode
+            if ~skipViewMode
                 obj.applyViewMode(newX);
             end
 

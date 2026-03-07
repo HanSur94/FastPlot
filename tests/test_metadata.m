@@ -20,8 +20,10 @@ function test_metadata()
     testMetadataIconSize();
     testCursorShowsMetadata();
     testCursorNoMetadataWhenToggleOff();
+    testUpdateDataWithMetadata();
+    testUpdateDataWithoutMetadataPreserves();
 
-    fprintf('    All 13 metadata tests passed.\n');
+    fprintf('    All 15 metadata tests passed.\n');
 end
 
 function testAddLineWithMetadata()
@@ -162,5 +164,34 @@ function testCursorNoMetadataWhenToggleOff()
     label = tb.buildCursorLabel(fp, sx, sy, lineIdx);
     assert(isempty(strfind(label, 'Alice')), ...
         'testCursorNoMeta: should not contain Alice');
+    close(fp.hFigure);
+end
+
+function testUpdateDataWithMetadata()
+    fp = FastPlot();
+    meta.datenum = [1, 50];
+    meta.operator = {'Alice', 'Bob'};
+    fp.addLine(1:100, rand(1,100), 'Metadata', meta);
+    fp.render();
+
+    newMeta.datenum = [1, 30, 70];
+    newMeta.operator = {'X', 'Y', 'Z'};
+    fp.updateData(1, 1:100, rand(1,100), 'Metadata', newMeta);
+
+    assert(numel(fp.Lines(1).Metadata.datenum) == 3, 'updateDataMeta: 3 entries');
+    assert(strcmp(fp.Lines(1).Metadata.operator{1}, 'X'), 'updateDataMeta: first operator');
+    close(fp.hFigure);
+end
+
+function testUpdateDataWithoutMetadataPreserves()
+    fp = FastPlot();
+    meta.datenum = [1, 50];
+    meta.operator = {'Alice', 'Bob'};
+    fp.addLine(1:100, rand(1,100), 'Metadata', meta);
+    fp.render();
+
+    fp.updateData(1, 1:100, rand(1,100));
+
+    assert(numel(fp.Lines(1).Metadata.datenum) == 2, 'updateDataPreserve: still 2 entries');
     close(fp.hFigure);
 end
