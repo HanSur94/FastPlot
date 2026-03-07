@@ -19,6 +19,9 @@ classdef FastPlot < handle
         LiveUpdateFcn  = []        % @(fp, data) callback for live updates
         LiveIsActive   = false     % whether live polling is running
         LiveInterval   = 2.0       % poll interval in seconds
+        MetadataFile      = ''        % path to separate .mat file for metadata
+        MetadataVars      = {}        % cell array of variable names to extract
+        MetadataLineIndex = 1         % which line index to attach metadata to
     end
 
     properties (SetAccess = private)
@@ -54,6 +57,7 @@ classdef FastPlot < handle
         ColorIndex    = 0     % tracks auto color cycling position
         LiveTimer      = []        % timer object for live polling
         LiveFileDate   = 0         % last known file modification datenum
+        MetadataFileDate  = 0         % last known metadata file datenum
     end
 
     properties (Constant, Access = private)
@@ -780,6 +784,12 @@ classdef FastPlot < handle
                         obj.LiveInterval = varargin{k+1};
                     case 'viewmode'
                         obj.LiveViewMode = varargin{k+1};
+                    case 'metadatafile'
+                        obj.MetadataFile = varargin{k+1};
+                    case 'metadatavars'
+                        obj.MetadataVars = varargin{k+1};
+                    case 'metadatalineindex'
+                        obj.MetadataLineIndex = varargin{k+1};
                 end
             end
 
@@ -792,6 +802,12 @@ classdef FastPlot < handle
             if exist(obj.LiveFile, 'file')
                 d = dir(obj.LiveFile);
                 obj.LiveFileDate = d.datenum;
+            end
+
+            % Record metadata file date
+            if ~isempty(obj.MetadataFile) && exist(obj.MetadataFile, 'file')
+                d = dir(obj.MetadataFile);
+                obj.MetadataFileDate = d.datenum;
             end
 
             % Create and start timer (MATLAB only; Octave lacks timer)
@@ -857,6 +873,13 @@ classdef FastPlot < handle
 
             d = dir(obj.LiveFile);
             obj.LiveFileDate = d.datenum;
+
+            % Load metadata file if configured
+            obj.loadMetadataFile();
+            if ~isempty(obj.MetadataFile) && exist(obj.MetadataFile, 'file')
+                dm = dir(obj.MetadataFile);
+                obj.MetadataFileDate = dm.datenum;
+            end
         end
 
         function setViewMode(obj, mode)
@@ -915,6 +938,18 @@ classdef FastPlot < handle
                 fprintf('[FastPlot] runLive: exited poll loop\n');
             end
         end
+
+        function onLiveTimerPublic(obj)
+            %ONLIVETIMERPUBLIC Public wrapper for testing live timer callback.
+            obj.onLiveTimer();
+        end
+
+        function setLineMetadata(obj, lineIdx, meta)
+            %SETLINEMETADATA Set metadata on a line (used by FastPlotFigure).
+            if lineIdx >= 1 && lineIdx <= numel(obj.Lines)
+                obj.Lines(lineIdx).Metadata = meta;
+            end
+        end
     end
 
     methods (Access = private)
@@ -938,6 +973,50 @@ classdef FastPlot < handle
                 if obj.Verbose
                     fprintf('[FastPlot] live timer error: %s\n', e.message);
                 end
+            end
+
+            % Check metadata file
+            if ~isempty(obj.MetadataFile) && exist(obj.MetadataFile, 'file')
+                try
+                    dm = dir(obj.MetadataFile);
+                    if dm.datenum > obj.MetadataFileDate
+                        obj.MetadataFileDate = dm.datenum;
+                        obj.loadMetadataFile();
+                    end
+                catch
+                end
+            end
+        end
+
+        function loadMetadataFile(obj)
+            %LOADMETADATAFILE Load metadata from the metadata file.
+            if isempty(obj.MetadataFile) || isempty(obj.MetadataVars)
+                return;
+            end
+            if ~exist(obj.MetadataFile, 'file')
+                return;
+            end
+            try
+                data = load(obj.MetadataFile);
+                meta = struct();
+                if isfield(data, 'datenum')
+                    meta.datenum = data.datenum;
+                elseif isfield(data, 'datetime')
+                    meta.datenum = data.datetime;
+                else
+                    return;
+                end
+                for i = 1:numel(obj.MetadataVars)
+                    varName = obj.MetadataVars{i};
+                    if isfield(data, varName)
+                        meta.(varName) = data.(varName);
+                    end
+                end
+                idx = obj.MetadataLineIndex;
+                if idx >= 1 && idx <= numel(obj.Lines)
+                    obj.Lines(idx).Metadata = meta;
+                end
+            catch
             end
         end
 

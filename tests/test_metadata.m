@@ -22,8 +22,11 @@ function test_metadata()
     testCursorNoMetadataWhenToggleOff();
     testUpdateDataWithMetadata();
     testUpdateDataWithoutMetadataPreserves();
+    testStartLiveWithMetadataFile();
+    testLiveMetadataFilePolling();
+    testRefreshLoadsMetadataFile();
 
-    fprintf('    All 15 metadata tests passed.\n');
+    fprintf('    All 18 metadata tests passed.\n');
 end
 
 function testAddLineWithMetadata()
@@ -194,4 +197,88 @@ function testUpdateDataWithoutMetadataPreserves()
 
     assert(numel(fp.Lines(1).Metadata.datenum) == 2, 'updateDataPreserve: still 2 entries');
     close(fp.hFigure);
+end
+
+function testStartLiveWithMetadataFile()
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.render();
+
+    tmpData = [tempname, '.mat'];
+    s.x = 1:100; s.y = rand(1,100);
+    save(tmpData, '-struct', 's');
+
+    tmpMeta = [tempname, '.mat'];
+    m.datenum = [1, 50];
+    m.operator = {'Alice', 'Bob'};
+    m.mode = {'auto', 'manual'};
+    save(tmpMeta, '-struct', 'm');
+
+    fp.startLive(tmpData, @(fp, d) fp.updateData(1, d.x, d.y), ...
+        'MetadataFile', tmpMeta, 'MetadataVars', {'operator', 'mode'});
+
+    assert(strcmp(fp.MetadataFile, tmpMeta), 'startLiveMeta: file path');
+    assert(isequal(fp.MetadataVars, {'operator', 'mode'}), 'startLiveMeta: vars');
+
+    fp.stopLive();
+    close(fp.hFigure);
+    delete(tmpData); delete(tmpMeta);
+end
+
+function testLiveMetadataFilePolling()
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.render();
+
+    tmpData = [tempname, '.mat'];
+    s.x = 1:100; s.y = rand(1,100);
+    save(tmpData, '-struct', 's');
+
+    tmpMeta = [tempname, '.mat'];
+    m.datenum = [1, 50];
+    m.operator = {'Alice', 'Bob'};
+    save(tmpMeta, '-struct', 'm');
+
+    fp.startLive(tmpData, @(fp, d) fp.updateData(1, d.x, d.y), ...
+        'MetadataFile', tmpMeta, 'MetadataVars', {'operator'}, ...
+        'MetadataLineIndex', 1);
+
+    % Simulate timer firing
+    fp.onLiveTimerPublic();
+
+    assert(~isempty(fp.Lines(1).Metadata), 'liveMetaPoll: should have metadata');
+    assert(strcmp(fp.Lines(1).Metadata.operator{1}, 'Alice'), 'liveMetaPoll: operator');
+
+    fp.stopLive();
+    close(fp.hFigure);
+    delete(tmpData); delete(tmpMeta);
+end
+
+function testRefreshLoadsMetadataFile()
+    fp = FastPlot();
+    fp.addLine(1:100, zeros(1,100));
+    fp.render();
+
+    tmpData = [tempname, '.mat'];
+    s.x = 1:100; s.y = ones(1,100) * 42;
+    save(tmpData, '-struct', 's');
+
+    tmpMeta = [tempname, '.mat'];
+    m.datenum = [1, 50];
+    m.operator = {'Alice', 'Bob'};
+    save(tmpMeta, '-struct', 'm');
+
+    fp.LiveFile = tmpData;
+    fp.LiveUpdateFcn = @(fp, d) fp.updateData(1, d.x, d.y);
+    fp.MetadataFile = tmpMeta;
+    fp.MetadataVars = {'operator'};
+    fp.MetadataLineIndex = 1;
+    fp.refresh();
+
+    assert(all(fp.Lines(1).Y == 42), 'refreshMeta: data updated');
+    assert(~isempty(fp.Lines(1).Metadata), 'refreshMeta: metadata loaded');
+    assert(strcmp(fp.Lines(1).Metadata.operator{1}, 'Alice'), 'refreshMeta: operator');
+
+    close(fp.hFigure);
+    delete(tmpData); delete(tmpMeta);
 end
