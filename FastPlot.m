@@ -643,6 +643,50 @@ classdef FastPlot < handle
             drawnow;
         end
 
+        function result = lookupMetadata(obj, lineIdx, xValue)
+            %LOOKUPMETADATA Get active metadata at a given X value (forward-fill).
+            %   result = fp.lookupMetadata(lineIdx, xValue)
+            %   Returns struct with one value per metadata field, or [] if none.
+
+            result = [];
+            if lineIdx < 1 || lineIdx > numel(obj.Lines)
+                return;
+            end
+            meta = obj.Lines(lineIdx).Metadata;
+            if isempty(meta)
+                return;
+            end
+
+            % Binary search for largest datenum <= xValue
+            timestamps = meta.datenum;
+            idx = binary_search(timestamps, xValue, 'left');
+            idx = min(idx, numel(timestamps));
+
+            % Ensure we have the largest value <= xValue
+            if timestamps(idx) > xValue
+                idx = idx - 1;
+            end
+            if idx < 1
+                return;
+            end
+
+            % Build result struct with all non-datenum fields
+            fields = fieldnames(meta);
+            result = struct();
+            for i = 1:numel(fields)
+                f = fields{i};
+                if strcmp(f, 'datenum')
+                    continue;
+                end
+                val = meta.(f);
+                if iscell(val)
+                    result.(f) = val{idx};
+                else
+                    result.(f) = val(idx);
+                end
+            end
+        end
+
         function updateData(obj, lineIdx, newX, newY, skipViewMode)
             %UPDATEDATA Replace data for a line and re-downsample.
             %   fp.updateData(1, newX, newY)

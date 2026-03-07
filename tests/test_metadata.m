@@ -10,8 +10,13 @@ function test_metadata()
     testAddLineWithMetadata();
     testAddLineWithoutMetadata();
     testMetadataStoredOnLine();
+    testLookupMetadataMiddle();
+    testLookupMetadataBeforeFirst();
+    testLookupMetadataAfterLast();
+    testLookupMetadataNoMetadata();
+    testLookupMetadataExactMatch();
 
-    fprintf('    All 3 metadata tests passed.\n');
+    fprintf('    All 8 metadata tests passed.\n');
 end
 
 function testAddLineWithMetadata()
@@ -37,4 +42,59 @@ function testMetadataStoredOnLine()
     fp.addLine(1:100, rand(1,100), 'Metadata', meta);
     assert(numel(fp.Lines(1).Metadata.datenum) == 3, 'testMetadataStoredOnLine: 3 entries');
     assert(strcmp(fp.Lines(1).Metadata.operator{2}, 'Bob'), 'testMetadataStoredOnLine: operator');
+end
+
+function testLookupMetadataMiddle()
+    fp = FastPlot();
+    meta.datenum = [10, 50, 80];
+    meta.operator = {'Alice', 'Bob', 'Charlie'};
+    meta.mode = {'auto', 'manual', 'auto'};
+    fp.addLine(1:100, rand(1,100), 'Metadata', meta);
+    fp.render();
+    result = fp.lookupMetadata(1, 30);
+    assert(strcmp(result.operator, 'Alice'), 'lookupMiddle: operator should be Alice');
+    assert(strcmp(result.mode, 'auto'), 'lookupMiddle: mode should be auto');
+    close(fp.hFigure);
+end
+
+function testLookupMetadataBeforeFirst()
+    fp = FastPlot();
+    meta.datenum = [10, 50];
+    meta.operator = {'Alice', 'Bob'};
+    fp.addLine(1:100, rand(1,100), 'Metadata', meta);
+    fp.render();
+    result = fp.lookupMetadata(1, 5);
+    assert(isempty(result), 'lookupBeforeFirst: should be empty');
+    close(fp.hFigure);
+end
+
+function testLookupMetadataAfterLast()
+    fp = FastPlot();
+    meta.datenum = [10, 50];
+    meta.operator = {'Alice', 'Bob'};
+    fp.addLine(1:100, rand(1,100), 'Metadata', meta);
+    fp.render();
+    result = fp.lookupMetadata(1, 90);
+    assert(strcmp(result.operator, 'Bob'), 'lookupAfterLast: should be Bob');
+    close(fp.hFigure);
+end
+
+function testLookupMetadataNoMetadata()
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100));
+    fp.render();
+    result = fp.lookupMetadata(1, 50);
+    assert(isempty(result), 'lookupNoMeta: should be empty');
+    close(fp.hFigure);
+end
+
+function testLookupMetadataExactMatch()
+    fp = FastPlot();
+    meta.datenum = [10, 50];
+    meta.operator = {'Alice', 'Bob'};
+    fp.addLine(1:100, rand(1,100), 'Metadata', meta);
+    fp.render();
+    result = fp.lookupMetadata(1, 50);
+    assert(strcmp(result.operator, 'Bob'), 'lookupExact: should be Bob');
+    close(fp.hFigure);
 end
