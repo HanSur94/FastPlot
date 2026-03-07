@@ -1,29 +1,28 @@
-% example_live.m — Live mode demo
-% Simulates a background process writing sensor data to a .mat file,
-% while FastPlot watches and auto-refreshes.
+% example_live.m — Interactive live mode demo (GUI)
 %
-% Usage: Run this script. It creates a temp .mat file, plots it,
-% starts live mode, then simulates 10 file updates.
+% Opens a visible dashboard, then simulates 10 data updates with pauses
+% so you can watch the plot update in real time.
+%
+% Usage:
+%   octave examples/example_live.m     (with GUI)
+%   Run from MATLAB command window
 
 addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
 addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'private'));
 
 fprintf('=== FastPlot Live Mode Demo ===\n\n');
 
-% Create initial data
+% --- Create initial data and save to .mat ---
 tmpFile = fullfile(tempdir, 'fastplot_live_demo.mat');
 nPoints = 100000;
 x = linspace(0, 100, nPoints);
-y_pressure = sin(x * 2*pi/10) + 0.3*randn(1, nPoints);
-y_temperature = 50 + 5*cos(x * 2*pi/20) + 0.5*randn(1, nPoints);
-
 s.time = x;
-s.pressure = y_pressure;
-s.temperature = y_temperature;
+s.pressure = sin(x * 2*pi/10) + 0.3*randn(1, nPoints);
+s.temperature = 50 + 5*cos(x * 2*pi/20) + 0.5*randn(1, nPoints);
 save(tmpFile, '-struct', 's');
-fprintf('Initial data saved to: %s\n', tmpFile);
+fprintf('Initial data: %d points saved to %s\n', nPoints, tmpFile);
 
-% Create dashboard
+% --- Create dashboard ---
 fig = FastPlotFigure(2, 1, 'Theme', 'dark', 'Name', 'Live Dashboard');
 
 fp1 = fig.tile(1);
@@ -37,47 +36,36 @@ fp2.addThreshold(58, 'Direction', 'upper', 'ShowViolations', true);
 fig.renderAll();
 fig.tileTitle(1, 'Pressure');
 fig.tileTitle(2, 'Temperature');
-
-% Start live mode
-fig.startLive(tmpFile, @(fig, d) updateDashboard(fig, d), ...
-    'Interval', 1.5, 'ViewMode', 'preserve');
-
 tb = FastPlotToolbar(fig);
-fprintf('Live mode active. Toolbar has Live and Refresh buttons.\n');
-fprintf('Simulating %d data updates...\n\n', 10);
+drawnow;
 
-% In Octave: start blocking poll loop (keeps GUI responsive)
-% In MATLAB: the timer is already running, runLive() is a no-op
-fprintf('Starting live poll loop. Update the file externally to see changes.\n');
-fprintf('Close the figure or press Ctrl+C to exit.\n\n');
+fprintf('Dashboard open. Simulating 10 live data updates (2s apart)...\n');
+fprintf('Watch the plot update! Close the figure to stop early.\n\n');
 
-% For demo purposes, write a few updates from a background process
-% (In real use, another program writes the file)
-try
-    if exist('OCTAVE_VERSION', 'builtin')
-        % Write updates in foreground with short pauses between poll cycles
-        for i = 1:10
-            pause(2);
-            if ~ishandle(fig.hFigure); break; end
-            nNew = nPoints + i * 10000;
-            s.time = linspace(0, 100 + i*10, nNew);
-            s.pressure = sin(s.time * 2*pi/10) + 0.3*randn(1, nNew) + 0.1*i;
-            s.temperature = 50 + 5*cos(s.time * 2*pi/20) + 0.5*randn(1, nNew) + 0.2*i;
-            save(tmpFile, '-struct', 's');
-            fprintf('  Update %d: %d points written\n', i, nNew);
-            fig.refresh();
-            drawnow;
-        end
-    else
-        fig.runLive();
+% --- Simulate a background process updating the .mat file ---
+for i = 1:10
+    pause(2);
+    if ~ishandle(fig.hFigure)
+        fprintf('Figure closed.\n');
+        break;
     end
-catch
+
+    % New data: more points, shifted signals
+    nNew = nPoints + i * 10000;
+    s.time = linspace(0, 100 + i*10, nNew);
+    s.pressure = sin(s.time * 2*pi/10) + 0.3*randn(1, nNew) + 0.15*i;
+    s.temperature = 50 + 5*cos(s.time * 2*pi/20) + 0.5*randn(1, nNew) + 0.3*i;
+
+    % Write updated data to .mat file
+    save(tmpFile, '-struct', 's');
+
+    % Update the plot (this is what startLive/runLive does automatically)
+    fig.tile(1).updateData(1, s.time, s.pressure);
+    fig.tile(2).updateData(1, s.time, s.temperature);
+    drawnow;
+
+    fprintf('  Update %d/%d: %d points, t=[0..%d]\n', i, 10, nNew, 100 + i*10);
 end
 
-fprintf('\nDemo complete. Close figure to exit.\n');
+fprintf('\nDemo complete. Figure stays open — zoom and pan to explore.\n');
 fprintf('Temp file: %s\n', tmpFile);
-
-function updateDashboard(fig, d)
-    fig.tile(1).updateData(1, d.time, d.pressure);
-    fig.tile(2).updateData(1, d.time, d.temperature);
-end
