@@ -145,6 +145,28 @@ classdef FastPlotToolbar < handle
             end
         end
 
+        function label = buildCursorLabel(obj, fp, sx, sy, lineIdx)
+            %BUILDCURSORLABEL Build the text label for data cursor.
+            label = sprintf('(%.4g, %.4g)', sx, sy);
+            if obj.MetadataEnabled && ~isempty(lineIdx)
+                result = fp.lookupMetadata(lineIdx, sx);
+                if ~isempty(result)
+                    fields = fieldnames(result);
+                    metaLines = {};
+                    for i = 1:numel(fields)
+                        val = result.(fields{i});
+                        if isnumeric(val)
+                            valStr = sprintf('%.4g', val);
+                        else
+                            valStr = char(val);
+                        end
+                        metaLines{end+1} = sprintf('%s: %s', fields{i}, valStr); %#ok<AGROW>
+                    end
+                    label = [label, char(10), '--------', char(10), strjoin(metaLines, char(10))];
+                end
+            end
+        end
+
         function [sx, sy, lineIdx] = snapToNearest(~, fp, xClick, yClick)
             sx = []; sy = []; lineIdx = [];
             bestDist = Inf;
@@ -322,7 +344,7 @@ classdef FastPlotToolbar < handle
                 'LineStyle', 'none', 'Marker', 'o', 'MarkerSize', 8, ...
                 'Color', lineColor, 'MarkerFaceColor', lineColor, ...
                 'HandleVisibility', 'off', 'HitTest', 'off');
-            label = sprintf('(%.4g, %.4g)', sx, sy);
+            label = obj.buildCursorLabel(fp, sx, sy, lineIdx);
             obj.hCursorTxt = text(sx, sy, label, 'Parent', ax, ...
                 'FontSize', 8, 'VerticalAlignment', 'bottom', ...
                 'HorizontalAlignment', 'left', ...

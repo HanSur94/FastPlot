@@ -18,8 +18,10 @@ function test_metadata()
     testMetadataToolbarButton();
     testMetadataToggle();
     testMetadataIconSize();
+    testCursorShowsMetadata();
+    testCursorNoMetadataWhenToggleOff();
 
-    fprintf('    All 11 metadata tests passed.\n');
+    fprintf('    All 13 metadata tests passed.\n');
 end
 
 function testAddLineWithMetadata()
@@ -129,4 +131,36 @@ end
 function testMetadataIconSize()
     icon = FastPlotToolbar.makeIcon('metadata');
     assert(isequal(size(icon), [16 16 3]), 'testMetadataIconSize');
+end
+
+function testCursorShowsMetadata()
+    fp = FastPlot();
+    meta.datenum = [1, 50];
+    meta.operator = {'Alice', 'Bob'};
+    fp.addLine([1 2 3 4 5], [10 20 30 40 50], 'Metadata', meta);
+    fp.render();
+    tb = FastPlotToolbar(fp);
+    tb.setMetadata(true);
+    tb.setCursor(true);
+    % Simulate snap and build label
+    [sx, sy, lineIdx] = tb.snapToNearest(fp, 3, 30);
+    label = tb.buildCursorLabel(fp, sx, sy, lineIdx);
+    assert(~isempty(strfind(label, 'Alice')), ...
+        'testCursorShowsMetadata: should contain Alice');
+    close(fp.hFigure);
+end
+
+function testCursorNoMetadataWhenToggleOff()
+    fp = FastPlot();
+    meta.datenum = [1, 50];
+    meta.operator = {'Alice', 'Bob'};
+    fp.addLine([1 2 3 4 5], [10 20 30 40 50], 'Metadata', meta);
+    fp.render();
+    tb = FastPlotToolbar(fp);
+    tb.setMetadata(false);
+    [sx, sy, lineIdx] = tb.snapToNearest(fp, 3, 30);
+    label = tb.buildCursorLabel(fp, sx, sy, lineIdx);
+    assert(isempty(strfind(label, 'Alice')), ...
+        'testCursorNoMeta: should not contain Alice');
+    close(fp.hFigure);
 end
