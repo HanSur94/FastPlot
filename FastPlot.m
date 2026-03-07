@@ -13,6 +13,7 @@ classdef FastPlot < handle
         ParentAxes = []       % axes handle, empty = create new
         LinkGroup  = ''       % string ID for linked zoom/pan
         Theme      = []       % theme struct (from FastPlotTheme)
+        Verbose    = false       % print diagnostics to console
     end
 
     properties (SetAccess = private)
@@ -69,6 +70,8 @@ classdef FastPlot < handle
                         else
                             obj.Theme = val;
                         end
+                    case 'verbose'
+                        obj.Verbose = varargin{k+1};
                 end
             end
             % Default theme if none set
@@ -362,6 +365,8 @@ classdef FastPlot < handle
         function render(obj)
             %RENDER Create the plot with all configured lines and thresholds.
 
+            if obj.Verbose; renderTic = tic; end
+
             if obj.IsRendered
                 error('FastPlot:alreadyRendered', ...
                     'render() has already been called on this FastPlot.');
@@ -489,6 +494,11 @@ classdef FastPlot < handle
                 set(h, 'UserData', ud);
 
                 obj.Lines(i).hLine = h;
+
+                if obj.Verbose
+                    fprintf('[FastPlot] render: line %d: %d pts -> %d displayed (pw=%d)\n', ...
+                        i, numel(L.X), numel(xd), obj.PixelWidth);
+                end
             end
 
             % --- Render threshold lines and violation markers (per threshold) ---
@@ -545,6 +555,11 @@ classdef FastPlot < handle
                         'ThresholdValue', T.Value);
                     set(hM, 'UserData', udM);
                     obj.Thresholds(t).hMarkers = hM;
+
+                    if obj.Verbose
+                        fprintf('[FastPlot] render: threshold %.4g: %d violation markers\n', ...
+                            T.Value, numel(vxAll));
+                    end
                 end
             end
 
@@ -595,6 +610,13 @@ classdef FastPlot < handle
             zoom(obj.hFigure, 'on');
 
             obj.IsRendered = true;
+
+            if obj.Verbose
+                totalPts = 0;
+                for i = 1:numel(obj.Lines); totalPts = totalPts + numel(obj.Lines(i).X); end
+                fprintf('[FastPlot] render complete: %d total pts, pw=%d, %.3fs\n', ...
+                    totalPts, obj.PixelWidth, toc(renderTic));
+            end
 
             % Register in link group
             if ~isempty(obj.LinkGroup)
@@ -651,6 +673,10 @@ classdef FastPlot < handle
             end
             obj.CachedXLim = newXLim;
 
+            if obj.Verbose
+                fprintf('[FastPlot] onXLimChanged: range=[%.4g, %.4g]\n', newXLim(1), newXLim(2));
+            end
+
             obj.updateLines();
             obj.updateShadings();
             obj.updateViolations();
@@ -661,6 +687,7 @@ classdef FastPlot < handle
             end
 
             obj.drawnowLimitRate();
+            if obj.Verbose; fflush(stdout); end
         end
 
         function onResize(obj, ~, ~)
@@ -669,10 +696,14 @@ classdef FastPlot < handle
             end
             newPW = obj.getAxesPixelWidth();
             if newPW ~= obj.PixelWidth
+                if obj.Verbose
+                    fprintf('[FastPlot] onResize: pw %d -> %d\n', obj.PixelWidth, newPW);
+                end
                 obj.PixelWidth = newPW;
                 obj.updateLines();
                 obj.updateShadings();
                 obj.drawnowLimitRate();
+                if obj.Verbose; fflush(stdout); end
             end
         end
 
@@ -774,6 +805,16 @@ classdef FastPlot < handle
                 end
 
                 set(obj.Lines(i).hLine, 'XData', xd, 'YData', yd);
+
+                if obj.Verbose
+                    if exist('lvl', 'var') && lvl > 0
+                        pyrStr = sprintf('pyramid L%d', lvl);
+                    else
+                        pyrStr = 'raw';
+                    end
+                    fprintf('[FastPlot]   line %d: %d visible -> %d displayed (%s, pw=%d)\n', ...
+                        i, nVis, numel(xd), pyrStr, pw);
+                end
             end
         end
 
@@ -867,8 +908,16 @@ classdef FastPlot < handle
                     vyAll = [vyCell{1:nViols}];
                     % Remove trailing NaN
                     set(obj.Thresholds(t).hMarkers, 'XData', vxAll(1:end-1), 'YData', vyAll(1:end-1));
+                    if obj.Verbose
+                        fprintf('[FastPlot]   violations T%d (%.4g): %d markers\n', ...
+                            t, obj.Thresholds(t).Value, numel(vxAll)-1);
+                    end
                 else
                     set(obj.Thresholds(t).hMarkers, 'XData', NaN, 'YData', NaN);
+                    if obj.Verbose
+                        fprintf('[FastPlot]   violations T%d (%.4g): 0 markers\n', ...
+                            t, obj.Thresholds(t).Value);
+                    end
                 end
             end
         end
