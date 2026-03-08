@@ -65,6 +65,14 @@ classdef FastPlotDock < handle
             obj.Tabs(idx).Name = name;
             obj.Tabs(idx).Figure = fig;
             obj.Tabs(idx).Toolbar = [];
+
+            % If already rendered, render this tab immediately
+            if obj.ActiveTab >= 1
+                fig.renderAll();
+                obj.Tabs(idx).Toolbar = FastPlotToolbar(fig);
+                obj.setTabVisible(idx, false);
+                obj.addTabButton(idx);
+            end
         end
 
         function render(obj)

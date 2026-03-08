@@ -123,5 +123,25 @@ function test_dock()
     assert(~fig1.LiveIsActive, 'testCloseStopsLive: live stopped after close');
     delete(tmpFile);
 
-    fprintf('    All 8 dock tests passed.\n');
+    % testAddTabAfterRender
+    dock = FastPlotDock('Theme', 'dark');
+    fig1 = FastPlotFigure(1, 1, 'ParentFigure', dock.hFigure);
+    fp = fig1.tile(1); fp.addLine(1:50, rand(1,50));
+    dock.addTab(fig1, 'Tab A');
+    dock.render();
+
+    fig2 = FastPlotFigure(1, 1, 'ParentFigure', dock.hFigure);
+    fp = fig2.tile(1); fp.addLine(1:50, rand(1,50));
+    dock.addTab(fig2, 'Tab B');
+
+    assert(numel(dock.Tabs) == 2, 'testAddTabAfterRender: 2 tabs');
+    assert(numel(dock.hTabButtons) == 2, 'testAddTabAfterRender: 2 buttons');
+    % New tab should be hidden (first tab still active)
+    assert(strcmp(get(fig2.tile(1).hAxes, 'Visible'), 'off'), 'testAddTabAfterRender: new tab hidden');
+    % Switch to it
+    dock.selectTab(2);
+    assert(strcmp(get(fig2.tile(1).hAxes, 'Visible'), 'on'), 'testAddTabAfterRender: new tab visible');
+    close(dock.hFigure);
+
+    fprintf('    All 9 dock tests passed.\n');
 end
