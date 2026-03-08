@@ -9,7 +9,7 @@ classdef FastPlotDock < handle
     end
 
     properties (SetAccess = private)
-        Tabs      = struct('Name', {}, 'Figure', {}, 'Toolbar', {})
+        Tabs      = struct('Name', {}, 'Figure', {}, 'Toolbar', {}, 'Panel', {})
         ActiveTab = 0          % index of currently visible tab
         hTabButtons = {}       % cell array of uicontrol handles
     end
@@ -56,19 +56,27 @@ classdef FastPlotDock < handle
                 fig.hFigure = obj.hFigure;
             end
 
-            % Set content offset to leave room for tab bar
+            % Tiles fill the full panel (panel handles the tab bar offset)
+            fig.ContentOffset = [0, 0, 1, 1];
+
+            % Create a panel for this tab's content
             tabH = obj.TAB_BAR_HEIGHT;
-            fig.ContentOffset = [0, 0, 1, 1 - tabH];
+            panel = uipanel(obj.hFigure, 'Units', 'normalized', ...
+                'Position', [0, 0, 1, 1 - tabH], ...
+                'BorderType', 'none', ...
+                'BackgroundColor', obj.Theme.Background);
 
             % Append to tabs
             idx = numel(obj.Tabs) + 1;
             obj.Tabs(idx).Name = name;
             obj.Tabs(idx).Figure = fig;
             obj.Tabs(idx).Toolbar = [];
+            obj.Tabs(idx).Panel = panel;
 
             % If already rendered, render this tab immediately
             if obj.ActiveTab >= 1
                 fig.renderAll();
+                obj.reparentAxes(idx);
                 obj.Tabs(idx).Toolbar = FastPlotToolbar(fig);
                 obj.setTabVisible(idx, false);
                 obj.addTabButton(idx);
@@ -82,9 +90,10 @@ classdef FastPlotDock < handle
                 return;
             end
 
-            % Render all figures (all axes created but deferred draw)
+            % Render all figures, reparent axes into panels
             for i = 1:numel(obj.Tabs)
                 obj.Tabs(i).Figure.renderAll();
+                obj.reparentAxes(i);
                 obj.Tabs(i).Toolbar = FastPlotToolbar(obj.Tabs(i).Figure);
             end
 
@@ -96,7 +105,6 @@ classdef FastPlotDock < handle
                 obj.setTabVisible(i, false);
             end
             obj.selectTab(1);
-
 
             set(obj.hFigure, 'Visible', 'on');
             drawnow;
@@ -122,18 +130,8 @@ classdef FastPlotDock < handle
         end
 
         function recomputeLayout(obj)
-            %RECOMPUTELAYOUT Recalculate all tile positions for all tabs.
-            for i = 1:numel(obj.Tabs)
-                fig = obj.Tabs(i).Figure;
-                for j = 1:numel(fig.TileAxes)
-                    if ~isempty(fig.TileAxes{j}) && ishandle(fig.TileAxes{j})
-                        pos = fig.computeTilePosition(j);
-                        set(fig.TileAxes{j}, 'Position', pos);
-                    end
-                end
-            end
-
-            % Reposition tab buttons
+            %RECOMPUTELAYOUT Reposition tab buttons on resize.
+            %   Axes inside panels auto-resize via normalized units.
             if ~isempty(obj.hTabButtons)
                 nTabs = numel(obj.hTabButtons);
                 tabH = obj.TAB_BAR_HEIGHT;
@@ -162,6 +160,17 @@ classdef FastPlotDock < handle
     end
 
     methods (Access = private)
+        function reparentAxes(obj, idx)
+            %REPARENTAXES Move all tile axes into the tab's panel.
+            fig = obj.Tabs(idx).Figure;
+            panel = obj.Tabs(idx).Panel;
+            for j = 1:numel(fig.TileAxes)
+                if ~isempty(fig.TileAxes{j}) && ishandle(fig.TileAxes{j})
+                    set(fig.TileAxes{j}, 'Parent', panel);
+                end
+            end
+        end
+
         function createTabBar(obj)
             obj.hTabButtons = {};
             for i = 1:numel(obj.Tabs)
@@ -212,26 +221,19 @@ classdef FastPlotDock < handle
         end
 
         function setTabVisible(obj, idx, visible)
-            fig = obj.Tabs(idx).Figure;
-
-            % Move axes on/off-screen instead of toggling Visible.
-            % MATLAB's interactive zoom tool has issues with Visible='off'
-            % axes — it maintains internal state that corrupts hidden axes.
-            % Moving off-screen keeps axes alive and avoids zoom conflicts.
-            for i = 1:numel(fig.TileAxes)
-                if ~isempty(fig.TileAxes{i}) && ishandle(fig.TileAxes{i})
-                    if visible
-                        pos = fig.computeTilePosition(i);
-                        set(fig.TileAxes{i}, 'Position', pos, ...
-                            'HitTest', 'on');
-                    else
-                        set(fig.TileAxes{i}, 'Position', [-2 -2 0.01 0.01], ...
-                            'HitTest', 'off');
-                    end
+            %SETTABVISIBLE Show/hide a tab by toggling its panel.
+            %   Panel visibility cleanly hides all child axes without
+            %   touching individual axes properties or MATLAB's zoom state.
+            panel = obj.Tabs(idx).Panel;
+            if ~isempty(panel) && ishandle(panel)
+                if visible
+                    set(panel, 'Visible', 'on');
+                else
+                    set(panel, 'Visible', 'off');
                 end
             end
 
-            % Toggle toolbar visibility (uitoolbar handles this fine)
+            % Toggle toolbar (parented to figure, not panel)
             tb = obj.Tabs(idx).Toolbar;
             if ~isempty(tb) && ~isempty(tb.hToolbar) && ishandle(tb.hToolbar)
                 if visible

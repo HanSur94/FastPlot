@@ -46,12 +46,9 @@ function test_dock()
     assert(dock.ActiveTab == 1, 'testRender: first tab active');
     assert(strcmp(get(dock.hFigure, 'Visible'), 'on'), 'testRender: figure visible');
     assert(numel(dock.hTabButtons) == 2, 'testRender: 2 tab buttons');
-    % Tab A tiles should be on-screen
-    posA = get(fig1.tile(1).hAxes, 'Position');
-    assert(posA(1) >= 0, 'testRender: tab A on-screen');
-    % Tab B tiles should be off-screen
-    posB = get(fig2.tile(1).hAxes, 'Position');
-    assert(posB(1) < 0, 'testRender: tab B off-screen');
+    % Tab A panel should be visible, Tab B hidden
+    assert(strcmp(get(dock.Tabs(1).Panel, 'Visible'), 'on'), 'testRender: tab A panel visible');
+    assert(strcmp(get(dock.Tabs(2).Panel, 'Visible'), 'off'), 'testRender: tab B panel hidden');
     close(dock.hFigure);
 
     % testSelectTab
@@ -68,18 +65,14 @@ function test_dock()
     % Switch to tab 2
     dock.selectTab(2);
     assert(dock.ActiveTab == 2, 'testSelectTab: active is 2');
-    posA = get(fig1.tile(1).hAxes, 'Position');
-    posB = get(fig2.tile(1).hAxes, 'Position');
-    assert(posA(1) < 0, 'testSelectTab: tab A off-screen');
-    assert(posB(1) >= 0, 'testSelectTab: tab B on-screen');
+    assert(strcmp(get(dock.Tabs(1).Panel, 'Visible'), 'off'), 'testSelectTab: tab A hidden');
+    assert(strcmp(get(dock.Tabs(2).Panel, 'Visible'), 'on'), 'testSelectTab: tab B visible');
 
     % Switch back to tab 1
     dock.selectTab(1);
     assert(dock.ActiveTab == 1, 'testSelectTab: active is 1');
-    posA = get(fig1.tile(1).hAxes, 'Position');
-    posB = get(fig2.tile(1).hAxes, 'Position');
-    assert(posA(1) >= 0, 'testSelectTab: tab A on-screen again');
-    assert(posB(1) < 0, 'testSelectTab: tab B off-screen again');
+    assert(strcmp(get(dock.Tabs(1).Panel, 'Visible'), 'on'), 'testSelectTab: tab A visible again');
+    assert(strcmp(get(dock.Tabs(2).Panel, 'Visible'), 'off'), 'testSelectTab: tab B hidden again');
     close(dock.hFigure);
 
     % testSelectTabOutOfBounds
@@ -142,13 +135,11 @@ function test_dock()
 
     assert(numel(dock.Tabs) == 2, 'testAddTabAfterRender: 2 tabs');
     assert(numel(dock.hTabButtons) == 2, 'testAddTabAfterRender: 2 buttons');
-    % New tab should be off-screen (first tab still active)
-    posB = get(fig2.tile(1).hAxes, 'Position');
-    assert(posB(1) < 0, 'testAddTabAfterRender: new tab off-screen');
+    % New tab panel should be hidden (first tab still active)
+    assert(strcmp(get(dock.Tabs(2).Panel, 'Visible'), 'off'), 'testAddTabAfterRender: new tab hidden');
     % Switch to it
     dock.selectTab(2);
-    posB = get(fig2.tile(1).hAxes, 'Position');
-    assert(posB(1) >= 0, 'testAddTabAfterRender: new tab on-screen');
+    assert(strcmp(get(dock.Tabs(2).Panel, 'Visible'), 'on'), 'testAddTabAfterRender: new tab visible');
     close(dock.hFigure);
 
     fprintf('    All 9 dock tests passed.\n');
