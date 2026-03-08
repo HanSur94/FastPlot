@@ -8,6 +8,7 @@ classdef FastPlotFigure < handle
         Theme      = []         % FastPlotTheme struct
         hFigure    = []         % figure handle
         ParentFigure = []      % external figure handle (skip figure creation)
+        ContentOffset = [0 0 1 1]  % [left bottom width height] normalized content area
         LiveViewMode = ''          % 'preserve' | 'follow' | 'reset'
         LiveFile       = ''        % path to .mat file
         LiveUpdateFcn  = []        % @(fig, data) callback
@@ -412,17 +413,21 @@ classdef FastPlotFigure < handle
             gapH = obj.GAP_H;
             gapV = obj.GAP_V;
 
-            % Available space after padding
-            totalW = 1 - 2*pad;
-            totalH = 1 - 2*pad;
+            % Content area
+            co = obj.ContentOffset;
+            coLeft = co(1); coBottom = co(2); coWidth = co(3); coHeight = co(4);
+
+            % Available space after padding (within content area)
+            totalW = coWidth - 2*pad;
+            totalH = coHeight - 2*pad;
 
             % Cell dimensions
             cellW = (totalW - (cols-1)*gapH) / cols;
             cellH = (totalH - (rows-1)*gapV) / rows;
 
-            % Position (bottom-left origin for MATLAB)
-            x = pad + (col-1) * (cellW + gapH);
-            y = 1 - pad - row * cellH - (row-1) * gapV;
+            % Position (bottom-left origin for MATLAB), offset by content area
+            x = coLeft + pad + (col-1) * (cellW + gapH);
+            y = coBottom + coHeight - pad - row * cellH - (row-1) * gapV;
 
             % Apply span
             w = colSpan * cellW + (colSpan-1) * gapH;

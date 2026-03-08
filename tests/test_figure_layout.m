@@ -136,5 +136,17 @@ function test_figure_layout()
     assert(get(fp.hAxes, 'Parent') == hParent, 'testParentFigure: axes in parent');
     close(hParent);
 
-    fprintf('    All 14 figure layout tests passed.\n');
+    % testContentOffset
+    fig = FastPlotFigure(1, 1);
+    fig.ContentOffset = [0.05 0.05 0.9 0.85];
+    fp = fig.tile(1);
+    fp.addLine(1:50, rand(1,50));
+    fp.render();
+    pos = get(fp.hAxes, 'Position');
+    % Tile should be within the content offset region
+    assert(pos(2) >= 0.04, sprintf('testContentOffset: bottom %.3f >= 0.04', pos(2)));
+    assert(pos(2) + pos(4) <= 0.95, sprintf('testContentOffset: top %.3f <= 0.95', pos(2)+pos(4)));
+    close(fig.hFigure);
+
+    fprintf('    All 15 figure layout tests passed.\n');
 end
