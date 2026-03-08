@@ -47,6 +47,7 @@ classdef FastPlot < handle
         IsRendered    = false
         hFigure       = []
         hAxes         = []
+        IsDatetime    = false % true if X data was datetime (converted to datenum)
     end
 
     properties (Access = private)
@@ -59,7 +60,6 @@ classdef FastPlot < handle
         HasLimitRate  = []    % cached: does drawnow support 'limitrate'?
         DeferredTimer = []    % timer for deferred Home button re-downsample
         ColorIndex    = 0     % tracks auto color cycling position
-        IsDatetime    = false % true if X data was datetime (converted to datenum)
         LiveTimer      = []        % timer object for live polling
         LiveFileDate   = 0         % last known file modification datenum
         MetadataFileDate  = 0         % last known metadata file datenum
@@ -548,6 +548,7 @@ classdef FastPlot < handle
                     'Name', displayName, ...
                     'LineIndex', i, ...
                     'ThresholdValue', []);
+                ud.FastPlotInstance = obj;
                 set(h, 'UserData', ud);
 
                 obj.Lines(i).hLine = h;

@@ -48,6 +48,7 @@ classdef FastPlotToolbar < handle
             end
 
             obj.createToolbar();
+            obj.installDataCursorCallback();
         end
 
         function toggleGrid(obj)
@@ -150,11 +151,13 @@ classdef FastPlotToolbar < handle
 
         function setMetadata(obj, on)
             obj.MetadataEnabled = on;
+            setappdata(obj.hFigure, 'FastPlotMetadataEnabled', on);
             if on
                 set(obj.hMetadataBtn, 'State', 'on');
             else
                 set(obj.hMetadataBtn, 'State', 'off');
             end
+            obj.refreshDataCursors();
         end
 
         function label = buildCursorLabel(obj, fp, sx, sy, lineIdx)
@@ -279,10 +282,14 @@ classdef FastPlotToolbar < handle
 
         function onMetadataOn(obj)
             obj.MetadataEnabled = true;
+            setappdata(obj.hFigure, 'FastPlotMetadataEnabled', true);
+            obj.refreshDataCursors();
         end
 
         function onMetadataOff(obj)
             obj.MetadataEnabled = false;
+            setappdata(obj.hFigure, 'FastPlotMetadataEnabled', false);
+            obj.refreshDataCursors();
         end
 
         function onCursorOn(obj)
@@ -502,6 +509,101 @@ classdef FastPlotToolbar < handle
                     fp = obj.FastPlots{i};
                     ax = a;
                     return;
+                end
+            end
+        end
+
+        function installDataCursorCallback(obj)
+            %INSTALLDATACURSORCALLBACK Set UpdateFcn on MATLAB datacursormode.
+            try
+                dcm = datacursormode(obj.hFigure);
+                set(dcm, 'UpdateFcn', @(tip, evt) obj.dataCursorUpdateFcn(tip, evt));
+            catch
+                % Octave may not support datacursormode
+            end
+        end
+
+        function refreshDataCursors(obj)
+            %REFRESHDATACURSORS Force existing data tips to re-evaluate.
+            try
+                dcm = datacursormode(obj.hFigure);
+                updateDataCursors(dcm);
+            catch
+            end
+        end
+
+        function txt = dataCursorUpdateFcn(obj, ~, evt)
+            %DATACURSORUPDATEFCN Custom tooltip for MATLAB data cursor.
+            try
+                pos = get(evt, 'Position');
+            catch
+                pos = evt.Position;
+            end
+            xVal = pos(1);
+            yVal = pos(2);
+
+            % Find the line handle that was clicked
+            try
+                hTarget = get(evt, 'Target');
+            catch
+                hTarget = evt.Target;
+            end
+
+            % Look up which FastPlot and line index from the line's UserData
+            fp = [];
+            lineIdx = [];
+            ud = get(hTarget, 'UserData');
+            if isstruct(ud) && isfield(ud, 'FastPlot') && isfield(ud.FastPlot, 'LineIndex')
+                lineIdx = ud.FastPlot.LineIndex;
+            end
+            if isstruct(ud) && isfield(ud, 'FastPlotInstance')
+                fp = ud.FastPlotInstance;
+            end
+
+            % Format X value (datetime-aware)
+            if ~isempty(fp) && fp.IsDatetime
+                try
+                    xStr = datestr(xVal);
+                catch
+                    xStr = sprintf('%.6g', xVal);
+                end
+            else
+                xStr = sprintf('%.6g', xVal);
+            end
+
+            % Start with coordinate display
+            txt = {sprintf('X: %s', xStr), sprintf('Y: %.6g', yVal)};
+
+            % Add display name
+            if ~isempty(fp) && ~isempty(lineIdx) && lineIdx <= numel(fp.Lines)
+                if isfield(fp.Lines(lineIdx).Options, 'DisplayName')
+                    txt = [{fp.Lines(lineIdx).Options.DisplayName}, txt];
+                end
+            end
+
+            % Add metadata if available (use figure AppData for dock compatibility)
+            metaOn = false;
+            try
+                hFig = ancestor(hTarget, 'figure');
+                metaOn = getappdata(hFig, 'FastPlotMetadataEnabled');
+            catch
+            end
+            if isempty(metaOn); metaOn = false; end
+            if metaOn && ~isempty(fp) && ~isempty(lineIdx)
+                % Use raw X for metadata lookup (downsampled point maps to raw range)
+                result = fp.lookupMetadata(lineIdx, xVal);
+                if ~isempty(result)
+                    txt{end+1} = '--------';
+                    fields = fieldnames(result);
+                    for i = 1:numel(fields)
+                        val = result.(fields{i});
+                        if isnumeric(val)
+                            valStr = sprintf('%.4g', val);
+                        else
+                            valStr = char(val);
+                        end
+                        txt{end+1} = sprintf('%s: %s', fields{i}, valStr); %#ok<AGROW>
+                    end
                 end
             end
         end
