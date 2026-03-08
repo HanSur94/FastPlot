@@ -97,10 +97,7 @@ classdef FastPlotDock < handle
 
             % If already rendered, render this tab immediately
             if obj.ActiveTab >= 1
-                fig.renderAll();
-                obj.reparentAxes(idx);
-                obj.Tabs(idx).Toolbar = FastPlotToolbar(fig);
-                obj.Tabs(idx).IsRendered = true;
+                obj.renderTab(idx);
                 obj.setTabVisible(idx, false);
                 obj.addTabButton(idx);
             end
@@ -141,6 +138,11 @@ classdef FastPlotDock < handle
             if n < 1 || n > numel(obj.Tabs)
                 error('FastPlotDock:outOfBounds', ...
                     'Tab %d is out of range (1-%d).', n, numel(obj.Tabs));
+            end
+
+            % Guard against calling selectTab before render()
+            if isempty(obj.hTabButtons)
+                return;
             end
 
             % Lazy render on first switch
@@ -367,6 +369,10 @@ classdef FastPlotDock < handle
 
         function renderTab(obj, idx)
             %RENDERTAB Render a single tab: figure, axes reparenting, toolbar.
+            tb = obj.Tabs(idx).Toolbar;
+            if ~isempty(tb) && ~isempty(tb.hToolbar) && ishandle(tb.hToolbar)
+                delete(tb.hToolbar);
+            end
             obj.Tabs(idx).Figure.renderAll();
             obj.reparentAxes(idx);
             obj.Tabs(idx).Toolbar = FastPlotToolbar(obj.Tabs(idx).Figure);
