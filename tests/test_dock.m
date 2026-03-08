@@ -32,5 +32,25 @@ function test_dock()
     assert(numel(dock.Tabs) == 2, 'testAddTab: 2 tabs');
     close(dock.hFigure);
 
-    fprintf('    All 3 dock tests passed.\n');
+    % testRender
+    dock = FastPlotDock('Theme', 'dark');
+    fig1 = FastPlotFigure(1, 1, 'ParentFigure', dock.hFigure);
+    fp = fig1.tile(1); fp.addLine(1:50, rand(1,50));
+    dock.addTab(fig1, 'Tab A');
+
+    fig2 = FastPlotFigure(1, 1, 'ParentFigure', dock.hFigure);
+    fp = fig2.tile(1); fp.addLine(1:50, rand(1,50));
+    dock.addTab(fig2, 'Tab B');
+
+    dock.render();
+    assert(dock.ActiveTab == 1, 'testRender: first tab active');
+    assert(strcmp(get(dock.hFigure, 'Visible'), 'on'), 'testRender: figure visible');
+    assert(numel(dock.hTabButtons) == 2, 'testRender: 2 tab buttons');
+    % Tab A tiles should be visible
+    assert(strcmp(get(fig1.tile(1).hAxes, 'Visible'), 'on'), 'testRender: tab A visible');
+    % Tab B tiles should be hidden
+    assert(strcmp(get(fig2.tile(1).hAxes, 'Visible'), 'off'), 'testRender: tab B hidden');
+    close(dock.hFigure);
+
+    fprintf('    All 4 dock tests passed.\n');
 end

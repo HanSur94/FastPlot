@@ -65,6 +65,51 @@ classdef FastPlotDock < handle
             obj.Tabs(idx).Toolbar = [];
         end
 
+        function render(obj)
+            %RENDER Render all tabs, create tab bar, show first tab.
+            if isempty(obj.Tabs)
+                set(obj.hFigure, 'Visible', 'on');
+                return;
+            end
+
+            % Render all figures (all axes created but deferred draw)
+            for i = 1:numel(obj.Tabs)
+                obj.Tabs(i).Figure.renderAll();
+                obj.Tabs(i).Toolbar = FastPlotToolbar(obj.Tabs(i).Figure);
+            end
+
+            % Create the tab bar buttons
+            obj.createTabBar();
+
+            % Hide all tabs, then show the first one
+            for i = 1:numel(obj.Tabs)
+                obj.setTabVisible(i, false);
+            end
+            obj.selectTab(1);
+
+            set(obj.hFigure, 'Visible', 'on');
+            drawnow;
+        end
+
+        function selectTab(obj, n)
+            %SELECTTAB Switch to tab n.
+            if n < 1 || n > numel(obj.Tabs)
+                error('FastPlotDock:outOfBounds', ...
+                    'Tab %d is out of range (1-%d).', n, numel(obj.Tabs));
+            end
+
+            % Hide current tab
+            if obj.ActiveTab >= 1 && obj.ActiveTab <= numel(obj.Tabs)
+                obj.setTabVisible(obj.ActiveTab, false);
+                obj.styleTabButton(obj.ActiveTab, false);
+            end
+
+            % Show new tab
+            obj.setTabVisible(n, true);
+            obj.styleTabButton(n, true);
+            obj.ActiveTab = n;
+        end
+
         function delete(obj)
             % Stop all live timers before closing
             for i = 1:numel(obj.Tabs)
@@ -74,6 +119,93 @@ classdef FastPlotDock < handle
             end
             if ~isempty(obj.hFigure) && ishandle(obj.hFigure)
                 delete(obj.hFigure);
+            end
+        end
+    end
+
+    methods (Access = private)
+        function createTabBar(obj)
+            obj.hTabButtons = {};
+            for i = 1:numel(obj.Tabs)
+                obj.addTabButton(i);
+            end
+        end
+
+        function addTabButton(obj, idx)
+            nTabs = numel(obj.Tabs);
+            tabH = obj.TAB_BAR_HEIGHT;
+            btnWidth = min(0.15, 0.95 / nTabs);
+            startX = 0.025;
+
+            btn = uicontrol(obj.hFigure, ...
+                'Style', 'togglebutton', ...
+                'String', obj.Tabs(idx).Name, ...
+                'Units', 'normalized', ...
+                'Position', [startX + (idx-1)*btnWidth, 1 - tabH, btnWidth, tabH], ...
+                'FontSize', 9, ...
+                'Callback', @(s,e) obj.onTabClick(idx));
+            obj.hTabButtons{idx} = btn;
+
+            % Reposition all buttons to account for new count
+            for i = 1:numel(obj.hTabButtons)
+                if ishandle(obj.hTabButtons{i})
+                    set(obj.hTabButtons{i}, 'Position', ...
+                        [startX + (i-1)*btnWidth, 1 - tabH, btnWidth, tabH]);
+                end
+            end
+
+            % Style active/inactive
+            obj.styleTabButton(idx, idx == obj.ActiveTab);
+        end
+
+        function onTabClick(obj, idx)
+            obj.selectTab(idx);
+        end
+
+        function setTabVisible(obj, idx, visible)
+            fig = obj.Tabs(idx).Figure;
+            visStr = 'off';
+            if visible; visStr = 'on'; end
+
+            % Toggle all tile axes
+            for i = 1:numel(fig.TileAxes)
+                if ~isempty(fig.TileAxes{i}) && ishandle(fig.TileAxes{i})
+                    set(fig.TileAxes{i}, 'Visible', visStr);
+                    % Toggle all children (lines, patches, text)
+                    ch = get(fig.TileAxes{i}, 'Children');
+                    for j = 1:numel(ch)
+                        if ishandle(ch(j))
+                            set(ch(j), 'Visible', visStr);
+                        end
+                    end
+                    % Toggle title and labels
+                    set(get(fig.TileAxes{i}, 'Title'), 'Visible', visStr);
+                    set(get(fig.TileAxes{i}, 'XLabel'), 'Visible', visStr);
+                    set(get(fig.TileAxes{i}, 'YLabel'), 'Visible', visStr);
+                end
+            end
+
+            % Toggle toolbar
+            tb = obj.Tabs(idx).Toolbar;
+            if ~isempty(tb) && ~isempty(tb.hToolbar) && ishandle(tb.hToolbar)
+                set(tb.hToolbar, 'Visible', visStr);
+            end
+        end
+
+        function styleTabButton(obj, idx, active)
+            if idx < 1 || idx > numel(obj.hTabButtons); return; end
+            btn = obj.hTabButtons{idx};
+            if ~ishandle(btn); return; end
+            if active
+                set(btn, 'Value', 1, ...
+                    'BackgroundColor', obj.Theme.Background * 0.8 + [0.05 0.1 0.2], ...
+                    'ForegroundColor', obj.Theme.ForegroundColor, ...
+                    'FontWeight', 'bold');
+            else
+                set(btn, 'Value', 0, ...
+                    'BackgroundColor', obj.Theme.Background, ...
+                    'ForegroundColor', obj.Theme.ForegroundColor * 0.7, ...
+                    'FontWeight', 'normal');
             end
         end
     end
