@@ -42,13 +42,20 @@ function build_mex()
     fprintf('Architecture: %s (%s)\n', arch, arch_raw);
 
     % Detect best available compiler
-    [gcc_path, gcc_name] = find_gcc();
-    if ~isempty(gcc_path)
-        compiler = gcc_path;
-        fprintf('Compiler: %s (GCC — preferred for auto-vectorization)\n', gcc_name);
+    % On MATLAB/macOS, always use system clang — MATLAB's mex injects
+    % macOS-specific linker flags (-weak-lmx etc.) that GCC doesn't support.
+    if exist('OCTAVE_VERSION', 'builtin')
+        [gcc_path, gcc_name] = find_gcc();
+        if ~isempty(gcc_path)
+            compiler = gcc_path;
+            fprintf('Compiler: %s (GCC — preferred for auto-vectorization)\n', gcc_name);
+        else
+            compiler = '';
+            fprintf('Compiler: system default\n');
+        end
     else
         compiler = '';
-        fprintf('Compiler: system default (clang)\n');
+        fprintf('Compiler: system default (clang — required for MATLAB mex on macOS)\n');
     end
 
     % Set optimization and SIMD flags
@@ -59,10 +66,10 @@ function build_mex()
             fprintf('SIMD target: AVX2 + FMA\n');
         case 'arm64'
             % ARM64 (Apple Silicon / Linux ARM): NEON is default
-            if ~isempty(gcc_path)
+            if ~isempty(compiler)
                 opt_flags = {'-O3', '-mcpu=apple-m3', '-ftree-vectorize', '-ffast-math'};
             else
-                opt_flags = {'-O3', '-mcpu=apple-m4', '-ffast-math'};
+                opt_flags = {'-O3', '-ffast-math'};
             end
             fprintf('SIMD target: ARM NEON\n');
         otherwise
