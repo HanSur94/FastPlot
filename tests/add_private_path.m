@@ -25,12 +25,13 @@ function add_private_path()
         tmpDir = fullfile(tempdir, 'fastplot_private_proxy');
         if ~exist(tmpDir, 'dir')
             mkdir(tmpDir);
-            files = dir(fullfile(privDir, '*.m'));
-            for i = 1:numel(files)
-                src = fullfile(privDir, files(i).name);
-                dst = fullfile(tmpDir, files(i).name);
-                copyfile(src, dst);
-            end
+        end
+        % Always sync files to pick up new/changed private functions
+        files = dir(fullfile(privDir, '*.m'));
+        for i = 1:numel(files)
+            src = fullfile(privDir, files(i).name);
+            dst = fullfile(tmpDir, files(i).name);
+            copyfile(src, dst);
         end
         addpath(tmpDir);
     end
