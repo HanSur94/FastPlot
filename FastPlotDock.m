@@ -97,6 +97,9 @@ classdef FastPlotDock < handle
             end
             obj.selectTab(1);
 
+            % Enable zoom once for the shared figure
+            zoom(obj.hFigure, 'on');
+
             set(obj.hFigure, 'Visible', 'on');
             drawnow;
         end
@@ -212,31 +215,32 @@ classdef FastPlotDock < handle
 
         function setTabVisible(obj, idx, visible)
             fig = obj.Tabs(idx).Figure;
-            visStr = 'off';
-            if visible; visStr = 'on'; end
 
-            % Toggle all tile axes
+            % Move axes on/off-screen instead of toggling Visible.
+            % MATLAB's interactive zoom tool has issues with Visible='off'
+            % axes — it maintains internal state that corrupts hidden axes.
+            % Moving off-screen keeps axes alive and avoids zoom conflicts.
             for i = 1:numel(fig.TileAxes)
                 if ~isempty(fig.TileAxes{i}) && ishandle(fig.TileAxes{i})
-                    set(fig.TileAxes{i}, 'Visible', visStr);
-                    % Toggle all children (lines, patches, text)
-                    ch = get(fig.TileAxes{i}, 'Children');
-                    for j = 1:numel(ch)
-                        if ishandle(ch(j))
-                            set(ch(j), 'Visible', visStr);
-                        end
+                    if visible
+                        pos = fig.computeTilePosition(i);
+                        set(fig.TileAxes{i}, 'Position', pos, ...
+                            'HitTest', 'on');
+                    else
+                        set(fig.TileAxes{i}, 'Position', [-2 -2 0.01 0.01], ...
+                            'HitTest', 'off');
                     end
-                    % Toggle title and labels
-                    set(get(fig.TileAxes{i}, 'Title'), 'Visible', visStr);
-                    set(get(fig.TileAxes{i}, 'XLabel'), 'Visible', visStr);
-                    set(get(fig.TileAxes{i}, 'YLabel'), 'Visible', visStr);
                 end
             end
 
-            % Toggle toolbar
+            % Toggle toolbar visibility (uitoolbar handles this fine)
             tb = obj.Tabs(idx).Toolbar;
             if ~isempty(tb) && ~isempty(tb.hToolbar) && ishandle(tb.hToolbar)
-                set(tb.hToolbar, 'Visible', visStr);
+                if visible
+                    set(tb.hToolbar, 'Visible', 'on');
+                else
+                    set(tb.hToolbar, 'Visible', 'off');
+                end
             end
         end
 

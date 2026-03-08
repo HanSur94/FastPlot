@@ -648,10 +648,11 @@ classdef FastPlot < handle
                 catch
                 end
             end
-            set(obj.hFigure, 'ResizeFcn', @(s,e) obj.onResize(s,e));
-
-            % Enable zoom and pan
-            zoom(obj.hFigure, 'on');
+            % Only set figure-level callbacks when we own the figure
+            if isempty(obj.ParentAxes)
+                set(obj.hFigure, 'ResizeFcn', @(s,e) obj.onResize(s,e));
+                zoom(obj.hFigure, 'on');
+            end
 
             obj.IsRendered = true;
 
