@@ -91,5 +91,20 @@ function test_dock()
     assert(threw, 'testSelectTabOutOfBounds: should error');
     close(dock.hFigure);
 
-    fprintf('    All 6 dock tests passed.\n');
+    % testResize
+    dock = FastPlotDock('Theme', 'dark');
+    fig1 = FastPlotFigure(1, 1, 'ParentFigure', dock.hFigure);
+    fp = fig1.tile(1); fp.addLine(1:50, rand(1,50));
+    dock.addTab(fig1, 'Tab A');
+    dock.render();
+    posBefore = get(fig1.tile(1).hAxes, 'Position');
+    % Simulate resize by calling the recompute method
+    dock.recomputeLayout();
+    posAfter = get(fig1.tile(1).hAxes, 'Position');
+    % Positions should remain consistent (no crash)
+    assert(abs(posBefore(1) - posAfter(1)) < 0.01, 'testResize: x stable');
+    assert(abs(posBefore(2) - posAfter(2)) < 0.01, 'testResize: y stable');
+    close(dock.hFigure);
+
+    fprintf('    All 7 dock tests passed.\n');
 end

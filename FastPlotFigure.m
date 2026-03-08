@@ -398,6 +398,9 @@ classdef FastPlotFigure < handle
             ax = axes('Parent', obj.hFigure, 'Position', pos);
         end
 
+    end
+
+    methods (Access = public, Hidden = true)
         function pos = computeTilePosition(obj, n)
             rows = obj.Grid(1);
             cols = obj.Grid(2);

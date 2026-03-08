@@ -42,6 +42,7 @@ classdef FastPlotDock < handle
 
             obj.hFigure = figure('Visible', 'off', ...
                 'Color', obj.Theme.Background, figOpts{:});
+            set(obj.hFigure, 'SizeChangedFcn', @(s,e) obj.recomputeLayout());
         end
 
         function addTab(obj, fig, name)
@@ -108,6 +109,33 @@ classdef FastPlotDock < handle
             obj.setTabVisible(n, true);
             obj.styleTabButton(n, true);
             obj.ActiveTab = n;
+        end
+
+        function recomputeLayout(obj)
+            %RECOMPUTELAYOUT Recalculate all tile positions for all tabs.
+            for i = 1:numel(obj.Tabs)
+                fig = obj.Tabs(i).Figure;
+                for j = 1:numel(fig.TileAxes)
+                    if ~isempty(fig.TileAxes{j}) && ishandle(fig.TileAxes{j})
+                        pos = fig.computeTilePosition(j);
+                        set(fig.TileAxes{j}, 'Position', pos);
+                    end
+                end
+            end
+
+            % Reposition tab buttons
+            if ~isempty(obj.hTabButtons)
+                nTabs = numel(obj.hTabButtons);
+                tabH = obj.TAB_BAR_HEIGHT;
+                btnWidth = min(0.15, 0.95 / nTabs);
+                startX = 0.025;
+                for i = 1:nTabs
+                    if ishandle(obj.hTabButtons{i})
+                        set(obj.hTabButtons{i}, 'Position', ...
+                            [startX + (i-1)*btnWidth, 1 - tabH, btnWidth, tabH]);
+                    end
+                end
+            end
         end
 
         function delete(obj)
