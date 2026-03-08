@@ -757,6 +757,15 @@ classdef FastPlot < handle
             if isempty(obj.ParentAxes)
                 set(obj.hFigure, 'ResizeFcn', @(s,e) obj.onResize(s,e));
                 zoom(obj.hFigure, 'on');
+            else
+                % Loupe: double-click tile to open standalone enlarged view
+                loupeCb = @(s,e) obj.onAxesDoubleClick(e);
+                set(obj.hAxes, 'ButtonDownFcn', loupeCb);
+                % Also install on line/patch objects so clicks on data work
+                ch = get(obj.hAxes, 'Children');
+                for ci = 1:numel(ch)
+                    try set(ch(ci), 'ButtonDownFcn', loupeCb); catch; end
+                end
             end
 
             obj.IsRendered = true;
@@ -1297,6 +1306,71 @@ classdef FastPlot < handle
                 end
                 obj.hRefineTimer = [];
             end
+        end
+
+        function onAxesDoubleClick(obj, ~)
+            %ONAXESDOUBLECLICK Open loupe on double-click.
+            if ~strcmp(get(ancestor(obj.hAxes, 'figure'), 'SelectionType'), 'open')
+                return;
+            end
+            obj.openLoupe();
+        end
+
+        function openLoupe(obj)
+            %OPENLOUPE Open a standalone enlarged copy of this tile.
+            title_str = get(get(obj.hAxes, 'Title'), 'String');
+            if isempty(title_str); title_str = 'FastPlot'; end
+
+            fp = FastPlot();
+            fp.Theme = obj.Theme;
+            for i = 1:numel(obj.Lines)
+                L = obj.Lines(i);
+                x = L.X; y = L.Y;
+                if obj.IsDatetime
+                    x = datetime(x, 'ConvertFrom', 'datenum');
+                end
+                nvp = struct2nvpairs(L.Options);
+                if ~isempty(L.Metadata)
+                    nvp = [nvp, {'Metadata', L.Metadata}];
+                end
+                if ~strcmp(L.DownsampleMethod, 'minmax')
+                    nvp = [nvp, {'DownsampleMethod', L.DownsampleMethod}];
+                end
+                fp.addLine(x, y, nvp{:});
+            end
+            for i = 1:numel(obj.Thresholds)
+                T = obj.Thresholds(i);
+                fp.addThreshold(T.Value, 'Direction', T.Direction, ...
+                    'ShowViolations', T.ShowViolations, ...
+                    'Color', T.Color, 'LineStyle', T.LineStyle, ...
+                    'Label', T.Label);
+            end
+            for i = 1:numel(obj.Bands)
+                B = obj.Bands(i);
+                fp.addBand(B.YLow, B.YHigh, 'FaceColor', B.FaceColor, ...
+                    'FaceAlpha', B.FaceAlpha, 'Label', B.Label);
+            end
+            for i = 1:numel(obj.Shadings)
+                S = obj.Shadings(i);
+                x = S.X; y1 = S.Y1; y2 = S.Y2;
+                if obj.IsDatetime
+                    x = datetime(x, 'ConvertFrom', 'datenum');
+                end
+                fp.addShaded(x, y1, y2, 'FaceColor', S.FaceColor, ...
+                    'FaceAlpha', S.FaceAlpha, 'DisplayName', S.DisplayName);
+            end
+            for i = 1:numel(obj.Markers)
+                M = obj.Markers(i);
+                x = M.X; y = M.Y;
+                if obj.IsDatetime
+                    x = datetime(x, 'ConvertFrom', 'datenum');
+                end
+                fp.addMarker(x, y, 'Marker', M.Marker, ...
+                    'MarkerSize', M.MarkerSize, 'Color', M.Color, ...
+                    'Label', M.Label);
+            end
+            fp.render();
+            set(fp.hFigure, 'Name', title_str);
         end
 
         function onXLimChanged(obj, ~, ~)
