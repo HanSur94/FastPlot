@@ -33,7 +33,7 @@ classdef FastPlotDock < handle
 
     % ====================== INTERNAL STATE ===============================
     properties (SetAccess = private)
-        Tabs      = struct('Name', {}, 'Figure', {}, 'Toolbar', {}, 'Panel', {})
+        Tabs      = struct('Name', {}, 'Figure', {}, 'Toolbar', {}, 'Panel', {}, 'IsRendered', {})
         ActiveTab = 0          % index of currently visible tab
         hTabButtons = {}       % cell array of uicontrol handles
         hCloseButtons = {}     % cell array of close button handles
@@ -93,30 +93,36 @@ classdef FastPlotDock < handle
             obj.Tabs(idx).Figure = fig;
             obj.Tabs(idx).Toolbar = [];
             obj.Tabs(idx).Panel = panel;
+            obj.Tabs(idx).IsRendered = false;
 
             % If already rendered, render this tab immediately
             if obj.ActiveTab >= 1
                 fig.renderAll();
                 obj.reparentAxes(idx);
                 obj.Tabs(idx).Toolbar = FastPlotToolbar(fig);
+                obj.Tabs(idx).IsRendered = true;
                 obj.setTabVisible(idx, false);
                 obj.addTabButton(idx);
             end
         end
 
         function render(obj)
-            %RENDER Render all tabs, create tab bar, show first tab.
+            %RENDER Render active tab, create tab bar, show first tab.
             if isempty(obj.Tabs)
                 set(obj.hFigure, 'Visible', 'on');
                 return;
             end
 
-            % Render all figures, reparent axes into panels,
-            % create toolbars but immediately hide non-active ones
+            % Mark all tabs as not yet rendered
             for i = 1:numel(obj.Tabs)
-                obj.Tabs(i).Figure.renderAll();
-                obj.reparentAxes(i);
-                obj.Tabs(i).Toolbar = FastPlotToolbar(obj.Tabs(i).Figure);
+                obj.Tabs(i).IsRendered = false;
+            end
+
+            % Only render the first tab now
+            obj.renderTab(1);
+
+            % Hide all tabs (selectTab will show tab 1)
+            for i = 1:numel(obj.Tabs)
                 obj.setTabVisible(i, false);
             end
 
@@ -131,10 +137,15 @@ classdef FastPlotDock < handle
         end
 
         function selectTab(obj, n)
-            %SELECTTAB Switch to tab n.
+            %SELECTTAB Switch to tab n, rendering it lazily if needed.
             if n < 1 || n > numel(obj.Tabs)
                 error('FastPlotDock:outOfBounds', ...
                     'Tab %d is out of range (1-%d).', n, numel(obj.Tabs));
+            end
+
+            % Lazy render on first switch
+            if ~obj.Tabs(n).IsRendered
+                obj.renderTab(n);
             end
 
             % Hide current tab
@@ -165,10 +176,12 @@ classdef FastPlotDock < handle
                 delete(obj.Tabs(n).Panel);
             end
 
-            % Delete toolbar
-            tb = obj.Tabs(n).Toolbar;
-            if ~isempty(tb) && ~isempty(tb.hToolbar) && ishandle(tb.hToolbar)
-                delete(tb.hToolbar);
+            % Delete toolbar (only exists if tab was rendered)
+            if obj.Tabs(n).IsRendered
+                tb = obj.Tabs(n).Toolbar;
+                if ~isempty(tb) && ~isempty(tb.hToolbar) && ishandle(tb.hToolbar)
+                    delete(tb.hToolbar);
+                end
             end
 
             % Delete tab button, undock button, and close button
@@ -215,6 +228,11 @@ classdef FastPlotDock < handle
             %   from the dock. Live mode is stopped before undocking.
             if n < 1 || n > numel(obj.Tabs)
                 return;
+            end
+
+            % Render if not yet rendered (need axes to reparent)
+            if ~obj.Tabs(n).IsRendered
+                obj.renderTab(n);
             end
 
             fig = obj.Tabs(n).Figure;
@@ -345,6 +363,14 @@ classdef FastPlotDock < handle
                     set(fig.TileAxes{j}, 'Parent', panel);
                 end
             end
+        end
+
+        function renderTab(obj, idx)
+            %RENDERTAB Render a single tab: figure, axes reparenting, toolbar.
+            obj.Tabs(idx).Figure.renderAll();
+            obj.reparentAxes(idx);
+            obj.Tabs(idx).Toolbar = FastPlotToolbar(obj.Tabs(idx).Figure);
+            obj.Tabs(idx).IsRendered = true;
         end
 
         function createTabBar(obj)
