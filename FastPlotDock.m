@@ -130,7 +130,9 @@ classdef FastPlotDock < handle
             obj.selectTab(1);
 
             set(obj.hFigure, 'Visible', 'on');
+            w = warning('off', 'MATLAB:callback:error');
             drawnow;
+            warning(w);
         end
 
         function selectTab(obj, n)
