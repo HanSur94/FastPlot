@@ -59,6 +59,7 @@ classdef FastPlot < handle
         HasLimitRate  = []    % cached: does drawnow support 'limitrate'?
         DeferredTimer = []    % timer for deferred Home button re-downsample
         ColorIndex    = 0     % tracks auto color cycling position
+        IsDatetime    = false % true if X data was datetime (converted to datenum)
         LiveTimer      = []        % timer object for live polling
         LiveFileDate   = 0         % last known file modification datenum
         MetadataFileDate  = 0         % last known metadata file datenum
@@ -104,6 +105,16 @@ classdef FastPlot < handle
             if obj.IsRendered
                 error('FastPlot:alreadyRendered', ...
                     'Cannot add lines after render() has been called.');
+            end
+
+            % Convert datetime X to datenum for internal use
+            try
+                if isdatetime(x)
+                    x = datenum(x);
+                    obj.IsDatetime = true;
+                end
+            catch
+                % Octave: isdatetime may not exist — skip gracefully
             end
 
             % Force row vectors (avoid copy if already row)
@@ -373,6 +384,15 @@ classdef FastPlot < handle
             %   fp.addFill(x, y)
             %   fp.addFill(x, y, 'Baseline', -1, 'FaceColor', [0 0.5 1])
 
+            % Convert datetime X to datenum
+            try
+                if isdatetime(x)
+                    x = datenum(x);
+                    obj.IsDatetime = true;
+                end
+            catch
+            end
+
             baseline = 0;
             filteredArgs = {};
             k = 1;
@@ -640,6 +660,14 @@ classdef FastPlot < handle
             obj.FullXLim = [xmin, xmax];
             obj.FullYLim = [ymin - yPad, ymax + yPad];
             obj.CachedXLim = get(obj.hAxes, 'XLim');
+
+            % Auto-format datetime axis if any line was added with datetime X
+            if obj.IsDatetime
+                try
+                    datetick(obj.hAxes, 'x', 'keeplimits');
+                catch
+                end
+            end
 
             % Invisible anchor line spanning full X range.
             % Ensures MATLAB auto-XLim computation covers full data even
