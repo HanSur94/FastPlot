@@ -65,34 +65,70 @@ classdef FastPlot < handle
         MetadataFileDate  = 0         % last known metadata file datenum
     end
 
-    properties (Constant, Access = private)
-        MIN_POINTS_FOR_DOWNSAMPLE = 5000  % below this, plot raw data
-        DOWNSAMPLE_FACTOR = 2             % points per pixel (min + max)
-        PYRAMID_REDUCTION = 100           % reduction factor per pyramid level
+    properties (Access = public)
+        MinPointsForDownsample = 5000  % below this, plot raw data
+        DownsampleFactor = 2           % points per pixel (min + max)
+        PyramidReduction = 100         % reduction factor per pyramid level
     end
 
     methods (Access = public)
         function obj = FastPlot(varargin)
-            for k = 1:2:numel(varargin)
-                switch lower(varargin{k})
-                    case 'parent'
-                        obj.ParentAxes = varargin{k+1};
-                    case 'linkgroup'
-                        obj.LinkGroup = varargin{k+1};
-                    case 'theme'
-                        val = varargin{k+1};
-                        if ischar(val) || isstruct(val)
-                            obj.Theme = FastPlotTheme(val);
-                        else
-                            obj.Theme = val;
-                        end
-                    case 'verbose'
-                        obj.Verbose = varargin{k+1};
+            % Load cached defaults
+            cfg = getDefaults();
+            obj.MinPointsForDownsample = cfg.MinPointsForDownsample;
+            obj.DownsampleFactor = cfg.DownsampleFactor;
+            obj.PyramidReduction = cfg.PyramidReduction;
+            obj.Verbose = cfg.Verbose;
+
+            % Parse constructor arguments
+            defaults.Parent = [];
+            defaults.LinkGroup = '';
+            defaults.Theme = [];
+            defaults.Verbose = obj.Verbose;
+            defaults.MinPointsForDownsample = obj.MinPointsForDownsample;
+            defaults.DownsampleFactor = obj.DownsampleFactor;
+            defaults.PyramidReduction = obj.PyramidReduction;
+            [opts, ~] = parseOpts(defaults, varargin);
+
+            obj.ParentAxes = opts.Parent;
+            obj.LinkGroup = opts.LinkGroup;
+            obj.Verbose = opts.Verbose;
+            obj.MinPointsForDownsample = opts.MinPointsForDownsample;
+            obj.DownsampleFactor = opts.DownsampleFactor;
+            obj.PyramidReduction = opts.PyramidReduction;
+
+            % Resolve theme
+            val = opts.Theme;
+            if ~isempty(val)
+                if ischar(val) || isstruct(val)
+                    obj.Theme = FastPlotTheme(val);
+                else
+                    obj.Theme = val;
                 end
             end
-            % Default theme if none set
             if isempty(obj.Theme)
-                obj.Theme = FastPlotTheme('default');
+                obj.Theme = FastPlotTheme(cfg.Theme);
+            end
+        end
+
+        function resetColorIndex(obj)
+            %RESETCOLORINDEX Reset the auto color cycling counter.
+            %   fp.resetColorIndex()
+            %   Next addLine() call without explicit Color will use the first
+            %   color from the theme palette.
+            obj.ColorIndex = 0;
+        end
+
+        function reapplyTheme(obj)
+            %REAPPLYTHEME Re-apply the current Theme to axes and figure.
+            %   Use after changing fp.Theme to update existing visuals.
+            if ~obj.IsRendered; return; end
+            obj.applyTheme();
+            % Update existing line widths
+            for i = 1:numel(obj.Lines)
+                if ~isempty(obj.Lines(i).hLine) && ishandle(obj.Lines(i).hLine)
+                    set(obj.Lines(i).hLine, 'LineWidth', obj.Theme.LineWidth);
+                end
             end
         end
 
@@ -127,29 +163,18 @@ classdef FastPlot < handle
                     'X and Y must have the same number of elements.');
             end
 
-            % Parse name-value pairs manually (avoid inputParser overhead)
-            dsMethod = 'minmax';
-            meta = [];
-            assumeSorted = false;
-            hasNaNOverride = [];
-            opts = struct();
-            k = 1;
-            while k <= numel(varargin)
-                key = varargin{k};
-                val = varargin{k+1};
-                if strcmpi(key, 'DownsampleMethod')
-                    dsMethod = val;
-                elseif strcmpi(key, 'Metadata')
-                    meta = val;
-                elseif strcmpi(key, 'AssumeSorted')
-                    assumeSorted = val;
-                elseif strcmpi(key, 'HasNaN')
-                    hasNaNOverride = val;
-                else
-                    opts.(key) = val;
-                end
-                k = k + 2;
-            end
+            % Parse name-value pairs via shared helper
+            knownDefaults.DownsampleMethod = getDefaults().DefaultDownsampleMethod;
+            knownDefaults.Metadata = [];
+            knownDefaults.AssumeSorted = false;
+            knownDefaults.HasNaN = [];
+            [known, passthrough] = parseOpts(knownDefaults, varargin, obj.Verbose);
+
+            dsMethod = known.DownsampleMethod;
+            meta = known.Metadata;
+            assumeSorted = known.AssumeSorted;
+            hasNaNOverride = known.HasNaN;
+            opts = passthrough;
 
             % Monotonicity check (chunked vectorized — limits peak memory)
             if ~assumeSorted
@@ -205,31 +230,21 @@ classdef FastPlot < handle
                     'Cannot add thresholds after render() has been called.');
             end
 
-            % Defaults
+            defaults.Direction = 'upper';
+            defaults.ShowViolations = false;
+            defaults.Color = obj.Theme.ThresholdColor;
+            defaults.LineStyle = obj.Theme.ThresholdStyle;
+            defaults.Label = '';
+            [parsed, ~] = parseOpts(defaults, varargin, obj.Verbose);
+
             t.Value          = value;
-            t.Direction      = 'upper';
-            t.ShowViolations = false;
-            t.Color          = obj.Theme.ThresholdColor;
-            t.LineStyle      = obj.Theme.ThresholdStyle;
-            t.Label          = '';
+            t.Direction      = parsed.Direction;
+            t.ShowViolations = parsed.ShowViolations;
+            t.Color          = parsed.Color;
+            t.LineStyle      = parsed.LineStyle;
+            t.Label          = parsed.Label;
             t.hLine          = [];
             t.hMarkers       = [];
-
-            % Manual name-value parsing (avoid inputParser overhead)
-            for k = 1:2:numel(varargin)
-                switch lower(varargin{k})
-                    case 'direction'
-                        t.Direction = varargin{k+1};
-                    case 'showviolations'
-                        t.ShowViolations = varargin{k+1};
-                    case 'color'
-                        t.Color = varargin{k+1};
-                    case 'linestyle'
-                        t.LineStyle = varargin{k+1};
-                    case 'label'
-                        t.Label = varargin{k+1};
-                end
-            end
 
             if isempty(obj.Thresholds)
                 obj.Thresholds = t;
@@ -248,26 +263,19 @@ classdef FastPlot < handle
                     'Cannot add bands after render() has been called.');
             end
 
+            defaults.FaceColor = obj.Theme.ThresholdColor;
+            defaults.FaceAlpha = obj.Theme.BandAlpha;
+            defaults.EdgeColor = 'none';
+            defaults.Label = '';
+            [parsed, ~] = parseOpts(defaults, varargin, obj.Verbose);
+
             b.YLow      = yLow;
             b.YHigh     = yHigh;
-            b.FaceColor = obj.Theme.ThresholdColor;
-            b.FaceAlpha = obj.Theme.BandAlpha;
-            b.EdgeColor = 'none';
-            b.Label     = '';
+            b.FaceColor = parsed.FaceColor;
+            b.FaceAlpha = parsed.FaceAlpha;
+            b.EdgeColor = parsed.EdgeColor;
+            b.Label     = parsed.Label;
             b.hPatch    = [];
-
-            for k = 1:2:numel(varargin)
-                switch lower(varargin{k})
-                    case 'facecolor'
-                        b.FaceColor = varargin{k+1};
-                    case 'facealpha'
-                        b.FaceAlpha = varargin{k+1};
-                    case 'edgecolor'
-                        b.EdgeColor = varargin{k+1};
-                    case 'label'
-                        b.Label = varargin{k+1};
-                end
-            end
 
             if isempty(obj.Bands)
                 obj.Bands = b;
@@ -289,26 +297,19 @@ classdef FastPlot < handle
             if ~isrow(x); x = x(:)'; end
             if ~isrow(y); y = y(:)'; end
 
+            defaults.Marker = 'o';
+            defaults.MarkerSize = 6;
+            defaults.Color = obj.Theme.ThresholdColor;
+            defaults.Label = '';
+            [parsed, ~] = parseOpts(defaults, varargin, obj.Verbose);
+
             m.X          = x;
             m.Y          = y;
-            m.Marker     = 'o';
-            m.MarkerSize = 6;
-            m.Color      = obj.Theme.ThresholdColor;
-            m.Label      = '';
+            m.Marker     = parsed.Marker;
+            m.MarkerSize = parsed.MarkerSize;
+            m.Color      = parsed.Color;
+            m.Label      = parsed.Label;
             m.hLine      = [];
-
-            for k = 1:2:numel(varargin)
-                switch lower(varargin{k})
-                    case 'marker'
-                        m.Marker = varargin{k+1};
-                    case 'markersize'
-                        m.MarkerSize = varargin{k+1};
-                    case 'color'
-                        m.Color = varargin{k+1};
-                    case 'label'
-                        m.Label = varargin{k+1};
-                end
-            end
 
             if isempty(obj.Markers)
                 obj.Markers = m;
@@ -347,30 +348,23 @@ classdef FastPlot < handle
                 end
             end
 
+            defaults.FaceColor = [0 0.45 0.74];
+            defaults.FaceAlpha = 0.15;
+            defaults.EdgeColor = 'none';
+            defaults.DisplayName = '';
+            [parsed, ~] = parseOpts(defaults, varargin, obj.Verbose);
+
             s.X           = x;
             s.Y1          = y1;
             s.Y2          = y2;
-            s.FaceColor   = [0 0.45 0.74];
-            s.FaceAlpha   = 0.15;
-            s.EdgeColor   = 'none';
-            s.DisplayName = '';
+            s.FaceColor   = parsed.FaceColor;
+            s.FaceAlpha   = parsed.FaceAlpha;
+            s.EdgeColor   = parsed.EdgeColor;
+            s.DisplayName = parsed.DisplayName;
             s.hPatch      = [];
             s.CacheX      = [];
             s.CacheY1     = [];
             s.CacheY2     = [];
-
-            for k = 1:2:numel(varargin)
-                switch lower(varargin{k})
-                    case 'facecolor'
-                        s.FaceColor = varargin{k+1};
-                    case 'facealpha'
-                        s.FaceAlpha = varargin{k+1};
-                    case 'edgecolor'
-                        s.EdgeColor = varargin{k+1};
-                    case 'displayname'
-                        s.DisplayName = varargin{k+1};
-                end
-            end
 
             if isempty(obj.Shadings)
                 obj.Shadings = s;
@@ -482,7 +476,7 @@ classdef FastPlot < handle
                     [~,  y2d] = minmax_downsample(cx, cy2, obj.PixelWidth);
                     patchX = [xd, fliplr(xd)];
                     patchY = [y1d, fliplr(y2d)];
-                elseif numel(S.X) > obj.MIN_POINTS_FOR_DOWNSAMPLE
+                elseif numel(S.X) > obj.MinPointsForDownsample
                     [xd, y1d] = minmax_downsample(S.X, S.Y1, obj.PixelWidth);
                     [~,  y2d] = minmax_downsample(S.X, S.Y2, obj.PixelWidth);
                     patchX = [xd, fliplr(xd)];
@@ -511,7 +505,7 @@ classdef FastPlot < handle
                 numBuckets = obj.PixelWidth;
 
                 % Downsample
-                if numel(L.X) > obj.MIN_POINTS_FOR_DOWNSAMPLE
+                if numel(L.X) > obj.MinPointsForDownsample
                     if strcmp(L.DownsampleMethod, 'lttb')
                         [xd, yd] = lttb_downsample(L.X, L.Y, numBuckets);
                     else
@@ -808,22 +802,19 @@ classdef FastPlot < handle
             end
 
             % Parse optional name-value pairs
+            % Handle legacy positional boolean argument
             skipViewMode = false;
             newMeta = [];
             hasMeta = false;
-            for k = 1:2:numel(varargin)
-                if islogical(varargin{k}) || isnumeric(varargin{k})
-                    % Legacy: positional skipViewMode argument
-                    skipViewMode = varargin{k};
-                    break;
-                end
-                switch lower(varargin{k})
-                    case 'metadata'
-                        newMeta = varargin{k+1};
-                        hasMeta = true;
-                    case 'skipviewmode'
-                        skipViewMode = varargin{k+1};
-                end
+            if ~isempty(varargin) && (islogical(varargin{1}) || isnumeric(varargin{1}))
+                skipViewMode = varargin{1};
+            else
+                updateDefaults.Metadata = [];
+                updateDefaults.SkipViewMode = false;
+                [updateOpts, ~] = parseOpts(updateDefaults, varargin, obj.Verbose);
+                skipViewMode = updateOpts.SkipViewMode;
+                newMeta = updateOpts.Metadata;
+                hasMeta = ~isempty(newMeta);
             end
 
             % Replace raw data
@@ -871,20 +862,17 @@ classdef FastPlot < handle
             obj.LiveUpdateFcn = updateFcn;
 
             % Parse options
-            for k = 1:2:numel(varargin)
-                switch lower(varargin{k})
-                    case 'interval'
-                        obj.LiveInterval = varargin{k+1};
-                    case 'viewmode'
-                        obj.LiveViewMode = varargin{k+1};
-                    case 'metadatafile'
-                        obj.MetadataFile = varargin{k+1};
-                    case 'metadatavars'
-                        obj.MetadataVars = varargin{k+1};
-                    case 'metadatalineindex'
-                        obj.MetadataLineIndex = varargin{k+1};
-                end
-            end
+            liveDefaults.Interval = obj.LiveInterval;
+            liveDefaults.ViewMode = '';
+            liveDefaults.MetadataFile = obj.MetadataFile;
+            liveDefaults.MetadataVars = obj.MetadataVars;
+            liveDefaults.MetadataLineIndex = obj.MetadataLineIndex;
+            [liveOpts, ~] = parseOpts(liveDefaults, varargin, obj.Verbose);
+            obj.LiveInterval = liveOpts.Interval;
+            obj.LiveViewMode = liveOpts.ViewMode;
+            obj.MetadataFile = liveOpts.MetadataFile;
+            obj.MetadataVars = liveOpts.MetadataVars;
+            obj.MetadataLineIndex = liveOpts.MetadataLineIndex;
 
             % Default view mode if not set
             if isempty(obj.LiveViewMode)
@@ -1322,7 +1310,7 @@ classdef FastPlot < handle
                 y1Vis = srcY1(idxStart:idxEnd);
                 y2Vis = srcY2(idxStart:idxEnd);
 
-                if nVis > obj.MIN_POINTS_FOR_DOWNSAMPLE
+                if nVis > obj.MinPointsForDownsample
                     [xd, y1d] = minmax_downsample(xVis, y1Vis, pw);
                     [~, y2d]  = minmax_downsample(xVis, y2Vis, pw);
                     patchX = [xd, fliplr(xd)];
@@ -1351,7 +1339,7 @@ classdef FastPlot < handle
                 idxEnd   = min(nTotal, idxEnd + 1);
                 nVis = idxEnd - idxStart + 1;
 
-                if nVis <= obj.MIN_POINTS_FOR_DOWNSAMPLE
+                if nVis <= obj.MinPointsForDownsample
                     % Small enough to plot raw
                     xd = obj.Lines(i).X(idxStart:idxEnd);
                     yd = obj.Lines(i).Y(idxStart:idxEnd);
@@ -1375,7 +1363,7 @@ classdef FastPlot < handle
                     end
 
                     % Downsample visible slice to screen resolution
-                    if numel(xVis) > obj.MIN_POINTS_FOR_DOWNSAMPLE
+                    if numel(xVis) > obj.MinPointsForDownsample
                         if strcmp(obj.Lines(i).DownsampleMethod, 'lttb')
                             [xd, yd] = lttb_downsample(xVis, yVis, pw);
                         else
@@ -1405,7 +1393,7 @@ classdef FastPlot < handle
             %SELECTPYRAMIDLEVEL Pick the smallest pyramid level with enough
             %   resolution for the visible range. Builds levels lazily.
             visFrac = nVis / nTotal;
-            R = obj.PYRAMID_REDUCTION;
+            R = obj.PyramidReduction;
 
             % How many levels could exist?
             maxLevels = 0;
@@ -1434,7 +1422,7 @@ classdef FastPlot < handle
 
         function buildPyramidLevel(obj, lineIdx, level)
             %BUILDPYRAMIDLEVEL Build a pyramid level from the nearest source.
-            R = obj.PYRAMID_REDUCTION;
+            R = obj.PyramidReduction;
 
             % Ensure cell array is large enough
             if numel(obj.Lines(lineIdx).Pyramid) < level
@@ -1574,6 +1562,13 @@ classdef FastPlot < handle
                     end
             end
             registry = [];
+        end
+    end
+
+    methods (Static)
+        function clearDefaultsCache()
+            %CLEARDEFAULTSCACHE Force reload of FastPlotDefaults.
+            clearDefaultsCache();
         end
     end
 end
