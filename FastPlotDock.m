@@ -16,34 +16,41 @@ classdef FastPlotDock < handle
         hUndockButtons = {}    % cell array of undock button handles
     end
 
-    properties (Constant, Access = private)
-        TAB_BAR_HEIGHT = 0.03  % normalized height for tab bar
+    properties (Access = public)
+        TabBarHeight = 0.03   % normalized height of tab bar
     end
 
     methods (Access = public)
         function obj = FastPlotDock(varargin)
-            figOpts = {};
-            for k = 1:2:numel(varargin)
-                switch lower(varargin{k})
-                    case 'theme'
-                        val = varargin{k+1};
-                        if ischar(val) || isstruct(val)
-                            obj.Theme = FastPlotTheme(val);
-                        else
-                            obj.Theme = val;
-                        end
-                    otherwise
-                        figOpts{end+1} = varargin{k};   %#ok<AGROW>
-                        figOpts{end+1} = varargin{k+1};  %#ok<AGROW>
+            cfg = getDefaults();
+            obj.TabBarHeight = cfg.TabBarHeight;
+
+            conDefaults.Theme = [];
+            [conOpts, figOpts] = parseOpts(conDefaults, varargin);
+
+            val = conOpts.Theme;
+            if ~isempty(val)
+                if ischar(val) || isstruct(val)
+                    obj.Theme = FastPlotTheme(val);
+                else
+                    obj.Theme = val;
                 end
             end
 
             if isempty(obj.Theme)
-                obj.Theme = FastPlotTheme('default');
+                obj.Theme = FastPlotTheme(cfg.Theme);
+            end
+
+            % Convert unmatched struct to name-value cell for figure()
+            figOptNames = fieldnames(figOpts);
+            figOptsCell = {};
+            for i = 1:numel(figOptNames)
+                figOptsCell{end+1} = figOptNames{i};    %#ok<AGROW>
+                figOptsCell{end+1} = figOpts.(figOptNames{i});  %#ok<AGROW>
             end
 
             obj.hFigure = figure('Visible', 'off', ...
-                'Color', obj.Theme.Background, figOpts{:});
+                'Color', obj.Theme.Background, figOptsCell{:});
             set(obj.hFigure, 'SizeChangedFcn', @(s,e) obj.recomputeLayout());
             set(obj.hFigure, 'CloseRequestFcn', @(s,e) obj.onClose());
         end
@@ -62,7 +69,7 @@ classdef FastPlotDock < handle
             fig.ContentOffset = [0, 0, 1, 1];
 
             % Create a panel for this tab's content
-            tabH = obj.TAB_BAR_HEIGHT;
+            tabH = obj.TabBarHeight;
             panel = uipanel(obj.hFigure, 'Units', 'normalized', ...
                 'Position', [0, 0, 1, 1 - tabH], ...
                 'BorderType', 'none', ...
@@ -276,7 +283,7 @@ classdef FastPlotDock < handle
             %RECOMPUTELAYOUT Reposition tab, undock, and close buttons on resize.
             if ~isempty(obj.hTabButtons)
                 nTabs = numel(obj.hTabButtons);
-                tabH = obj.TAB_BAR_HEIGHT;
+                tabH = obj.TabBarHeight;
                 smallW = 0.02;  % width for close and undock buttons
                 btnWidth = 1 / nTabs;
                 for i = 1:nTabs
@@ -331,7 +338,7 @@ classdef FastPlotDock < handle
         end
 
         function addTabButton(obj, idx)
-            tabH = obj.TAB_BAR_HEIGHT;
+            tabH = obj.TabBarHeight;
             nTabs = numel(obj.Tabs);
             btnWidth = 1 / nTabs;
             smallW = 0.02;

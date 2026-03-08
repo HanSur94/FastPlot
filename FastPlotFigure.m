@@ -31,14 +31,20 @@ classdef FastPlotFigure < handle
         MetadataFileDate  = 0         % last known metadata file datenum
     end
 
-    properties (Constant, Access = private)
-        PADDING = 0.06          % normalized padding around edges
-        GAP_H   = 0.05          % horizontal gap between tiles
-        GAP_V   = 0.07          % vertical gap between tiles
+    properties (Access = public)
+        Padding = 0.06    % normalized padding around edges
+        GapH    = 0.05    % horizontal gap between tiles
+        GapV    = 0.07    % vertical gap between tiles
     end
 
     methods (Access = public)
         function obj = FastPlotFigure(rows, cols, varargin)
+            % Load cached defaults
+            cfg = getDefaults();
+            obj.Padding = cfg.DashboardPadding;
+            obj.GapH = cfg.DashboardGapH;
+            obj.GapV = cfg.DashboardGapV;
+
             obj.Grid = [rows, cols];
             nTiles = rows * cols;
             obj.Tiles     = cell(1, nTiles);
@@ -51,34 +57,39 @@ classdef FastPlotFigure < handle
                 obj.TileSpans{i} = [1 1];
             end
 
-            % Parse options
-            figOpts = {};
-            for k = 1:2:numel(varargin)
-                switch lower(varargin{k})
-                    case 'theme'
-                        val = varargin{k+1};
-                        if ischar(val) || isstruct(val)
-                            obj.Theme = FastPlotTheme(val);
-                        else
-                            obj.Theme = val;
-                        end
-                    case 'parentfigure'
-                        obj.ParentFigure = varargin{k+1};
-                    otherwise
-                        figOpts{end+1} = varargin{k};   %#ok<AGROW>
-                        figOpts{end+1} = varargin{k+1};  %#ok<AGROW>
+            % Parse known constructor options
+            conDefaults.Theme = [];
+            conDefaults.ParentFigure = [];
+            [conOpts, figOpts] = parseOpts(conDefaults, varargin);
+
+            % Resolve theme
+            val = conOpts.Theme;
+            if ~isempty(val)
+                if ischar(val) || isstruct(val)
+                    obj.Theme = FastPlotTheme(val);
+                else
+                    obj.Theme = val;
                 end
             end
+            obj.ParentFigure = conOpts.ParentFigure;
 
             if isempty(obj.Theme)
-                obj.Theme = FastPlotTheme('default');
+                obj.Theme = FastPlotTheme(cfg.Theme);
+            end
+
+            % Convert unmatched struct to name-value cell array for figure()
+            figOptNames = fieldnames(figOpts);
+            figOptsCell = {};
+            for i = 1:numel(figOptNames)
+                figOptsCell{end+1} = figOptNames{i};    %#ok<AGROW>
+                figOptsCell{end+1} = figOpts.(figOptNames{i});  %#ok<AGROW>
             end
 
             if ~isempty(obj.ParentFigure)
                 obj.hFigure = obj.ParentFigure;
             else
                 obj.hFigure = figure('Visible', 'off', ...
-                    'Color', obj.Theme.Background, figOpts{:});
+                    'Color', obj.Theme.Background, figOptsCell{:});
             end
         end
 
@@ -189,22 +200,19 @@ classdef FastPlotFigure < handle
             obj.LiveFile = filepath;
             obj.LiveUpdateFcn = updateFcn;
 
-            for k = 1:2:numel(varargin)
-                switch lower(varargin{k})
-                    case 'interval'
-                        obj.LiveInterval = varargin{k+1};
-                    case 'viewmode'
-                        obj.LiveViewMode = varargin{k+1};
-                    case 'metadatafile'
-                        obj.MetadataFile = varargin{k+1};
-                    case 'metadatavars'
-                        obj.MetadataVars = varargin{k+1};
-                    case 'metadatalineindex'
-                        obj.MetadataLineIndex = varargin{k+1};
-                    case 'metadatatileindex'
-                        obj.MetadataTileIndex = varargin{k+1};
-                end
-            end
+            liveDefaults.Interval = obj.LiveInterval;
+            liveDefaults.ViewMode = '';
+            liveDefaults.MetadataFile = obj.MetadataFile;
+            liveDefaults.MetadataVars = obj.MetadataVars;
+            liveDefaults.MetadataLineIndex = obj.MetadataLineIndex;
+            liveDefaults.MetadataTileIndex = obj.MetadataTileIndex;
+            [liveOpts, ~] = parseOpts(liveDefaults, varargin);
+            obj.LiveInterval = liveOpts.Interval;
+            obj.LiveViewMode = liveOpts.ViewMode;
+            obj.MetadataFile = liveOpts.MetadataFile;
+            obj.MetadataVars = liveOpts.MetadataVars;
+            obj.MetadataLineIndex = liveOpts.MetadataLineIndex;
+            obj.MetadataTileIndex = liveOpts.MetadataTileIndex;
 
             if isempty(obj.LiveViewMode)
                 obj.LiveViewMode = 'preserve';
@@ -412,9 +420,9 @@ classdef FastPlotFigure < handle
             row = ceil(n / cols);
             col = mod(n - 1, cols) + 1;
 
-            pad = obj.PADDING;
-            gapH = obj.GAP_H;
-            gapV = obj.GAP_V;
+            pad = obj.Padding;
+            gapH = obj.GapH;
+            gapV = obj.GapV;
 
             % Content area
             co = obj.ContentOffset;
