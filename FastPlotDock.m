@@ -43,6 +43,7 @@ classdef FastPlotDock < handle
             obj.hFigure = figure('Visible', 'off', ...
                 'Color', obj.Theme.Background, figOpts{:});
             set(obj.hFigure, 'SizeChangedFcn', @(s,e) obj.recomputeLayout());
+            set(obj.hFigure, 'CloseRequestFcn', @(s,e) obj.onClose());
         end
 
         function addTab(obj, fig, name)
@@ -188,6 +189,17 @@ classdef FastPlotDock < handle
 
         function onTabClick(obj, idx)
             obj.selectTab(idx);
+        end
+
+        function onClose(obj)
+            for i = 1:numel(obj.Tabs)
+                if ~isempty(obj.Tabs(i).Figure)
+                    try obj.Tabs(i).Figure.stopLive(); catch; end
+                end
+            end
+            if ishandle(obj.hFigure)
+                delete(obj.hFigure);
+            end
         end
 
         function setTabVisible(obj, idx, visible)

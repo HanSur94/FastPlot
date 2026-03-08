@@ -106,5 +106,22 @@ function test_dock()
     assert(abs(posBefore(2) - posAfter(2)) < 0.01, 'testResize: y stable');
     close(dock.hFigure);
 
-    fprintf('    All 7 dock tests passed.\n');
+    % testCloseStopsLive
+    dock = FastPlotDock('Theme', 'dark');
+    fig1 = FastPlotFigure(1, 1, 'ParentFigure', dock.hFigure);
+    fp = fig1.tile(1); fp.addLine(1:100, zeros(1,100));
+    dock.addTab(fig1, 'Live Tab');
+    dock.render();
+
+    tmpFile = [tempname, '.mat'];
+    s.x = 1:100; s.y = rand(1,100);
+    save(tmpFile, '-struct', 's');
+    fig1.startLive(tmpFile, @(f,d) f.tile(1).updateData(1, d.x, d.y), 'Interval', 1.0);
+    assert(fig1.LiveIsActive, 'testCloseStopsLive: live active before close');
+
+    close(dock.hFigure);
+    assert(~fig1.LiveIsActive, 'testCloseStopsLive: live stopped after close');
+    delete(tmpFile);
+
+    fprintf('    All 8 dock tests passed.\n');
 end
