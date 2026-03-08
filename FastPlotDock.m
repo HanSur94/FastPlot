@@ -295,9 +295,11 @@ classdef FastPlotDock < handle
             % Create toolbar on the new standalone figure
             FastPlotToolbar(fig);
 
-            % Show the new figure
+            % Show the new figure (suppress MATLAB R2025b reparenting warnings)
             set(newFig, 'Visible', 'on');
+            w = warning('off', 'MATLAB:callback:error');
             drawnow;
+            warning(w);
 
             % Handle remaining dock tabs
             if isempty(obj.Tabs)
