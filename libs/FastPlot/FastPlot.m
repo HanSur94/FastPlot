@@ -106,6 +106,7 @@ classdef FastPlot < handle
         IsRendered    = false
         hFigure       = []
         hAxes         = []
+        XType         = 'numeric' % 'numeric' or 'datenum'
         IsDatetime    = false % true if X data was datetime (converted to datenum)
     end
 
@@ -269,6 +270,7 @@ classdef FastPlot < handle
                 if isdatetime(x)
                     x = datenum(x);
                     obj.IsDatetime = true;
+                    obj.XType = 'datenum';
                 end
             catch
                 % Octave: isdatetime may not exist — skip gracefully
@@ -289,7 +291,14 @@ classdef FastPlot < handle
             knownDefaults.Metadata = [];
             knownDefaults.AssumeSorted = false;
             knownDefaults.HasNaN = [];
+            knownDefaults.XType = 'numeric';
             [known, passthrough] = parseOpts(knownDefaults, varargin, obj.Verbose);
+
+            % Set XType if explicitly provided
+            if strcmp(known.XType, 'datenum')
+                obj.XType = 'datenum';
+                obj.IsDatetime = true;
+            end
 
             dsMethod = known.DownsampleMethod;
             meta = known.Metadata;
@@ -822,7 +831,6 @@ classdef FastPlot < handle
                     vyCell = cell(1, nLines);
                     nViols = 0;
                     for i = 1:nLines
-                        if obj.Lines(i).IsStatic; continue; end
                         xd = get(obj.Lines(i).hLine, 'XData');
                         yd = get(obj.Lines(i).hLine, 'YData');
                         if isempty(T.X)
@@ -942,12 +950,9 @@ classdef FastPlot < handle
             obj.FullYLim = [yLimLow, yLimHigh];
             obj.CachedXLim = get(obj.hAxes, 'XLim');
 
-            % Auto-format datetime axis if any line was added with datetime X
-            if obj.IsDatetime
-                try
-                    datetick(obj.hAxes, 'x', 'keeplimits');
-                catch
-                end
+            % Auto-format datetime axis
+            if strcmp(obj.XType, 'datenum')
+                obj.updateDatetimeTicks();
             end
 
             % Box on by default
@@ -1000,10 +1005,15 @@ classdef FastPlot < handle
             % Only set figure-level callbacks when we own the figure
             if isempty(obj.ParentAxes)
                 set(obj.hFigure, 'ResizeFcn', @(s,e) obj.onResize(s,e));
-                hZoom = zoom(obj.hFigure);
-                set(hZoom, 'ButtonDownFilter', ...
-                    @(src,evt) obj.loupeButtonFilter());
-                set(hZoom, 'Enable', 'on');
+                try
+                    hZoom = zoom(obj.hFigure);
+                    set(hZoom, 'ButtonDownFilter', ...
+                        @(src,evt) obj.loupeButtonFilter());
+                    set(hZoom, 'Enable', 'on');
+                catch
+                    % Octave: zoom() doesn't return an object
+                    try zoom(obj.hFigure, 'on'); catch; end
+                end
             end
 
             obj.IsRendered = true;
@@ -1687,6 +1697,11 @@ classdef FastPlot < handle
             obj.updateShadings();
             obj.updateViolations();
 
+            % Update datetime tick labels for new zoom level
+            if strcmp(obj.XType, 'datenum')
+                obj.updateDatetimeTicks();
+            end
+
             % Propagate to linked axes
             if ~isempty(obj.LinkGroup)
                 obj.propagateXLim(newXLim);
@@ -2032,6 +2047,36 @@ classdef FastPlot < handle
                     if obj.Verbose
                         fprintf('[FastPlot]   violations T%d: 0 markers\n', t);
                     end
+                end
+            end
+        end
+
+        function updateDatetimeTicks(obj)
+            %UPDATEDATETIMETICKS Format X tick labels based on visible range.
+            %   Selects date format based on zoom level:
+            %     > 1 day:  'mmm dd HH:MM'
+            %     1h-1d:    'HH:MM'
+            %     1m-1h:    'HH:MM'
+            %     < 1 min:  'HH:MM:SS'
+            if ~ishandle(obj.hAxes); return; end
+            try
+                xl = get(obj.hAxes, 'XLim');
+                span = diff(xl);  % in days (datenum units)
+                if span > 1
+                    fmt = 'mmm dd HH:MM';
+                elseif span > 1/24  % > 1 hour
+                    fmt = 'HH:MM';
+                elseif span > 1/1440  % > 1 minute
+                    fmt = 'HH:MM';
+                else
+                    fmt = 'HH:MM:SS';
+                end
+                datetick(obj.hAxes, 'x', fmt, 'keeplimits');
+            catch
+                % Fallback: plain datetick
+                try
+                    datetick(obj.hAxes, 'x', 'keeplimits');
+                catch
                 end
             end
         end

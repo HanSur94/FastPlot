@@ -16,14 +16,14 @@ classdef ConsoleProgressBar < handle
 %   See also FastPlot, FastPlotFigure, FastPlotDock.
 
     properties (Access = private)
-        Label        char = ''
-        Current      (1,1) double = 0
-        Total        (1,1) double = 0
-        BarWidth     (1,1) double = 30
-        Indent       (1,1) double = 0    % number of leading spaces
-        IsStarted    (1,1) logical = false
-        IsFrozen     (1,1) logical = false
-        LastLen      (1,1) double = 0
+        Label    = ''
+        Current  = 0
+        Total    = 0
+        BarWidth = 30
+        Indent   = 0       % number of leading spaces
+        IsStarted = false
+        IsFrozen  = false
+        LastLen   = 0
     end
 
     methods
@@ -84,8 +84,13 @@ classdef ConsoleProgressBar < handle
     methods (Access = private)
         function printBar(obj)
         %PRINTBAR Redraw the bar using backspace to erase previous output.
-            filled = char(9608);
-            empty  = char(9617);
+            if exist('OCTAVE_VERSION', 'builtin')
+                filled = '#';
+                empty  = '-';
+            else
+                filled = char(9608);  % █
+                empty  = char(9617);  % ░
+            end
 
             prefix = repmat(' ', 1, obj.Indent);
 
