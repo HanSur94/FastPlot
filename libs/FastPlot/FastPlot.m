@@ -115,6 +115,7 @@ classdef FastPlot < handle
         hRefineTimer  = []    % one-shot timer for deferred minmax refinement
         IsRefined     = true  % false while showing coarse stride preview
         CachedXLim    = []    % for lazy recomputation
+        CachedViolationLim = []    % [xmin xmax ymin ymax pw] for violation skip
         FullXLim      = []    % full data range for Home button restore
         FullYLim      = []    % full data Y range for Home button restore
         PixelWidth    = 1920  % cached axes width in pixels
@@ -246,6 +247,7 @@ classdef FastPlot < handle
             % Re-downsample
             obj.updateLines();
             obj.updateShadings();
+            obj.CachedViolationLim = [];
             obj.updateViolations();
             obj.drawnowLimitRate();
         end
@@ -804,13 +806,17 @@ classdef FastPlot < handle
                         vyAll = [vyCell{1:nViols}];
                         vxAll = vxAll(1:end-1);
                         vyAll = vyAll(1:end-1);
+                        % Pixel-density cull: keep 1 violation per pixel column
+                        xl = get(obj.hAxes, 'XLim');
+                        pw = diff(xl) / obj.PixelWidth;
+                        [vxAll, vyAll] = downsample_violations(vxAll, vyAll, pw, T.Value, xl(1));
                     else
                         vxAll = NaN;
                         vyAll = NaN;
                     end
                     hM = line(vxAll, vyAll, 'Parent', obj.hAxes, ...
-                        'LineStyle', 'none', 'Marker', 'o', ...
-                        'MarkerSize', 4, 'Color', T.Color, ...
+                        'LineStyle', 'none', 'Marker', '.', ...
+                        'MarkerSize', 6, 'Color', T.Color, ...
                         'HandleVisibility', 'off');
                     udM.FastPlot = struct( ...
                         'Type', 'violation_marker', ...
@@ -1118,6 +1124,7 @@ classdef FastPlot < handle
             % Re-downsample and update display
             obj.updateLines();
             obj.updateShadings();
+            obj.CachedViolationLim = [];
             obj.updateViolations();
 
             obj.drawnowLimitRate();
@@ -1760,6 +1767,7 @@ classdef FastPlot < handle
                 obj.PixelWidth = newPW;
                 obj.updateLines();
                 obj.updateShadings();
+                obj.updateViolations();
                 obj.drawnowLimitRate();
                 if obj.Verbose; fflush(stdout); end
             end
@@ -1954,6 +1962,18 @@ classdef FastPlot < handle
             %UPDATEVIOLATIONS Recompute violation markers from displayed data.
             %   Uses the already-downsampled line data to find threshold
             %   violations, avoiding re-scanning the full raw dataset.
+
+            % Dirty-flag: skip if view is unchanged since last violation update
+            if ~isempty(obj.Thresholds) && ishandle(obj.hAxes)
+                xl = get(obj.hAxes, 'XLim');
+                yl = get(obj.hAxes, 'YLim');
+                currentLim = [xl, yl, obj.PixelWidth];
+                if ~isempty(obj.CachedViolationLim) && isequal(currentLim, obj.CachedViolationLim)
+                    return;
+                end
+                obj.CachedViolationLim = currentLim;
+            end
+
             for t = 1:numel(obj.Thresholds)
                 if ~obj.Thresholds(t).ShowViolations || isempty(obj.Thresholds(t).hMarkers)
                     continue;
@@ -1983,11 +2003,14 @@ classdef FastPlot < handle
                 if nViols > 0
                     vxAll = [vxCell{1:nViols}];
                     vyAll = [vyCell{1:nViols}];
-                    % Remove trailing NaN
-                    set(obj.Thresholds(t).hMarkers, 'XData', vxAll(1:end-1), 'YData', vyAll(1:end-1));
+                    % Remove trailing NaN, then pixel-density cull
+                    xl = get(obj.hAxes, 'XLim');
+                    pw = diff(xl) / obj.PixelWidth;
+                    [vxCulled, vyCulled] = downsample_violations(vxAll(1:end-1), vyAll(1:end-1), pw, obj.Thresholds(t).Value, xl(1));
+                    set(obj.Thresholds(t).hMarkers, 'XData', vxCulled, 'YData', vyCulled);
                     if obj.Verbose
                         fprintf('[FastPlot]   violations T%d (%.4g): %d markers\n', ...
-                            t, obj.Thresholds(t).Value, numel(vxAll)-1);
+                            t, obj.Thresholds(t).Value, numel(vxCulled));
                     end
                 else
                     set(obj.Thresholds(t).hMarkers, 'XData', NaN, 'YData', NaN);
