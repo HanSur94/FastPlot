@@ -532,8 +532,8 @@ classdef FastPlot < handle
             % Create local progress bar for standalone render
             ownProgressBar = false;
             if isempty(progressBar) && obj.ShowProgress && numel(obj.Lines) > 0
-                progressBar = ConsoleProgressBar(1);
-                progressBar.update(1, 0, numel(obj.Lines), 'Rendering');
+                progressBar = ConsoleProgressBar();
+                progressBar.update(0, numel(obj.Lines), 'Rendering');
                 progressBar.start();
                 ownProgressBar = true;
             end
@@ -694,8 +694,7 @@ classdef FastPlot < handle
                         i, numel(L.X), numel(xd), obj.PixelWidth);
                 end
                 if ~isempty(progressBar)
-                    barIdx = 1 + ~ownProgressBar; % bar 1 standalone, bar 2 from dashboard
-                    progressBar.update(barIdx, i, numel(obj.Lines));
+                    progressBar.update(i, numel(obj.Lines));
                 end
             end
 

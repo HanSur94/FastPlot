@@ -1,123 +1,98 @@
 classdef ConsoleProgressBar < handle
-%CONSOLEPROGRESSBAR Console progress bar for batch rendering.
-%   Lightweight helper that uses fprintf + ANSI escape codes to display
-%   one or more progress bars in the terminal. Each bar slot shows a
-%   label, a Unicode block-character bar, and a current/total counter.
+%CONSOLEPROGRESSBAR Single-line console progress bar for rendering.
+%   Lightweight helper that uses fprintf + carriage return to display
+%   a progress bar that overwrites itself in the MATLAB command window.
 %
 %   Usage:
-%     pb = ConsoleProgressBar(3);   % 3 bar slots
+%     pb = ConsoleProgressBar();
 %     pb.start();
 %     for k = 1:8
-%         pb.update(1, k, 8, 'Figures');
+%         pb.update(k, 8, 'Rendering');
 %         pause(0.1);
 %     end
 %     pb.finish();
 %
 %   Bar format:
-%     Label        [||||||||||||||||||||||||||||] 8/8
+%     Rendering    [████████████████████░░░░░░░░░░] 5/8
 %
-%   See also FastPlot, FastPlotDashboard.
+%   See also FastPlot, FastPlotFigure.
 
     properties (Access = private)
-        NumBars      (1,1) double = 1
-        Labels       cell
-        Currents     double
-        Totals       double
+        Label        char = ''
+        Current      (1,1) double = 0
+        Total        (1,1) double = 0
         BarWidth     (1,1) double = 30
         IsStarted    (1,1) logical = false
-        LinesWritten (1,1) double = 0
+        LastLen      (1,1) double = 0   % length of last printed line
     end
 
     methods
-        function obj = ConsoleProgressBar(numBars)
-        %CONSOLEPROGRESSBAR Construct a progress bar with numBars slots.
-        %   pb = ConsoleProgressBar()      — single bar
-        %   pb = ConsoleProgressBar(n)     — n bar slots
-            if nargin < 1; numBars = 1; end
-            obj.NumBars  = numBars;
-            obj.Labels   = repmat({''}, 1, numBars);
-            obj.Currents = zeros(1, numBars);
-            obj.Totals   = zeros(1, numBars);
+        function obj = ConsoleProgressBar()
+        %CONSOLEPROGRESSBAR Construct a single-line progress bar.
         end
 
         function start(obj)
         %START Initialize the progress display.
-            obj.IsStarted    = true;
-            obj.LinesWritten = 0;
-            obj.printBars();
+            obj.IsStarted = true;
+            obj.LastLen = 0;
+            obj.printBar();
         end
 
-        function update(obj, barIndex, current, total, label)
-        %UPDATE Update a specific bar slot.
-        %   pb.update(barIndex, current, total, label)
-        %
-        %   Inputs:
-        %     barIndex — which bar to update (1-based)
-        %     current  — current progress value
-        %     total    — total value (defines 100%)
-        %     label    — string label shown to the left of the bar
-            obj.Currents(barIndex) = current;
-            obj.Totals(barIndex)   = total;
-            if nargin >= 5
-                obj.Labels{barIndex} = label;
+        function update(obj, current, total, label)
+        %UPDATE Update progress.
+        %   pb.update(current, total)
+        %   pb.update(current, total, label)
+            obj.Current = current;
+            obj.Total   = total;
+            if nargin >= 4
+                obj.Label = label;
             end
             if obj.IsStarted
-                obj.printBars();
+                obj.printBar();
             end
         end
 
         function finish(obj)
-        %FINISH Finalize the display — leave bars visible and print newline.
-            % Set all bars to 100%
-            obj.Currents = obj.Totals;
-            obj.printBars();
+        %FINISH Finalize — leave bar at 100% and move to next line.
+            if ~obj.IsStarted; return; end
+            obj.Current = obj.Total;
+            obj.printBar();
             fprintf('\n');
             obj.IsStarted = false;
         end
     end
 
     methods (Access = private)
-        function printBars(obj)
-        %PRINTBARS Redraw all bar lines using ANSI escape codes.
-            ESC    = char(27);     % ANSI escape character
+        function printBar(obj)
+        %PRINTBAR Redraw the progress bar using carriage return.
             filled = char(9608);   % Unicode full block
             empty  = char(9617);   % Unicode light shade
 
-            % Move cursor up to overwrite previous output
-            if obj.LinesWritten > 0
-                fprintf('%s[%dA', ESC, obj.LinesWritten);
+            % Pad label to 12 characters
+            lbl = obj.Label;
+            if numel(lbl) > 12
+                lbl = lbl(1:12);
             end
+            lbl = sprintf('%-12s', lbl);
 
-            for k = 1:obj.NumBars
-                % Clear the current line
-                fprintf('%s[2K', ESC);
-
-                % Pad label to 12 characters (ASCII labels only)
-                lbl = obj.Labels{k};
-                if numel(lbl) > 12
-                    lbl = lbl(1:12);
-                end
-                lbl = sprintf('%-12s', lbl);
-
-                cur = obj.Currents(k);
-                tot = obj.Totals(k);
-
-                % Compute filled portion
-                if tot > 0
-                    nFilled = round(obj.BarWidth * cur / tot);
-                else
-                    nFilled = 0;
-                end
-                nFilled = max(0, min(obj.BarWidth, nFilled));
-                nEmpty  = obj.BarWidth - nFilled;
-
-                barStr = [repmat(filled, 1, nFilled), ...
-                          repmat(empty,  1, nEmpty)];
-
-                fprintf('%s [%s] %d/%d\n', lbl, barStr, cur, tot);
+            % Compute filled portion
+            if obj.Total > 0
+                nFilled = round(obj.BarWidth * obj.Current / obj.Total);
+            else
+                nFilled = 0;
             end
+            nFilled = max(0, min(obj.BarWidth, nFilled));
+            nEmpty  = obj.BarWidth - nFilled;
 
-            obj.LinesWritten = obj.NumBars;
+            barStr = [repmat(filled, 1, nFilled), ...
+                      repmat(empty,  1, nEmpty)];
+
+            line = sprintf('%s [%s] %d/%d', lbl, barStr, obj.Current, obj.Total);
+
+            % Overwrite previous line with carriage return + padding
+            padding = max(0, obj.LastLen - numel(line));
+            fprintf('\r%s%s', line, repmat(' ', 1, padding));
+            obj.LastLen = numel(line);
         end
     end
 end

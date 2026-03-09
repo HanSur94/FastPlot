@@ -201,27 +201,32 @@ classdef FastPlotFigure < handle
             end
             nTiles = numel(tilesToRender);
 
+            % Count total lines across all tiles for combined progress
+            totalLines = 0;
+            for k = 1:nTiles
+                totalLines = totalLines + numel(obj.Tiles{tilesToRender(k)}.Lines);
+            end
+
             % Create progress bar if enabled
             if obj.ShowProgress && nTiles > 0
-                cpb = ConsoleProgressBar(2);
+                cpb = ConsoleProgressBar();
+                cpb.update(0, totalLines, 'Rendering');
                 cpb.start();
             else
                 cpb = [];
             end
 
+            linesDone = 0;
             try
                 for k = 1:nTiles
                     i = tilesToRender(k);
-                    if ~isempty(cpb)
-                        cpb.update(1, k-1, nTiles, 'Overall');
-                        cpb.update(2, 0, max(numel(obj.Tiles{i}.Lines), 1), sprintf('Tile %d', i));
-                    end
                     obj.Tiles{i}.DeferDraw = true;
                     obj.Tiles{i}.ShowProgress = false;
-                    obj.Tiles{i}.render(cpb);
+                    obj.Tiles{i}.render();
                     obj.Tiles{i}.DeferDraw = false;
+                    linesDone = linesDone + numel(obj.Tiles{i}.Lines);
                     if ~isempty(cpb)
-                        cpb.update(1, k, nTiles, 'Overall');
+                        cpb.update(linesDone, totalLines);
                     end
                 end
             catch err
