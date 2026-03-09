@@ -15,6 +15,7 @@ classdef EventConfig < handle
         AutoOpenViewer    % logical: auto-open EventViewer after detection
         EscalateSeverity  % logical: escalate events to higher thresholds (default true)
         EventFile         % char: path to .mat file for auto-saving events (empty = disabled)
+        MaxBackups        % numeric: number of backup files to keep (default 5, 0 = no backups)
     end
 
     methods
@@ -28,6 +29,7 @@ classdef EventConfig < handle
             obj.AutoOpenViewer = false;
             obj.EscalateSeverity = true;
             obj.EventFile = '';
+            obj.MaxBackups = 5;
         end
 
         function addSensor(obj, sensor)
@@ -104,6 +106,18 @@ classdef EventConfig < handle
     methods (Access = private)
         function saveEvents(obj, events)
             %SAVEEVENTS Save events, sensor data, and colors to .mat file.
+            %   Creates a timestamped backup of the existing file before overwriting.
+
+            % Backup existing file
+            if exist(obj.EventFile, 'file') && obj.MaxBackups > 0
+                [fDir, fName, fExt] = fileparts(obj.EventFile);
+                backupName = sprintf('%s_%s%s', fName, ...
+                    datestr(now, 'yyyymmdd_HHMMSS'), fExt); %#ok<TNOW1,DATST>
+                backupPath = fullfile(fDir, backupName);
+                copyfile(obj.EventFile, backupPath);
+                obj.pruneBackups(fDir, fName, fExt);
+            end
+
             eventStore.events = events;
             eventStore.sensorData = obj.SensorData;
             % Convert containers.Map to struct for serialization
@@ -121,6 +135,21 @@ classdef EventConfig < handle
             end
             eventStore.timestamp = datetime('now');
             save(obj.EventFile, '-struct', 'eventStore');
+        end
+
+        function pruneBackups(obj, folder, baseName, ext)
+            %PRUNEBACKUPS Keep only the newest MaxBackups backup files.
+            pattern = fullfile(folder, [baseName, '_*', ext]);
+            files = dir(pattern);
+            if numel(files) <= obj.MaxBackups
+                return;
+            end
+            [~, order] = sort([files.datenum]);
+            files = files(order);
+            nDelete = numel(files) - obj.MaxBackups;
+            for i = 1:nDelete
+                delete(fullfile(folder, files(i).name));
+            end
         end
 
         function events = escalateEvents(obj, events)

@@ -57,10 +57,74 @@ function test_event_store()
     end
     assert(threw, 'fromFile: throws on missing file');
 
+    % testBackupCreated
+    tmpFile3 = fullfile(tempdir, 'test_event_backup.mat');
+    [bDir, bName, bExt] = fileparts(tmpFile3);
+    % Clean up any previous backup files
+    oldBackups = dir(fullfile(bDir, [bName, '_*', bExt]));
+    for bi = 1:numel(oldBackups)
+        delete(fullfile(bDir, oldBackups(bi).name));
+    end
+    if exist(tmpFile3, 'file'); delete(tmpFile3); end
+
+    cfg3 = EventConfig();
+    s3 = Sensor('temp', 'Name', 'Temperature');
+    s3.X = 1:10;
+    s3.Y = [5 5 12 14 11 13 5 5 5 5];
+    s3.addThresholdRule(struct(), 10, 'Direction', 'upper', 'Label', 'warn');
+    cfg3.addSensor(s3);
+    cfg3.EventFile = tmpFile3;
+    cfg3.MaxBackups = 2;
+
+    % First save — no backup (no existing file)
+    cfg3.runDetection();
+    backups = dir(fullfile(bDir, [bName, '_*', bExt]));
+    assert(numel(backups) == 0, 'backup: no backup on first save');
+
+    % Second save — creates backup
+    pause(1.1); % ensure different timestamp
+    cfg3.runDetection();
+    backups = dir(fullfile(bDir, [bName, '_*', bExt]));
+    assert(numel(backups) == 1, 'backup: one backup after second save');
+
+    % Third save — creates second backup
+    pause(1.1);
+    cfg3.runDetection();
+    backups = dir(fullfile(bDir, [bName, '_*', bExt]));
+    assert(numel(backups) == 2, 'backup: two backups after third save');
+
+    % Fourth save — prunes to MaxBackups=2
+    pause(1.1);
+    cfg3.runDetection();
+    backups = dir(fullfile(bDir, [bName, '_*', bExt]));
+    assert(numel(backups) == 2, 'backup: pruned to MaxBackups');
+
+    % testMaxBackupsZero
+    tmpFile4 = fullfile(tempdir, 'test_event_nobackup.mat');
+    cfg4 = EventConfig();
+    s4 = Sensor('temp', 'Name', 'Temperature');
+    s4.X = 1:10;
+    s4.Y = [5 5 12 14 11 13 5 5 5 5];
+    s4.addThresholdRule(struct(), 10, 'Direction', 'upper', 'Label', 'warn');
+    cfg4.addSensor(s4);
+    cfg4.EventFile = tmpFile4;
+    cfg4.MaxBackups = 0;
+    cfg4.runDetection();
+    cfg4.runDetection();
+    [nbDir, nbName, nbExt] = fileparts(tmpFile4);
+    noBackups = dir(fullfile(nbDir, [nbName, '_*', nbExt]));
+    assert(numel(noBackups) == 0, 'no-backup: MaxBackups=0 creates no backups');
+
     % Cleanup
     if exist(tmpFile, 'file'); delete(tmpFile); end
+    if exist(tmpFile3, 'file'); delete(tmpFile3); end
+    if exist(tmpFile4, 'file'); delete(tmpFile4); end
+    backups = dir(fullfile(bDir, [bName, '_*', bExt]));
+    for bi = 1:numel(backups)
+        delete(fullfile(bDir, backups(bi).name));
+    end
 
-    fprintf('    All 5 event_store tests passed.\n');
+    fprintf('    All 7 event_store tests passed.\n');
 end
 
 function add_event_path()
