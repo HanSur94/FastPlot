@@ -83,7 +83,7 @@ classdef ConsoleProgressBar < handle
 
     methods (Access = private)
         function printBar(obj)
-        %PRINTBAR Redraw the bar using carriage return.
+        %PRINTBAR Redraw the bar using backspace to erase previous output.
             filled = char(9608);
             empty  = char(9617);
 
@@ -104,8 +104,11 @@ classdef ConsoleProgressBar < handle
             barStr = [repmat(filled, 1, nFilled), repmat(empty, 1, nEmpty)];
             line = sprintf('%s%s [%s] %d/%d', prefix, lbl, barStr, obj.Current, obj.Total);
 
-            padding = max(0, obj.LastLen - numel(line));
-            fprintf('\r%s%s', line, repmat(' ', 1, padding));
+            % Erase previous output with backspaces, then print new line
+            if obj.LastLen > 0
+                fprintf(repmat('\b', 1, obj.LastLen));
+            end
+            fprintf('%s', line);
             obj.LastLen = numel(line);
         end
     end
