@@ -1,8 +1,8 @@
 function test_linked_axes()
 %TEST_LINKED_AXES Tests for linked axes zoom propagation.
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'private'));
+    run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+    add_fastplot_private_path();
 
     % testLinkedZoomPropagates
     fig = figure('Visible', 'off');

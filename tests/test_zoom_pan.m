@@ -1,8 +1,8 @@
 function test_zoom_pan()
 %TEST_ZOOM_PAN Tests for zoom/pan callbacks.
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'private'));
+    run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+    add_fastplot_private_path();
 
     % testZoomUpdatesPlottedData
     fp = FastPlot();

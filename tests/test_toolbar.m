@@ -1,8 +1,8 @@
 function test_toolbar()
 %TEST_TOOLBAR Tests for FastPlotToolbar class.
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'private'));
+    run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+    add_fastplot_private_path();
 
     close all force;
     drawnow;

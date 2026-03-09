@@ -250,6 +250,84 @@ classdef FastPlot < handle
             end
         end
 
+        function addSensor(obj, sensor, varargin)
+            %ADDSENSOR Add a resolved Sensor's data and thresholds to the plot.
+            %   fp.addSensor(s)
+            %   fp.addSensor(s, 'ShowThresholds', true, 'ShowStateShading', true)
+            %
+            %   The sensor must have X and Y populated (via load() or direct
+            %   assignment) and resolve() must have been called if thresholds
+            %   are used.
+
+            if obj.IsRendered
+                error('FastPlot:alreadyRendered', ...
+                    'Cannot add sensors after render() has been called.');
+            end
+
+            showThresholds = true;
+            showStateShading = false;
+            for k = 1:2:numel(varargin)
+                switch lower(varargin{k})
+                    case 'showthresholds'
+                        showThresholds = varargin{k+1};
+                    case 'showstateshading'
+                        showStateShading = varargin{k+1};
+                end
+            end
+
+            % Determine display name: prefer Name, fall back to Key
+            displayName = sensor.Name;
+            if isempty(displayName)
+                displayName = sensor.Key;
+            end
+
+            % Add sensor data as a line
+            obj.addLine(sensor.X, sensor.Y, 'DisplayName', displayName);
+
+            % Add resolved thresholds as stepped lines + violation markers
+            if showThresholds && ~isempty(sensor.ResolvedThresholds)
+                for i = 1:numel(sensor.ResolvedThresholds)
+                    th = sensor.ResolvedThresholds(i);
+
+                    thLabel = th.Label;
+                    if isempty(thLabel)
+                        thLabel = sprintf('Threshold %d', i);
+                    end
+
+                    thColor = th.Color;
+                    if isempty(thColor)
+                        thColor = obj.Theme.ThresholdColor;
+                    end
+
+                    thStyle = th.LineStyle;
+                    if isempty(thStyle)
+                        thStyle = obj.Theme.ThresholdStyle;
+                    end
+
+                    % Add threshold as a line (NaN gaps where inactive)
+                    obj.addLine(th.X, th.Y, ...
+                        'DisplayName', thLabel, ...
+                        'Color', thColor, ...
+                        'LineStyle', thStyle, ...
+                        'LineWidth', 1.5);
+
+                    % Add violation markers if any
+                    viol = sensor.ResolvedViolations(i);
+                    if ~isempty(viol.X)
+                        obj.addMarker(viol.X, viol.Y, ...
+                            'Color', thColor, ...
+                            'Marker', 'o', ...
+                            'MarkerSize', 4);
+                    end
+                end
+            end
+
+            % Add state shading bands
+            if showStateShading && ~isempty(fieldnames(sensor.ResolvedStateBands))
+                % Future: add bands via obj.addBand() for each state region
+            end
+        end
+
         function addMarker(obj, x, y, varargin)
             %ADDMARKER Add custom event markers at specific positions.
             %   fp.addMarker(x, y)
@@ -621,7 +699,12 @@ classdef FastPlot < handle
             obj.CachedXLim = get(obj.hAxes, 'XLim');
 
             % --- Install listeners ---
-            addlistener(obj.hAxes, 'xlim', @(s,e) obj.onXLimChanged(s,e));
+            try
+                addlistener(obj.hAxes, 'XLim', 'PostSet', @(s,e) obj.onXLimChanged(s,e));
+            catch
+                % Octave / older MATLAB fallback
+                addlistener(obj.hAxes, 'xlim', @(s,e) obj.onXLimChanged(s,e));
+            end
             set(obj.hFigure, 'ResizeFcn', @(s,e) obj.onResize(s,e));
 
             % Enable zoom and pan

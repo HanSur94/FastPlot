@@ -1,7 +1,7 @@
 function test_add_line()
 %TEST_ADD_LINE Tests for FastPlot.addLine method.
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
+    run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
 
     % testAddSingleLine
     fp = FastPlot();

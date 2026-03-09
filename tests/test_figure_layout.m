@@ -1,8 +1,8 @@
 function test_figure_layout()
 %TEST_FIGURE_LAYOUT Tests for FastPlotFigure layout manager.
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'private'));
+    run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+    add_fastplot_private_path();
 
     % testConstruction
     fig = FastPlotFigure(2, 3);
