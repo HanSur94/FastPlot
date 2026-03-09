@@ -86,7 +86,7 @@ function build_mex()
         'binary_search_mex.c',          'binary_search_mex'
         'minmax_core_mex.c',            'minmax_core_mex'
         'lttb_core_mex.c',              'lttb_core_mex'
-        'compute_violations_mex.c',     'compute_violations_mex'
+        'violation_cull_mex.c',         'violation_cull_mex'
     };
 
     fprintf('\n');
@@ -141,7 +141,7 @@ function build_mex()
 
     % Copy shared MEX files to SensorThreshold/private so they're accessible there
     sensorPrivDir = fullfile(rootDir, '..', 'SensorThreshold', 'private');
-    copy_mex_to(outDir, sensorPrivDir, 'compute_violations_mex');
+    copy_mex_to(outDir, sensorPrivDir, 'violation_cull_mex');
 end
 
 

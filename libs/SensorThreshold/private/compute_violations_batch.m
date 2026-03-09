@@ -18,7 +18,7 @@ function batchViolIdx = compute_violations_batch(sensorY, segLo, segHi, threshol
 
     persistent useMex;
     if isempty(useMex)
-        useMex = (exist('compute_violations_mex', 'file') == 3);
+        useMex = false;  % TODO: wire up violation_cull_mex for batch path
     end
 
     if useMex
