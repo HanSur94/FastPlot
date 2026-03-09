@@ -66,6 +66,7 @@ classdef FastPlotDock < handle
                 'Color', obj.Theme.Background, figOptsCell{:});
             set(obj.hFigure, 'SizeChangedFcn', @(s,e) obj.recomputeLayout());
             set(obj.hFigure, 'CloseRequestFcn', @(s,e) obj.onClose());
+            setappdata(obj.hFigure, 'FastPlotDock', obj);
         end
 
         function addTab(obj, fig, name)
