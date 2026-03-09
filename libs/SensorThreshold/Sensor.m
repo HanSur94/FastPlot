@@ -63,10 +63,10 @@ classdef Sensor < handle
             obj.StateChannels{end+1} = sc;
         end
 
-        function addThresholdRule(obj, conditionFn, value, varargin)
+        function addThresholdRule(obj, condition, value, varargin)
             %ADDTHRESHOLDRULE Add a dynamic threshold rule.
-            %   s.addThresholdRule(@(st) st.machine == 1, 50, 'Direction', 'upper')
-            rule = ThresholdRule(conditionFn, value, varargin{:});
+            %   s.addThresholdRule(struct('machine', 1), 50, 'Direction', 'upper')
+            rule = ThresholdRule(condition, value, varargin{:});
             obj.ThresholdRules{end+1} = rule;
         end
 
@@ -175,8 +175,6 @@ classdef Sensor < handle
 
         function active = getThresholdsAt(obj, t)
             %GETTHRESHOLDSAT Evaluate all rules at a single time point.
-            %   Returns struct array of active thresholds at time t.
-
             active = [];
             st = struct();
             for i = 1:numel(obj.StateChannels)
@@ -186,7 +184,7 @@ classdef Sensor < handle
 
             for r = 1:numel(obj.ThresholdRules)
                 rule = obj.ThresholdRules{r};
-                if rule.ConditionFn(st)
+                if rule.matchesState(st)
                     entry.Value = rule.Value;
                     entry.Direction = rule.Direction;
                     entry.Label = rule.Label;
@@ -200,21 +198,4 @@ classdef Sensor < handle
         end
     end
 
-    methods (Access = private)
-        function st = buildStateStruct(obj, alignedStates, idx, fields)
-            %BUILDSTATESTRUCT Build state struct for a single time index.
-            st = struct();
-            if nargin < 4
-                fields = fieldnames(alignedStates);
-            end
-            for f = 1:numel(fields)
-                vals = alignedStates.(fields{f});
-                if iscell(vals)
-                    st.(fields{f}) = vals{idx};
-                else
-                    st.(fields{f}) = vals(idx);
-                end
-            end
-        end
-    end
 end
