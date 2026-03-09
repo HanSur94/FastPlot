@@ -6,6 +6,17 @@ function [xOut, yOut] = violation_cull(x, y, thX, thY, direction, pixelWidth, xm
 %
 %   See also compute_violations, compute_violations_dynamic, downsample_violations.
 
+    % Clean step-function arrays: strip NaN entries, deduplicate X (keep last)
+    if numel(thX) > 1
+        valid = ~isnan(thX) & ~isnan(thY);
+        thX = thX(valid);
+        thY = thY(valid);
+        if numel(thX) > 1
+            [thX, ia] = unique(thX, 'last');
+            thY = thY(ia);
+        end
+    end
+
     persistent useMex;
     if isempty(useMex)
         useMex = (exist('violation_cull_mex', 'file') == 3);
