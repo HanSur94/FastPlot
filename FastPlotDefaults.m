@@ -32,7 +32,7 @@ function cfg = FastPlotDefaults()
 
     % --- Theme ---
     cfg.Theme = 'default';              % preset name or struct
-    cfg.ThemeDir = '';                % folder of custom theme .m files (empty = none)
+    cfg.ThemeDir = 'themes';          % folder of custom theme .m files
     cfg.Verbose = false;                % print diagnostics
 
     % --- Performance Tuning ---
