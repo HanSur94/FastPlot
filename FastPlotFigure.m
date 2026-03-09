@@ -61,9 +61,9 @@ classdef FastPlotFigure < handle
     % ====================== LAYOUT SETTINGS ==============================
     % Normalized spacing for the tile grid. Override before render().
     properties (Access = public)
-        Padding = 0.03    % normalized padding around edges
+        Padding = [0.06 0.04 0.01 0.02]  % [left bottom right top] normalized
         GapH    = 0.03    % horizontal gap between tiles
-        GapV    = 0.04    % vertical gap between tiles
+        GapV    = 0.06    % vertical gap between tiles
     end
 
     methods (Access = public)
@@ -480,7 +480,13 @@ classdef FastPlotFigure < handle
             row = ceil(n / cols);
             col = mod(n - 1, cols) + 1;
 
-            pad = obj.Padding;
+            % Padding: scalar or [left bottom right top]
+            p = obj.Padding;
+            if isscalar(p)
+                padL = p; padB = p; padR = p; padT = p;
+            else
+                padL = p(1); padB = p(2); padR = p(3); padT = p(4);
+            end
             gapH = obj.GapH;
             gapV = obj.GapV;
 
@@ -489,16 +495,16 @@ classdef FastPlotFigure < handle
             coLeft = co(1); coBottom = co(2); coWidth = co(3); coHeight = co(4);
 
             % Available space after padding (within content area)
-            totalW = coWidth - 2*pad;
-            totalH = coHeight - 2*pad;
+            totalW = coWidth - padL - padR;
+            totalH = coHeight - padT - padB;
 
             % Cell dimensions
             cellW = (totalW - (cols-1)*gapH) / cols;
             cellH = (totalH - (rows-1)*gapV) / rows;
 
             % Position (bottom-left origin for MATLAB), offset by content area
-            x = coLeft + pad + (col-1) * (cellW + gapH);
-            y = coBottom + coHeight - pad - row * cellH - (row-1) * gapV;
+            x = coLeft + padL + (col-1) * (cellW + gapH);
+            y = coBottom + padB + (rows - row) * (cellH + gapV);
 
             % Apply span
             w = colSpan * cellW + (colSpan-1) * gapH;
