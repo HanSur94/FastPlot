@@ -955,10 +955,14 @@ classdef FastPlot < handle
             % Only set figure-level callbacks when we own the figure
             if isempty(obj.ParentAxes)
                 set(obj.hFigure, 'ResizeFcn', @(s,e) obj.onResize(s,e));
-                hZoom = zoom(obj.hFigure);
-                set(hZoom, 'ButtonDownFilter', ...
-                    @(src,evt) obj.loupeButtonFilter());
-                set(hZoom, 'Enable', 'on');
+                try
+                    hZoom = zoom(obj.hFigure);
+                    set(hZoom, 'ButtonDownFilter', ...
+                        @(src,evt) obj.loupeButtonFilter());
+                    set(hZoom, 'Enable', 'on');
+                catch
+                    % zoom() may fail in headless / --no-gui mode
+                end
             end
 
             obj.IsRendered = true;
