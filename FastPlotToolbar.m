@@ -396,8 +396,15 @@ classdef FastPlotToolbar < handle
             end
 
             % Position and show the menu near the mouse
-            figPos = get(obj.hFigure, 'CurrentPoint');
-            set(hMenu, 'Position', figPos, 'Visible', 'on');
+            % Use PointerLocation (screen coords) since CurrentPoint is
+            % not updated during toolbar button callbacks.
+            screenPos = get(0, 'PointerLocation');
+            oldUnits = get(obj.hFigure, 'Units');
+            set(obj.hFigure, 'Units', 'pixels');
+            figPos = get(obj.hFigure, 'Position');
+            set(obj.hFigure, 'Units', oldUnits);
+            localPos = screenPos - figPos(1:2);
+            set(hMenu, 'Position', localPos, 'Visible', 'on');
         end
 
         function name = getCurrentThemeName(obj)
