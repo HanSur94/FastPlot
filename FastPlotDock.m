@@ -29,6 +29,7 @@ classdef FastPlotDock < handle
     properties (Access = public)
         Theme     = []         % FastPlotTheme struct
         hFigure   = []         % shared figure handle
+        ShowProgress = true   % show console progress bar during renderAll
     end
 
     % ====================== INTERNAL STATE ===============================
@@ -127,6 +128,52 @@ classdef FastPlotDock < handle
             obj.createTabBar();
 
             % Show the first tab
+            obj.selectTab(1);
+
+            set(obj.hFigure, 'Visible', 'on');
+            w = warning('off', 'MATLAB:callback:error');
+            drawnow;
+            warning(w);
+        end
+
+        function renderAll(obj)
+            %RENDERALL Eagerly render all tabs with hierarchical progress.
+            %   dock.renderAll()
+            %
+            %   Renders every tab upfront (not lazily). Shows hierarchical
+            %   console progress: tab headers + per-tile progress bars.
+            if isempty(obj.Tabs)
+                set(obj.hFigure, 'Visible', 'on');
+                return;
+            end
+
+            nTabs = numel(obj.Tabs);
+
+            for t = 1:nTabs
+                % Print tab header line
+                if obj.ShowProgress
+                    fprintf('Tab %d/%d: %s\n', t, nTabs, obj.Tabs(t).Name);
+                end
+
+                % Pass ShowProgress through to figure level
+                obj.Tabs(t).Figure.ShowProgress = obj.ShowProgress;
+
+                % Render the tab
+                tb = obj.Tabs(t).Toolbar;
+                if ~isempty(tb) && ~isempty(tb.hToolbar) && ishandle(tb.hToolbar)
+                    delete(tb.hToolbar);
+                end
+                obj.Tabs(t).Figure.renderAll(true);  % truthy = nested from dock
+                obj.reparentAxes(t);
+                obj.Tabs(t).Toolbar = FastPlotToolbar(obj.Tabs(t).Figure);
+                obj.Tabs(t).IsRendered = true;
+            end
+
+            % Hide all tabs, create tab bar, show first tab
+            for i = 1:nTabs
+                obj.setTabVisible(i, false);
+            end
+            obj.createTabBar();
             obj.selectTab(1);
 
             set(obj.hFigure, 'Visible', 'on');
