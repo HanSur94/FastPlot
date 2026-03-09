@@ -330,9 +330,13 @@ classdef FastPlot < handle
                     if isempty(connColor)
                         connColor = obj.Theme.ThresholdColor;
                     end
+                    connStyle = conn.LineStyle;
+                    if isempty(connStyle)
+                        connStyle = obj.Theme.ThresholdStyle;
+                    end
                     obj.addLine(conn.X, conn.Y, ...
                         'Color', connColor, ...
-                        'LineStyle', '-', ...
+                        'LineStyle', connStyle, ...
                         'LineWidth', 1.5);
                 end
             end

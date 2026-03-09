@@ -188,11 +188,13 @@ classdef Sensor < handle
                 nT = numel(timeGrid);
                 activeVal = NaN(1, nT);
                 activeColor = cell(1, nT);
+                activeStyle = cell(1, nT);
                 for k = 1:nT
                     for ri = ruleIdx
                         if ~isnan(resolvedTh(ri).Y(k))
                             activeVal(k) = resolvedTh(ri).Y(k);
                             activeColor{k} = resolvedTh(ri).Color;
+                            activeStyle{k} = resolvedTh(ri).LineStyle;
                             break;
                         end
                     end
@@ -205,6 +207,7 @@ classdef Sensor < handle
                         conn.X = [timeGrid(k), timeGrid(k)];
                         conn.Y = [activeVal(k-1), activeVal(k)];
                         conn.Color = activeColor{k};
+                        conn.LineStyle = activeStyle{k};
                         conn.Direction = d;
                         if isempty(connectors)
                             connectors = conn;
