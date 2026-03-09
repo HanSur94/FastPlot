@@ -33,7 +33,7 @@ function test_datetime()
     x = datenum(2024,1,1) + (0:99)/24;  % ~4 days of hourly data
     fp.addLine(x, rand(1,100), 'XType', 'datenum');
     fp.render();
-    labels = get(fp.hAxes, 'XTickLabel');
+    labels = cellstr(get(fp.hAxes, 'XTickLabel'));
     % Labels should contain ':' (time formatting) not plain numbers
     hasTime = false;
     for i = 1:numel(labels)
@@ -54,7 +54,7 @@ function test_datetime()
         % Zoom to 30 seconds
         set(fp.hAxes, 'XLim', [x(1), x(1) + 30/86400]);
         drawnow;
-        labels = get(fp.hAxes, 'XTickLabel');
+        labels = cellstr(get(fp.hAxes, 'XTickLabel'));
         % Should show seconds (HH:MM:SS format)
         hasSeconds = false;
         for i = 1:numel(labels)

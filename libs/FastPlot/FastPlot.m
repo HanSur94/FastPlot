@@ -2297,7 +2297,7 @@ classdef FastPlot < handle
             end
 
             obj.drawnowLimitRate();
-            if obj.Verbose; fflush(stdout); end
+            if obj.Verbose && exist('OCTAVE_VERSION', 'builtin'); fflush(stdout); end
         end
 
         function onXLimModeChanged(obj)
@@ -2407,7 +2407,7 @@ classdef FastPlot < handle
                 obj.updateShadings();
                 obj.updateViolations();
                 obj.drawnowLimitRate();
-                if obj.Verbose; fflush(stdout); end
+                if obj.Verbose && exist('OCTAVE_VERSION', 'builtin'); fflush(stdout); end
             end
         end
 
@@ -2706,9 +2706,17 @@ classdef FastPlot < handle
                 nViols = 0;
                 pw = diff(xl) / obj.PixelWidth;
                 for i = 1:nLines
-                    if obj.Lines(i).IsStatic; continue; end
                     xd = get(obj.Lines(i).hLine, 'XData');
                     yd = get(obj.Lines(i).hLine, 'YData');
+                    % Static lines keep all data — clip to visible range
+                    if obj.Lines(i).IsStatic && numel(xd) > 1
+                        iS = binary_search(xd, xl(1), 'left');
+                        iE = binary_search(xd, xl(2), 'right');
+                        iS = max(1, iS - 1);
+                        iE = min(numel(xd), iE + 1);
+                        xd = xd(iS:iE);
+                        yd = yd(iS:iE);
+                    end
                     if isempty(obj.Thresholds(t).X)
                         [vx, vy] = violation_cull(xd, yd, 0, obj.Thresholds(t).Value, ...
                             obj.Thresholds(t).Direction, pw, xl(1));

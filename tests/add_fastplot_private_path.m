@@ -20,11 +20,14 @@ function add_fastplot_private_path()
         if ~exist(tmpDir, 'dir')
             mkdir(tmpDir);
         end
-        files = dir(fullfile(privDir, '*.m'));
-        for i = 1:numel(files)
-            src = fullfile(privDir, files(i).name);
-            dst = fullfile(tmpDir, files(i).name);
-            copyfile(src, dst);
+        exts = {'*.m', '*.mex', '*.mexmaci64', '*.mexmaca64', '*.mexa64'};
+        for e = 1:numel(exts)
+            files = dir(fullfile(privDir, exts{e}));
+            for i = 1:numel(files)
+                src = fullfile(privDir, files(i).name);
+                dst = fullfile(tmpDir, files(i).name);
+                copyfile(src, dst);
+            end
         end
         addpath(tmpDir);
     end
