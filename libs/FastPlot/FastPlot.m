@@ -78,6 +78,7 @@ classdef FastPlot < handle
         ShowProgress = true           % show console progress bar during render
         XScale = 'linear'             % 'linear' or 'log' — X axis scale
         YScale = 'linear'             % 'linear' or 'log' — Y axis scale
+        ViolationsVisible = true      % global toggle for violation markers
     end
 
     % ====================== INTERNAL DATA STORAGE ========================
@@ -825,7 +826,7 @@ classdef FastPlot < handle
                 obj.Thresholds(t).hLine = hT;
 
                 % Violation markers (fused: detect + cull in one pass)
-                if T.ShowViolations
+                if T.ShowViolations && obj.ViolationsVisible
                     nLines = numel(obj.Lines);
                     vxCell = cell(1, nLines);
                     vyCell = cell(1, nLines);
@@ -1392,6 +1393,27 @@ classdef FastPlot < handle
             end
         end
 
+        function setViolationsVisible(obj, on)
+            %SETVIOLATIONSVISIBLE Show or hide all violation markers.
+            %   fp.setViolationsVisible(true)  — show markers
+            %   fp.setViolationsVisible(false) — hide markers
+            obj.ViolationsVisible = on;
+            if on
+                vis = 'on';
+                obj.CachedViolationLim = [];   % force recompute
+            else
+                vis = 'off';
+            end
+            for t = 1:numel(obj.Thresholds)
+                if ~isempty(obj.Thresholds(t).hMarkers) && ishandle(obj.Thresholds(t).hMarkers)
+                    set(obj.Thresholds(t).hMarkers, 'Visible', vis);
+                end
+            end
+            if on && obj.IsRendered
+                obj.updateViolations();
+            end
+        end
+
         function openLoupe(obj)
             %OPENLOUPE Open a standalone enlarged copy of this tile.
             title_str = get(get(obj.hAxes, 'Title'), 'String');
@@ -1452,6 +1474,7 @@ classdef FastPlot < handle
                     'MarkerSize', M.MarkerSize, 'Color', M.Color, ...
                     'Label', M.Label);
             end
+            fp.ViolationsVisible = obj.ViolationsVisible;
             % Defer drawnow so the figure appears once at the correct zoom
             fp.DeferDraw = true;
             fp.render();
@@ -1979,6 +2002,10 @@ classdef FastPlot < handle
             %UPDATEVIOLATIONS Recompute violation markers from displayed data.
             %   Uses the already-downsampled line data to find threshold
             %   violations, avoiding re-scanning the full raw dataset.
+
+            if ~obj.ViolationsVisible
+                return;
+            end
 
             % Dirty-flag: skip if view is unchanged since last violation update
             if ~isempty(obj.Thresholds) && ishandle(obj.hAxes)

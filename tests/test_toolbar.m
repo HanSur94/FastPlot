@@ -31,7 +31,7 @@ function test_toolbar()
     fp.render();
     tb = FastPlotToolbar(fp);
     children = get(tb.hToolbar, 'Children');
-    assert(numel(children) == 10, ...
+    assert(numel(children) == 11, ...
         sprintf('testToolbarHasAllButtons: got %d', numel(children)));
     close(fp.hFigure);
 
@@ -40,7 +40,7 @@ function test_toolbar()
     assert(isequal(size(icons), [16 16 3]), 'testIconsAre16x16x3');
 
     % testAllIconNames
-    names = {'cursor', 'crosshair', 'grid', 'legend', 'autoscale', 'export'};
+    names = {'cursor', 'crosshair', 'grid', 'legend', 'autoscale', 'export', 'violations'};
     for i = 1:numel(names)
         icon = FastPlotToolbar.makeIcon(names{i});
         assert(isequal(size(icon), [16 16 3]), ...
@@ -146,5 +146,24 @@ function test_toolbar()
     assert(sy == 30, sprintf('testSnapToNearest: y should be 30, got %g', sy));
     close(fp.hFigure);
 
-    fprintf('    All 13 toolbar tests passed.\n');
+    % testViolationsToggle
+    fp = FastPlot();
+    fp.addLine(1:100, [ones(1,50)*2, ones(1,50)*8]);
+    fp.addThreshold(5, 'Direction', 'upper', 'ShowViolations', true);
+    fp.render();
+    tb = FastPlotToolbar(fp);
+    % Violations should be visible initially
+    assert(fp.ViolationsVisible, 'testViolationsToggle: default true');
+    hM = fp.Thresholds(1).hMarkers;
+    assert(strcmp(get(hM, 'Visible'), 'on'), 'testViolationsToggle: markers visible');
+    % Toggle off via toolbar callback
+    fp.setViolationsVisible(false);
+    assert(~fp.ViolationsVisible, 'testViolationsToggle: now false');
+    assert(strcmp(get(hM, 'Visible'), 'off'), 'testViolationsToggle: markers hidden');
+    % Toggle back on
+    fp.setViolationsVisible(true);
+    assert(strcmp(get(hM, 'Visible'), 'on'), 'testViolationsToggle: markers back');
+    close(fp.hFigure);
+
+    fprintf('    All 14 toolbar tests passed.\n');
 end

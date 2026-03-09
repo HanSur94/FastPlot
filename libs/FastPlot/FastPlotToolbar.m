@@ -18,6 +18,7 @@ classdef FastPlotToolbar < handle
     %     Refresh      — manual one-shot data reload
     %     Live Mode    — toggle automatic file polling
     %     Metadata     — show/hide metadata in data cursor tooltips
+    %     Violations   — toggle violation marker visibility
     %
     %   See also FastPlot, FastPlotFigure, FastPlotDock.
 
@@ -46,6 +47,7 @@ classdef FastPlotToolbar < handle
         hRefreshBtn   = []    % uipushtool handle for refresh
         hMetadataBtn  = []    % uitoggletool handle for metadata
         hThemeBtn     = []    % uipushtool handle for theme selector
+        hViolationsBtn = []    % uitoggletool handle for violations toggle
     end
 
     methods (Access = public)
@@ -245,6 +247,15 @@ classdef FastPlotToolbar < handle
             end
             setappdata(obj.hFigure, 'FastPlotMetadataEnabled', obj.MetadataEnabled);
 
+            % Sync violations toggle to first FastPlot's state
+            if ~isempty(obj.FastPlots)
+                if obj.FastPlots{1}.ViolationsVisible
+                    set(obj.hViolationsBtn, 'State', 'on');
+                else
+                    set(obj.hViolationsBtn, 'State', 'off');
+                end
+            end
+
             % Reinstall datacursor callback
             obj.installDataCursorCallback();
         end
@@ -365,6 +376,13 @@ classdef FastPlotToolbar < handle
                 'OnCallback',  @(s,e) obj.onMetadataOn(), ...
                 'OffCallback', @(s,e) obj.onMetadataOff());
 
+            obj.hViolationsBtn = uitoggletool(obj.hToolbar, ...
+                'CData', FastPlotToolbar.makeIcon('violations'), ...
+                'TooltipString', 'Toggle Violations', ...
+                'State', 'on', ...
+                'OnCallback',  @(s,e) obj.onViolationsOn(), ...
+                'OffCallback', @(s,e) obj.onViolationsOff());
+
             obj.hThemeBtn = uipushtool(obj.hToolbar, ...
                 'CData', FastPlotToolbar.makeIcon('theme'), ...
                 'TooltipString', 'Change Theme', ...
@@ -389,6 +407,18 @@ classdef FastPlotToolbar < handle
 
         function onMetadataOff(obj)
             obj.setMetadata(false);
+        end
+
+        function onViolationsOn(obj)
+            for i = 1:numel(obj.FastPlots)
+                obj.FastPlots{i}.setViolationsVisible(true);
+            end
+        end
+
+        function onViolationsOff(obj)
+            for i = 1:numel(obj.FastPlots)
+                obj.FastPlots{i}.setViolationsVisible(false);
+            end
         end
 
         function onThemeClick(obj)
@@ -878,7 +908,8 @@ classdef FastPlotToolbar < handle
             %
             %   Draws simple pixel-art icons on a light gray background.
             %   Available names: 'cursor', 'crosshair', 'grid', 'legend',
-            %   'autoscale', 'export', 'refresh', 'live', 'metadata', 'theme'.
+            %   'autoscale', 'export', 'refresh', 'live', 'metadata',
+            %   'violations', 'theme'.
             persistent cache
             if isempty(cache)
                 cache = containers.Map();
@@ -1024,6 +1055,25 @@ classdef FastPlotToolbar < handle
                         icon(pr+1, pc, :) = reshape(clr, 1, 1, 3);
                         icon(pr+1, pc+1, :) = reshape(clr, 1, 1, 3);
                     end
+                case 'violations'
+                    % Exclamation triangle (warning marker)
+                    warnColor = [0.9 0.4 0.1];  % orange
+                    % Triangle outline: rows 3-13, centered at col 8
+                    for r = 3:13
+                        halfW = round((r - 3) * 5 / 10);
+                        cL = 8 - halfW;
+                        cR = 8 + halfW;
+                        if cL >= 1 && cR <= 16
+                            icon(r, cL, :) = reshape(warnColor, 1, 1, 3);
+                            icon(r, cR, :) = reshape(warnColor, 1, 1, 3);
+                        end
+                    end
+                    % Bottom edge
+                    icon(13, 3:13, :) = repmat(reshape(warnColor, 1, 1, 3), 1, 11, 1);
+                    % Exclamation mark stem
+                    icon(6:9, 8, :) = repmat(reshape(warnColor, 1, 1, 3), 4, 1, 1);
+                    % Exclamation mark dot
+                    icon(11, 8, :) = reshape(warnColor, 1, 1, 3);
             end
             cache(name) = icon;
         end
@@ -1031,7 +1081,7 @@ classdef FastPlotToolbar < handle
         function initIcons()
             %INITICONS Pre-warm the icon cache for all toolbar buttons.
             names = {'cursor', 'crosshair', 'grid', 'legend', 'autoscale', ...
-                     'export', 'refresh', 'live', 'metadata', 'theme'};
+                     'export', 'refresh', 'live', 'metadata', 'violations', 'theme'};
             for i = 1:numel(names)
                 FastPlotToolbar.makeIcon(names{i});
             end
