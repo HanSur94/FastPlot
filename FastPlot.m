@@ -14,6 +14,7 @@ classdef FastPlot < handle
     %     - Live mode: poll a .mat file and auto-refresh on change
     %     - Metadata attachment and forward-fill lookup by X value
     %     - Datetime X-axis support with auto-formatting
+    %     - Logarithmic axis support (X, Y, or both)
     %     - Theme-based styling via FastPlotTheme
     %
     %   Usage:
@@ -31,6 +32,8 @@ classdef FastPlot < handle
     %     'DownsampleFactor'       — points per pixel (default: 2)
     %     'PyramidReduction'       — compression per pyramid level
     %     'DefaultDownsampleMethod' — 'minmax' or 'lttb'
+    %     'XScale'        — 'linear' or 'log' (default: 'linear')
+    %     'YScale'        — 'linear' or 'log' (default: 'linear')
     %     'LiveInterval'  — poll interval in seconds (default: 2.0)
     %
     %   Example — linked zoom across two plots:
@@ -40,6 +43,11 @@ classdef FastPlot < handle
     %     fp2 = FastPlot('LinkGroup', 'group1');
     %     fp2.addLine(x, y2, 'DisplayName', 'Pressure');
     %     fp2.render();
+    %
+    %   Example — logarithmic Y axis:
+    %     fp = FastPlot('YScale', 'log');
+    %     fp.addLine(1:1000, logspace(-1, 3, 1000));
+    %     fp.render();
     %
     %   Example — live mode:
     %     fp = FastPlot(); fp.addLine(x, y); fp.render();
