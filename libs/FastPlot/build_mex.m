@@ -40,16 +40,28 @@ function build_mex()
         end
     else
         compiler = '';
-        fprintf('Compiler: MATLAB default (Xcode Clang)\n');
+        if ispc
+            fprintf('Compiler: MATLAB default (MSVC)\n');
+        else
+            fprintf('Compiler: MATLAB default (Xcode Clang)\n');
+        end
     end
 
-    % Set optimization and SIMD flags
+    % Set optimization and SIMD flags (MSVC uses /flags, GCC/Clang use -flags)
+    useMSVC = ispc && ~isOctave;
     switch arch
         case 'x86_64'
-            opt_flags = {'-O3', '-mavx2', '-mfma', '-ftree-vectorize', '-ffast-math'};
+            if useMSVC
+                opt_flags = {'/O2', '/arch:AVX2', '/fp:fast'};
+            else
+                opt_flags = {'-O3', '-mavx2', '-mfma', '-ftree-vectorize', '-ffast-math'};
+            end
             fprintf('SIMD target: AVX2 + FMA\n');
         case 'arm64'
-            if isOctave && ~isempty(compiler)
+            if useMSVC
+                % MSVC on ARM64 Windows: NEON enabled by default
+                opt_flags = {'/O2', '/fp:fast'};
+            elseif isOctave && ~isempty(compiler)
                 % GCC on ARM needs explicit CPU target
                 opt_flags = {'-O3', '-mcpu=apple-m3', '-ftree-vectorize', '-ffast-math'};
             else
@@ -58,7 +70,11 @@ function build_mex()
             end
             fprintf('SIMD target: ARM NEON\n');
         otherwise
-            opt_flags = {'-O3', '-ffast-math'};
+            if useMSVC
+                opt_flags = {'/O2', '/fp:fast'};
+            else
+                opt_flags = {'-O3', '-ffast-math'};
+            end
             fprintf('SIMD target: scalar fallback\n');
     end
 
@@ -93,11 +109,15 @@ function build_mex()
             fprintf('  Error: %s\n', e.message);
 
             % If AVX2 failed on x86_64, retry with SSE2
-            if strcmp(arch, 'x86_64') && ...
-               any(contains(opt_flags, 'mavx2'))
+            hasAVX2 = any(contains(opt_flags, 'mavx2')) || any(contains(opt_flags, 'AVX2'));
+            if strcmp(arch, 'x86_64') && hasAVX2
                 fprintf('  Retrying with SSE2 fallback ... ');
                 try
-                    sse_flags = {'-O3', '-msse2', '-ftree-vectorize', '-ffast-math'};
+                    if useMSVC
+                        sse_flags = {'/O2', '/arch:SSE2', '/fp:fast'};
+                    else
+                        sse_flags = {'-O3', '-msse2', '-ftree-vectorize', '-ffast-math'};
+                    end
                     compile_mex(src_file, out_name, outDir, include_flag, sse_flags, compiler);
                     fprintf('OK (SSE2)\n');
                     n_success = n_success + 1;
@@ -141,7 +161,13 @@ function compile_mex(src_file, out_name, outDir, include_flag, opt_flags, compil
         end
     else
         % MATLAB: use mex
-        cflags = ['CFLAGS="$CFLAGS ' strjoin(opt_flags, ' ') '"'];
+        if ispc
+            % Windows MSVC: use COMPFLAGS
+            cflags = ['COMPFLAGS="$COMPFLAGS ' strjoin(opt_flags, ' ') '"'];
+        else
+            % macOS/Linux GCC/Clang: use CFLAGS
+            cflags = ['CFLAGS="$CFLAGS ' strjoin(opt_flags, ' ') '"'];
+        end
         mex_args = {cflags, include_flag, '-outdir', outDir, '-output', out_name, src_file};
         if ~isempty(compiler)
             mex_args = [['CC=' compiler], mex_args];

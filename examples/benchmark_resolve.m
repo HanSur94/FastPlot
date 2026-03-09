@@ -1,14 +1,16 @@
 function benchmark_resolve()
 %BENCHMARK_RESOLVE Compare segment-based vs naive resolve() performance.
-%   Runs at 10K, 100K, 1M points with 2 state channels, 4 rules.
-%   Compares: naive O(N*R) loop vs segment-based vectorized vs MEX.
+%   Runs at 10K to 100M points with 2 state channels, 4 rules.
+%   Compares: naive O(N*R) loop vs segment-based vectorized (+ MEX).
+%   Naive is skipped above 1M points (too slow).
 
     test_dir = fileparts(mfilename('fullpath'));
     repo_root = fileparts(test_dir);
     addpath(repo_root);
     setup();
 
-    sizes = [1e4, 1e5, 1e6];
+    sizes = [1e4, 1e5, 1e6, 1e7, 1e8];
+    naiveMaxN = Inf;  % run naive for all sizes
     nRuns = 5;
 
     % Check MEX availability
@@ -51,9 +53,13 @@ function benchmark_resolve()
         sc2.Y = [0, 1, 0];
 
         % --- Naive O(N*R): point-by-point with aligned state lookup ---
-        naiveTimes = zeros(1, nRuns);
-        for r = 1:nRuns
-            naiveTimes(r) = bench_naive(x, y, sc1, sc2) * 1000;
+        runNaive = (N <= naiveMaxN);
+        if runNaive
+            naiveTimes = zeros(1, nRuns);
+            for r = 1:nRuns
+                naiveTimes(r) = bench_naive(x, y, sc1, sc2) * 1000;
+            end
+            naiveMs = median(naiveTimes);
         end
 
         % --- Segment-based (current resolve) ---
@@ -84,14 +90,17 @@ function benchmark_resolve()
             end
         end
 
-        naiveMs = median(naiveTimes);
         segMs = median(segTimes);
-        speedup = naiveMs / segMs;
-
         sizeStr = format_size(N);
 
-        fprintf('%-10s  %9.1f ms  %9.1f ms  %9.1fx  %10d\n', ...
-            sizeStr, naiveMs, segMs, speedup, nViol);
+        if runNaive
+            speedup = naiveMs / segMs;
+            fprintf('%-10s  %9.1f ms  %9.1f ms  %9.1fx  %10d\n', ...
+                sizeStr, naiveMs, segMs, speedup, nViol);
+        else
+            fprintf('%-10s  %10s  %9.1f ms  %10s  %10d\n', ...
+                sizeStr, '—', segMs, '—', nViol);
+        end
     end
 
     fprintf('\nDone.\n');

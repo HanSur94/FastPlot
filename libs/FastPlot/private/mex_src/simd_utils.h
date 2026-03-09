@@ -62,7 +62,7 @@ static inline double simd_hmin(simd_double v) {
 /* ============================================================
  * SSE2 path (x86_64 without AVX2)
  * ============================================================ */
-#elif defined(__SSE2__)
+#elif defined(__SSE2__) || (defined(_M_AMD64) || defined(_M_X64))
 
 #include <emmintrin.h>
 
