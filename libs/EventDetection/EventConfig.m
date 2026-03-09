@@ -14,6 +14,7 @@ classdef EventConfig < handle
         ThresholdColors   % containers.Map: label -> [R G B]
         AutoOpenViewer    % logical: auto-open EventViewer after detection
         EscalateSeverity  % logical: escalate events to higher thresholds (default true)
+        EventFile         % char: path to .mat file for auto-saving events (empty = disabled)
     end
 
     methods
@@ -26,6 +27,7 @@ classdef EventConfig < handle
             obj.ThresholdColors = containers.Map();
             obj.AutoOpenViewer = false;
             obj.EscalateSeverity = true;
+            obj.EventFile = '';
         end
 
         function addSensor(obj, sensor)
@@ -84,6 +86,11 @@ classdef EventConfig < handle
                 events = obj.escalateEvents(events);
             end
 
+            % Auto-save to .mat file
+            if ~isempty(obj.EventFile)
+                obj.saveEvents(events);
+            end
+
             if obj.AutoOpenViewer && ~isempty(events)
                 if isempty(obj.ThresholdColors) || obj.ThresholdColors.Count == 0
                     EventViewer(events, obj.SensorData);
@@ -95,6 +102,27 @@ classdef EventConfig < handle
     end
 
     methods (Access = private)
+        function saveEvents(obj, events)
+            %SAVEEVENTS Save events, sensor data, and colors to .mat file.
+            eventStore.events = events;
+            eventStore.sensorData = obj.SensorData;
+            % Convert containers.Map to struct for serialization
+            if obj.ThresholdColors.Count > 0
+                keys = obj.ThresholdColors.keys();
+                vals = obj.ThresholdColors.values();
+                colorStruct = struct();
+                for i = 1:numel(keys)
+                    safeKey = matlab.lang.makeValidName(keys{i});
+                    colorStruct.(safeKey) = struct('label', keys{i}, 'rgb', vals{i});
+                end
+                eventStore.thresholdColors = colorStruct;
+            else
+                eventStore.thresholdColors = struct();
+            end
+            eventStore.timestamp = datetime('now');
+            save(obj.EventFile, '-struct', 'eventStore');
+        end
+
         function events = escalateEvents(obj, events)
             %ESCALATEEVENTS Escalate events whose peak exceeds a higher threshold.
 

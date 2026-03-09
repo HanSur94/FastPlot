@@ -60,6 +60,44 @@ classdef EventViewer < handle
         end
     end
 
+    methods (Static)
+        function viewer = fromFile(filepath)
+            %FROMFILE Open EventViewer from a saved .mat event store file.
+            %   viewer = EventViewer.fromFile('events.mat')
+            if ~exist(filepath, 'file')
+                error('EventViewer:fileNotFound', 'File not found: %s', filepath);
+            end
+
+            data = load(filepath);
+
+            if ~isfield(data, 'events')
+                error('EventViewer:invalidFile', 'File does not contain an events field.');
+            end
+
+            events = data.events;
+            sensorData = [];
+            if isfield(data, 'sensorData')
+                sensorData = data.sensorData;
+            end
+
+            thresholdColors = containers.Map();
+            if isfield(data, 'thresholdColors') && ~isempty(fieldnames(data.thresholdColors))
+                fields = fieldnames(data.thresholdColors);
+                for i = 1:numel(fields)
+                    entry = data.thresholdColors.(fields{i});
+                    thresholdColors(entry.label) = entry.rgb;
+                end
+            end
+
+            viewer = EventViewer(events, sensorData, thresholdColors);
+
+            if isfield(data, 'timestamp')
+                set(viewer.hFigure, 'Name', ...
+                    sprintf('Event Viewer — %s', char(data.timestamp)));
+            end
+        end
+    end
+
     methods (Access = private)
         function buildFigure(obj)
             obj.hFigure = figure('Name', 'Event Viewer', ...
