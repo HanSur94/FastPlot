@@ -69,5 +69,146 @@ classdef Sensor < handle
             rule = ThresholdRule(conditionFn, value, varargin{:});
             obj.ThresholdRules{end+1} = rule;
         end
+
+        function resolve(obj)
+            %RESOLVE Precompute threshold time series, violations, and state bands.
+            %   Must be called after X, Y, and all StateChannels are loaded.
+
+            nRules = numel(obj.ThresholdRules);
+
+            if nRules == 0
+                obj.ResolvedThresholds = [];
+                obj.ResolvedViolations = [];
+                obj.ResolvedStateBands = [];
+                return;
+            end
+
+            sensorX = obj.X;
+            sensorY = obj.Y;
+            n = numel(sensorX);
+
+            % Collect all state-change timestamps into a merged time grid
+            allTimes = sensorX(:)';
+            for i = 1:numel(obj.StateChannels)
+                allTimes = [allTimes, obj.StateChannels{i}.X(:)'];
+            end
+            timeGrid = unique(allTimes);
+            timeGrid = sort(timeGrid);
+
+            % Align all state channels to the time grid
+            stateValues = struct();
+            for i = 1:numel(obj.StateChannels)
+                sc = obj.StateChannels{i};
+                stateValues.(sc.Key) = alignStateToTime(sc.X, sc.Y, timeGrid);
+            end
+
+            % Also align states to sensor timestamps for violation detection
+            sensorStates = struct();
+            for i = 1:numel(obj.StateChannels)
+                sc = obj.StateChannels{i};
+                sensorStates.(sc.Key) = alignStateToTime(sc.X, sc.Y, sensorX);
+            end
+
+            % Evaluate each rule across time grid → build stepped threshold line
+            resolvedTh = [];
+            resolvedViol = [];
+            for r = 1:nRules
+                rule = obj.ThresholdRules{r};
+
+                % Build threshold time series on the merged time grid
+                thY = NaN(1, numel(timeGrid));
+                for k = 1:numel(timeGrid)
+                    st = obj.buildStateStruct(stateValues, k);
+                    if rule.ConditionFn(st)
+                        thY(k) = rule.Value;
+                    end
+                end
+
+                % Store resolved threshold
+                th.X = timeGrid;
+                th.Y = thY;
+                th.Direction = rule.Direction;
+                th.Label = rule.Label;
+                th.Color = rule.Color;
+                th.LineStyle = rule.LineStyle;
+                th.Value = rule.Value;
+
+                % Compute violations on sensor data
+                % For each sensor point, check if the rule is active and violated
+                vX = [];
+                vY = [];
+                for k = 1:n
+                    st = obj.buildStateStruct(sensorStates, k);
+                    if rule.ConditionFn(st)
+                        if strcmp(rule.Direction, 'upper') && sensorY(k) > rule.Value
+                            vX(end+1) = sensorX(k);
+                            vY(end+1) = sensorY(k);
+                        elseif strcmp(rule.Direction, 'lower') && sensorY(k) < rule.Value
+                            vX(end+1) = sensorX(k);
+                            vY(end+1) = sensorY(k);
+                        end
+                    end
+                end
+
+                viol.X = vX;
+                viol.Y = vY;
+                viol.Direction = rule.Direction;
+                viol.Label = rule.Label;
+
+                if isempty(resolvedTh)
+                    resolvedTh = th;
+                    resolvedViol = viol;
+                else
+                    resolvedTh(end+1) = th;
+                    resolvedViol(end+1) = viol;
+                end
+            end
+
+            obj.ResolvedThresholds = resolvedTh;
+            obj.ResolvedViolations = resolvedViol;
+            obj.ResolvedStateBands = struct(); % placeholder for state shading
+        end
+
+        function active = getThresholdsAt(obj, t)
+            %GETTHRESHOLDSAT Evaluate all rules at a single time point.
+            %   Returns struct array of active thresholds at time t.
+
+            active = [];
+            st = struct();
+            for i = 1:numel(obj.StateChannels)
+                sc = obj.StateChannels{i};
+                st.(sc.Key) = sc.valueAt(t);
+            end
+
+            for r = 1:numel(obj.ThresholdRules)
+                rule = obj.ThresholdRules{r};
+                if rule.ConditionFn(st)
+                    entry.Value = rule.Value;
+                    entry.Direction = rule.Direction;
+                    entry.Label = rule.Label;
+                    if isempty(active)
+                        active = entry;
+                    else
+                        active(end+1) = entry;
+                    end
+                end
+            end
+        end
+    end
+
+    methods (Access = private)
+        function st = buildStateStruct(obj, alignedStates, idx)
+            %BUILDSTATESTRUCT Build state struct for a single time index.
+            st = struct();
+            fields = fieldnames(alignedStates);
+            for f = 1:numel(fields)
+                vals = alignedStates.(fields{f});
+                if iscell(vals)
+                    st.(fields{f}) = vals{idx};
+                else
+                    st.(fields{f}) = vals(idx);
+                end
+            end
+        end
     end
 end
