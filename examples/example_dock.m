@@ -151,7 +151,7 @@ dock.addTab(fig5, 'Environment');
 % =========================================================================
 % Render and label
 % =========================================================================
-dock.render();
+dock.renderAll();
 
 fig1.tileTitle(1, 'Temperature (2M pts)');
 fig1.tileYLabel(1, 'Temp (°F)');
