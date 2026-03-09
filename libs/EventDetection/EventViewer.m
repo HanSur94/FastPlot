@@ -21,6 +21,7 @@ classdef EventViewer < handle
         FilteredEvents  % currently displayed events after filtering
         BarRects        % rectangle handles for hover detection
         BarEvents       % Event objects corresponding to BarRects
+        SelectedBarIdx  % index of currently selected bar (0 = none)
         SourceFile      % char: path to .mat file (for refresh)
         RefreshTimer    % timer object for auto-refresh
         hRefreshBtn     % push button: manual refresh
@@ -234,6 +235,7 @@ classdef EventViewer < handle
                 'Clipping', 'off');
 
             set(obj.hFigure, 'WindowButtonMotionFcn', @(~,~) obj.onHover());
+            set(obj.hFigure, 'WindowButtonDownFcn', @(~,~) obj.onBarClick());
 
             obj.drawTimeline();
             obj.populateTable();
@@ -490,6 +492,68 @@ classdef EventViewer < handle
 
         function onFigureClose(obj)
             obj.stopAutoRefresh();
+        end
+
+        function onBarClick(obj)
+            if isempty(obj.BarRects) || isempty(obj.BarEvents)
+                return;
+            end
+
+            cp = get(obj.hTimelineAxes, 'CurrentPoint');
+            mx = cp(1,1);
+            my = cp(1,2);
+
+            % Check if click is within axes bounds
+            xl = get(obj.hTimelineAxes, 'XLim');
+            yl = get(obj.hTimelineAxes, 'YLim');
+            if mx < xl(1) || mx > xl(2) || my < yl(1) || my > yl(2)
+                return;
+            end
+
+            % Find which bar was clicked
+            for i = 1:numel(obj.BarRects)
+                if ~ishandle(obj.BarRects(i)); continue; end
+                pos = get(obj.BarRects(i), 'Position');
+                rx = pos(1); ry = pos(2); rw = pos(3); rh = pos(4);
+                if mx >= rx && mx <= rx + rw && my >= ry && my <= ry + rh
+                    obj.selectBar(i);
+                    return;
+                end
+            end
+        end
+
+        function selectBar(obj, idx)
+            % Reset previous selection highlight
+            if ~isempty(obj.SelectedBarIdx) && obj.SelectedBarIdx > 0 ...
+                    && obj.SelectedBarIdx <= numel(obj.BarRects) ...
+                    && ishandle(obj.BarRects(obj.SelectedBarIdx))
+                ev = obj.BarEvents(obj.SelectedBarIdx);
+                if obj.ThresholdColors.isKey(ev.ThresholdLabel)
+                    c = obj.ThresholdColors(ev.ThresholdLabel);
+                else
+                    sensorNames = obj.getSensorNames();
+                    sIdx = find(strcmp(sensorNames, ev.SensorName));
+                    defaultColors = [0.2 0.6 1; 1 0.4 0.2; 0.2 0.8 0.4; ...
+                                     1 0.8 0; 0.6 0.3 0.8; 0 0.8 0.8];
+                    c = defaultColors(mod(sIdx-1, size(defaultColors,1)) + 1, :);
+                end
+                set(obj.BarRects(obj.SelectedBarIdx), ...
+                    'EdgeColor', c * 0.7, 'LineWidth', 1);
+            end
+
+            % Highlight selected bar
+            obj.SelectedBarIdx = idx;
+            if ishandle(obj.BarRects(idx))
+                set(obj.BarRects(idx), 'EdgeColor', [1 1 1], 'LineWidth', 3);
+            end
+
+            % Highlight corresponding table row via background color
+            nRows = size(get(obj.hTable, 'Data'), 1);
+            if nRows > 0 && idx <= nRows
+                bgColors = repmat([1 1 1], nRows, 1);
+                bgColors(idx, :) = [0.3 0.5 0.8];
+                set(obj.hTable, 'BackgroundColor', bgColors);
+            end
         end
 
         function onRowClick(obj, ~, evt)
