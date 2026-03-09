@@ -206,8 +206,10 @@ fp.render();
 Use `SensorRegistry` for predefined sensor catalogs:
 
 ```matlab
-SensorRegistry.list();
-s = SensorRegistry.get('pressure');
+SensorRegistry.list();                            % quick overview
+SensorRegistry.printTable();                      % detailed console table
+hFig = SensorRegistry.viewer();                   % GUI table viewer
+s = SensorRegistry.get('pressure');               % retrieve by key
 sensors = SensorRegistry.getMultiple({'pressure', 'temperature'});
 ```
 
@@ -531,9 +533,15 @@ s.addStateChannel(sc);
 
 ```matlab
 SensorRegistry.list();                            % print all available sensors
+SensorRegistry.printTable();                      % detailed table (Key, Name, ID, Source, MatFile, #States, #Rules, #Points)
+hFig = SensorRegistry.viewer();                   % open GUI table viewer
 s = SensorRegistry.get('pressure');               % retrieve by key
 sensors = SensorRegistry.getMultiple({'pressure', 'temperature'});
 ```
+
+**`printTable()`** prints a formatted console table with columns: Key, Name, ID, Source, MatFile, #States, #Rules, #Points.
+
+**`viewer()`** opens a dark-themed GUI figure with a sortable `uitable` showing all registered sensors and their properties. Returns the figure handle.
 
 ### `FastPlotTheme(preset, ...)` — Theme Presets
 
