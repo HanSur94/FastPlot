@@ -116,4 +116,25 @@ function test_log_scale()
     nLow_log = sum(xd_log < 1000);
     assert(nLow_log > nLow_lin, 'testMinMaxLogXBucketing: log should have more low-X points');
     fprintf('    MinMax logX bucketing test passed.\n');
+
+    % testLTTBLogYSelectsDifferentPoints
+    x = 1:1000;
+    y = logspace(-3, 3, 1000);  % spans 0.001 to 1000
+    [~, yd_lin] = lttb_downsample(x, y, 50);
+    [~, yd_log] = lttb_downsample(x, y, 50, false, true);
+    % Log-aware should select more points in the low-value region
+    nLow_lin = sum(yd_lin < 1);
+    nLow_log = sum(yd_log < 1);
+    assert(nLow_log > nLow_lin, 'testLTTBLogYSelectsDifferentPoints');
+
+    % testLTTBLogXSelectsDifferentPoints
+    x = logspace(0, 6, 1000);
+    y = sin(log10(x));
+    [xd_lin, ~] = lttb_downsample(x, y, 50);
+    [xd_log, ~] = lttb_downsample(x, y, 50, true, false);
+    nLow_lin = sum(xd_lin < 1000);
+    nLow_log = sum(xd_log < 1000);
+    assert(nLow_log > nLow_lin, 'testLTTBLogXSelectsDifferentPoints');
+
+    fprintf('    LTTB log-scale tests passed.\n');
 end
