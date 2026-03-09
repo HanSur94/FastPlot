@@ -273,7 +273,7 @@ classdef EventViewer < handle
                     c = defaultColors(mod(sIdx-1, size(defaultColors,1)) + 1, :);
                 end
 
-                barH = 0.6;
+                barH = 0.9;
                 duration = max(ev.Duration, 0.5); % min width for visibility
                 hRects(i) = rectangle(obj.hTimelineAxes, ...
                     'Position', [ev.StartTime, yPos - barH/2, duration, barH], ...
