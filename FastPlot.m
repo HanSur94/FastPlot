@@ -181,6 +181,62 @@ classdef FastPlot < handle
             end
         end
 
+        function setScale(obj, varargin)
+            %SETSCALE Set axis scale (linear or log) for X and/or Y.
+            %   fp.setScale('YScale', 'log')
+            %   fp.setScale('XScale', 'log', 'YScale', 'linear')
+            %
+            %   Can be called before or after render(). After render(), updates
+            %   the axes and re-downsamples all lines.
+
+            p = struct('XScale', obj.XScale, 'YScale', obj.YScale);
+            [opts, ~] = parseOpts(p, varargin);
+
+            % Validate
+            validScales = {'linear', 'log'};
+            if ~ismember(opts.XScale, validScales)
+                error('FastPlot:invalidScale', 'XScale must be ''linear'' or ''log''.');
+            end
+            if ~ismember(opts.YScale, validScales)
+                error('FastPlot:invalidScale', 'YScale must be ''linear'' or ''log''.');
+            end
+
+            xChanged = ~strcmp(opts.XScale, obj.XScale);
+            yChanged = ~strcmp(opts.YScale, obj.YScale);
+
+            obj.XScale = opts.XScale;
+            obj.YScale = opts.YScale;
+
+            if ~obj.IsRendered
+                return;
+            end
+
+            % Apply to axes
+            set(obj.hAxes, 'XScale', obj.XScale);
+            set(obj.hAxes, 'YScale', obj.YScale);
+
+            % Invalidate pyramid caches where needed
+            if xChanged
+                % Log X changes bucketing — invalidate all pyramids
+                for i = 1:numel(obj.Lines)
+                    obj.Lines(i).Pyramid = {};
+                end
+            elseif yChanged
+                % Log Y only affects LTTB pyramids (minmax is order-invariant)
+                for i = 1:numel(obj.Lines)
+                    if strcmp(obj.Lines(i).DownsampleMethod, 'lttb')
+                        obj.Lines(i).Pyramid = {};
+                    end
+                end
+            end
+
+            % Re-downsample
+            obj.updateLines();
+            obj.updateShadings();
+            obj.updateViolations();
+            obj.drawnowLimitRate();
+        end
+
         function addLine(obj, x, y, varargin)
             %ADDLINE Add a data line to the plot.
             %   fp.addLine(x, y)

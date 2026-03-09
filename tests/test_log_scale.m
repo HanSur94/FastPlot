@@ -55,4 +55,52 @@ function test_log_scale()
     close(fp.hFigure);
 
     fprintf('    All 4 render log_scale tests passed.\n');
+
+    % testSetScaleYLog
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100) * 100 + 1);
+    fp.render();
+    fp.setScale('YScale', 'log');
+    assert(strcmp(fp.YScale, 'log'), 'testSetScaleYLog: property');
+    assert(strcmp(get(fp.hAxes, 'YScale'), 'log'), 'testSetScaleYLog: axes');
+    close(fp.hFigure);
+
+    % testSetScaleXLog
+    fp = FastPlot();
+    fp.addLine(logspace(0, 3, 100), rand(1,100));
+    fp.render();
+    fp.setScale('XScale', 'log');
+    assert(strcmp(fp.XScale, 'log'), 'testSetScaleXLog: property');
+    assert(strcmp(get(fp.hAxes, 'XScale'), 'log'), 'testSetScaleXLog: axes');
+    close(fp.hFigure);
+
+    % testSetScaleBoth
+    fp = FastPlot('YScale', 'log');
+    fp.addLine(logspace(0, 3, 100), rand(1,100) * 100 + 1);
+    fp.render();
+    fp.setScale('XScale', 'log', 'YScale', 'linear');
+    assert(strcmp(fp.XScale, 'log'), 'testSetScaleBoth: X');
+    assert(strcmp(fp.YScale, 'linear'), 'testSetScaleBoth: Y');
+    close(fp.hFigure);
+
+    % testSetScaleBeforeRender
+    fp = FastPlot();
+    fp.addLine(1:100, rand(1,100) * 100 + 1);
+    fp.setScale('YScale', 'log');
+    assert(strcmp(fp.YScale, 'log'), 'testSetScaleBeforeRender: property set');
+    fp.render();
+    assert(strcmp(get(fp.hAxes, 'YScale'), 'log'), 'testSetScaleBeforeRender: applied');
+    close(fp.hFigure);
+
+    % testSetScaleInvalidValue
+    fp = FastPlot();
+    threw = false;
+    try
+        fp.setScale('YScale', 'invalid');
+    catch
+        threw = true;
+    end
+    assert(threw, 'testSetScaleInvalidValue: should error');
+
+    fprintf('    All 5 setScale tests passed.\n');
 end
