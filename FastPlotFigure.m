@@ -189,8 +189,9 @@ classdef FastPlotFigure < handle
             end
         end
 
-        function renderAll(obj)
+        function renderAll(obj, parentProgressBar)
             %RENDERALL Render all tiles that haven't been rendered yet.
+            if nargin < 2; parentProgressBar = []; end
 
             % Collect tiles that need rendering
             tilesToRender = [];
@@ -201,41 +202,37 @@ classdef FastPlotFigure < handle
             end
             nTiles = numel(tilesToRender);
 
-            % Count total lines across all tiles for combined progress
-            totalLines = 0;
-            for k = 1:nTiles
-                totalLines = totalLines + numel(obj.Tiles{tilesToRender(k)}.Lines);
-            end
-
-            % Create progress bar if enabled
-            if obj.ShowProgress && nTiles > 0
-                cpb = ConsoleProgressBar();
-                cpb.update(0, totalLines, 'Rendering');
-                cpb.start();
+            % Determine indent level (0 standalone, 2 from dock)
+            if ~isempty(parentProgressBar)
+                tileIndent = 2;
             else
-                cpb = [];
+                tileIndent = 0;
             end
 
-            linesDone = 0;
+            showProg = obj.ShowProgress && nTiles > 0;
+
             try
                 for k = 1:nTiles
                     i = tilesToRender(k);
+                    nLines = numel(obj.Tiles{i}.Lines);
+
+                    % Create per-tile progress bar
+                    if showProg
+                        cpb = ConsoleProgressBar(tileIndent);
+                        cpb.update(0, max(nLines, 1), sprintf('Tile %d/%d', k, nTiles));
+                        cpb.start();
+                    else
+                        cpb = [];
+                    end
+
                     obj.Tiles{i}.DeferDraw = true;
                     obj.Tiles{i}.ShowProgress = false;
-                    obj.Tiles{i}.render();
+                    obj.Tiles{i}.render(cpb);
                     obj.Tiles{i}.DeferDraw = false;
-                    linesDone = linesDone + numel(obj.Tiles{i}.Lines);
-                    if ~isempty(cpb)
-                        cpb.update(linesDone, totalLines);
-                    end
                 end
             catch err
-                if ~isempty(cpb); cpb.finish(); end
+                if showProg && ~isempty(cpb); cpb.finish(); end
                 rethrow(err);
-            end
-
-            if ~isempty(cpb)
-                cpb.finish();
             end
 
             set(obj.hFigure, 'Visible', 'on');
