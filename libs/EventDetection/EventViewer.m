@@ -532,8 +532,8 @@ classdef EventViewer < handle
             if margin == 0
                 margin = 5;
             end
-            fp.XLim = [ev.StartTime - margin, ev.EndTime + margin];
             fp.render();
+            set(fp.hAxes, 'XLim', [ev.StartTime - margin, ev.EndTime + margin]);
         end
     end
 end
