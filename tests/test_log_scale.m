@@ -137,4 +137,34 @@ function test_log_scale()
     assert(nLow_log > nLow_lin, 'testLTTBLogXSelectsDifferentPoints');
 
     fprintf('    LTTB log-scale tests passed.\n');
+
+    % testUpdateLinesLogXDownsample
+    % Large dataset on log X: downsampled points should be log-distributed
+    fp = FastPlot('XScale', 'log');
+    x = logspace(0, 6, 100000);
+    y = sin(log10(x));
+    fp.addLine(x, y, 'DisplayName', 'LogX');
+    fp.render();
+    % Wait for refine
+    pause(0.1);
+    xd = get(fp.Lines(1).hLine, 'XData');
+    nLow = sum(xd < 1000);  % first 3 of 6 decades
+    % Should have roughly proportional representation (>15% in first half of log range)
+    assert(nLow > numel(xd) * 0.15, 'testUpdateLinesLogXDownsample: low-X representation');
+    close(fp.hFigure);
+
+    % testUpdateLinesLogYLTTB
+    fp = FastPlot('YScale', 'log', 'DefaultDownsampleMethod', 'lttb');
+    x = 1:100000;
+    y = logspace(-3, 3, 100000);
+    fp.addLine(x, y, 'DisplayName', 'LogY_LTTB');
+    fp.render();
+    pause(0.1);
+    yd = get(fp.Lines(1).hLine, 'YData');
+    nLow = sum(yd < 1);
+    % LTTB with logY should select points in low-value region
+    assert(nLow > 5, 'testUpdateLinesLogYLTTB: should have low-value points');
+    close(fp.hFigure);
+
+    fprintf('    updateLines log-scale tests passed.\n');
 end

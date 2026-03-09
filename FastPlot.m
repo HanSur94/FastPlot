@@ -613,13 +613,15 @@ classdef FastPlot < handle
                 numBuckets = obj.PixelWidth;
 
                 % Downsample for display
+                logXFlag = strcmp(obj.XScale, 'log');
+                logYFlag = strcmp(obj.YScale, 'log');
                 if numel(L.X) > obj.MinPointsForDownsample
                     if obj.DeferDraw
                         % Synchronous downsample for batched render (no preview visible)
                         if strcmp(L.DownsampleMethod, 'lttb')
-                            [xd, yd] = lttb_downsample(L.X, L.Y, numBuckets);
+                            [xd, yd] = lttb_downsample(L.X, L.Y, numBuckets, logXFlag, logYFlag);
                         else
-                            [xd, yd] = minmax_downsample(L.X, L.Y, numBuckets, L.HasNaN);
+                            [xd, yd] = minmax_downsample(L.X, L.Y, numBuckets, L.HasNaN, logXFlag);
                         end
                     else
                         % Fast stride preview (refined async via timer)
@@ -1440,6 +1442,8 @@ classdef FastPlot < handle
             end
 
             pw = obj.getAxesPixelWidth();
+            logXFlag = strcmp(obj.XScale, 'log');
+            logYFlag = strcmp(obj.YScale, 'log');
             for i = 1:numel(obj.Lines)
                 L = obj.Lines(i);
                 if numel(L.X) <= obj.MinPointsForDownsample
@@ -1450,9 +1454,9 @@ classdef FastPlot < handle
                 end
 
                 if strcmp(L.DownsampleMethod, 'lttb')
-                    [xd, yd] = lttb_downsample(L.X, L.Y, pw);
+                    [xd, yd] = lttb_downsample(L.X, L.Y, pw, logXFlag, logYFlag);
                 else
-                    [xd, yd] = minmax_downsample(L.X, L.Y, pw, L.HasNaN);
+                    [xd, yd] = minmax_downsample(L.X, L.Y, pw, L.HasNaN, logXFlag);
                 end
                 set(L.hLine, 'XData', xd, 'YData', yd);
 
@@ -1674,6 +1678,8 @@ classdef FastPlot < handle
             pw = obj.PixelWidth;
             xlims = get(obj.hAxes, 'XLim');
             target = 2 * pw;
+            logXFlag = strcmp(obj.XScale, 'log');
+            logYFlag = strcmp(obj.YScale, 'log');
 
             for i = 1:numel(obj.Lines)
                 nTotal = numel(obj.Lines(i).X);
@@ -1711,9 +1717,9 @@ classdef FastPlot < handle
                     % Downsample visible slice to screen resolution
                     if numel(xVis) > obj.MinPointsForDownsample
                         if strcmp(obj.Lines(i).DownsampleMethod, 'lttb')
-                            [xd, yd] = lttb_downsample(xVis, yVis, pw);
+                            [xd, yd] = lttb_downsample(xVis, yVis, pw, logXFlag, logYFlag);
                         else
-                            [xd, yd] = minmax_downsample(xVis, yVis, pw, obj.Lines(i).HasNaN);
+                            [xd, yd] = minmax_downsample(xVis, yVis, pw, obj.Lines(i).HasNaN, logXFlag);
                         end
                     else
                         xd = xVis;
@@ -1789,7 +1795,8 @@ classdef FastPlot < handle
             end
 
             numBuckets = max(1, round(numel(srcX) / R));
-            [px, py] = minmax_downsample(srcX, srcY, numBuckets);
+            logXFlag = strcmp(obj.XScale, 'log');
+            [px, py] = minmax_downsample(srcX, srcY, numBuckets, false, logXFlag);
             obj.Lines(lineIdx).Pyramid{level} = struct('X', px, 'Y', py);
         end
 
