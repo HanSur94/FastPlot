@@ -28,6 +28,10 @@ function run_all_examples(mode)
         'example_themes',           '100K pts, all 5 theme presets side by side'
         'example_dashboard',        '1M pts, dark-themed 4-tile dashboard'
         'example_100M',             '100M pts stress test (needs ~1.6 GB RAM)'
+        'example_sensor_static',    'Sensor with static upper & lower thresholds'
+        'example_sensor_multi_state', 'Multi-state sensor, combined conditions, getThresholdsAt'
+        'example_sensor_registry',  'SensorRegistry API (list, get, getMultiple)'
+        'example_sensor_dashboard', 'Multi-sensor 2x2 dashboard with SensorRegistry'
     };
 
     fprintf('\n');

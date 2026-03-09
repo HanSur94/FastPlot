@@ -20,7 +20,6 @@ classdef Sensor < handle
         ResolvedThresholds  % struct: precomputed threshold time series
         ResolvedViolations  % struct: precomputed violation points
         ResolvedStateBands  % struct: precomputed state region bands
-        ResolvedConnectors  % struct array: vertical connectors at threshold transitions
     end
 
     methods
@@ -38,7 +37,6 @@ classdef Sensor < handle
             obj.ResolvedThresholds = struct();
             obj.ResolvedViolations = struct();
             obj.ResolvedStateBands = struct();
-            obj.ResolvedConnectors = [];
 
             for i = 1:2:numel(varargin)
                 switch varargin{i}
@@ -82,7 +80,6 @@ classdef Sensor < handle
                 obj.ResolvedThresholds = [];
                 obj.ResolvedViolations = [];
                 obj.ResolvedStateBands = [];
-                obj.ResolvedConnectors = [];
                 return;
             end
 
@@ -96,7 +93,6 @@ classdef Sensor < handle
                 allTimes = [allTimes, obj.StateChannels{i}.X(:)'];
             end
             timeGrid = unique(allTimes);
-            timeGrid = sort(timeGrid);
 
             % Align all state channels to the time grid
             stateValues = struct();
@@ -112,6 +108,10 @@ classdef Sensor < handle
                 sensorStates.(sc.Key) = alignStateToTime(sc.X, sc.Y, sensorX);
             end
 
+            % Cache field names for state structs (avoid repeated fieldnames() calls)
+            stateFields = fieldnames(stateValues);
+            sensorStateFields = fieldnames(sensorStates);
+
             % Evaluate each rule across time grid → build stepped threshold line
             resolvedTh = [];
             resolvedViol = [];
@@ -121,7 +121,7 @@ classdef Sensor < handle
                 % Build threshold time series on the merged time grid
                 thY = NaN(1, numel(timeGrid));
                 for k = 1:numel(timeGrid)
-                    st = obj.buildStateStruct(stateValues, k);
+                    st = obj.buildStateStruct(stateValues, k, stateFields);
                     if rule.ConditionFn(st)
                         thY(k) = rule.Value;
                     end
@@ -138,15 +138,16 @@ classdef Sensor < handle
 
                 % Compute violations on sensor data
                 % For each sensor point, check if the rule is active and violated
+                isUpper = strcmp(rule.Direction, 'upper');
                 vX = [];
                 vY = [];
                 for k = 1:n
-                    st = obj.buildStateStruct(sensorStates, k);
+                    st = obj.buildStateStruct(sensorStates, k, sensorStateFields);
                     if rule.ConditionFn(st)
-                        if strcmp(rule.Direction, 'upper') && sensorY(k) > rule.Value
+                        if isUpper && sensorY(k) > rule.Value
                             vX(end+1) = sensorX(k);
                             vY(end+1) = sensorY(k);
-                        elseif strcmp(rule.Direction, 'lower') && sensorY(k) < rule.Value
+                        elseif ~isUpper && sensorY(k) < rule.Value
                             vX(end+1) = sensorX(k);
                             vY(end+1) = sensorY(k);
                         end
@@ -170,54 +171,6 @@ classdef Sensor < handle
             obj.ResolvedThresholds = resolvedTh;
             obj.ResolvedViolations = resolvedViol;
             obj.ResolvedStateBands = struct(); % placeholder for state shading
-
-            % Build vertical connectors at threshold level transitions
-            connectors = [];
-            for dir = {'upper', 'lower'}
-                d = dir{1};
-                % Find rules matching this direction
-                ruleIdx = [];
-                for r = 1:numel(resolvedTh)
-                    if strcmp(resolvedTh(r).Direction, d)
-                        ruleIdx(end+1) = r;
-                    end
-                end
-                if numel(ruleIdx) < 2; continue; end
-
-                % At each time point, determine the active value and color
-                nT = numel(timeGrid);
-                activeVal = NaN(1, nT);
-                activeColor = cell(1, nT);
-                activeStyle = cell(1, nT);
-                for k = 1:nT
-                    for ri = ruleIdx
-                        if ~isnan(resolvedTh(ri).Y(k))
-                            activeVal(k) = resolvedTh(ri).Y(k);
-                            activeColor{k} = resolvedTh(ri).Color;
-                            activeStyle{k} = resolvedTh(ri).LineStyle;
-                            break;
-                        end
-                    end
-                end
-
-                % Find transitions where value changes
-                for k = 2:nT
-                    if ~isnan(activeVal(k-1)) && ~isnan(activeVal(k)) ...
-                            && activeVal(k-1) ~= activeVal(k)
-                        conn.X = [timeGrid(k), timeGrid(k)];
-                        conn.Y = [activeVal(k-1), activeVal(k)];
-                        conn.Color = activeColor{k};
-                        conn.LineStyle = activeStyle{k};
-                        conn.Direction = d;
-                        if isempty(connectors)
-                            connectors = conn;
-                        else
-                            connectors(end+1) = conn;
-                        end
-                    end
-                end
-            end
-            obj.ResolvedConnectors = connectors;
         end
 
         function active = getThresholdsAt(obj, t)
@@ -248,10 +201,12 @@ classdef Sensor < handle
     end
 
     methods (Access = private)
-        function st = buildStateStruct(obj, alignedStates, idx)
+        function st = buildStateStruct(obj, alignedStates, idx, fields)
             %BUILDSTATESTRUCT Build state struct for a single time index.
             st = struct();
-            fields = fieldnames(alignedStates);
+            if nargin < 4
+                fields = fieldnames(alignedStates);
+            end
             for f = 1:numel(fields)
                 vals = alignedStates.(fields{f});
                 if iscell(vals)

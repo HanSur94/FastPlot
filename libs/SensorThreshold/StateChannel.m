@@ -79,22 +79,7 @@ classdef StateChannel < handle
     methods (Access = private)
         function idx = bsearchRight(obj, val)
             %BSEARCHRIGHT Last index where X(idx) <= val, clamped to [1, N].
-            x = obj.X;
-            n = numel(x);
-            if val < x(1)
-                idx = 1;
-                return;
-            end
-            lo = 1; hi = n; idx = 1;
-            while lo <= hi
-                mid = floor((lo + hi) / 2);
-                if x(mid) <= val
-                    idx = mid;
-                    lo = mid + 1;
-                else
-                    hi = mid - 1;
-                end
-            end
+            idx = binary_search(obj.X, val, 'right');
         end
     end
 end

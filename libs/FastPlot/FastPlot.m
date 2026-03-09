@@ -286,23 +286,17 @@ classdef FastPlot < handle
 
             % Add resolved thresholds as stepped lines + violation markers
             if showThresholds && ~isempty(sensor.ResolvedThresholds)
-                for i = 1:numel(sensor.ResolvedThresholds)
-                    th = sensor.ResolvedThresholds(i);
+                resolvedTh = sensor.ResolvedThresholds;
+
+                for i = 1:numel(resolvedTh)
+                    th = resolvedTh(i);
 
                     thLabel = th.Label;
                     if isempty(thLabel)
                         thLabel = sprintf('Threshold %d', i);
                     end
 
-                    thColor = th.Color;
-                    if isempty(thColor)
-                        thColor = obj.Theme.ThresholdColor;
-                    end
-
-                    thStyle = th.LineStyle;
-                    if isempty(thStyle)
-                        thStyle = obj.Theme.ThresholdStyle;
-                    end
+                    [thColor, thStyle] = obj.resolveThresholdStyle(th.Color, th.LineStyle);
 
                     % Add threshold as a line (NaN gaps where inactive)
                     obj.addLine(th.X, th.Y, ...
@@ -320,25 +314,9 @@ classdef FastPlot < handle
                             'MarkerSize', 4);
                     end
                 end
-            end
 
-            % Add vertical connectors at threshold transitions
-            if showThresholds && ~isempty(sensor.ResolvedConnectors)
-                for i = 1:numel(sensor.ResolvedConnectors)
-                    conn = sensor.ResolvedConnectors(i);
-                    connColor = conn.Color;
-                    if isempty(connColor)
-                        connColor = obj.Theme.ThresholdColor;
-                    end
-                    connStyle = conn.LineStyle;
-                    if isempty(connStyle)
-                        connStyle = obj.Theme.ThresholdStyle;
-                    end
-                    obj.addLine(conn.X, conn.Y, ...
-                        'Color', connColor, ...
-                        'LineStyle', connStyle, ...
-                        'LineWidth', 1.5);
-                end
+                % Add vertical connectors at threshold level transitions
+                obj.addThresholdConnectors(resolvedTh);
             end
 
             % Add state shading bands
@@ -754,6 +732,70 @@ classdef FastPlot < handle
     end
 
     methods (Access = private)
+        function [color, style] = resolveThresholdStyle(obj, color, style)
+            %RESOLVETHRESHOLDSTYLE Apply theme defaults for empty color/style.
+            if isempty(color)
+                color = obj.Theme.ThresholdColor;
+            end
+            if isempty(style)
+                style = obj.Theme.ThresholdStyle;
+            end
+        end
+
+        function addThresholdConnectors(obj, resolvedTh)
+            %ADDTHRESHOLDCONNECTORS Compute and add vertical connectors at
+            %   threshold level transitions. Derives connectors from resolved
+            %   threshold data without requiring pre-computation.
+
+            for dir = ThresholdRule.DIRECTIONS
+                d = dir{1};
+
+                % Find rules matching this direction
+                ruleIdx = [];
+                for r = 1:numel(resolvedTh)
+                    if strcmp(resolvedTh(r).Direction, d)
+                        ruleIdx(end+1) = r; %#ok<AGROW>
+                    end
+                end
+                if numel(ruleIdx) < 2; continue; end
+
+                % Extract Y values into a matrix for vectorized processing
+                nT = numel(resolvedTh(ruleIdx(1)).X);
+                yMat = NaN(numel(ruleIdx), nT);
+                for j = 1:numel(ruleIdx)
+                    yMat(j, :) = resolvedTh(ruleIdx(j)).Y;
+                end
+
+                % Active value at each time point = first non-NaN row
+                activeVal = NaN(1, nT);
+                activeRuleRow = zeros(1, nT);
+                for j = 1:numel(ruleIdx)
+                    mask = isnan(activeVal) & ~isnan(yMat(j, :));
+                    activeVal(mask) = yMat(j, mask);
+                    activeRuleRow(mask) = j;
+                end
+
+                % Find transition indices where active value changes
+                bothValid = ~isnan(activeVal(1:end-1)) & ~isnan(activeVal(2:end));
+                transIdx = find(bothValid & diff(activeVal) ~= 0) + 1;
+
+                % Add connector lines only at transition points
+                timeGrid = resolvedTh(ruleIdx(1)).X;
+                for j = 1:numel(transIdx)
+                    k = transIdx(j);
+                    ri = ruleIdx(activeRuleRow(k));
+                    [connColor, connStyle] = obj.resolveThresholdStyle( ...
+                        resolvedTh(ri).Color, resolvedTh(ri).LineStyle);
+                    obj.addLine([timeGrid(k), timeGrid(k)], ...
+                        [activeVal(k-1), activeVal(k)], ...
+                        'Color', connColor, ...
+                        'LineStyle', connStyle, ...
+                        'LineWidth', 1.5, ...
+                        'HandleVisibility', 'off');
+                end
+            end
+        end
+
         function applyTheme(obj)
             t = obj.Theme;
 

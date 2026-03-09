@@ -6,6 +6,10 @@ classdef ThresholdRule
     %   The condition function receives a struct with state channel values
     %   and returns true/false. When true, the threshold Value applies.
 
+    properties (Constant)
+        DIRECTIONS = {'upper', 'lower'}  % valid direction values
+    end
+
     properties
         ConditionFn   % function_handle: @(st) logical expression
         Value         % numeric: threshold value when condition is true
@@ -31,7 +35,7 @@ classdef ThresholdRule
                 switch varargin{i}
                     case 'Direction'
                         d = varargin{i+1};
-                        if ~ismember(d, {'upper', 'lower'})
+                        if ~ismember(d, ThresholdRule.DIRECTIONS)
                             error('ThresholdRule:invalidDirection', ...
                                 'Direction must be ''upper'' or ''lower'', got ''%s''.', d);
                         end

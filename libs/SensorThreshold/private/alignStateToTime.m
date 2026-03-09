@@ -42,21 +42,7 @@ function aligned = alignStateToTime(stateX, stateY, sensorX)
     else
         % Cell path — loop with binary search
         for k = 1:n
-            t = sensorX(k);
-            if t < stateX(1)
-                idx = 1;
-            else
-                lo = 1; hi = m; idx = 1;
-                while lo <= hi
-                    mid = floor((lo + hi) / 2);
-                    if stateX(mid) <= t
-                        idx = mid;
-                        lo = mid + 1;
-                    else
-                        hi = mid - 1;
-                    end
-                end
-            end
+            idx = binary_search(stateX, sensorX(k), 'right');
             aligned{k} = stateY{idx};
         end
     end
