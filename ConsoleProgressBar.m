@@ -1,45 +1,51 @@
 classdef ConsoleProgressBar < handle
-%CONSOLEPROGRESSBAR Single-line console progress bar for rendering.
-%   Lightweight helper that uses fprintf + carriage return to display
-%   a progress bar that overwrites itself in the MATLAB command window.
+%CONSOLEPROGRESSBAR Single-line console progress bar with indentation.
+%   Uses fprintf + carriage return to animate a progress bar on one line.
+%   Call freeze() to make the current state permanent (prints newline)
+%   so the next bar can start on a fresh line below.
 %
 %   Usage:
-%     pb = ConsoleProgressBar();
+%     pb = ConsoleProgressBar(2);   % 2-space indent
 %     pb.start();
 %     for k = 1:8
-%         pb.update(k, 8, 'Rendering');
+%         pb.update(k, 8, 'Tile 1');
 %         pause(0.1);
 %     end
-%     pb.finish();
+%     pb.freeze();   % becomes permanent line
 %
-%   Bar format:
-%     Rendering    [████████████████████░░░░░░░░░░] 5/8
-%
-%   See also FastPlot, FastPlotFigure.
+%   See also FastPlot, FastPlotFigure, FastPlotDock.
 
     properties (Access = private)
         Label        char = ''
         Current      (1,1) double = 0
         Total        (1,1) double = 0
         BarWidth     (1,1) double = 30
+        Indent       (1,1) double = 0    % number of leading spaces
         IsStarted    (1,1) logical = false
-        LastLen      (1,1) double = 0   % length of last printed line
+        IsFrozen     (1,1) logical = false
+        LastLen      (1,1) double = 0
     end
 
     methods
-        function obj = ConsoleProgressBar()
-        %CONSOLEPROGRESSBAR Construct a single-line progress bar.
+        function obj = ConsoleProgressBar(indent)
+        %CONSOLEPROGRESSBAR Construct a progress bar.
+        %   pb = ConsoleProgressBar()       — no indent
+        %   pb = ConsoleProgressBar(indent) — indent spaces
+            if nargin >= 1
+                obj.Indent = indent;
+            end
         end
 
         function start(obj)
         %START Initialize the progress display.
             obj.IsStarted = true;
-            obj.LastLen = 0;
+            obj.IsFrozen  = false;
+            obj.LastLen   = 0;
             obj.printBar();
         end
 
         function update(obj, current, total, label)
-        %UPDATE Update progress.
+        %UPDATE Update progress and redraw.
         %   pb.update(current, total)
         %   pb.update(current, total, label)
             obj.Current = current;
@@ -47,35 +53,46 @@ classdef ConsoleProgressBar < handle
             if nargin >= 4
                 obj.Label = label;
             end
-            if obj.IsStarted
+            if obj.IsStarted && ~obj.IsFrozen
                 obj.printBar();
             end
         end
 
-        function finish(obj)
-        %FINISH Finalize — leave bar at 100% and move to next line.
-            if ~obj.IsStarted; return; end
-            obj.Current = obj.Total;
+        function freeze(obj)
+        %FREEZE Make current bar state permanent (print newline).
+        %   After freeze(), this bar no longer updates. A new bar
+        %   can start on the next line.
+            if ~obj.IsStarted || obj.IsFrozen; return; end
             obj.printBar();
             fprintf('\n');
+            obj.IsFrozen = true;
+        end
+
+        function finish(obj)
+        %FINISH Set to 100%, freeze, and mark done.
+            if ~obj.IsStarted; return; end
+            obj.Current = obj.Total;
+            if ~obj.IsFrozen
+                obj.printBar();
+                fprintf('\n');
+            end
             obj.IsStarted = false;
+            obj.IsFrozen  = true;
         end
     end
 
     methods (Access = private)
         function printBar(obj)
-        %PRINTBAR Redraw the progress bar using carriage return.
-            filled = char(9608);   % Unicode full block
-            empty  = char(9617);   % Unicode light shade
+        %PRINTBAR Redraw the bar using carriage return.
+            filled = char(9608);
+            empty  = char(9617);
 
-            % Pad label to 12 characters
+            prefix = repmat(' ', 1, obj.Indent);
+
             lbl = obj.Label;
-            if numel(lbl) > 12
-                lbl = lbl(1:12);
-            end
+            if numel(lbl) > 12; lbl = lbl(1:12); end
             lbl = sprintf('%-12s', lbl);
 
-            % Compute filled portion
             if obj.Total > 0
                 nFilled = round(obj.BarWidth * obj.Current / obj.Total);
             else
@@ -84,12 +101,9 @@ classdef ConsoleProgressBar < handle
             nFilled = max(0, min(obj.BarWidth, nFilled));
             nEmpty  = obj.BarWidth - nFilled;
 
-            barStr = [repmat(filled, 1, nFilled), ...
-                      repmat(empty,  1, nEmpty)];
+            barStr = [repmat(filled, 1, nFilled), repmat(empty, 1, nEmpty)];
+            line = sprintf('%s%s [%s] %d/%d', prefix, lbl, barStr, obj.Current, obj.Total);
 
-            line = sprintf('%s [%s] %d/%d', lbl, barStr, obj.Current, obj.Total);
-
-            % Overwrite previous line with carriage return + padding
             padding = max(0, obj.LastLen - numel(line));
             fprintf('\r%s%s', line, repmat(' ', 1, padding));
             obj.LastLen = numel(line);
