@@ -1,7 +1,7 @@
 function test_render()
 %TEST_RENDER Tests for FastPlot.render method.
 
-    run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
     add_fastplot_private_path();
 
     % testCreatesNewFigure

@@ -41,5 +41,5 @@ end
 function add_sensor_path()
     test_dir = fileparts(mfilename('fullpath'));
     repo_root = fileparts(test_dir);
-    run(fullfile(repo_root, 'setup.m'));
+    addpath(repo_root);setup();
 end

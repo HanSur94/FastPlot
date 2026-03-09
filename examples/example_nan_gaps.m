@@ -1,7 +1,7 @@
 %% FastPlot NaN Gaps — Sensor dropout simulation
 % Demonstrates how FastPlot handles missing data (NaN gaps)
 
-run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
 
 n = 1e6;
 x = linspace(0, 300, n); % 5 minutes

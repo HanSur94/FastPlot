@@ -1,7 +1,7 @@
 %% FastPlot Theme Comparison — All 5 built-in themes side by side
 % Opens one figure per theme to compare visual styles
 
-run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
 
 n = 1e5;
 x = linspace(0, 50, n);

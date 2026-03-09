@@ -1,7 +1,7 @@
 %% FastPlot Visual Features — Bands, Shading, Fill, and Markers
 % Demonstrates all new visual enhancement methods in a 2x2 dashboard
 
-run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
 
 n = 5e5;
 x = linspace(0, 100, n);

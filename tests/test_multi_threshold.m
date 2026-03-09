@@ -1,7 +1,7 @@
 function test_multi_threshold()
 %TEST_MULTI_THRESHOLD Tests for per-threshold rendering with independent colors/markers.
 
-    run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
     add_fastplot_private_path();
 
     % testEachThresholdGetsOwnLine

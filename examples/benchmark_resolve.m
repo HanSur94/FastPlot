@@ -4,7 +4,8 @@ function benchmark_resolve()
 
     test_dir = fileparts(mfilename('fullpath'));
     repo_root = fileparts(test_dir);
-    run(fullfile(repo_root, 'setup.m'));
+    addpath(repo_root);
+    setup();
 
     sizes = [1e4, 1e5, 1e6, 1e7];
     nRuns = 5;

@@ -1,7 +1,7 @@
 function test_add_band()
 %TEST_ADD_BAND Tests for FastPlot.addBand method.
 
-    run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
     add_fastplot_private_path();
 
     % testAddBand

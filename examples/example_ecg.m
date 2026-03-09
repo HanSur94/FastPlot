@@ -1,7 +1,7 @@
 %% FastPlot ECG — Simulated heart rhythm with arrhythmia detection
 % Demonstrates high sample rate biomedical data with tight thresholds
 
-run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
 
 n = 5e6;
 fs = 1000; % 1 kHz ECG sample rate

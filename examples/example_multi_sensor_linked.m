@@ -1,7 +1,7 @@
 %% FastPlot Multi-Sensor Linked — 4 sensors with independent thresholds, synchronized zoom
 % Simulates a real monitoring dashboard with different alarm levels per channel
 
-run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
 
 n = 2e6;
 x = linspace(0, 600, n); % 10 minutes

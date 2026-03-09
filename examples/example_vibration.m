@@ -1,7 +1,7 @@
 %% FastPlot Vibration Analysis — High-frequency data with envelope thresholds
 % Simulates accelerometer data from a rotating machine
 
-run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
 
 n = 20e6;
 fs = 50000; % 50 kHz sample rate

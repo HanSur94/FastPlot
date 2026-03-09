@@ -1,7 +1,7 @@
 function test_datetime()
 %TEST_DATETIME Tests for datetime X axis support.
 
-    run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
     add_fastplot_private_path();
 
     close all force;

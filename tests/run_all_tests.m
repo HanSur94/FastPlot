@@ -4,7 +4,7 @@ function results = run_all_tests()
 
     test_dir = fileparts(mfilename('fullpath'));
     repo_root = fileparts(test_dir);
-    run(fullfile(repo_root, 'setup.m'));
+    addpath(repo_root);setup();
     add_fastplot_private_path();
     files = dir(fullfile(test_dir, 'test_*.m'));
 

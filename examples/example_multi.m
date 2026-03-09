@@ -1,7 +1,7 @@
 %% FastPlot Multi-Line Example — 5 sensors, 1M points each
 % Demonstrates multiple lines with thresholds
 
-run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
 
 n = 1e6;
 x = linspace(0, 60, n); % 60 seconds

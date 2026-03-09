@@ -1,7 +1,7 @@
 %% FastPlot LTTB vs MinMax — Compare downsampling methods side by side
 % Shows visual difference between MinMax (preserves extremes) and LTTB (preserves shape)
 
-run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
 
 n = 5e6;
 x = linspace(0, 100, n);

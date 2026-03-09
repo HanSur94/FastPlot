@@ -1,7 +1,7 @@
 %% FastPlot Alarm Bands — Industrial sensor with 4 thresholds
 % Demonstrates warning + alarm thresholds in both directions
 
-run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
 
 n = 2e6;
 x = linspace(0, 3600, n); % 1 hour of data at ~556 Hz

@@ -1,7 +1,7 @@
 function test_fastplot_theme()
 %TEST_FASTPLOT_THEME Tests for FastPlot theme integration.
 
-    run(fullfile(fileparts(mfilename('fullpath')), '..', 'setup.m'));
+    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
     add_fastplot_private_path();
 
     % testThemeConstructorString
