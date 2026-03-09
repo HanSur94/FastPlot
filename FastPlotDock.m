@@ -253,6 +253,10 @@ classdef FastPlotDock < handle
 
             if isempty(obj.Tabs)
                 obj.ActiveTab = 0;
+                if ~isempty(obj.Toolbar) && ~isempty(obj.Toolbar.hToolbar) && ishandle(obj.Toolbar.hToolbar)
+                    delete(obj.Toolbar.hToolbar);
+                end
+                obj.Toolbar = [];
                 return;
             end
 
@@ -346,6 +350,10 @@ classdef FastPlotDock < handle
             % Handle remaining dock tabs
             if isempty(obj.Tabs)
                 obj.ActiveTab = 0;
+                if ~isempty(obj.Toolbar) && ~isempty(obj.Toolbar.hToolbar) && ishandle(obj.Toolbar.hToolbar)
+                    delete(obj.Toolbar.hToolbar);
+                end
+                obj.Toolbar = [];
                 return;
             end
 
