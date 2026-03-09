@@ -26,7 +26,7 @@ scMachine.Y = [0   1   2   1];  % 0=idle, 1=running, 2=evacuated
 
 % --- String-valued state channel: zone ---
 scZone = StateChannel('zone');
-scZone.X = {0, 40, 80};
+scZone.X = [0, 40, 80];
 scZone.Y = {'A', 'B', 'A'};  % zone changes mid-run
 
 s.addStateChannel(scMachine);
