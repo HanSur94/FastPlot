@@ -149,6 +149,10 @@ classdef FastPlotDock < handle
 
             nTabs = numel(obj.Tabs);
 
+            % Suppress MATLAB internal warnings during batch render
+            wState = warning('off', 'all');
+            restoreWarn = onCleanup(@() warning(wState));
+
             % Render all tabs (no toolbars, no drawnow yet)
             for t = 1:nTabs
                 if obj.ShowProgress
@@ -171,9 +175,7 @@ classdef FastPlotDock < handle
             obj.selectTab(1);
 
             set(obj.hFigure, 'Visible', 'on');
-            w = warning('off', 'MATLAB:callback:error');
             drawnow;
-            warning(w);
         end
 
         function selectTab(obj, n)
