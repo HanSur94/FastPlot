@@ -247,6 +247,23 @@ classdef FastPlotFigure < handle
             obj.renderAll();
         end
 
+        function reapplyTheme(obj)
+            %REAPPLYTHEME Re-apply theme to figure and all rendered tiles.
+            %   fig.reapplyTheme()
+            %   Use after changing fig.Theme to update all visuals.
+            set(obj.hFigure, 'Color', obj.Theme.Background);
+            for i = 1:numel(obj.Tiles)
+                if ~isempty(obj.Tiles{i}) && obj.Tiles{i}.IsRendered
+                    if ~isempty(obj.TileThemes) && i <= numel(obj.TileThemes) && ~isempty(obj.TileThemes{i})
+                        obj.Tiles{i}.Theme = mergeTheme(obj.Theme, obj.TileThemes{i});
+                    else
+                        obj.Tiles{i}.Theme = obj.Theme;
+                    end
+                    obj.Tiles{i}.reapplyTheme();
+                end
+            end
+        end
+
         function startLive(obj, filepath, updateFcn, varargin)
             %STARTLIVE Start live mode on the dashboard.
             %   fig.startLive(filepath, updateFcn)
