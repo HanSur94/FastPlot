@@ -87,7 +87,8 @@ classdef FastPlot < handle
         Lines      = struct('X', {}, 'Y', {}, 'Options', {}, ...
                             'DownsampleMethod', {}, 'hLine', {}, ...
                             'Pyramid', {}, 'HasNaN', {}, 'Metadata', {})
-        Thresholds = struct('Value', {}, 'Direction', {}, ...
+        Thresholds = struct('Value', {}, 'X', {}, 'Y', {}, ...
+                            'Direction', {}, ...
                             'ShowViolations', {}, 'Color', {}, ...
                             'LineStyle', {}, 'Label', {}, ...
                             'hLine', {}, 'hMarkers', {})
@@ -392,14 +393,32 @@ classdef FastPlot < handle
             end
         end
 
-        function addThreshold(obj, value, varargin)
-            %ADDTHRESHOLD Add a horizontal threshold line.
+        function addThreshold(obj, varargin)
+            %ADDTHRESHOLD Add a threshold line (scalar or time-varying).
             %   fp.addThreshold(4.5)
             %   fp.addThreshold(4.5, 'Direction', 'upper', 'ShowViolations', true)
+            %   fp.addThreshold(thX, thY, 'Direction', 'upper', 'ShowViolations', true)
 
             if obj.IsRendered
                 error('FastPlot:alreadyRendered', ...
                     'Cannot add thresholds after render() has been called.');
+            end
+
+            % Detect scalar vs time-varying
+            if nargin >= 3 && isnumeric(varargin{1}) && isnumeric(varargin{2}) && numel(varargin{1}) > 1
+                % Time-varying: addThreshold(thX, thY, ...)
+                thX = varargin{1};
+                thY = varargin{2};
+                if ~isrow(thX); thX = thX(:)'; end
+                if ~isrow(thY); thY = thY(:)'; end
+                nvPairs = varargin(3:end);
+                isTimeVarying = true;
+            else
+                % Scalar: addThreshold(value, ...)
+                thX = [];
+                thY = [];
+                nvPairs = varargin(2:end);
+                isTimeVarying = false;
             end
 
             defaults.Direction = 'upper';
@@ -407,9 +426,17 @@ classdef FastPlot < handle
             defaults.Color = obj.Theme.ThresholdColor;
             defaults.LineStyle = obj.Theme.ThresholdStyle;
             defaults.Label = '';
-            [parsed, ~] = parseOpts(defaults, varargin, obj.Verbose);
+            [parsed, ~] = parseOpts(defaults, nvPairs, obj.Verbose);
 
-            t.Value          = value;
+            t.Value          = [];
+            t.X              = [];
+            t.Y              = [];
+            if isTimeVarying
+                t.X = thX;
+                t.Y = thY;
+            else
+                t.Value = varargin{1};
+            end
             t.Direction      = parsed.Direction;
             t.ShowViolations = parsed.ShowViolations;
             t.Color          = parsed.Color;
