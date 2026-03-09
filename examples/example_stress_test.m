@@ -1,9 +1,9 @@
-%% FastPlot Stress Test — 5 Tabbed Dashboards with Sensors & Thresholds
+%% FastPlot Stress Test — 5-Tab FastPlotDock with Sensors & Thresholds
 % Demonstrates:
-%   - 5-tab interface using uitabgroup (simulating FastPlotDock)
-%   - Each tab is a FastPlotFigure dashboard with multiple axes
-%   - Sensors with state-dependent thresholds, violations, bands, markers
-%   - Total ~80M+ data points across all tabs
+%   - FastPlotDock with 5 tabbed dashboards + FastPlotToolbar
+%   - 26 sensor tiles, each with 4 dynamic thresholds (Warn HH/LL, Alarm HH/LL)
+%   - State-dependent thresholds via machine + vacuum state channels
+%   - ~86M total data points across all tabs
 %   - Tests rendering, downsampling, threshold resolve, and zoom/pan
 
 addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
@@ -24,442 +24,281 @@ scZone = StateChannel('zone');
 scZone.X = [0 1200 2400];
 scZone.Y = [0 1 2];
 
-% Create tabbed figure
-hFig = figure('Name', 'FastPlot Stress Test — 5 Dashboards', ...
-    'NumberTitle', 'off', 'Position', [50 50 1800 1000], 'Visible', 'off');
-tabGroup = uitabgroup(hFig);
+% --- Create dock ---
+dock = FastPlotDock('Theme', 'dark', 'Name', 'Stress Test — 26 Sensors, 104 Thresholds', ...
+    'Position', [50 50 1800 1000]);
 
 % =========================================================================
-% TAB 1: Vacuum Chamber — 3x2 grid, 6 sensors, ~25M points
+% TAB 1: Vacuum Chamber — 3x2 grid, 6 sensors
 % =========================================================================
-fprintf('Building Tab 1: Vacuum Chamber (6 tiles, ~25M pts)...\n');
-tab1Tic = tic;
-tab1 = uitab(tabGroup, 'Title', 'Vacuum Chamber');
+fig1 = FastPlotFigure(3, 2, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
 
-fig1 = FastPlotFigure(3, 2, 'Theme', 'dark', 'Name', 'ignore');
-set(fig1.hFigure, 'Visible', 'off');
-panels1 = create_tab_axes(tab1, 3, 2, fig1.Theme);
-
-% Tile 1.1: Chamber Pressure — 5M pts, state-dependent thresholds
-s = Sensor('pressure', 'Name', 'Chamber Pressure');
-N = 5e6; t = linspace(0, 3600, N);
-s.X = t; s.Y = 40 + 18*sin(2*pi*t/800) + 4*randn(1, N);
-s.addStateChannel(scMachine); s.addStateChannel(scVacuum);
-s.addThresholdRule(struct('machine', 1), 55, 'Direction', 'upper', ...
-    'Label', 'HH Run', 'Color', [0.9 0.2 0.1]);
-s.addThresholdRule(struct('machine', 2, 'vacuum', 1), 45, 'Direction', 'upper', ...
-    'Label', 'HH Evac+Vac', 'Color', [1 0 0]);
-s.addThresholdRule(struct('machine', 1), 25, 'Direction', 'lower', ...
-    'Label', 'LL Run', 'Color', [0.1 0.3 0.9]);
+% 1.1: Chamber Pressure — 5M pts
+s = make_sensor('pressure', 'Chamber Pressure', 5e6, 40, 18, 800, 4, {scMachine, scVacuum});
+add_4_thresholds(s, struct('machine', 1), 55, 25, 65, 15);
 s.resolve();
-fp = FastPlot('Parent', panels1{1}, 'Theme', fig1.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels1{1}, 'Chamber Pressure (5M pts)', 'Color', 'w');
+fig1.tile(1).addSensor(s, 'ShowThresholds', true);
 
-% Tile 1.2: Base Pressure — 5M pts
-s = Sensor('base_pressure', 'Name', 'Base Pressure');
-s.X = t; s.Y = 1e-3 + 5e-4*sin(2*pi*t/1200) + 2e-4*randn(1, N);
-s.Y(2e6:2.1e6) = s.Y(2e6:2.1e6) + 3e-3;  % leak event
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 1), 2e-3, 'Direction', 'upper', ...
-    'Label', 'Leak Alarm', 'Color', [1 0.3 0]);
-s.addThresholdRule(struct('machine', 2), 1e-3, 'Direction', 'upper', ...
-    'Label', 'Evac Limit', 'Color', [0.9 0.6 0.1]);
+% 1.2: Base Pressure — 5M pts
+s = make_sensor('base_pressure', 'Base Pressure', 5e6, 1e-3, 5e-4, 1200, 2e-4, {scMachine});
+inject_event(s, 2e6, 2.1e6, 3e-3);
+add_4_thresholds(s, struct('machine', 1), 1.8e-3, 3e-4, 2.5e-3, 1e-4);
 s.resolve();
-fp = FastPlot('Parent', panels1{2}, 'Theme', fig1.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels1{2}, 'Base Pressure (5M pts)', 'Color', 'w');
+fig1.tile(2).addSensor(s, 'ShowThresholds', true);
 
-% Tile 1.3: Gate Valve Position — 3M pts
-s = Sensor('gate_valve', 'Name', 'Gate Valve');
-N3 = 3e6; t3 = linspace(0, 3600, N3);
-s.X = t3; s.Y = 50 + 45*sin(2*pi*t3/900) + 2*randn(1, N3);
-s.addThresholdRule(struct(), 95, 'Direction', 'upper', ...
-    'Label', 'Max Open', 'Color', [0.9 0.5 0.1]);
-s.addThresholdRule(struct(), 5, 'Direction', 'lower', ...
-    'Label', 'Min Open', 'Color', [0.1 0.5 0.9]);
+% 1.3: Gate Valve — 3M pts
+s = make_sensor('gate_valve', 'Gate Valve Position', 3e6, 50, 45, 900, 2, {scMachine});
+add_4_thresholds(s, struct('machine', 1), 88, 12, 95, 5);
 s.resolve();
-fp = FastPlot('Parent', panels1{3}, 'Theme', fig1.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels1{3}, 'Gate Valve Position (3M pts)', 'Color', 'w');
+fig1.tile(3).addSensor(s, 'ShowThresholds', true);
 
-% Tile 1.4: Gas Flow — 5M pts, multi-state
-s = Sensor('gas_flow', 'Name', 'Gas Flow');
-s.X = t; s.Y = 100 + 30*sin(2*pi*t/600) + 8*randn(1, N);
-s.addStateChannel(scMachine); s.addStateChannel(scZone);
-s.addThresholdRule(struct('machine', 1, 'zone', 0), 135, 'Direction', 'upper', ...
-    'Label', 'HH Z0', 'Color', [0.9 0.4 0.1]);
-s.addThresholdRule(struct('machine', 1, 'zone', 1), 125, 'Direction', 'upper', ...
-    'Label', 'HH Z1', 'Color', [1 0.2 0]);
-s.addThresholdRule(struct('machine', 1, 'zone', 2), 115, 'Direction', 'upper', ...
-    'Label', 'HH Z2', 'Color', [1 0 0]);
-s.addThresholdRule(struct('machine', 1), 70, 'Direction', 'lower', ...
-    'Label', 'LL Run', 'Color', [0.2 0.4 1]);
+% 1.4: Gas Flow — 5M pts, multi-state
+s = make_sensor('gas_flow', 'Gas Flow', 5e6, 100, 30, 600, 8, {scMachine, scZone});
+add_4_thresholds(s, struct('machine', 1), 130, 70, 140, 60);
 s.resolve();
-fp = FastPlot('Parent', panels1{4}, 'Theme', fig1.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels1{4}, 'Gas Flow (5M pts, 3 zones)', 'Color', 'w');
+fig1.tile(4).addSensor(s, 'ShowThresholds', true);
 
-% Tile 1.5: RF Power — 4M pts
-s = Sensor('rf_power', 'Name', 'RF Power');
-N5 = 4e6; t5 = linspace(0, 3600, N5);
-s.X = t5; s.Y = 200 + 80*sin(2*pi*t5/700) + 15*randn(1, N5);
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 1), 300, 'Direction', 'upper', ...
-    'Label', 'Power HH', 'Color', [1 0.2 0.2]);
-s.addThresholdRule(struct('machine', 2), 250, 'Direction', 'upper', ...
-    'Label', 'Power HH Evac', 'Color', [0.9 0.5 0.1]);
+% 1.5: RF Power — 4M pts
+s = make_sensor('rf_power', 'RF Power', 4e6, 200, 80, 700, 15, {scMachine});
+add_4_thresholds(s, struct('machine', 1), 280, 120, 310, 90);
 s.resolve();
-fp = FastPlot('Parent', panels1{5}, 'Theme', fig1.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels1{5}, 'RF Power (4M pts)', 'Color', 'w');
+fig1.tile(5).addSensor(s, 'ShowThresholds', true);
 
-% Tile 1.6: Substrate Temp — 3M pts
-s = Sensor('substrate_temp', 'Name', 'Substrate Temp');
-s.X = t3; s.Y = 350 + 40*sin(2*pi*t3/1000) + 8*randn(1, N3);
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 1), 400, 'Direction', 'upper', ...
-    'Label', 'Temp HH', 'Color', [1 0 0]);
-s.addThresholdRule(struct('machine', 1), 310, 'Direction', 'lower', ...
-    'Label', 'Temp LL', 'Color', [0.2 0.3 1]);
+% 1.6: Substrate Temp — 3M pts
+s = make_sensor('substrate_temp', 'Substrate Temp', 3e6, 350, 40, 1000, 8, {scMachine});
+add_4_thresholds(s, struct('machine', 1), 390, 310, 410, 290);
 s.resolve();
-fp = FastPlot('Parent', panels1{6}, 'Theme', fig1.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels1{6}, 'Substrate Temp (3M pts)', 'Color', 'w');
+fig1.tile(6).addSensor(s, 'ShowThresholds', true);
 
-close(fig1.hFigure);
-fprintf('  Tab 1 done in %.2f s\n', toc(tab1Tic));
+dock.addTab(fig1, 'Vacuum Chamber');
 
 % =========================================================================
-% TAB 2: Motor Diagnostics — 2x3 grid, 6 sensors, ~20M points
+% TAB 2: Motor Diagnostics — 2x3 grid, 6 sensors
 % =========================================================================
-fprintf('Building Tab 2: Motor Diagnostics (6 tiles, ~20M pts)...\n');
-tab2Tic = tic;
-tab2 = uitab(tabGroup, 'Title', 'Motor Diagnostics');
+fig2 = FastPlotFigure(2, 3, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
 
-fig2 = FastPlotFigure(2, 3, 'Theme', 'dark', 'Name', 'ignore');
-set(fig2.hFigure, 'Visible', 'off');
-panels2 = create_tab_axes(tab2, 2, 3, fig2.Theme);
-
-% Tile 2.1: Motor Current Phase A — 5M pts
-s = Sensor('motor_A', 'Name', 'Motor Current A');
-N = 5e6; t = linspace(0, 3600, N);
-s.X = t; s.Y = 12 + 4*sin(2*pi*t/400) + 1.5*randn(1, N);
-s.Y(1.5e6:1.55e6) = s.Y(1.5e6:1.55e6) + 8;  % overcurrent
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 1), 18, 'Direction', 'upper', ...
-    'Label', 'Overcurrent', 'Color', [1 0.2 0]);
-s.addThresholdRule(struct('machine', 1), 6, 'Direction', 'lower', ...
-    'Label', 'Undercurrent', 'Color', [0.2 0.4 1]);
+% 2.1: Motor Current A — 5M pts
+s = make_sensor('motor_A', 'Motor Current A', 5e6, 12, 4, 400, 1.5, {scMachine});
+inject_event(s, 1.5e6, 1.55e6, 8);
+add_4_thresholds(s, struct('machine', 1), 16, 8, 19, 5);
 s.resolve();
-fp = FastPlot('Parent', panels2{1}, 'Theme', fig2.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels2{1}, 'Motor Current A (5M pts)', 'Color', 'w');
+fig2.tile(1).addSensor(s, 'ShowThresholds', true);
 
-% Tile 2.2: Motor Current Phase B — 5M pts
-s = Sensor('motor_B', 'Name', 'Motor Current B');
-s.X = t; s.Y = 12 + 4*sin(2*pi*t/400 + 2*pi/3) + 1.5*randn(1, N);
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 1), 18, 'Direction', 'upper', ...
-    'Label', 'Overcurrent', 'Color', [1 0.2 0]);
+% 2.2: Motor Current B — 5M pts
+s = make_sensor('motor_B', 'Motor Current B', 5e6, 12, 4, 400, 1.5, {scMachine});
+add_4_thresholds(s, struct('machine', 1), 16, 8, 19, 5);
 s.resolve();
-fp = FastPlot('Parent', panels2{2}, 'Theme', fig2.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels2{2}, 'Motor Current B (5M pts)', 'Color', 'w');
+fig2.tile(2).addSensor(s, 'ShowThresholds', true);
 
-% Tile 2.3: Motor Current Phase C — 5M pts
-s = Sensor('motor_C', 'Name', 'Motor Current C');
-s.X = t; s.Y = 12 + 4*sin(2*pi*t/400 + 4*pi/3) + 1.5*randn(1, N);
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 1), 18, 'Direction', 'upper', ...
-    'Label', 'Overcurrent', 'Color', [1 0.2 0]);
+% 2.3: Motor Current C — 5M pts
+s = make_sensor('motor_C', 'Motor Current C', 5e6, 12, 4, 400, 1.5, {scMachine});
+add_4_thresholds(s, struct('machine', 1), 16, 8, 19, 5);
 s.resolve();
-fp = FastPlot('Parent', panels2{3}, 'Theme', fig2.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels2{3}, 'Motor Current C (5M pts)', 'Color', 'w');
+fig2.tile(3).addSensor(s, 'ShowThresholds', true);
 
-% Tile 2.4: Vibration X — 2M pts
-s = Sensor('vib_x', 'Name', 'Vibration X');
-N4 = 2e6; t4 = linspace(0, 3600, N4);
-s.X = t4; s.Y = 0.5*randn(1, N4);
-faults = [500 1200 2600];
-for fi = 1:numel(faults)
-    idx = max(1,round(faults(fi)*N4/3600)):min(round((faults(fi)+40)*N4/3600), N4);
-    s.Y(idx) = s.Y(idx) + 3*randn(1, numel(idx));
-end
-s.addThresholdRule(struct(), 2.5, 'Direction', 'upper', ...
-    'Label', 'Vib Alarm', 'Color', [1 0.3 0]);
-s.addThresholdRule(struct(), -2.5, 'Direction', 'lower', ...
-    'Label', 'Vib Alarm', 'Color', [1 0.3 0]);
+% 2.4: Vibration X — 3M pts
+s = make_sensor('vib_x', 'Vibration X', 3e6, 0, 0.3, 500, 0.5, {scMachine});
+inject_burst(s, [500 1200 2600], 40, 3);
+add_4_thresholds(s, struct('machine', 1), 1.5, -1.5, 2.5, -2.5);
 s.resolve();
-fp = FastPlot('Parent', panels2{4}, 'Theme', fig2.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels2{4}, 'Vibration X (2M pts)', 'Color', 'w');
+fig2.tile(4).addSensor(s, 'ShowThresholds', true);
 
-% Tile 2.5: RPM — 1M pts
-s = Sensor('rpm', 'Name', 'Spindle RPM');
-N5 = 1e6; t5 = linspace(0, 3600, N5);
-s.X = t5; s.Y = 3000 + 500*sin(2*pi*t5/900) + 80*randn(1, N5);
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 1), 3600, 'Direction', 'upper', ...
-    'Label', 'Overspeed', 'Color', [1 0 0]);
-s.addThresholdRule(struct('machine', 1), 2400, 'Direction', 'lower', ...
-    'Label', 'Underspeed', 'Color', [0.2 0.5 1]);
+% 2.5: Spindle RPM — 2M pts
+s = make_sensor('rpm', 'Spindle RPM', 2e6, 3000, 500, 900, 80, {scMachine});
+add_4_thresholds(s, struct('machine', 1), 3400, 2600, 3700, 2300);
 s.resolve();
-fp = FastPlot('Parent', panels2{5}, 'Theme', fig2.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels2{5}, 'Spindle RPM (1M pts)', 'Color', 'w');
+fig2.tile(5).addSensor(s, 'ShowThresholds', true);
 
-% Tile 2.6: Bearing Temp — 2M pts
-s = Sensor('bearing_temp', 'Name', 'Bearing Temp');
-s.X = t4; s.Y = 65 + 10*sin(2*pi*t4/1200) + 3*randn(1, N4);
-s.Y(1.2e6:1.25e6) = s.Y(1.2e6:1.25e6) + 20;  % thermal event
-s.addThresholdRule(struct(), 85, 'Direction', 'upper', ...
-    'Label', 'Temp Warning', 'Color', [0.9 0.6 0.1]);
-s.addThresholdRule(struct(), 95, 'Direction', 'upper', ...
-    'Label', 'Temp Alarm', 'Color', [1 0 0]);
+% 2.6: Bearing Temp — 3M pts
+s = make_sensor('bearing_temp', 'Bearing Temp', 3e6, 65, 10, 1200, 3, {scMachine});
+inject_event(s, 1.2e6, 1.25e6, 20);
+add_4_thresholds(s, struct('machine', 1), 80, 50, 95, 40);
 s.resolve();
-fp = FastPlot('Parent', panels2{6}, 'Theme', fig2.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels2{6}, 'Bearing Temp (2M pts)', 'Color', 'w');
+fig2.tile(6).addSensor(s, 'ShowThresholds', true);
 
-close(fig2.hFigure);
-fprintf('  Tab 2 done in %.2f s\n', toc(tab2Tic));
+dock.addTab(fig2, 'Motor Diagnostics');
 
 % =========================================================================
-% TAB 3: Environmental — 2x2 grid, 4 sensors, ~16M points
+% TAB 3: Environmental — 2x2 grid, 4 sensors
 % =========================================================================
-fprintf('Building Tab 3: Environmental (4 tiles, ~16M pts)...\n');
-tab3Tic = tic;
-tab3 = uitab(tabGroup, 'Title', 'Environmental');
+fig3 = FastPlotFigure(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
 
-fig3 = FastPlotFigure(2, 2, 'Theme', 'dark', 'Name', 'ignore');
-set(fig3.hFigure, 'Visible', 'off');
-panels3 = create_tab_axes(tab3, 2, 2, fig3.Theme);
-
-% Tile 3.1: Cleanroom Temp — 5M pts
-s = Sensor('room_temp', 'Name', 'Cleanroom Temp');
-N = 5e6; t = linspace(0, 3600, N);
-s.X = t; s.Y = 22 + 1.5*sin(2*pi*t/1800) + 0.3*randn(1, N);
-s.Y(3e6:3.05e6) = s.Y(3e6:3.05e6) + 3;  % HVAC fault
-s.addThresholdRule(struct(), 24, 'Direction', 'upper', ...
-    'Label', 'Temp High', 'Color', [0.9 0.3 0.1]);
-s.addThresholdRule(struct(), 20, 'Direction', 'lower', ...
-    'Label', 'Temp Low', 'Color', [0.1 0.3 0.9]);
+% 3.1: Cleanroom Temp — 5M pts
+s = make_sensor('room_temp', 'Cleanroom Temp', 5e6, 22, 1.5, 1800, 0.3, {scMachine});
+inject_event(s, 3e6, 3.05e6, 3);
+add_4_thresholds(s, struct('machine', 1), 23.5, 20.5, 25, 19);
 s.resolve();
-fp = FastPlot('Parent', panels3{1}, 'Theme', fig3.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels3{1}, 'Cleanroom Temp (5M pts)', 'Color', 'w');
+fig3.tile(1).addSensor(s, 'ShowThresholds', true);
 
-% Tile 3.2: Humidity — 5M pts
-s = Sensor('humidity', 'Name', 'Humidity');
-s.X = t; s.Y = 45 + 8*sin(2*pi*t/2400) + 2*randn(1, N);
-s.addThresholdRule(struct(), 55, 'Direction', 'upper', ...
-    'Label', 'RH High', 'Color', [0.8 0.4 0.1]);
-s.addThresholdRule(struct(), 35, 'Direction', 'lower', ...
-    'Label', 'RH Low', 'Color', [0.1 0.4 0.8]);
+% 3.2: Humidity — 5M pts
+s = make_sensor('humidity', 'Humidity', 5e6, 45, 8, 2400, 2, {scMachine});
+add_4_thresholds(s, struct('machine', 1), 52, 38, 58, 32);
 s.resolve();
-fp = FastPlot('Parent', panels3{2}, 'Theme', fig3.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels3{2}, 'Humidity (5M pts)', 'Color', 'w');
+fig3.tile(2).addSensor(s, 'ShowThresholds', true);
 
-% Tile 3.3: Particle Count — 3M pts, state-dependent
-s = Sensor('particles', 'Name', 'Particle Count');
-N3 = 3e6; t3 = linspace(0, 3600, N3);
-s.X = t3; s.Y = abs(200 + 100*sin(2*pi*t3/600) + 50*randn(1, N3));
-s.Y(1e6:1.02e6) = s.Y(1e6:1.02e6) + 500;  % contamination burst
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 0), 400, 'Direction', 'upper', ...
-    'Label', 'Idle Limit', 'Color', [0.9 0.6 0.1]);
-s.addThresholdRule(struct('machine', 1), 300, 'Direction', 'upper', ...
-    'Label', 'Run Limit', 'Color', [1 0.2 0]);
-s.addThresholdRule(struct('machine', 2), 200, 'Direction', 'upper', ...
-    'Label', 'Evac Limit', 'Color', [1 0 0]);
+% 3.3: Particle Count — 3M pts
+s = make_sensor('particles', 'Particle Count', 3e6, 200, 80, 600, 40, {scMachine, scVacuum});
+inject_event(s, 1e6, 1.02e6, 500);
+add_4_thresholds(s, struct('machine', 1), 300, 80, 400, 50);
 s.resolve();
-fp = FastPlot('Parent', panels3{3}, 'Theme', fig3.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels3{3}, 'Particle Count (3M pts, state-dep)', 'Color', 'w');
+fig3.tile(3).addSensor(s, 'ShowThresholds', true);
 
-% Tile 3.4: Differential Pressure — 3M pts
-s = Sensor('diff_pressure', 'Name', 'Differential Pressure');
-s.X = t3; s.Y = 12.5 + 2*sin(2*pi*t3/900) + 0.8*randn(1, N3);
-s.addThresholdRule(struct(), 15, 'Direction', 'upper', ...
-    'Label', 'dP High', 'Color', [0.9 0.3 0.1]);
-s.addThresholdRule(struct(), 10, 'Direction', 'lower', ...
-    'Label', 'dP Low', 'Color', [0.1 0.3 0.9]);
+% 3.4: Differential Pressure — 3M pts
+s = make_sensor('diff_pressure', 'Differential Pressure', 3e6, 12.5, 2, 900, 0.8, {scMachine});
+add_4_thresholds(s, struct('machine', 1), 14, 11, 16, 9);
 s.resolve();
-fp = FastPlot('Parent', panels3{4}, 'Theme', fig3.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels3{4}, 'Differential Pressure (3M pts)', 'Color', 'w');
+fig3.tile(4).addSensor(s, 'ShowThresholds', true);
 
-close(fig3.hFigure);
-fprintf('  Tab 3 done in %.2f s\n', toc(tab3Tic));
+dock.addTab(fig3, 'Environmental');
 
 % =========================================================================
-% TAB 4: Gas Delivery — 3x2 grid, 6 sensors, ~15M points
+% TAB 4: Gas Delivery — 3x2 grid, 6 sensors
 % =========================================================================
-fprintf('Building Tab 4: Gas Delivery (6 tiles, ~15M pts)...\n');
-tab4Tic = tic;
-tab4 = uitab(tabGroup, 'Title', 'Gas Delivery');
+fig4 = FastPlotFigure(3, 2, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
 
-fig4 = FastPlotFigure(3, 2, 'Theme', 'dark', 'Name', 'ignore');
-set(fig4.hFigure, 'Visible', 'off');
-panels4 = create_tab_axes(tab4, 3, 2, fig4.Theme);
-
-gasNames = {'Argon', 'Nitrogen', 'Oxygen', 'CF4', 'CHF3', 'He'};
-gasNominal = [200 150 80 50 30 500];
-gasNoise = [10 8 5 3 2 20];
-gasSizes = [3e6 3e6 2e6 2e6 2e6 3e6];
-gasThHi = [240 180 100 60 38 560];
-gasThLo = [160 120 60 40 22 440];
+gasNames   = {'Argon', 'Nitrogen', 'Oxygen', 'CF4', 'CHF3', 'Helium'};
+gasNominal = [200    150     80     50    30    500];
+gasAmp     = [15     12       8      5     3     25];
+gasPeriod  = [600    500    700    400   300    800];
+gasNoise   = [5       4       3      2   1.5     8];
+gasSizes   = [3e6   3e6    2e6    2e6   2e6    3e6];
+gasWarnOff = [25     20      15     8     5     40];
+gasAlarmOff= [40     35      25    14    10     65];
 
 for gi = 1:6
-    Ng = gasSizes(gi);
-    tg = linspace(0, 3600, Ng);
-    s = Sensor(lower(gasNames{gi}), 'Name', [gasNames{gi} ' Flow']);
-    s.X = tg;
-    s.Y = gasNominal(gi) + gasNoise(gi)*sin(2*pi*tg/600) + ...
-          (gasNoise(gi)/3)*randn(1, Ng);
-    % Add a flow excursion in each gas
-    excStart = round(Ng * (0.3 + 0.1*gi));
-    excEnd = min(excStart + round(Ng*0.02), Ng);
-    s.Y(excStart:excEnd) = s.Y(excStart:excEnd) + gasNoise(gi)*3;
-    s.addStateChannel(scMachine);
-    s.addThresholdRule(struct('machine', 1), gasThHi(gi), 'Direction', 'upper', ...
-        'Label', [gasNames{gi} ' HH'], 'Color', [0.9 0.2 0.1]);
-    s.addThresholdRule(struct('machine', 1), gasThLo(gi), 'Direction', 'lower', ...
-        'Label', [gasNames{gi} ' LL'], 'Color', [0.1 0.3 0.9]);
+    s = make_sensor(lower(gasNames{gi}), [gasNames{gi} ' Flow'], ...
+        gasSizes(gi), gasNominal(gi), gasAmp(gi), gasPeriod(gi), gasNoise(gi), ...
+        {scMachine, scVacuum});
+    excStart = round(gasSizes(gi) * (0.3 + 0.08*gi));
+    excEnd = min(excStart + round(gasSizes(gi)*0.02), numel(s.Y));
+    s.Y(excStart:excEnd) = s.Y(excStart:excEnd) + gasAlarmOff(gi)*1.2;
+    add_4_thresholds(s, struct('machine', 1), ...
+        gasNominal(gi) + gasWarnOff(gi), gasNominal(gi) - gasWarnOff(gi), ...
+        gasNominal(gi) + gasAlarmOff(gi), gasNominal(gi) - gasAlarmOff(gi));
     s.resolve();
-    fp = FastPlot('Parent', panels4{gi}, 'Theme', fig4.Theme);
-    fp.addSensor(s, 'ShowThresholds', true);
-    fp.render();
-    title(panels4{gi}, sprintf('%s Flow (%.0fM pts)', gasNames{gi}, Ng/1e6), ...
-        'Color', 'w');
+    fig4.tile(gi).addSensor(s, 'ShowThresholds', true);
 end
 
-close(fig4.hFigure);
-fprintf('  Tab 4 done in %.2f s\n', toc(tab4Tic));
+dock.addTab(fig4, 'Gas Delivery');
 
 % =========================================================================
-% TAB 5: Power & Cooling — 2x2 grid, 4 sensors, ~10M points
+% TAB 5: Power & Cooling — 2x2 grid, 4 sensors
 % =========================================================================
-fprintf('Building Tab 5: Power & Cooling (4 tiles, ~10M pts)...\n');
-tab5Tic = tic;
-tab5 = uitab(tabGroup, 'Title', 'Power & Cooling');
+fig5 = FastPlotFigure(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
 
-fig5 = FastPlotFigure(2, 2, 'Theme', 'dark', 'Name', 'ignore');
-set(fig5.hFigure, 'Visible', 'off');
-panels5 = create_tab_axes(tab5, 2, 2, fig5.Theme);
-
-% Tile 5.1: Chiller Supply Temp — 3M pts
-s = Sensor('chiller_supply', 'Name', 'Chiller Supply');
-N = 3e6; t = linspace(0, 3600, N);
-s.X = t; s.Y = 18 + 2*sin(2*pi*t/1200) + 0.5*randn(1, N);
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 1), 21, 'Direction', 'upper', ...
-    'Label', 'Supply High', 'Color', [0.9 0.3 0.1]);
-s.addThresholdRule(struct('machine', 1), 15, 'Direction', 'lower', ...
-    'Label', 'Supply Low', 'Color', [0.1 0.3 0.9]);
+% 5.1: Chiller Supply — 3M pts
+s = make_sensor('chiller_supply', 'Chiller Supply', 3e6, 18, 2, 1200, 0.5, {scMachine});
+add_4_thresholds(s, struct('machine', 1), 20, 16, 22, 14);
 s.resolve();
-fp = FastPlot('Parent', panels5{1}, 'Theme', fig5.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels5{1}, 'Chiller Supply Temp (3M pts)', 'Color', 'w');
+fig5.tile(1).addSensor(s, 'ShowThresholds', true);
 
-% Tile 5.2: Chiller Return Temp — 3M pts
-s = Sensor('chiller_return', 'Name', 'Chiller Return');
-s.X = t; s.Y = 24 + 3*sin(2*pi*t/1200) + 0.8*randn(1, N);
-s.Y(2e6:2.05e6) = s.Y(2e6:2.05e6) + 5;  % cooling loss
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 1), 29, 'Direction', 'upper', ...
-    'Label', 'Return High', 'Color', [1 0.2 0]);
+% 5.2: Chiller Return — 3M pts
+s = make_sensor('chiller_return', 'Chiller Return', 3e6, 24, 3, 1200, 0.8, {scMachine});
+inject_event(s, 2e6, 2.05e6, 5);
+add_4_thresholds(s, struct('machine', 1), 27, 21, 30, 18);
 s.resolve();
-fp = FastPlot('Parent', panels5{2}, 'Theme', fig5.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels5{2}, 'Chiller Return Temp (3M pts)', 'Color', 'w');
+fig5.tile(2).addSensor(s, 'ShowThresholds', true);
 
-% Tile 5.3: Mains Voltage — 2M pts
-s = Sensor('mains_v', 'Name', 'Mains Voltage');
-N3 = 2e6; t3 = linspace(0, 3600, N3);
-s.X = t3; s.Y = 230 + 5*sin(2*pi*t3/600) + 2*randn(1, N3);
-s.Y(8e5:8.1e5) = s.Y(8e5:8.1e5) - 15;  % voltage dip
-s.addThresholdRule(struct(), 240, 'Direction', 'upper', ...
-    'Label', 'Overvoltage', 'Color', [1 0.2 0]);
-s.addThresholdRule(struct(), 220, 'Direction', 'lower', ...
-    'Label', 'Undervoltage', 'Color', [0.2 0.4 1]);
+% 5.3: Mains Voltage — 2M pts
+s = make_sensor('mains_v', 'Mains Voltage', 2e6, 230, 5, 600, 2, {});
+inject_event(s, 8e5, 8.1e5, -15);
+add_4_thresholds(s, struct(), 237, 223, 242, 218);
 s.resolve();
-fp = FastPlot('Parent', panels5{3}, 'Theme', fig5.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels5{3}, 'Mains Voltage (2M pts)', 'Color', 'w');
+fig5.tile(3).addSensor(s, 'ShowThresholds', true);
 
-% Tile 5.4: UPS Load — 2M pts
-s = Sensor('ups_load', 'Name', 'UPS Load');
-s.X = t3; s.Y = 60 + 15*sin(2*pi*t3/1800) + 5*randn(1, N3);
-s.addStateChannel(scMachine);
-s.addThresholdRule(struct('machine', 1), 80, 'Direction', 'upper', ...
-    'Label', 'Load Warning', 'Color', [0.9 0.6 0.1]);
-s.addThresholdRule(struct('machine', 1), 90, 'Direction', 'upper', ...
-    'Label', 'Load Alarm', 'Color', [1 0 0]);
+% 5.4: UPS Load — 2M pts
+s = make_sensor('ups_load', 'UPS Load', 2e6, 60, 15, 1800, 5, {scMachine});
+add_4_thresholds(s, struct('machine', 1), 75, 40, 88, 30);
 s.resolve();
-fp = FastPlot('Parent', panels5{4}, 'Theme', fig5.Theme);
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
-title(panels5{4}, 'UPS Load (2M pts)', 'Color', 'w');
+fig5.tile(4).addSensor(s, 'ShowThresholds', true);
 
-close(fig5.hFigure);
-fprintf('  Tab 5 done in %.2f s\n', toc(tab5Tic));
+dock.addTab(fig5, 'Power & Cooling');
 
 % =========================================================================
-% Show the window
+% Render all tabs with hierarchical progress + toolbar
 % =========================================================================
-set(hFig, 'Visible', 'on');
-drawnow;
+dock.renderAll();
+
+% Add titles and labels
+fig1.tileTitle(1, 'Chamber Pressure (5M)');  fig1.tileYLabel(1, 'mbar');
+fig1.tileTitle(2, 'Base Pressure (5M)');     fig1.tileYLabel(2, 'mbar');
+fig1.tileTitle(3, 'Gate Valve (3M)');        fig1.tileYLabel(3, '%');
+fig1.tileTitle(4, 'Gas Flow (5M)');          fig1.tileYLabel(4, 'sccm');
+fig1.tileTitle(5, 'RF Power (4M)');          fig1.tileYLabel(5, 'W');
+fig1.tileTitle(6, 'Substrate Temp (3M)');    fig1.tileYLabel(6, '°C');
+
+fig2.tileTitle(1, 'Current A (5M)');         fig2.tileYLabel(1, 'A');
+fig2.tileTitle(2, 'Current B (5M)');         fig2.tileYLabel(2, 'A');
+fig2.tileTitle(3, 'Current C (5M)');         fig2.tileYLabel(3, 'A');
+fig2.tileTitle(4, 'Vibration X (3M)');       fig2.tileYLabel(4, 'mm/s');
+fig2.tileTitle(5, 'Spindle RPM (2M)');       fig2.tileYLabel(5, 'RPM');
+fig2.tileTitle(6, 'Bearing Temp (3M)');      fig2.tileYLabel(6, '°C');
+
+fig3.tileTitle(1, 'Cleanroom Temp (5M)');    fig3.tileYLabel(1, '°C');
+fig3.tileTitle(2, 'Humidity (5M)');          fig3.tileYLabel(2, '%RH');
+fig3.tileTitle(3, 'Particles (3M)');         fig3.tileYLabel(3, 'ct/m³');
+fig3.tileTitle(4, 'Diff Pressure (3M)');     fig3.tileYLabel(4, 'Pa');
+
+fig4.tileTitle(1, 'Argon (3M)');     fig4.tileYLabel(1, 'sccm');
+fig4.tileTitle(2, 'Nitrogen (3M)');  fig4.tileYLabel(2, 'sccm');
+fig4.tileTitle(3, 'Oxygen (2M)');    fig4.tileYLabel(3, 'sccm');
+fig4.tileTitle(4, 'CF4 (2M)');       fig4.tileYLabel(4, 'sccm');
+fig4.tileTitle(5, 'CHF3 (2M)');      fig4.tileYLabel(5, 'sccm');
+fig4.tileTitle(6, 'Helium (3M)');    fig4.tileYLabel(6, 'sccm');
+
+fig5.tileTitle(1, 'Chiller Supply (3M)');    fig5.tileYLabel(1, '°C');
+fig5.tileTitle(2, 'Chiller Return (3M)');    fig5.tileYLabel(2, '°C');
+fig5.tileTitle(3, 'Mains Voltage (2M)');     fig5.tileYLabel(3, 'V');
+fig5.tileTitle(4, 'UPS Load (2M)');          fig5.tileYLabel(4, '%');
 
 totalTime = toc(totalTic);
-totalPts = 5e6*4 + 3e6*4 + 4e6 + 2e6*4 + 1e6 + sum(gasSizes);
+totalPts = 5e6*6 + 3e6*6 + 4e6 + 2e6*6 + sum(gasSizes);
 fprintf('\n=== Stress Test Complete ===\n');
-fprintf('  5 tabs, 26 sensor tiles\n');
+fprintf('  5 tabs, 26 sensors, 104 dynamic thresholds\n');
 fprintf('  %.1fM total data points\n', totalPts/1e6);
 fprintf('  Total time: %.2f seconds\n', totalTime);
+fprintf('  Toolbar: cursor, crosshair, grid, legend, autoscale, export\n');
 
 
-function panels = create_tab_axes(tab, rows, cols, theme)
-%CREATE_TAB_AXES Create a grid of axes inside a uitab.
-    nTiles = rows * cols;
-    panels = cell(1, nTiles);
-    pad = 0.06;
-    gapH = 0.05;
-    gapV = 0.07;
-    totalW = 1 - 2*pad;
-    totalH = 1 - 2*pad;
-    cellW = (totalW - (cols-1)*gapH) / cols;
-    cellH = (totalH - (rows-1)*gapV) / rows;
+% =========================================================================
+% Helper functions
+% =========================================================================
 
-    tab.BackgroundColor = theme.Background;
+function s = make_sensor(id, name, N, nominal, amp, period, noise, stateChannels)
+%MAKE_SENSOR Create a Sensor with synthetic data and state channels.
+    t = linspace(0, 3600, N);
+    s = Sensor(id, 'Name', name);
+    s.X = t;
+    s.Y = nominal + amp*sin(2*pi*t/period) + noise*randn(1, N);
+    for i = 1:numel(stateChannels)
+        s.addStateChannel(stateChannels{i});
+    end
+end
 
-    for n = 1:nTiles
-        row = ceil(n / cols);
-        col = mod(n - 1, cols) + 1;
-        x = pad + (col-1) * (cellW + gapH);
-        y = 1 - pad - row * cellH - (row-1) * gapV;
-        panels{n} = axes('Parent', tab, 'Position', [x y cellW cellH]);
+function add_4_thresholds(s, cond, warnHi, warnLo, alarmHi, alarmLo)
+%ADD_4_THRESHOLDS Add Warn HH/LL + Alarm HH/LL (all state-dependent).
+    s.addThresholdRule(cond, warnHi, 'Direction', 'upper', ...
+        'Label', 'Warn HH', 'Color', [0.95 0.65 0.1], 'LineStyle', '--');
+    s.addThresholdRule(cond, warnLo, 'Direction', 'lower', ...
+        'Label', 'Warn LL', 'Color', [0.1 0.55 0.95], 'LineStyle', '--');
+    s.addThresholdRule(cond, alarmHi, 'Direction', 'upper', ...
+        'Label', 'Alarm HH', 'Color', [0.9 0.15 0.1], 'LineStyle', '-');
+    s.addThresholdRule(cond, alarmLo, 'Direction', 'lower', ...
+        'Label', 'Alarm LL', 'Color', [0.1 0.15 0.9], 'LineStyle', '-');
+end
+
+function inject_event(s, idxStart, idxEnd, magnitude)
+%INJECT_EVENT Add a transient excursion to sensor data.
+    idxEnd = min(idxEnd, numel(s.Y));
+    s.Y(idxStart:idxEnd) = s.Y(idxStart:idxEnd) + magnitude;
+end
+
+function inject_burst(s, times, duration, amplitude)
+%INJECT_BURST Add noise bursts at specified times.
+    N = numel(s.Y);
+    for i = 1:numel(times)
+        lo = max(1, round(times(i) * N / 3600));
+        hi = min(lo + round(duration * N / 3600), N);
+        s.Y(lo:hi) = s.Y(lo:hi) + amplitude * randn(1, hi - lo + 1);
     end
 end
