@@ -329,6 +329,7 @@ classdef FastPlot < handle
                 lineStruct.HasNaN = any(isnan(y));
             end
             lineStruct.Metadata = meta;
+            lineStruct.IsStatic = (numel(x) <= obj.MinPointsForDownsample);
 
             % Append
             if isempty(obj.Lines)
@@ -1099,6 +1100,7 @@ classdef FastPlot < handle
             obj.Lines(lineIdx).X = newX;
             obj.Lines(lineIdx).Y = newY;
             obj.Lines(lineIdx).HasNaN = any(isnan(newY));
+            obj.Lines(lineIdx).IsStatic = (numel(newX) <= obj.MinPointsForDownsample);
 
             % Clear pyramid cache (will rebuild lazily)
             obj.Lines(lineIdx).Pyramid = {};
@@ -1824,6 +1826,12 @@ classdef FastPlot < handle
             logYFlag = strcmp(obj.YScale, 'log');
 
             for i = 1:numel(obj.Lines)
+                % Static lines (threshold steps, small overlays): already
+                % rendered with all points — skip on zoom/pan updates.
+                if obj.Lines(i).IsStatic
+                    continue;
+                end
+
                 nTotal = numel(obj.Lines(i).X);
 
                 % Binary search on raw X for visible range

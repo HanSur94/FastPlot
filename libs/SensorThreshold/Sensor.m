@@ -224,6 +224,13 @@ classdef Sensor < handle
                 end
             end
 
+            % --- Step 6: Merge thresholds with same Label+Direction ---
+            % Rules covering different states (e.g., machine=0/1/2) with
+            % the same label produce separate entries above. Merge them
+            % into single continuous step-function threshold lines.
+            [resolvedTh, resolvedViol] = mergeResolvedByLabel( ...
+                resolvedTh, resolvedViol, segBounds, sensorX(end));
+
             obj.ResolvedThresholds = resolvedTh;
             obj.ResolvedViolations = resolvedViol;
             obj.ResolvedStateBands = struct();
