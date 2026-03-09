@@ -556,6 +556,12 @@ classdef FastPlot < handle
                 obj.hAxes = obj.ParentAxes;
                 obj.hFigure = ancestor(obj.hAxes, 'figure');
             end
+            % Lock axes to its assigned position (prevent MATLAB padding)
+            try
+                set(obj.hAxes, 'PositionConstraint', 'innerposition');
+            catch
+                set(obj.hAxes, 'ActivePositionProperty', 'position');
+            end
 
             hold(obj.hAxes, 'on');
             obj.PixelWidth = obj.getAxesPixelWidth();

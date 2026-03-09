@@ -50,9 +50,9 @@ function cfg = FastPlotDefaults()
     cfg.LiveInterval = 2.0;                  % poll interval in seconds
 
     % --- Dashboard Layout (normalized units) ---
-    cfg.DashboardPadding = 0.06;        % padding around figure edges
-    cfg.DashboardGapH = 0.05;           % horizontal gap between tiles
-    cfg.DashboardGapV = 0.07;           % vertical gap between tiles
+    cfg.DashboardPadding = 0.03;        % padding around figure edges
+    cfg.DashboardGapH = 0.03;           % horizontal gap between tiles
+    cfg.DashboardGapV = 0.04;           % vertical gap between tiles
 
     % --- Dock Layout ---
     cfg.TabBarHeight = 0.03;            % normalized height of tab bar

@@ -61,9 +61,9 @@ classdef FastPlotFigure < handle
     % ====================== LAYOUT SETTINGS ==============================
     % Normalized spacing for the tile grid. Override before render().
     properties (Access = public)
-        Padding = 0.06    % normalized padding around edges
-        GapH    = 0.05    % horizontal gap between tiles
-        GapV    = 0.07    % vertical gap between tiles
+        Padding = 0.03    % normalized padding around edges
+        GapH    = 0.03    % horizontal gap between tiles
+        GapV    = 0.04    % vertical gap between tiles
     end
 
     methods (Access = public)
@@ -454,6 +454,12 @@ classdef FastPlotFigure < handle
         function ax = createTileAxes(obj, n)
             pos = obj.computeTilePosition(n);
             ax = axes('Parent', obj.hFigure, 'Position', pos);
+            % Lock axes to its assigned position (prevent MATLAB padding)
+            try
+                set(ax, 'PositionConstraint', 'innerposition');
+            catch
+                set(ax, 'ActivePositionProperty', 'position');
+            end
         end
 
     end
