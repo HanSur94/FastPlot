@@ -824,40 +824,31 @@ classdef FastPlot < handle
                 set(hT, 'UserData', udT);
                 obj.Thresholds(t).hLine = hT;
 
-                % Violation markers (use already-downsampled data)
+                % Violation markers (fused: detect + cull in one pass)
                 if T.ShowViolations
                     nLines = numel(obj.Lines);
                     vxCell = cell(1, nLines);
                     vyCell = cell(1, nLines);
                     nViols = 0;
+                    xl = get(obj.hAxes, 'XLim');
+                    pw = diff(xl) / obj.PixelWidth;
                     for i = 1:nLines
                         xd = get(obj.Lines(i).hLine, 'XData');
                         yd = get(obj.Lines(i).hLine, 'YData');
                         if isempty(T.X)
-                            [vx, vy] = compute_violations(xd, yd, T.Value, T.Direction);
+                            [vx, vy] = violation_cull(xd, yd, 0, T.Value, T.Direction, pw, xl(1));
                         else
-                            [vx, vy] = compute_violations_dynamic(xd, yd, T.X, T.Y, T.Direction);
+                            [vx, vy] = violation_cull(xd, yd, T.X, T.Y, T.Direction, pw, xl(1));
                         end
                         if ~isempty(vx)
                             nViols = nViols + 1;
-                            vxCell{nViols} = [vx, NaN];
-                            vyCell{nViols} = [vy, NaN];
+                            vxCell{nViols} = vx;
+                            vyCell{nViols} = vy;
                         end
                     end
                     if nViols > 0
                         vxAll = [vxCell{1:nViols}];
                         vyAll = [vyCell{1:nViols}];
-                        vxAll = vxAll(1:end-1);
-                        vyAll = vyAll(1:end-1);
-                        % Pixel-density cull: keep 1 violation per pixel column
-                        xl = get(obj.hAxes, 'XLim');
-                        pw = diff(xl) / obj.PixelWidth;
-                        if isempty(T.X)
-                            thVal = T.Value;
-                        else
-                            thVal = median(T.Y(~isnan(T.Y)));
-                        end
-                        [vxAll, vyAll] = downsample_violations(vxAll, vyAll, pw, thVal, xl(1));
                     else
                         vxAll = NaN;
                         vyAll = NaN;
@@ -2005,42 +1996,33 @@ classdef FastPlot < handle
                 vxCell = cell(1, nLines);
                 vyCell = cell(1, nLines);
                 nViols = 0;
+                xl = get(obj.hAxes, 'XLim');
+                pw = diff(xl) / obj.PixelWidth;
                 for i = 1:nLines
                     if obj.Lines(i).IsStatic; continue; end
-                    % Use already-downsampled data from the line handle
                     xd = get(obj.Lines(i).hLine, 'XData');
                     yd = get(obj.Lines(i).hLine, 'YData');
-
                     if isempty(obj.Thresholds(t).X)
-                        [vx, vy] = compute_violations(xd, yd, ...
-                            obj.Thresholds(t).Value, obj.Thresholds(t).Direction);
+                        [vx, vy] = violation_cull(xd, yd, 0, obj.Thresholds(t).Value, ...
+                            obj.Thresholds(t).Direction, pw, xl(1));
                     else
-                        [vx, vy] = compute_violations_dynamic(xd, yd, ...
-                            obj.Thresholds(t).X, obj.Thresholds(t).Y, obj.Thresholds(t).Direction);
+                        [vx, vy] = violation_cull(xd, yd, obj.Thresholds(t).X, obj.Thresholds(t).Y, ...
+                            obj.Thresholds(t).Direction, pw, xl(1));
                     end
                     if ~isempty(vx)
                         nViols = nViols + 1;
-                        vxCell{nViols} = [vx, NaN];
-                        vyCell{nViols} = [vy, NaN];
+                        vxCell{nViols} = vx;
+                        vyCell{nViols} = vy;
                     end
                 end
 
                 if nViols > 0
                     vxAll = [vxCell{1:nViols}];
                     vyAll = [vyCell{1:nViols}];
-                    % Remove trailing NaN, then pixel-density cull
-                    xl = get(obj.hAxes, 'XLim');
-                    pw = diff(xl) / obj.PixelWidth;
-                    if isempty(obj.Thresholds(t).X)
-                        thVal = obj.Thresholds(t).Value;
-                    else
-                        thVal = median(obj.Thresholds(t).Y(~isnan(obj.Thresholds(t).Y)));
-                    end
-                    [vxCulled, vyCulled] = downsample_violations(vxAll(1:end-1), vyAll(1:end-1), pw, thVal, xl(1));
-                    set(obj.Thresholds(t).hMarkers, 'XData', vxCulled, 'YData', vyCulled);
+                    set(obj.Thresholds(t).hMarkers, 'XData', vxAll, 'YData', vyAll);
                     if obj.Verbose
                         fprintf('[FastPlot]   violations T%d: %d markers\n', ...
-                            t, numel(vxCulled));
+                            t, numel(vxAll));
                     end
                 else
                     set(obj.Thresholds(t).hMarkers, 'XData', NaN, 'YData', NaN);
