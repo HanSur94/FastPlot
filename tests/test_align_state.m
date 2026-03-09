@@ -2,7 +2,7 @@ function test_align_state()
 %TEST_ALIGN_STATE Tests for alignStateToTime helper.
 
     add_sensor_path();
-    add_private_path();
+    add_sensor_private_path();
 
     % testNumericAlignment
     stateX = [1 5 10 20];
@@ -41,8 +41,28 @@ function add_sensor_path()
     run(fullfile(repo_root, 'setup.m'));
 end
 
-function add_private_path()
+function add_sensor_private_path()
     test_dir = fileparts(mfilename('fullpath'));
     repo_root = fileparts(test_dir);
-    addpath(fullfile(repo_root, 'libs', 'SensorThreshold', 'private'));
+    privDir = fullfile(repo_root, 'libs', 'SensorThreshold', 'private');
+
+    w = warning('off', 'all');
+    addpath(privDir);
+    warning(w);
+
+    % Check if it actually landed on the path (R2025b rejects private/)
+    dirs = strsplit(path, pathsep);
+    if ~any(strcmp(dirs, privDir))
+        tmpDir = fullfile(tempdir, 'sensor_threshold_private_proxy');
+        if ~exist(tmpDir, 'dir')
+            mkdir(tmpDir);
+        end
+        files = dir(fullfile(privDir, '*.m'));
+        for i = 1:numel(files)
+            src = fullfile(privDir, files(i).name);
+            dst = fullfile(tmpDir, files(i).name);
+            copyfile(src, dst);
+        end
+        addpath(tmpDir);
+    end
 end
