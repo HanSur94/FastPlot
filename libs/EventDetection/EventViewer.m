@@ -522,10 +522,11 @@ classdef EventViewer < handle
             fp = FastPlot();
             fp.addLine(sd.t, sd.y, 'DisplayName', sd.name);
 
-            % Add threshold line
+            % Add threshold line with violation markers
             fp.addThreshold(ev.ThresholdValue, ...
                 'Label', ev.ThresholdLabel, ...
-                'Direction', ev.Direction);
+                'Direction', ev.Direction, ...
+                'ShowViolations', true);
 
             % Zoom to event with 20% padding
             margin = ev.Duration * 0.2;
@@ -533,6 +534,7 @@ classdef EventViewer < handle
                 margin = 5;
             end
             fp.render();
+            FastPlotToolbar(fp);
             set(fp.hAxes, 'XLim', [ev.StartTime - margin, ev.EndTime + margin]);
         end
     end
