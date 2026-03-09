@@ -22,8 +22,8 @@ function batchViolIdx = compute_violations_batch(sensorY, segLo, segHi, threshol
     end
 
     if useMex
-        batchViolIdx = compute_violations_mex(sensorY, segLo, segHi, ...
-            thresholdValues, directions);
+        batchViolIdx = compute_violations_mex(sensorY, double(segLo), double(segHi), ...
+            double(thresholdValues), double(directions));
         return;
     end
 
