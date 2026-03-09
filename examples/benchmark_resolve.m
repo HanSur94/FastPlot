@@ -1,21 +1,17 @@
 function benchmark_resolve()
-%BENCHMARK_RESOLVE Compare old vs new Sensor.resolve() performance.
-%   Runs at 10K, 100K, 1M, 10M points with 2 state channels, 4 rules.
+%BENCHMARK_RESOLVE Compare segment-based vs naive resolve() performance.
+%   Runs at 10K, 100K, 1M points with 2 state channels, 4 rules.
+%   Compares: naive O(N*R) loop vs segment-based vectorized vs MEX.
 
     test_dir = fileparts(mfilename('fullpath'));
     repo_root = fileparts(test_dir);
     addpath(repo_root);
     setup();
 
-    sizes = [1e4, 1e5, 1e6, 1e7];
+    sizes = [1e4, 1e5, 1e6];
     nRuns = 5;
 
-    fprintf('\n=== Sensor.resolve() Benchmark ===\n\n');
-    fprintf('%-12s  %-14s  %-14s  %-10s\n', ...
-        'Data Size', 'resolve() [ms]', 'MEX avail?', 'Violations');
-    fprintf('%s\n', repmat('-', 1, 60));
-
-    % Check MEX availability in private dir where it's actually used
+    % Check MEX availability
     mexPath = fullfile(repo_root, 'libs', 'SensorThreshold', 'private', 'compute_violations_mex');
     mexExts = {'.mex', '.mexa64', '.mexmaci64', '.mexmaca64', '.mexw64'};
     hasMex = false;
@@ -25,8 +21,18 @@ function benchmark_resolve()
             break;
         end
     end
-    mexStr = 'no';
-    if hasMex; mexStr = 'yes'; end
+
+    fprintf('\n=== Sensor.resolve() Benchmark ===\n');
+    fprintf('  %d state channels, 4 rules, median of %d runs\n', 2, nRuns);
+    if hasMex
+        fprintf('  MEX: compiled (compute_violations_mex)\n\n');
+    else
+        fprintf('  MEX: not compiled (run build_mex to enable)\n\n');
+    end
+
+    fprintf('%-10s  %12s  %12s  %10s  %10s\n', ...
+        'Size', 'Naive [ms]', 'Segment [ms]', 'Speedup', 'Violations');
+    fprintf('%s\n', repmat('-', 1, 62));
 
     for si = 1:numel(sizes)
         N = sizes(si);
@@ -44,18 +50,20 @@ function benchmark_resolve()
         sc2.X = [0, 300, 700];
         sc2.Y = [0, 1, 0];
 
-        % 4 threshold rules (warn/alarm upper/lower)
-        % Batched: first two share condition, second two share condition
-        times = zeros(1, nRuns);
-        nViol = 0;
+        % --- Naive O(N*R): point-by-point with aligned state lookup ---
+        naiveTimes = zeros(1, nRuns);
+        for r = 1:nRuns
+            naiveTimes(r) = bench_naive(x, y, sc1, sc2) * 1000;
+        end
 
-        for run = 1:nRuns
+        % --- Segment-based (current resolve) ---
+        segTimes = zeros(1, nRuns);
+        nViol = 0;
+        for r = 1:nRuns
             s = Sensor('bench');
-            s.X = x;
-            s.Y = y;
+            s.X = x; s.Y = y;
             s.addStateChannel(sc1);
             s.addStateChannel(sc2);
-
             s.addThresholdRule(struct('machine', 1), 80, ...
                 'Direction', 'upper', 'Label', 'Warn Hi');
             s.addThresholdRule(struct('machine', 1), 20, ...
@@ -67,28 +75,93 @@ function benchmark_resolve()
 
             tic;
             s.resolve();
-            times(run) = toc * 1000;
+            segTimes(r) = toc * 1000;
 
-            if run == 1
+            if r == 1
                 for v = 1:numel(s.ResolvedViolations)
                     nViol = nViol + numel(s.ResolvedViolations(v).X);
                 end
             end
         end
 
-        medTime = median(times);
+        naiveMs = median(naiveTimes);
+        segMs = median(segTimes);
+        speedup = naiveMs / segMs;
 
-        if N >= 1e6
-            sizeStr = sprintf('%.0fM', N / 1e6);
-        elseif N >= 1e3
-            sizeStr = sprintf('%.0fK', N / 1e3);
-        else
-            sizeStr = sprintf('%.0f', N);
-        end
+        sizeStr = format_size(N);
 
-        fprintf('%-12s  %10.2f ms   %-14s  %d\n', ...
-            sizeStr, medTime, mexStr, nViol);
+        fprintf('%-10s  %9.1f ms  %9.1f ms  %9.1fx  %10d\n', ...
+            sizeStr, naiveMs, segMs, speedup, nViol);
     end
 
     fprintf('\nDone.\n');
+end
+
+
+function elapsed = bench_naive(x, y, sc1, sc2)
+%BENCH_NAIVE Simulate the old O(N*R) resolve: per-point state eval + comparison.
+    n = numel(x);
+
+    % Align states to sensor timestamps (same as old resolve)
+    state1 = align_state(sc1.X, sc1.Y, x);
+    state2 = align_state(sc2.X, sc2.Y, x);
+
+    % 4 rules: machine==1 upper 80, machine==1 lower 20,
+    %          machine==1&vacuum==1 upper 90, machine==1&vacuum==1 lower 10
+    rules = [1 NaN 80 1; 1 NaN 20 0; 1 1 90 1; 1 1 10 0];
+    % columns: reqMachine, reqVacuum (NaN=any), threshold, isUpper
+
+    tic;
+    for r = 1:size(rules, 1)
+        reqM = rules(r, 1);
+        reqV = rules(r, 2);
+        thVal = rules(r, 3);
+        isUpper = rules(r, 4);
+
+        vX = [];
+        vY = [];
+        for k = 1:n
+            % Check condition
+            if state1(k) ~= reqM; continue; end
+            if ~isnan(reqV) && state2(k) ~= reqV; continue; end
+            % Check violation
+            if isUpper && y(k) > thVal
+                vX(end+1) = x(k); %#ok<AGROW>
+                vY(end+1) = y(k); %#ok<AGROW>
+            elseif ~isUpper && y(k) < thVal
+                vX(end+1) = x(k); %#ok<AGROW>
+                vY(end+1) = y(k); %#ok<AGROW>
+            end
+        end
+    end
+    elapsed = toc;
+end
+
+
+function aligned = align_state(stateX, stateY, sensorX)
+%ALIGN_STATE Zero-order hold alignment of state to sensor timestamps.
+    aligned = zeros(size(sensorX));
+    nStates = numel(stateX);
+    for i = 1:numel(sensorX)
+        t = sensorX(i);
+        val = stateY(1);
+        for s = nStates:-1:1
+            if t >= stateX(s)
+                val = stateY(s);
+                break;
+            end
+        end
+        aligned(i) = val;
+    end
+end
+
+
+function s = format_size(N)
+    if N >= 1e6
+        s = sprintf('%.0fM', N / 1e6);
+    elseif N >= 1e3
+        s = sprintf('%.0fK', N / 1e3);
+    else
+        s = sprintf('%.0f', N);
+    end
 end
