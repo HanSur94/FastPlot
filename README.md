@@ -37,6 +37,17 @@ FastPlot dynamically downsamples your data to screen resolution on every zoom/pa
   - [`StateChannel(key)` — Time-Varying State](#statechannelkey--time-varying-state)
   - [`SensorRegistry` — Predefined Sensor Catalog](#sensorregistry--predefined-sensor-catalog)
   - [`FastPlotTheme(preset, ...)` — Theme Presets](#fastplotthemepreset---theme-presets)
+- [Event Detection](#event-detection)
+  - [Quick Start — Live Pipeline](#quick-start--live-pipeline)
+  - [Event Detection API](#event-detection-api)
+    - [`EventDetector` — Threshold Violation Grouping](#eventdetector--threshold-violation-grouping)
+    - [`IncrementalEventDetector` — Streaming Detection](#incrementaleventdetector--streaming-detection)
+    - [`Event` — Detected Event](#event--detected-event)
+    - [`EventStore` — Atomic Persistence](#eventstore--atomic-persistence)
+    - [`LiveEventPipeline` — Orchestrator](#liveeventpipeline--orchestrator)
+    - [`EventViewer` — Interactive Gantt + Table](#eventviewer--interactive-gantt--table)
+    - [`NotificationService` — Rule-Based Alerts](#notificationservice--rule-based-alerts)
+    - [Data Sources](#data-sources)
 - [Linked Axes](#linked-axes)
 - [Handling NaN Gaps](#handling-nan-gaps)
 - [Uneven Sampling](#uneven-sampling)
@@ -570,6 +581,215 @@ t = FastPlotTheme(struct('Background', [0 0 0]));  % struct merged with defaults
 
 Lines are auto-colored from `LineColorOrder` — no need to specify colors manually.
 
+## Event Detection
+
+FastPlot includes a full event detection pipeline that monitors sensor data for threshold violations, groups them into events, and provides interactive visualization, persistence, and notifications.
+
+### Quick Start — Live Pipeline
+
+```matlab
+setup;
+
+% 1. Define sensors with warning/alarm thresholds
+tempSensor = Sensor('temperature', 'Name', 'Chamber Temperature');
+sc = StateChannel('mode');
+tempSensor.addStateChannel(sc);
+
+% State-dependent thresholds: different limits for idle vs heating
+tempSensor.addThresholdRule(struct('mode', 'idle'), 120, ...
+    'Direction', 'upper', 'Label', 'H Warning', ...
+    'Color', [1 0.75 0], 'LineStyle', '--');
+tempSensor.addThresholdRule(struct('mode', 'idle'), 150, ...
+    'Direction', 'upper', 'Label', 'HH Alarm', ...
+    'Color', [1 0 0], 'LineStyle', '-');
+
+sensors = containers.Map();
+sensors('temperature') = tempSensor;
+
+% 2. Configure data sources
+dsMap = DataSourceMap();
+dsMap.add('temperature', MockDataSource( ...
+    'BaseValue', 85, 'NoiseStd', 2, ...
+    'ViolationProbability', 0.0001, ...
+    'ViolationAmplitude', 38, ...
+    'BacklogDays', 2, 'SampleInterval', 3, ...
+    'StateValues', {{'idle', 'heating', 'cooling'}}, ...
+    'StateChangeProbability', 0.002, 'Seed', 42));
+
+% 3. Create pipeline
+storeFile = fullfile(tempdir, 'events.mat');
+pipeline = LiveEventPipeline(sensors, dsMap, ...
+    'EventFile', storeFile, 'Interval', 15, ...
+    'EscalateSeverity', true, 'MaxBackups', 3);
+
+% 4. Add notifications (dry-run logs to console)
+notif = NotificationService('DryRun', true);
+notif.addRule(NotificationRule( ...
+    'SensorKey', 'temperature', ...
+    'Recipients', {{'thermal-team@company.com'}}, ...
+    'Subject', '[THERMAL] {sensor}: {threshold}', ...
+    'Message', 'Peak: {peak}. Duration: {duration}.', ...
+    'IncludeSnapshot', true));
+pipeline.NotificationService = notif;
+
+% 5. Run — manual cycles or timer-driven
+pipeline.runCycle();         % single cycle
+pipeline.start();            % start 15s timer
+
+% 6. View results
+viewer = EventViewer.fromFile(storeFile);
+viewer.startAutoRefresh(15);
+```
+
+See `example_live_pipeline.m` for the full working demo with 3 sensors, state-dependent thresholds, and all features.
+
+### Event Detection API
+
+#### `EventDetector` — Threshold Violation Grouping
+
+```matlab
+det = EventDetector('MinDuration', 0, 'MaxCallsPerEvent', 1);
+events = detectEventsFromSensor(sensor, det);
+```
+
+Groups threshold violations from a resolved `Sensor` into discrete `Event` objects. Adjacent violations of the same threshold are merged. Events shorter than `MinDuration` are filtered out.
+
+#### `IncrementalEventDetector` — Streaming Detection
+
+```matlab
+det = IncrementalEventDetector('MinDuration', 0, 'EscalateSeverity', true);
+newEvents = det.process(sensorKey, sensor, newX, newY, stateX, stateY);
+```
+
+Wraps `EventDetector` for incremental use — maintains state across calls, carries over open events between batches, and merges events that span batch boundaries. Supports severity escalation (e.g., H Warning → HH Alarm when peak exceeds the higher threshold).
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `MinDuration` | double | `0` | Minimum event duration in datenum days |
+| `EscalateSeverity` | logical | `true` | Upgrade severity when peak exceeds higher threshold |
+| `MaxCallsPerEvent` | integer | `1` | Max notification calls per event |
+| `OnEventStart` | function handle | `[]` | Callback fired for each completed event |
+
+#### `Event` — Detected Event
+
+```matlab
+ev = Event(startTime, endTime, sensorName, thresholdLabel, thresholdValue, direction);
+ev = ev.setStats(peakVal, nPts, minVal, maxVal, meanVal, rmsVal, stdVal);
+ev = ev.escalateTo(newLabel, newThresholdValue);
+```
+
+| Property | Description |
+|----------|-------------|
+| `StartTime`, `EndTime` | Event boundaries (datenum) |
+| `Duration` | `EndTime - StartTime` (datenum days) |
+| `SensorName` | Sensor key string |
+| `ThresholdLabel` | e.g., `'H Warning'`, `'HH Alarm'` |
+| `ThresholdValue` | Threshold value that was violated |
+| `Direction` | `'high'` or `'low'` |
+| `PeakValue` | Extreme value during the event |
+| `NumPoints`, `MinValue`, `MaxValue`, `MeanValue`, `RmsValue`, `StdValue` | Statistics |
+
+#### `EventStore` — Atomic Persistence
+
+```matlab
+store = EventStore('events.mat', 'MaxBackups', 3);
+store.append(newEvents);
+store.save();
+[events, meta] = EventStore.loadFile('events.mat');
+```
+
+Atomic write with backup rotation. Each `save()` creates a timestamped backup before overwriting. Also stores sensor time series data for EventViewer click-to-plot.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `filepath` | string | (required) | Path to the .mat store file |
+| `MaxBackups` | integer | `5` | Number of backup copies to retain |
+
+#### `LiveEventPipeline` — Orchestrator
+
+```matlab
+pipeline = LiveEventPipeline(sensors, dataSourceMap, ...
+    'EventFile', 'events.mat', 'Interval', 15, ...
+    'EscalateSeverity', true, 'MaxBackups', 3);
+pipeline.start();      % timer-driven
+pipeline.stop();
+pipeline.runCycle();   % manual single cycle
+```
+
+Orchestrates the full loop: fetch new data → detect events → persist to store → send notifications. Runs on a configurable timer or can be called manually.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `sensors` | containers.Map | (required) | Sensor key → `Sensor` object |
+| `dataSourceMap` | DataSourceMap | (required) | Sensor key → data source |
+| `EventFile` | string | `''` | Path to EventStore .mat file |
+| `Interval` | double | `15` | Timer interval in seconds |
+| `MinDuration` | double | `0` | Passed to IncrementalEventDetector |
+| `EscalateSeverity` | logical | `true` | Passed to IncrementalEventDetector |
+| `MaxBackups` | integer | `5` | Passed to EventStore |
+
+#### `EventViewer` — Interactive Gantt + Table
+
+```matlab
+viewer = EventViewer(events);
+viewer = EventViewer(events, sensorData, thresholdColors);
+viewer = EventViewer.fromFile('events.mat');
+viewer.startAutoRefresh(15);
+```
+
+Interactive figure with:
+- **Gantt timeline** — color-coded bars per sensor/threshold, hover tooltips, click to highlight
+- **Filterable table** — sensor and threshold dropdown filters, datetime-formatted columns, readable durations
+- **Click-to-plot** — double-click a table row to open a FastPlotFigure dashboard with zoomed event detail + full sensor timeline with selection rectangle
+- **Bidirectional selection** — clicking a Gantt bar highlights the table row (with scroll); clicking a table row highlights the Gantt bar
+- **Auto-refresh** — polls the store file on a timer, with manual refresh button
+
+| Method | Description |
+|--------|-------------|
+| `EventViewer.fromFile(path)` | Open from a saved .mat event store |
+| `viewer.update(events)` | Update with new events |
+| `viewer.startAutoRefresh(sec)` | Start polling the store file |
+| `viewer.stopAutoRefresh()` | Stop polling |
+| `viewer.refreshFromFile()` | Manual one-shot refresh |
+
+#### `NotificationService` — Rule-Based Alerts
+
+```matlab
+notif = NotificationService('DryRun', true, 'SnapshotDir', '/tmp/snapshots');
+notif.addRule(NotificationRule( ...
+    'SensorKey', 'temperature', ...
+    'ThresholdLabel', 'HH Alarm', ...
+    'Recipients', {{'safety@company.com'}}, ...
+    'Subject', 'CRITICAL: {sensor} {threshold}!', ...
+    'Message', 'Peak: {peak}. Duration: {duration}.', ...
+    'IncludeSnapshot', true));
+notif.setDefaultRule(NotificationRule(...));
+notif.notify(event, sensorData);
+```
+
+Priority-based rule matching: exact match (sensor + threshold, score=3) > sensor match (score=2) > default (score=1). Template variables: `{sensor}`, `{threshold}`, `{direction}`, `{startTime}`, `{endTime}`, `{peak}`, `{mean}`, `{std}`, `{duration}`.
+
+When `IncludeSnapshot` is true, generates detail + context PNG plots via `generateEventSnapshot`.
+
+#### Data Sources
+
+```matlab
+% Mock data with configurable violations, drift, and state changes
+ds = MockDataSource('BaseValue', 85, 'NoiseStd', 2, ...
+    'ViolationProbability', 0.0001, 'ViolationAmplitude', 38, ...
+    'BacklogDays', 2, 'SampleInterval', 3, 'Seed', 42);
+
+% Read from a continuously-updated .mat file
+ds = MatFileDataSource('data.mat', 'XVar', 't', 'YVar', 'y');
+
+% Map sensor keys to swappable data sources
+dsMap = DataSourceMap();
+dsMap.add('temperature', ds);
+result = dsMap.get('temperature').fetchNew();
+```
+
+All data sources implement `fetchNew()` which returns a struct with fields `X`, `Y`, `stateX`, `stateY`, and `changed`.
+
 ## Linked Axes
 
 Synchronize zoom and pan across multiple subplots:
@@ -654,6 +874,7 @@ fp.render();
 | `example_sensor_threshold.m` | Condition-dependent thresholds |
 | `example_sensor_multi_state.m` | Multi-state sensor thresholds |
 | `example_sensor_dashboard.m` | Sensor data in a tiled dashboard |
+| `example_live_pipeline.m` | Full live event detection pipeline with 3 sensors, state-dependent thresholds, notifications, and EventViewer |
 | `example_stress_test.m` | 5-tab dock with 26 sensors and 60M data points |
 | `example_visual_features.m` | Visual feature showcase |
 | `benchmark.m` | FastPlot vs plot() performance comparison |
@@ -708,8 +929,26 @@ libs/
 │   ├── ThresholdRule.m               Condition-value threshold pairs
 │   ├── StateChannel.m                Time-varying state (machine mode, etc.)
 │   └── private/                      Segment-based resolution helpers
+├── EventDetection/
+│   ├── EventDetector.m               Threshold violation → event grouping
+│   ├── IncrementalEventDetector.m    Streaming detection with open-event carry-over
+│   ├── Event.m                       Event data model with stats and escalation
+│   ├── EventStore.m                  Atomic persistence with backup rotation
+│   ├── LiveEventPipeline.m           Orchestrator: fetch → detect → store → notify
+│   ├── EventViewer.m                 Interactive Gantt timeline + filterable table
+│   ├── NotificationService.m         Rule-based alerts with template filling
+│   ├── NotificationRule.m            Priority-based rule matching
+│   ├── generateEventSnapshot.m       Detail + context PNG generation
+│   ├── DataSource.m                  Abstract data source interface
+│   ├── DataSourceMap.m               Sensor key → data source mapping
+│   ├── MockDataSource.m              Synthetic data with violations and drift
+│   ├── MatFileDataSource.m           Read from continuously-updated .mat files
+│   ├── detectEventsFromSensor.m      Sensor → event detection entry point
+│   ├── printEventSummary.m           Console event table
+│   └── private/
+│       └── groupViolations.m         Violation grouping helper
 ├── tests/                            30 test suites
-└── examples/                         28 demos + benchmarks
+└── examples/                         29 demos + benchmarks
 ```
 
 **Zoom/pan pipeline:**
