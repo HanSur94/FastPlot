@@ -113,14 +113,14 @@ fig.renderAll();
 
 ### Sensor Data + Thresholds
 
-- Uses `FastPlot.addSensor(sensor, 'ShowThresholds', true)` to render the data line, threshold lines, and violation markers.
+- When `SensorDetailPlot.ShowThresholds = true`, calls `MainPlot.addSensor(sensor, 'ShowThresholds', true)` which renders the data line, threshold lines, and violation markers. When `false`, calls `addSensor(sensor, 'ShowThresholds', false)` (data line only, no thresholds).
 - Inherits all existing FastPlot behavior: downsampling on zoom, pyramid caching, NaN gap handling.
 
 ### Event Shading
 
 When `Events` is provided:
 
-1. If input is an `EventStore`, filter by matching `event.SensorName == sensor.Key` via `store.getEvents()`.
+1. If input is an `EventStore`, filter via `store.getEvents()` using `strcmp({events.SensorName}, sensor.Key)`.
 2. If input is an `Event` array, use as-is.
 3. For each event, render a vertical shaded region from `event.StartTime` to `event.EndTime` spanning the full Y range.
 4. Color is derived from `event.Direction` and `event.ThresholdLabel` (note: `Event.Direction` uses `'high'`/`'low'`, distinct from `ThresholdRule.Direction` which uses `'upper'`/`'lower'`):
@@ -128,7 +128,7 @@ When `Events` is provided:
    - `Direction = 'low'` — cool colors (blue, alpha 0.12)
    - Two-tier escalation: if `ThresholdLabel` contains `'HH'` or `'LL'` (case-insensitive), use stronger color (red / dark blue, alpha 0.15). This matches the `escalateTo()` convention where escalated events get a new `ThresholdLabel`.
    - Fallback — theme accent color, alpha 0.10
-5. Event metadata (`ThresholdLabel`, `Direction`, `Duration`, `PeakValue`, `MeanValue`) is attached to the patch `UserData` property for access by `FastPlotToolbar` cursor/crosshair.
+5. All Event statistics are attached to the patch `UserData` struct: `ThresholdLabel`, `Direction`, `Duration`, `PeakValue`, `MeanValue`, `MinValue`, `MaxValue`, `RmsValue`, `StdValue`, `NumPoints`. This makes all event data available to `FastPlotToolbar` cursor/crosshair.
 6. No permanent text labels on the plot.
 
 ## Lower Plot (Navigator)
@@ -234,7 +234,9 @@ When `Parent` is provided:
 - Instead, `SensorDetailPlot` creates two sub-panels inside it, then creates axes within each sub-panel, and passes those axes to the internal `FastPlot` instances via `FastPlot('Parent', hAxes)`.
 - Does not create its own figure window.
 
-**New method required on `FastPlotFigure`:** `tilePanel(n)` — returns a `uipanel` handle at the computed position for tile `n`. This is distinct from the existing `tile(n)` (returns a `FastPlot`) and `axes(n)` (returns a raw axes). The `tilePanel(n)` method creates an empty `uipanel` at the tile's grid position, allowing composite widgets like `SensorDetailPlot` to manage their own internal layout within a dashboard tile.
+**New method required on `FastPlotFigure`:** `tilePanel(n)` — returns a `uipanel` handle at the computed position for tile `n`. This is distinct from the existing `tile(n)` (returns a `FastPlot`) and `axes(n)` (returns a raw axes). The `tilePanel(n)` method creates an empty `uipanel` at the tile's grid position, allowing composite widgets like `SensorDetailPlot` to manage their own internal layout within a dashboard tile. Calling `tilePanel(n)` on a tile already occupied by `tile(n)` or `axes(n)` throws a `tileConflict` error, same as the existing `tile(n)` vs `axes(n)` mutual exclusion guard.
+
+**Axes creation in Parent path:** `SensorDetailPlot` is responsible for creating the axes within each sub-panel via `axes('Parent', subPanel)`, then passing those axes handles to the internal `FastPlot` instances via `FastPlot('Parent', hAxes)`.
 
 ## File Locations
 
