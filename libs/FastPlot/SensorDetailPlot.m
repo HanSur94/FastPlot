@@ -295,6 +295,8 @@ classdef SensorDetailPlot < handle
             if isempty(sensorEvents); return; end
 
             yLim = get(obj.hMainAxes, 'YLim');
+            wasHeld = ishold(obj.hMainAxes);
+            hold(obj.hMainAxes, 'on');
 
             for i = 1:numel(sensorEvents)
                 ev = sensorEvents(i);
@@ -322,6 +324,9 @@ classdef SensorDetailPlot < handle
                 ud.NumPoints = ev.NumPoints;
                 set(hPatch, 'UserData', ud);
             end
+
+            % Restore hold state
+            if ~wasHeld; hold(obj.hMainAxes, 'off'); end
         end
 
         function addEventVerticalLines(obj)

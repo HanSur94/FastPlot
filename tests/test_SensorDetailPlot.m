@@ -152,14 +152,13 @@ function test_event_shading_in_main_plot(testCase)
     sdp.render();
 
     % Check that patches exist in the main axes with UserData
-    children = get(sdp.MainPlot.hAxes, 'Children');
+    % Use findall to include HandleVisibility='off' patches
+    patches = findall(sdp.MainPlot.hAxes, 'Type', 'patch');
     patchCount = 0;
-    for c = children'
-        if isa(c, 'matlab.graphics.primitive.Patch')
-            ud = get(c, 'UserData');
-            if isstruct(ud) && isfield(ud, 'ThresholdLabel')
-                patchCount = patchCount + 1;
-            end
+    for i = 1:numel(patches)
+        ud = get(patches(i), 'UserData');
+        if isstruct(ud) && isfield(ud, 'ThresholdLabel')
+            patchCount = patchCount + 1;
         end
     end
     verifyGreaterThanOrEqual(testCase, patchCount, 2);
@@ -176,16 +175,14 @@ function test_event_lines_in_navigator(testCase)
     sdp.render();
 
     % Check that a line exists at StartTime in navigator axes
-    children = get(sdp.NavigatorPlot.hAxes, 'Children');
+    % Use findall to include HandleVisibility='off' lines
+    lines = findall(sdp.NavigatorPlot.hAxes, 'Type', 'line');
     lineFound = false;
-    for c = children'
-        if isa(c, 'matlab.graphics.chart.primitive.Line') || ...
-           isa(c, 'matlab.graphics.primitive.Line')
-            xd = get(c, 'XData');
-            if numel(xd) == 2 && abs(xd(1) - 20) < 0.1
-                lineFound = true;
-                break;
-            end
+    for i = 1:numel(lines)
+        xd = get(lines(i), 'XData');
+        if numel(xd) == 2 && abs(xd(1) - 20) < 0.1
+            lineFound = true;
+            break;
         end
     end
     verifyTrue(testCase, lineFound);
@@ -207,14 +204,13 @@ function test_events_from_eventstore(testCase)
     sdp.render();
 
     % Only ev1 should appear (filtered by sensor key)
-    children = get(sdp.MainPlot.hAxes, 'Children');
+    % Use findall to include HandleVisibility='off' patches
+    patches = findall(sdp.MainPlot.hAxes, 'Type', 'patch');
     patchCount = 0;
-    for c = children'
-        if isa(c, 'matlab.graphics.primitive.Patch')
-            ud = get(c, 'UserData');
-            if isstruct(ud) && isfield(ud, 'ThresholdLabel')
-                patchCount = patchCount + 1;
-            end
+    for i = 1:numel(patches)
+        ud = get(patches(i), 'UserData');
+        if isstruct(ud) && isfield(ud, 'ThresholdLabel')
+            patchCount = patchCount + 1;
         end
     end
     verifyEqual(testCase, patchCount, 1);
@@ -230,18 +226,19 @@ function test_event_color_high(testCase)
     sdp = SensorDetailPlot(s, 'Events', [ev]);
     sdp.render();
 
-    children = get(sdp.MainPlot.hAxes, 'Children');
-    for c = children'
-        if isa(c, 'matlab.graphics.primitive.Patch')
-            ud = get(c, 'UserData');
-            if isstruct(ud) && isfield(ud, 'Direction') && strcmp(ud.Direction, 'high')
-                fc = get(c, 'FaceColor');
-                % Should be orange-ish [1 0.6 0.2]
-                verifyGreaterThan(testCase, fc(1), 0.5);  % red channel high
-                break;
-            end
+    patches = findall(sdp.MainPlot.hAxes, 'Type', 'patch');
+    foundPatch = false;
+    for i = 1:numel(patches)
+        ud = get(patches(i), 'UserData');
+        if isstruct(ud) && isfield(ud, 'Direction') && strcmp(ud.Direction, 'high')
+            fc = get(patches(i), 'FaceColor');
+            % Should be orange-ish [1 0.6 0.2]
+            verifyGreaterThan(testCase, fc(1), 0.5);  % red channel high
+            foundPatch = true;
+            break;
         end
     end
+    verifyTrue(testCase, foundPatch, 'No event patch found with Direction=high');
     delete(sdp);
 end
 
@@ -251,20 +248,21 @@ function test_event_color_escalated(testCase)
     sdp = SensorDetailPlot(s, 'Events', [ev]);
     sdp.render();
 
-    children = get(sdp.MainPlot.hAxes, 'Children');
-    for c = children'
-        if isa(c, 'matlab.graphics.primitive.Patch')
-            ud = get(c, 'UserData');
-            if isstruct(ud) && isfield(ud, 'ThresholdLabel') && ...
-               ~isempty(regexpi(ud.ThresholdLabel, 'HH'))
-                fc = get(c, 'FaceColor');
-                % Should be red-ish [0.9 0.1 0.1]
-                verifyGreaterThan(testCase, fc(1), 0.7);
-                verifyLessThan(testCase, fc(2), 0.3);
-                break;
-            end
+    patches = findall(sdp.MainPlot.hAxes, 'Type', 'patch');
+    foundPatch = false;
+    for i = 1:numel(patches)
+        ud = get(patches(i), 'UserData');
+        if isstruct(ud) && isfield(ud, 'ThresholdLabel') && ...
+           ~isempty(regexpi(ud.ThresholdLabel, 'HH'))
+            fc = get(patches(i), 'FaceColor');
+            % Should be red-ish [0.9 0.1 0.1]
+            verifyGreaterThan(testCase, fc(1), 0.7);
+            verifyLessThan(testCase, fc(2), 0.3);
+            foundPatch = true;
+            break;
         end
     end
+    verifyTrue(testCase, foundPatch, 'No event patch found with HH label');
     delete(sdp);
 end
 
@@ -279,22 +277,23 @@ function test_event_patch_userdata_fields(testCase)
     sdp = SensorDetailPlot(s, 'Events', [ev]);
     sdp.render();
 
-    children = get(sdp.MainPlot.hAxes, 'Children');
-    for c = children'
-        if isa(c, 'matlab.graphics.primitive.Patch')
-            ud = get(c, 'UserData');
-            if isstruct(ud) && isfield(ud, 'ThresholdLabel')
-                expectedFields = {'ThresholdLabel', 'Direction', 'Duration', ...
-                    'PeakValue', 'MeanValue', 'MinValue', 'MaxValue', ...
-                    'RmsValue', 'StdValue', 'NumPoints'};
-                for f = expectedFields
-                    verifyTrue(testCase, isfield(ud, f{1}), ...
-                        sprintf('Missing UserData field: %s', f{1}));
-                end
-                break;
+    patches = findall(sdp.MainPlot.hAxes, 'Type', 'patch');
+    foundPatch = false;
+    for i = 1:numel(patches)
+        ud = get(patches(i), 'UserData');
+        if isstruct(ud) && isfield(ud, 'ThresholdLabel')
+            expectedFields = {'ThresholdLabel', 'Direction', 'Duration', ...
+                'PeakValue', 'MeanValue', 'MinValue', 'MaxValue', ...
+                'RmsValue', 'StdValue', 'NumPoints'};
+            for f = expectedFields
+                verifyTrue(testCase, isfield(ud, f{1}), ...
+                    sprintf('Missing UserData field: %s', f{1}));
             end
+            foundPatch = true;
+            break;
         end
     end
+    verifyTrue(testCase, foundPatch, 'No event patch found with ThresholdLabel');
     delete(sdp);
 end
 
