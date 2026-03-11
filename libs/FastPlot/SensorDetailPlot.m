@@ -35,10 +35,8 @@ classdef SensorDetailPlot < handle
     properties (Access = private)
         ParentPanel         % External uipanel (if embedded)
         hFig                % Figure handle (if standalone)
-        hMainPanel          % uipanel for main plot
-        hNavPanel           % uipanel for navigator
-        hMainAxes           % Axes in main panel
-        hNavAxes            % Axes in navigator panel
+        hMainAxes           % Axes for main plot
+        hNavAxes            % Axes for navigator
         IsPropagating       % Guard against infinite sync loops
         XLimListener        % Listener for main axes XLim changes
         OwnsFigure          % True if we created the figure
@@ -255,25 +253,27 @@ classdef SensorDetailPlot < handle
                 obj.OwnsFigure = true;
             end
 
-            % Main panel (upper)
-            obj.hMainPanel = uipanel('Parent', container, ...
-                'Units', 'normalized', ...
-                'Position', [0, obj.NavigatorHeight, 1, mainHeight], ...
-                'BorderType', 'none');
+            % Place both axes directly in the container so they share
+            % an exact boundary with zero gap.
+            left = 0.08;
+            width = 0.88;
+            topPad = 0.06;   % room for title above main axes
+            botPad = 0.08;   % room for x-tick labels below navigator
 
-            % Navigator panel (lower)
-            obj.hNavPanel = uipanel('Parent', container, ...
-                'Units', 'normalized', ...
-                'Position', [0, 0, 1, obj.NavigatorHeight], ...
-                'BorderType', 'none');
+            % Navigator occupies the bottom strip
+            navBottom = botPad;
+            navHeight = obj.NavigatorHeight - botPad;
 
-            % Create axes in each panel
-            % Main axes: flush bottom (no x-tick labels — navigator shows them)
-            obj.hMainAxes = axes('Parent', obj.hMainPanel, ...
-                'Units', 'normalized', 'Position', [0.08 0.02 0.88 0.88]);
-            % Navigator axes: flush top, leave room for x-tick labels at bottom
-            obj.hNavAxes = axes('Parent', obj.hNavPanel, ...
-                'Units', 'normalized', 'Position', [0.08 0.22 0.88 0.76]);
+            % Main axes sit directly on top of navigator (shared edge)
+            mainBottom = obj.NavigatorHeight;
+            mainHeight = 1 - obj.NavigatorHeight - topPad;
+
+            obj.hMainAxes = axes('Parent', container, ...
+                'Units', 'normalized', ...
+                'Position', [left mainBottom width mainHeight]);
+            obj.hNavAxes = axes('Parent', container, ...
+                'Units', 'normalized', ...
+                'Position', [left navBottom width navHeight]);
         end
 
         function events = resolveEvents(~, eventsInput)
