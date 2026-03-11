@@ -297,3 +297,31 @@ function test_event_patch_userdata_fields(testCase)
     end
     delete(sdp);
 end
+
+%% FastPlotFigure tilePanel integration
+function test_tilePanel_returns_uipanel(testCase)
+    fig = FastPlotFigure(2, 1);
+    hp = fig.tilePanel(1);
+    verifyTrue(testCase, isa(hp, 'matlab.ui.container.Panel'));
+    delete(fig);
+end
+
+function test_tilePanel_conflict_with_tile(testCase)
+    fig = FastPlotFigure(2, 1);
+    fig.tile(1);  % Occupy tile 1 as FastPlot
+    verifyError(testCase, @() fig.tilePanel(1), 'FastPlotFigure:tileConflict');
+    delete(fig);
+end
+
+%% Embedded in FastPlotFigure
+function test_embedded_in_figure_tile(testCase)
+    s = testCase.TestData.sensor;
+    fig = FastPlotFigure(1, 1);
+    hp = fig.tilePanel(1);
+    sdp = SensorDetailPlot(s, 'Parent', hp);
+    sdp.render();
+    verifyTrue(testCase, sdp.IsRendered);
+    verifyClass(testCase, sdp.MainPlot, ?FastPlot);
+    delete(sdp);
+    delete(fig);
+end
