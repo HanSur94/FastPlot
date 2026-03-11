@@ -137,11 +137,11 @@ classdef SensorDetailPlot < handle
 
             % Disable all interactive tools on navigator
             disableDefaultInteractivity(obj.hNavAxes);
-            obj.hNavAxes.Toolbar.Visible = 'off';
+            obj.hNavAxes.Interactions = [];
+            obj.hNavAxes.Toolbar = [];
             zoom(obj.hNavAxes, 'off');
             pan(obj.hNavAxes, 'off');
             rotate3d(obj.hNavAxes, 'off');
-            datacursormode(ancestor(obj.hNavAxes, 'figure'), 'off');
 
             % Add event overlays
             if ~isempty(obj.Events)
