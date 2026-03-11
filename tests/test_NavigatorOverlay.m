@@ -117,3 +117,33 @@ function test_delete_restores_figure_callbacks(testCase)
     restoredDown = get(hFig, 'WindowButtonDownFcn');
     verifyEqual(testCase, restoredDown, oldDown);
 end
+
+%% Panning preserves region width at boundary
+function test_pan_preserves_width_at_left_boundary(testCase)
+    ov = NavigatorOverlay(testCase.TestData.hAxes);
+    ov.setRange(5, 25);  % width = 20
+    ov.setRange(-10, 10);  % pan past left edge
+    regionX = get(ov.hRegion, 'XData');
+    verifyGreaterThanOrEqual(testCase, min(regionX), 0);
+    % Width should be clamped but not shrunk
+    actualWidth = max(regionX) - min(regionX);
+    verifyGreaterThanOrEqual(testCase, actualWidth, 0.5);  % at least min width
+    delete(ov);
+end
+
+function test_pan_preserves_width_at_right_boundary(testCase)
+    ov = NavigatorOverlay(testCase.TestData.hAxes);
+    ov.setRange(80, 95);  % width = 15
+    ov.setRange(90, 110);  % pan past right edge
+    regionX = get(ov.hRegion, 'XData');
+    verifyLessThanOrEqual(testCase, max(regionX), 100);
+    delete(ov);
+end
+
+%% Hold state is preserved
+function test_hold_state_preserved(testCase)
+    hold(testCase.TestData.hAxes, 'off');
+    ov = NavigatorOverlay(testCase.TestData.hAxes);
+    verifyFalse(testCase, ishold(testCase.TestData.hAxes));
+    delete(ov);
+end
