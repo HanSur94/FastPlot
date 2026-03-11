@@ -139,3 +139,161 @@ function s = createSensorWithThreshold()
         'Direction', 'upper', 'Label', 'H Warning'));
     s.resolve();
 end
+
+%% Event shading
+function test_event_shading_in_main_plot(testCase)
+    s = testCase.TestData.sensor;
+
+    % Create mock events
+    ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
+    ev2 = Event(50, 55, 'test_pressure', 'HH Alarm', 70, 'high');
+
+    sdp = SensorDetailPlot(s, 'Events', [ev1, ev2]);
+    sdp.render();
+
+    % Check that patches exist in the main axes with UserData
+    children = get(sdp.MainPlot.hAxes, 'Children');
+    patchCount = 0;
+    for c = children'
+        if isa(c, 'matlab.graphics.primitive.Patch')
+            ud = get(c, 'UserData');
+            if isstruct(ud) && isfield(ud, 'ThresholdLabel')
+                patchCount = patchCount + 1;
+            end
+        end
+    end
+    verifyGreaterThanOrEqual(testCase, patchCount, 2);
+    delete(sdp);
+end
+
+%% Event vertical lines in navigator
+function test_event_lines_in_navigator(testCase)
+    s = testCase.TestData.sensor;
+
+    ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
+
+    sdp = SensorDetailPlot(s, 'Events', [ev1]);
+    sdp.render();
+
+    % Check that a line exists at StartTime in navigator axes
+    children = get(sdp.NavigatorPlot.hAxes, 'Children');
+    lineFound = false;
+    for c = children'
+        if isa(c, 'matlab.graphics.chart.primitive.Line') || ...
+           isa(c, 'matlab.graphics.primitive.Line')
+            xd = get(c, 'XData');
+            if numel(xd) == 2 && abs(xd(1) - 20) < 0.1
+                lineFound = true;
+                break;
+            end
+        end
+    end
+    verifyTrue(testCase, lineFound);
+    delete(sdp);
+end
+
+%% Events from EventStore
+function test_events_from_eventstore(testCase)
+    s = testCase.TestData.sensor;
+
+    % Create EventStore and append events
+    tmpFile = [tempname, '.mat'];
+    store = EventStore(tmpFile);
+    ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
+    ev2 = Event(30, 35, 'other_sensor', 'H Warning', 65, 'high');
+    store.append([ev1, ev2]);
+
+    sdp = SensorDetailPlot(s, 'Events', store);
+    sdp.render();
+
+    % Only ev1 should appear (filtered by sensor key)
+    children = get(sdp.MainPlot.hAxes, 'Children');
+    patchCount = 0;
+    for c = children'
+        if isa(c, 'matlab.graphics.primitive.Patch')
+            ud = get(c, 'UserData');
+            if isstruct(ud) && isfield(ud, 'ThresholdLabel')
+                patchCount = patchCount + 1;
+            end
+        end
+    end
+    verifyEqual(testCase, patchCount, 1);
+
+    delete(sdp);
+    if exist(tmpFile, 'file'); delete(tmpFile); end
+end
+
+%% Event color mapping
+function test_event_color_high(testCase)
+    s = testCase.TestData.sensor;
+    ev = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
+    sdp = SensorDetailPlot(s, 'Events', [ev]);
+    sdp.render();
+
+    children = get(sdp.MainPlot.hAxes, 'Children');
+    for c = children'
+        if isa(c, 'matlab.graphics.primitive.Patch')
+            ud = get(c, 'UserData');
+            if isstruct(ud) && isfield(ud, 'Direction') && strcmp(ud.Direction, 'high')
+                fc = get(c, 'FaceColor');
+                % Should be orange-ish [1 0.6 0.2]
+                verifyGreaterThan(testCase, fc(1), 0.5);  % red channel high
+                break;
+            end
+        end
+    end
+    delete(sdp);
+end
+
+function test_event_color_escalated(testCase)
+    s = testCase.TestData.sensor;
+    ev = Event(20, 25, 'test_pressure', 'HH Alarm', 70, 'high');
+    sdp = SensorDetailPlot(s, 'Events', [ev]);
+    sdp.render();
+
+    children = get(sdp.MainPlot.hAxes, 'Children');
+    for c = children'
+        if isa(c, 'matlab.graphics.primitive.Patch')
+            ud = get(c, 'UserData');
+            if isstruct(ud) && isfield(ud, 'ThresholdLabel') && ...
+               ~isempty(regexpi(ud.ThresholdLabel, 'HH'))
+                fc = get(c, 'FaceColor');
+                % Should be red-ish [0.9 0.1 0.1]
+                verifyGreaterThan(testCase, fc(1), 0.7);
+                verifyLessThan(testCase, fc(2), 0.3);
+                break;
+            end
+        end
+    end
+    delete(sdp);
+end
+
+%% UserData completeness
+function test_event_patch_userdata_fields(testCase)
+    s = testCase.TestData.sensor;
+    ev = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
+    % Event is a value class with private setters — use setStats()
+    % setStats(peak, numPoints, min, max, mean, rms, std)
+    ev = ev.setStats(67, 50, 64, 67, 66, 66.1, 0.8);
+
+    sdp = SensorDetailPlot(s, 'Events', [ev]);
+    sdp.render();
+
+    children = get(sdp.MainPlot.hAxes, 'Children');
+    for c = children'
+        if isa(c, 'matlab.graphics.primitive.Patch')
+            ud = get(c, 'UserData');
+            if isstruct(ud) && isfield(ud, 'ThresholdLabel')
+                expectedFields = {'ThresholdLabel', 'Direction', 'Duration', ...
+                    'PeakValue', 'MeanValue', 'MinValue', 'MaxValue', ...
+                    'RmsValue', 'StdValue', 'NumPoints'};
+                for f = expectedFields
+                    verifyTrue(testCase, isfield(ud, f{1}), ...
+                        sprintf('Missing UserData field: %s', f{1}));
+                end
+                break;
+            end
+        end
+    end
+    delete(sdp);
+end
