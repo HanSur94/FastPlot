@@ -51,8 +51,8 @@ sdp = SensorDetailPlot(sensor, Name, Value, ...)
 | `ShowThresholds` | logical | `true` | Show threshold lines + violations in main plot |
 | `ShowThresholdBands` | logical | `true` | Show threshold bands in navigator |
 | `Events` | EventStore or Event array | `[]` | Events to display |
-| `ShowEventLabels` | logical | `false` | Reserved for future use |
-| `Parent` | handle | `[]` | Parent panel for embedding in FastPlotFigure |
+| `ShowEventLabels` | logical | `false` | Reserved for future use (parsed and stored, no effect) |
+| `Parent` | uipanel handle | `[]` | Parent container for embedding (see Integration section) |
 | `Title` | string | sensor.Name | Figure/axes title |
 
 ### Methods
@@ -61,7 +61,10 @@ sdp = SensorDetailPlot(sensor, Name, Value, ...)
 sdp.render()                          % Create figure and render both panels
 sdp.setZoomRange(xMin, xMax)          % Programmatically set visible range
 [xMin, xMax] = sdp.getZoomRange()     % Query current visible range
+sdp.delete()                          % Clean up listeners, callbacks, handles
 ```
+
+Calling `render()` twice throws an error (same guard as `FastPlot`).
 
 ### Properties (read-only)
 
@@ -84,17 +87,22 @@ s.resolve();
 sdp = SensorDetailPlot(s, 'Theme', 'dark');
 sdp.render();
 
-% With events from EventStore
-store = EventStore('events.mat');
-sdp = SensorDetailPlot(s, 'Events', store, 'Theme', 'industrial');
+% With events loaded from file (pass Event array directly)
+[allEvents, ~, ~] = EventStore.loadFile('events.mat');
+sdp = SensorDetailPlot(s, 'Events', allEvents, 'Theme', 'industrial');
 sdp.render();
 
 % With pre-filtered Event array
-events = store.query('SensorKey', 'pressure');
+[allEvents, ~, ~] = EventStore.loadFile('events.mat');
+events = allEvents(strcmp({allEvents.SensorName}, s.Key));
 sdp = SensorDetailPlot(s, 'Events', events);
 sdp.render();
 
-% Inside FastPlotFigure
+% With an in-memory EventStore (from a live pipeline)
+sdp = SensorDetailPlot(s, 'Events', store, 'Theme', 'dark');
+sdp.render();
+
+% Inside FastPlotFigure (uses new tilePanel method)
 fig = FastPlotFigure(2, 1, 'Theme', 'dark');
 sdp = SensorDetailPlot(s, 'Parent', fig.tilePanel(1), 'Events', store);
 sdp.render();
@@ -112,16 +120,15 @@ fig.renderAll();
 
 When `Events` is provided:
 
-1. If input is an `EventStore`, filter events by `sensor.Key`.
+1. If input is an `EventStore`, filter by matching `event.SensorName == sensor.Key` via `store.getEvents()`.
 2. If input is an `Event` array, use as-is.
 3. For each event, render a vertical shaded region from `event.StartTime` to `event.EndTime` spanning the full Y range.
-4. Color is derived from event severity:
-   - `H` (high) — orange, alpha 0.12
-   - `HH` (high-high) — red, alpha 0.15
-   - `L` (low) — light blue, alpha 0.12
-   - `LL` (low-low) — blue, alpha 0.15
-   - Other/custom — theme accent color, alpha 0.10
-5. Event metadata (severity, label, duration, peak value) is attached to the patch `UserData` property for access by `FastPlotToolbar` cursor/crosshair.
+4. Color is derived from `event.Direction` and `event.ThresholdLabel` (note: `Event.Direction` uses `'high'`/`'low'`, distinct from `ThresholdRule.Direction` which uses `'upper'`/`'lower'`):
+   - `Direction = 'high'` — warm colors (orange, alpha 0.12)
+   - `Direction = 'low'` — cool colors (blue, alpha 0.12)
+   - Two-tier escalation: if `ThresholdLabel` contains `'HH'` or `'LL'` (case-insensitive), use stronger color (red / dark blue, alpha 0.15). This matches the `escalateTo()` convention where escalated events get a new `ThresholdLabel`.
+   - Fallback — theme accent color, alpha 0.10
+5. Event metadata (`ThresholdLabel`, `Direction`, `Duration`, `PeakValue`, `MeanValue`) is attached to the patch `UserData` property for access by `FastPlotToolbar` cursor/crosshair.
 6. No permanent text labels on the plot.
 
 ## Lower Plot (Navigator)
@@ -130,6 +137,8 @@ When `Events` is provided:
 
 - Renders the sensor data line using `FastPlot.addLine()` across the full time range.
 - Navigator axes XLim is fixed to `[min(sensor.X), max(sensor.X)]` and does not change.
+- Navigator axes YLim is computed from `[min(sensor.Y), max(sensor.Y)]` with 5% padding, set after all elements are drawn, then fixed. This prevents threshold bands and dim patches from affecting the Y scale.
+- MATLAB's built-in zoom and pan tools are disabled on the navigator axes (`zoom(hNavAxes, 'off')`, `pan(hNavAxes, 'off')`) to preserve the full-range invariant.
 - Downsampling is applied once at render time (the navigator never re-downsamples since it doesn't zoom).
 
 ### Threshold Bands
@@ -149,7 +158,7 @@ When `ShowThresholdBands` is true:
 When `Events` is provided:
 
 - Each event is rendered as a vertical line at `event.StartTime`.
-- Color matches the severity color scheme (same as upper plot shading).
+- Color matches the Direction-based color scheme (same as upper plot shading).
 - Line width: 1px. No labels.
 
 ## NavigatorOverlay
@@ -175,7 +184,7 @@ Five states:
 | ResizingRight | Click on right edge | Drag changes zoom end |
 | Click-to-center | Click outside rectangle | Region jumps to center on click X |
 
-**Edge hit detection:** 5-pixel tolerance converted to data units.
+**Edge hit detection:** 5-pixel tolerance converted to data units. The conversion is recomputed on figure `SizeChangedFcn` to stay accurate after window resizing.
 
 **Boundary clamping:** All dragging is clamped to the navigator's full data XLim.
 
@@ -204,16 +213,28 @@ User drags in navigator
         → FastPlot zoom listener fires, re-downsamples visible data
 ```
 
-A guard flag prevents infinite callback loops (main→navigator→main→...).
+A guard flag (`IsPropagating`) prevents infinite callback loops (main→navigator→main→...).
+
+**Design note:** This intentionally does not use FastPlot's `LinkGroup` mechanism. `LinkGroup` propagates XLim changes between peer FastPlot instances that all re-downsample on zoom. The navigator must not re-downsample or change its XLim — it always shows the full range. The bespoke guard flag approach is simpler and avoids `resetplotview` / `XLimMode='auto'` side effects that `LinkGroup` handles for peer plots but that would break navigator invariants.
+
+## Cleanup
+
+Both classes implement `delete()` methods following the `onCleanup`/`DeleteFcn` pattern used in `FastPlotFigure`:
+
+- **`SensorDetailPlot.delete()`** — Removes the XLim PostSet listener on the main axes. Calls `NavigatorOverlay.delete()`. If the figure was self-created (no `Parent`), sets `CloseRequestFcn` to trigger cleanup on figure close.
+- **`NavigatorOverlay.delete()`** — Removes `WindowButtonDownFcn`, `WindowButtonMotionFcn`, `WindowButtonUpFcn` callbacks. Removes `SizeChangedFcn` listener. Deletes graphics handles (`hRegion`, `hDimLeft`, `hDimRight`, `hEdgeLeft`, `hEdgeRight`).
+
+This prevents dead listeners and stale figure callbacks when plots are closed and re-opened in the same MATLAB session.
 
 ## Integration with FastPlotFigure
 
 When `Parent` is provided:
 
-- `SensorDetailPlot` creates its layout inside the given panel handle.
+- `SensorDetailPlot` accepts a `uipanel` handle as `Parent`. This handle is NOT passed through to `FastPlot`'s `'Parent'` option.
+- Instead, `SensorDetailPlot` creates two sub-panels inside it, then creates axes within each sub-panel, and passes those axes to the internal `FastPlot` instances via `FastPlot('Parent', hAxes)`.
 - Does not create its own figure window.
-- The parent panel is subdivided into two sub-panels for main and navigator.
-- Compatible with `FastPlotFigure.tilePanel(n)` to embed in dashboard tiles.
+
+**New method required on `FastPlotFigure`:** `tilePanel(n)` — returns a `uipanel` handle at the computed position for tile `n`. This is distinct from the existing `tile(n)` (returns a `FastPlot`) and `axes(n)` (returns a raw axes). The `tilePanel(n)` method creates an empty `uipanel` at the tile's grid position, allowing composite widgets like `SensorDetailPlot` to manage their own internal layout within a dashboard tile.
 
 ## File Locations
 
