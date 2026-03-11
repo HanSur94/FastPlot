@@ -468,6 +468,8 @@ classdef FastPlotFigure < handle
                 % Determine the axes handle for this tile
                 if obj.RawAxesTiles(i)
                     if isempty(obj.TileAxes{i}); continue; end
+                    % Skip uipanel tiles (from tilePanel) — they manage their own content
+                    if isa(obj.TileAxes{i}, 'matlab.ui.container.Panel'); continue; end
                     ax = obj.TileAxes{i};
                 else
                     if isempty(obj.Tiles{i}) || ~obj.Tiles{i}.IsRendered
@@ -515,8 +517,9 @@ classdef FastPlotFigure < handle
             set(obj.hFigure, 'Color', obj.Theme.Background);
             for i = 1:numel(obj.Tiles)
                 if obj.RawAxesTiles(i)
-                    % Raw axes: apply theme colors directly
-                    if ~isempty(obj.TileAxes{i}) && ishandle(obj.TileAxes{i})
+                    % Raw axes: apply theme colors directly (skip uipanel tiles)
+                    if ~isempty(obj.TileAxes{i}) && ishandle(obj.TileAxes{i}) && ...
+                       ~isa(obj.TileAxes{i}, 'matlab.ui.container.Panel')
                         obj.applyThemeToAxes(obj.TileAxes{i});
                     end
                 elseif ~isempty(obj.Tiles{i}) && obj.Tiles{i}.IsRendered
@@ -801,6 +804,8 @@ classdef FastPlotFigure < handle
             if obj.RawAxesTiles(n)
                 ax = obj.TileAxes{n};
                 if ~isempty(ax) && ~ishandle(ax); ax = []; end
+                % tilePanel tiles store a uipanel, not axes — return empty
+                if ~isempty(ax) && isa(ax, 'matlab.ui.container.Panel'); ax = []; end
             else
                 fp = obj.Tiles{n};
                 if ~isempty(fp) && ~isempty(fp.hAxes) && ishandle(fp.hAxes)
