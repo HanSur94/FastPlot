@@ -86,6 +86,12 @@ classdef SensorDetailPlot < handle
                     'SensorDetailPlot has already been rendered.');
             end
 
+            % Auto-resolve sensor if not yet resolved (avoids struct()
+            % default in ResolvedThresholds crashing FastPlot.addSensor)
+            if isstruct(obj.Sensor.ResolvedThresholds) && isempty(fieldnames(obj.Sensor.ResolvedThresholds))
+                obj.Sensor.resolve();
+            end
+
             % Create layout
             obj.createLayout();
 

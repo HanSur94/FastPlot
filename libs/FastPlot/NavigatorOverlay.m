@@ -143,17 +143,13 @@ classdef NavigatorOverlay < handle
         end
 
         function delete(obj)
-            % Restore original figure callbacks
+            % Restore original figure callbacks unconditionally.
+            % Old values may be '' (empty char) which isempty() considers
+            % empty, so we must not guard with ~isempty.
             if ~isempty(obj.hFig) && ishandle(obj.hFig)
-                if ~isempty(obj.OldWindowButtonDownFcn)
-                    set(obj.hFig, 'WindowButtonDownFcn', obj.OldWindowButtonDownFcn);
-                end
-                if ~isempty(obj.OldWindowButtonMotionFcn)
-                    set(obj.hFig, 'WindowButtonMotionFcn', obj.OldWindowButtonMotionFcn);
-                end
-                if ~isempty(obj.OldWindowButtonUpFcn)
-                    set(obj.hFig, 'WindowButtonUpFcn', obj.OldWindowButtonUpFcn);
-                end
+                set(obj.hFig, 'WindowButtonDownFcn', obj.OldWindowButtonDownFcn);
+                set(obj.hFig, 'WindowButtonMotionFcn', obj.OldWindowButtonMotionFcn);
+                set(obj.hFig, 'WindowButtonUpFcn', obj.OldWindowButtonUpFcn);
                 if ~isempty(obj.OldResizeFcn)
                     set(obj.hFig, 'ResizeFcn', obj.OldResizeFcn);
                 else
