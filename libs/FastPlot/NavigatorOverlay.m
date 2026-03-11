@@ -49,7 +49,7 @@ classdef NavigatorOverlay < handle
             obj.hFig = ancestor(hAxes, 'figure');
             obj.DragState = 'idle';
             obj.MinWidthFrac = 0.005;  % 0.5% of range
-            obj.EdgeTolPx = 5;
+            obj.EdgeTolPx = 12;
             obj.RegionColor = [0.2 0.4 0.8];
             obj.DimColor = [0.5 0.5 0.5];
             obj.DimAlpha = 0.4;
