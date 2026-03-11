@@ -236,7 +236,7 @@ classdef NavigatorOverlay < handle
             if clickX < xLim(1) || clickX > xLim(2) || ...
                clickY < yLim(1) || clickY > yLim(2)
                 % Click outside navigator — chain to old callback
-                if ~isempty(obj.OldWindowButtonDownFcn)
+                if ~isempty(obj.OldWindowButtonDownFcn) && isa(obj.OldWindowButtonDownFcn, 'function_handle')
                     obj.OldWindowButtonDownFcn(src, evt);
                 end
                 return;
