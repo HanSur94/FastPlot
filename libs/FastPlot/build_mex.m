@@ -238,14 +238,23 @@ function compile_mex(src_file, out_name, outDir, include_flag, opt_flags, compil
         end
     else
         % MATLAB: use mex
+        % Separate linker flags (-l*, -L*) from compiler flags
+        is_link = cellfun(@(f) strncmp(f, '-l', 2) || strncmp(f, '-L', 2), opt_flags);
+        comp_flags = opt_flags(~is_link);
+        link_flags = opt_flags(is_link);
+
         if ispc
             % Windows MSVC: use COMPFLAGS
-            cflags = ['COMPFLAGS="$COMPFLAGS ' strjoin(opt_flags, ' ') '"'];
+            cflags = ['COMPFLAGS="$COMPFLAGS ' strjoin(comp_flags, ' ') '"'];
         else
             % macOS/Linux GCC/Clang: use CFLAGS
-            cflags = ['CFLAGS="$CFLAGS ' strjoin(opt_flags, ' ') '"'];
+            cflags = ['CFLAGS="$CFLAGS ' strjoin(comp_flags, ' ') '"'];
         end
         mex_args = {cflags, include_flag, '-outdir', outDir, '-output', out_name, src_file};
+        % Append linker flags (e.g. -lsqlite3) as direct mex arguments
+        if ~isempty(link_flags)
+            mex_args = [mex_args, link_flags];
+        end
         if ~isempty(compiler)
             mex_args = [['CC=' compiler], mex_args];
         end

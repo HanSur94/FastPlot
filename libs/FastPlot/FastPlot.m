@@ -2021,6 +2021,27 @@ classdef FastPlot < handle
         end
     end
 
+    % ======================== HIDDEN PUBLIC METHODS =======================
+    % Accessors for line metadata — hidden from tab-completion but callable
+    % for testing and tooling.
+    methods (Hidden)
+        function n = lineNumPoints(obj, i)
+            %LINENUMPOINTS Return total point count for line i.
+            n = obj.Lines(i).NumPoints;
+        end
+
+        function [xMin, xMax] = lineXRange(obj, i)
+            %LINEXRANGE Return X endpoints for line i.
+            if obj.lineOnDisk(i)
+                xMin = obj.Lines(i).DataStore.XMin;
+                xMax = obj.Lines(i).DataStore.XMax;
+            else
+                xMin = obj.Lines(i).X(1);
+                xMax = obj.Lines(i).X(end);
+            end
+        end
+    end
+
     % ======================== PRIVATE METHODS ============================
     % Internal helpers: timer callbacks, view mode, theme, listeners,
     % downsampling pipeline, pyramid management, and link propagation.
@@ -2543,11 +2564,6 @@ classdef FastPlot < handle
             end
         end
 
-        function n = lineNumPoints(obj, i)
-            %LINENUMPOINTS Return total point count for line i.
-            n = obj.Lines(i).NumPoints;
-        end
-
         function onDisk = lineOnDisk(obj, i)
             %LINEONDISK True if line i uses disk-backed storage.
             onDisk = ~isempty(obj.Lines(i).DataStore);
@@ -2558,17 +2574,6 @@ classdef FastPlot < handle
             dataBytes = nPts * 8 * 2;
             useDisk = strcmp(obj.StorageMode, 'disk') || ...
                       (strcmp(obj.StorageMode, 'auto') && dataBytes > obj.MemoryLimit);
-        end
-
-        function [xMin, xMax] = lineXRange(obj, i)
-            %LINEXRANGE Return X endpoints for line i.
-            if obj.lineOnDisk(i)
-                xMin = obj.Lines(i).DataStore.XMin;
-                xMax = obj.Lines(i).DataStore.XMax;
-            else
-                xMin = obj.Lines(i).X(1);
-                xMax = obj.Lines(i).X(end);
-            end
         end
 
         function [x, y] = lineVisibleData(obj, i, xlims)
