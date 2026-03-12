@@ -344,6 +344,12 @@ classdef FastPlotDataStore < handle
         function [xOut, yOut] = getRangeBinary(obj, xMin, xMax)
             %GETRANGEBINARY Range query on binary file.
 
+            % Quick range-overlap check before reading
+            if xMin > obj.XMax || xMax < obj.XMin
+                xOut = []; yOut = [];
+                return;
+            end
+
             % Read full X to find indices, then only the Y slice
             fid = fopen(obj.BinPath, 'rb');
             allX = fread(fid, [1, obj.NumPoints], 'double');
