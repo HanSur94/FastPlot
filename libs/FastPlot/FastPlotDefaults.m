@@ -98,6 +98,10 @@ function cfg = FastPlotDefaults()
     cfg.DownsampleFactor = 2;           % points per pixel (min + max)
     cfg.PyramidReduction = 100;         % compression factor per pyramid level
 
+    % --- Memory Management ---
+    cfg.StorageMode = 'auto';           % 'auto', 'memory', or 'disk'
+    cfg.MemoryLimit = 500e6;            % bytes; lines above this use disk (auto mode)
+
     % --- Line Defaults ---
     cfg.DefaultDownsampleMethod = 'minmax';  % 'minmax' or 'lttb'
 

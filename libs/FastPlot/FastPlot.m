@@ -140,6 +140,8 @@ classdef FastPlot < handle
         DownsampleFactor = 2           % points per pixel (min + max)
         PyramidReduction = 100         % reduction factor per pyramid level
         DefaultDownsampleMethod = 'minmax'  % 'minmax' or 'lttb'
+        StorageMode = 'auto'           % 'auto', 'memory', or 'disk'
+        MemoryLimit = 500e6            % bytes; lines above this use disk (auto mode)
     end
 
     methods (Access = public)
@@ -189,6 +191,8 @@ classdef FastPlot < handle
             defaults.LiveInterval = cfg.LiveInterval;
             defaults.XScale = cfg.XScale;
             defaults.YScale = cfg.YScale;
+            defaults.StorageMode = cfg.StorageMode;
+            defaults.MemoryLimit = cfg.MemoryLimit;
             [opts, ~] = parseOpts(defaults, varargin);
 
             obj.ParentAxes = opts.Parent;
@@ -201,6 +205,8 @@ classdef FastPlot < handle
             obj.LiveInterval = opts.LiveInterval;
             obj.XScale = opts.XScale;
             obj.YScale = opts.YScale;
+            obj.StorageMode = opts.StorageMode;
+            obj.MemoryLimit = opts.MemoryLimit;
             obj.Theme = resolveTheme(opts.Theme, cfg.Theme);
         end
 
@@ -422,8 +428,7 @@ classdef FastPlot < handle
             end
 
             % Build line struct
-            lineStruct.X = x;
-            lineStruct.Y = y;
+            nPts = numel(x);
             lineStruct.DownsampleMethod = dsMethod;
             lineStruct.Options = opts;
             lineStruct.hLine = [];
@@ -434,7 +439,24 @@ classdef FastPlot < handle
                 lineStruct.HasNaN = any(isnan(y));
             end
             lineStruct.Metadata = meta;
-            lineStruct.IsStatic = (numel(x) <= obj.MinPointsForDownsample);
+            lineStruct.IsStatic = (nPts <= obj.MinPointsForDownsample);
+            lineStruct.NumPoints = nPts;
+
+            % Decide storage: disk-backed for large datasets to avoid OOM
+            useDisk = obj.shouldUseDisk(nPts);
+            if useDisk
+                lineStruct.DataStore = FastPlotDataStore(x, y);
+                lineStruct.X = [];
+                lineStruct.Y = [];
+                if obj.Verbose
+                    fprintf('[FastPlot] addLine: %d pts (%.1f MB) -> disk-backed storage\n', ...
+                        nPts, nPts * 16 / 1e6);
+                end
+            else
+                lineStruct.DataStore = [];
+                lineStruct.X = x;
+                lineStruct.Y = y;
+            end
 
             % Append
             if isempty(obj.Lines)
@@ -922,9 +944,9 @@ classdef FastPlot < handle
             % --- Compute full X range (X is sorted, just check endpoints) ---
             xmin = Inf; xmax = -Inf;
             for i = 1:numel(obj.Lines)
-                xi = obj.Lines(i).X;
-                if xi(1) < xmin; xmin = xi(1); end
-                if xi(end) > xmax; xmax = xi(end); end
+                [xiMin, xiMax] = obj.lineXRange(i);
+                if xiMin < xmin; xmin = xiMin; end
+                if xiMax > xmax; xmax = xiMax; end
             end
 
             % --- Render bands (constant y, full x span, back layer) ---
@@ -989,13 +1011,24 @@ classdef FastPlot < handle
             for i = 1:numel(obj.Lines)
                 L = obj.Lines(i);
                 numBuckets = obj.PixelWidth;
+                nPtsLine = obj.lineNumPoints(i);
 
                 % Downsample for display
                 logXFlag = strcmp(obj.XScale, 'log');
                 logYFlag = strcmp(obj.YScale, 'log');
-                if numel(L.X) > obj.MinPointsForDownsample
-                    if obj.DeferDraw
-                        % Synchronous downsample for batched render (no preview visible)
+                if nPtsLine > obj.MinPointsForDownsample
+                    if obj.lineOnDisk(i)
+                        % Disk-backed: build pyramid L1 (chunked, never
+                        % loads full dataset) and downsample from that
+                        obj.buildPyramidLevel(i, 1);
+                        P = obj.Lines(i).Pyramid{1};
+                        if strcmp(L.DownsampleMethod, 'lttb')
+                            [xd, yd] = lttb_downsample(P.X, P.Y, numBuckets, logXFlag, logYFlag);
+                        else
+                            [xd, yd] = minmax_downsample(P.X, P.Y, numBuckets, L.HasNaN, logXFlag);
+                        end
+                    elseif obj.DeferDraw
+                        % Synchronous downsample for batched render
                         if strcmp(L.DownsampleMethod, 'lttb')
                             [xd, yd] = lttb_downsample(L.X, L.Y, numBuckets, logXFlag, logYFlag);
                         else
@@ -1005,13 +1038,12 @@ classdef FastPlot < handle
                         % Fast stride preview: every K-th point for instant
                         % figure display; refineLines() replaces this with
                         % proper MinMax/LTTB asynchronously via timer
-                        K = max(1, floor(numel(L.X) / (2 * numBuckets)));
+                        K = max(1, floor(nPtsLine / (2 * numBuckets)));
                         xd = L.X(1:K:end);
                         yd = L.Y(1:K:end);
                     end
                 else
-                    xd = L.X;
-                    yd = L.Y;
+                    [xd, yd] = obj.lineFullData(i);
                 end
 
                 % Create line object
@@ -1047,7 +1079,7 @@ classdef FastPlot < handle
 
                 if obj.Verbose
                     fprintf('[FastPlot] render: line %d: %d pts -> %d displayed (pw=%d)\n', ...
-                        i, numel(L.X), numel(xd), obj.PixelWidth);
+                        i, nPtsLine, numel(xd), obj.PixelWidth);
                 end
                 if ~isempty(progressBar)
                     progressBar.update(i, numel(obj.Lines));
@@ -1056,9 +1088,11 @@ classdef FastPlot < handle
 
             if obj.Verbose && strcmp(obj.YScale, 'log')
                 for i = 1:numel(obj.Lines)
-                    nNonPos = sum(obj.Lines(i).Y <= 0);
-                    if nNonPos > 0
-                        fprintf('[FastPlot] warning: line %d has %d non-positive values (clipped on log scale)\n', i, nNonPos);
+                    if ~obj.lineOnDisk(i)
+                        nNonPos = sum(obj.Lines(i).Y <= 0);
+                        if nNonPos > 0
+                            fprintf('[FastPlot] warning: line %d has %d non-positive values (clipped on log scale)\n', i, nNonPos);
+                        end
                     end
                 end
             end
@@ -1292,7 +1326,7 @@ classdef FastPlot < handle
             % Start async refinement if any line used stride preview
             hasLargeLines = false;
             for i = 1:numel(obj.Lines)
-                if numel(obj.Lines(i).X) > obj.MinPointsForDownsample
+                if obj.lineNumPoints(i) > obj.MinPointsForDownsample
                     hasLargeLines = true;
                     break;
                 end
@@ -1315,7 +1349,7 @@ classdef FastPlot < handle
 
             if obj.Verbose
                 totalPts = 0;
-                for i = 1:numel(obj.Lines); totalPts = totalPts + numel(obj.Lines(i).X); end
+                for i = 1:numel(obj.Lines); totalPts = totalPts + obj.lineNumPoints(i); end
                 fprintf('[FastPlot] render complete: %d total pts, pw=%d, %.3fs\n', ...
                     totalPts, obj.PixelWidth, toc(renderTic));
             end
@@ -1479,11 +1513,26 @@ classdef FastPlot < handle
                 hasMeta = ~isempty(newMeta);
             end
 
-            % Replace raw data
-            obj.Lines(lineIdx).X = newX;
-            obj.Lines(lineIdx).Y = newY;
+            % Clean up existing DataStore if present
+            if obj.lineOnDisk(lineIdx)
+                obj.Lines(lineIdx).DataStore.cleanup();
+                obj.Lines(lineIdx).DataStore = [];
+            end
+
+            % Replace raw data (decide storage mode)
+            nPtsNew = numel(newX);
+            if obj.shouldUseDisk(nPtsNew)
+                obj.Lines(lineIdx).DataStore = FastPlotDataStore(newX, newY);
+                obj.Lines(lineIdx).X = [];
+                obj.Lines(lineIdx).Y = [];
+            else
+                obj.Lines(lineIdx).DataStore = [];
+                obj.Lines(lineIdx).X = newX;
+                obj.Lines(lineIdx).Y = newY;
+            end
+            obj.Lines(lineIdx).NumPoints = nPtsNew;
             obj.Lines(lineIdx).HasNaN = any(isnan(newY));
-            obj.Lines(lineIdx).IsStatic = (numel(newX) <= obj.MinPointsForDownsample);
+            obj.Lines(lineIdx).IsStatic = (nPtsNew <= obj.MinPointsForDownsample);
 
             % Clear pyramid cache (will rebuild lazily)
             obj.Lines(lineIdx).Pyramid = {};
@@ -1655,6 +1704,12 @@ classdef FastPlot < handle
             %   See also stopLive, stopRefineTimer.
             obj.stopRefineTimer();
             try obj.stopLive(); catch; end
+            % Clean up disk-backed DataStores
+            for i = 1:numel(obj.Lines)
+                if ~isempty(obj.Lines(i).DataStore)
+                    try obj.Lines(i).DataStore.cleanup(); catch; end
+                end
+            end
         end
 
         function refresh(obj)
@@ -1888,7 +1943,7 @@ classdef FastPlot < handle
             % Copy lines (converting datenum back to datetime if needed)
             for i = 1:numel(obj.Lines)
                 L = obj.Lines(i);
-                x = L.X; y = L.Y;
+                [x, y] = obj.lineFullData(i);
                 if obj.IsDatetime
                     x = datetime(x, 'ConvertFrom', 'datenum');
                 end
@@ -1963,6 +2018,27 @@ classdef FastPlot < handle
 
             set(fp.hFigure, 'Visible', 'on');
             drawnow;
+        end
+    end
+
+    % ======================== HIDDEN PUBLIC METHODS =======================
+    % Accessors for line metadata — hidden from tab-completion but callable
+    % for testing and tooling.
+    methods (Hidden)
+        function n = lineNumPoints(obj, i)
+            %LINENUMPOINTS Return total point count for line i.
+            n = obj.Lines(i).NumPoints;
+        end
+
+        function [xMin, xMax] = lineXRange(obj, i)
+            %LINEXRANGE Return X endpoints for line i.
+            if obj.lineOnDisk(i)
+                xMin = obj.Lines(i).DataStore.XMin;
+                xMax = obj.Lines(i).DataStore.XMax;
+            else
+                xMin = obj.Lines(i).X(1);
+                xMax = obj.Lines(i).X(end);
+            end
         end
     end
 
@@ -2174,23 +2250,34 @@ classdef FastPlot < handle
             logYFlag = strcmp(obj.YScale, 'log');
             for i = 1:numel(obj.Lines)
                 L = obj.Lines(i);
-                if numel(L.X) <= obj.MinPointsForDownsample
+                nPtsI = obj.lineNumPoints(i);
+                if nPtsI <= obj.MinPointsForDownsample
                     continue;
                 end
                 if ~ishandle(L.hLine)
                     continue;
                 end
 
-                if strcmp(L.DownsampleMethod, 'lttb')
-                    [xd, yd] = lttb_downsample(L.X, L.Y, pw, logXFlag, logYFlag);
+                if obj.lineOnDisk(i)
+                    % Disk-backed: use pyramid L1 (already built during render)
+                    if isempty(obj.Lines(i).Pyramid) || isempty(obj.Lines(i).Pyramid{1})
+                        obj.buildPyramidLevel(i, 1);
+                    end
+                    P = obj.Lines(i).Pyramid{1};
+                    lx = P.X; ly = P.Y;
                 else
-                    [xd, yd] = minmax_downsample(L.X, L.Y, pw, L.HasNaN, logXFlag);
+                    lx = L.X; ly = L.Y;
+                end
+                if strcmp(L.DownsampleMethod, 'lttb')
+                    [xd, yd] = lttb_downsample(lx, ly, pw, logXFlag, logYFlag);
+                else
+                    [xd, yd] = minmax_downsample(lx, ly, pw, L.HasNaN, logXFlag);
                 end
                 set(L.hLine, 'XData', xd, 'YData', yd);
 
                 if obj.Verbose
                     fprintf('[FastPlot] refine: line %d: %d pts -> %d displayed\n', ...
-                        i, numel(L.X), numel(xd));
+                        i, nPtsI, numel(xd));
                 end
             end
 
@@ -2477,11 +2564,52 @@ classdef FastPlot < handle
             end
         end
 
+        function onDisk = lineOnDisk(obj, i)
+            %LINEONDISK True if line i uses disk-backed storage.
+            onDisk = ~isempty(obj.Lines(i).DataStore);
+        end
+
+        function useDisk = shouldUseDisk(obj, nPts)
+            %SHOULDUSEDISK Decide if data should use disk-backed storage.
+            dataBytes = nPts * 8 * 2;
+            useDisk = strcmp(obj.StorageMode, 'disk') || ...
+                      (strcmp(obj.StorageMode, 'auto') && dataBytes > obj.MemoryLimit);
+        end
+
+        function [x, y] = lineVisibleData(obj, i, xlims)
+            %LINEVISIBLEDATA Get data within xlims for line i.
+            %   Returns the slice of raw data visible in the current view,
+            %   with one point of padding on each side.
+            if obj.lineOnDisk(i)
+                [x, y] = obj.Lines(i).DataStore.getRange(xlims(1), xlims(2));
+            else
+                idxStart = binary_search(obj.Lines(i).X, xlims(1), 'left');
+                idxEnd   = binary_search(obj.Lines(i).X, xlims(2), 'right');
+                nTotal = obj.Lines(i).NumPoints;
+                idxStart = max(1, idxStart - 1);
+                idxEnd   = min(nTotal, idxEnd + 1);
+                x = obj.Lines(i).X(idxStart:idxEnd);
+                y = obj.Lines(i).Y(idxStart:idxEnd);
+            end
+        end
+
+        function [x, y] = lineFullData(obj, i)
+            %LINEFULLDATA Get full X/Y data for line i.
+            %   For disk-backed lines, reads the entire dataset from disk.
+            %   Use sparingly — prefer lineVisibleData for large datasets.
+            if obj.lineOnDisk(i)
+                [x, y] = obj.Lines(i).DataStore.readSlice(1, obj.Lines(i).NumPoints);
+            else
+                x = obj.Lines(i).X;
+                y = obj.Lines(i).Y;
+            end
+        end
+
         function updateLines(obj)
             %UPDATELINES Re-downsample all lines for the current view.
             %   UPDATELINES(obj) is the core zoom/pan handler. For each
             %   non-static line, it:
-            %     1. Binary-searches raw X for the visible index range
+            %     1. Gets the visible data slice (from memory or disk)
             %     2. If the visible slice is small enough, plots raw data
             %     3. Otherwise, selects the coarsest pyramid level with
             %        enough resolution (via selectPyramidLevel)
@@ -2504,32 +2632,29 @@ classdef FastPlot < handle
                 % Static lines (threshold steps, small overlays): set
                 % full data directly (no downsampling needed).
                 if obj.Lines(i).IsStatic
-                    set(obj.Lines(i).hLine, 'XData', obj.Lines(i).X, ...
-                        'YData', obj.Lines(i).Y);
+                    [sx, sy] = obj.lineFullData(i);
+                    set(obj.Lines(i).hLine, 'XData', sx, 'YData', sy);
                     continue;
                 end
 
-                nTotal = numel(obj.Lines(i).X);
+                nTotal = obj.lineNumPoints(i);
 
-                % Binary search on raw X for visible range
-                idxStart = binary_search(obj.Lines(i).X, xlims(1), 'left');
-                idxEnd   = binary_search(obj.Lines(i).X, xlims(2), 'right');
-                idxStart = max(1, idxStart - 1);
-                idxEnd   = min(nTotal, idxEnd + 1);
-                nVis = idxEnd - idxStart + 1;
+                % Get visible data slice (handles both memory and disk)
+                [visX, visY] = obj.lineVisibleData(i, xlims);
+                nVis = numel(visX);
 
                 if nVis <= obj.MinPointsForDownsample
                     % Small enough to plot raw
-                    xd = obj.Lines(i).X(idxStart:idxEnd);
-                    yd = obj.Lines(i).Y(idxStart:idxEnd);
+                    xd = visX;
+                    yd = visY;
                 else
                     % Select best pyramid level
                     lvl = obj.selectPyramidLevel(i, nVis, nTotal, target);
 
                     if lvl == 0
-                        % Use raw data
-                        xVis = obj.Lines(i).X(idxStart:idxEnd);
-                        yVis = obj.Lines(i).Y(idxStart:idxEnd);
+                        % Use raw visible data
+                        xVis = visX;
+                        yVis = visY;
                     else
                         % Query pyramid level
                         P = obj.Lines(i).Pyramid{lvl};
@@ -2640,10 +2765,40 @@ classdef FastPlot < handle
                 obj.Lines(lineIdx).Pyramid{level} = [];
             end
 
+            logXFlag = strcmp(obj.XScale, 'log');
+
             % Build from previous level if available, otherwise raw
             if level == 1
-                srcX = obj.Lines(lineIdx).X;
-                srcY = obj.Lines(lineIdx).Y;
+                if obj.lineOnDisk(lineIdx)
+                    % Disk-backed: read and downsample in chunks to avoid
+                    % loading the entire dataset into memory at once
+                    ds = obj.Lines(lineIdx).DataStore;
+                    nTotal = ds.NumPoints;
+                    numBuckets = max(1, round(nTotal / R));
+                    chunkSize = max(numBuckets * R, 1000000);
+                    if chunkSize >= nTotal
+                        [srcX, srcY] = ds.readSlice(1, nTotal);
+                        [px, py] = minmax_downsample(srcX, srcY, numBuckets, false, logXFlag);
+                    else
+                        nChunks = ceil(nTotal / chunkSize);
+                        bucketsPerChunk = max(1, round(numBuckets / nChunks));
+                        xCells = cell(1, nChunks);
+                        yCells = cell(1, nChunks);
+                        for ci = 1:nChunks
+                            s = (ci - 1) * chunkSize + 1;
+                            e = min(ci * chunkSize, nTotal);
+                            [cx, cy] = ds.readSlice(s, e);
+                            [xCells{ci}, yCells{ci}] = minmax_downsample(cx, cy, bucketsPerChunk, false, logXFlag);
+                        end
+                        px = [xCells{:}];
+                        py = [yCells{:}];
+                    end
+                else
+                    srcX = obj.Lines(lineIdx).X;
+                    srcY = obj.Lines(lineIdx).Y;
+                    numBuckets = max(1, round(numel(srcX) / R));
+                    [px, py] = minmax_downsample(srcX, srcY, numBuckets, false, logXFlag);
+                end
             else
                 % Ensure previous level exists
                 if numel(obj.Lines(lineIdx).Pyramid) < level - 1 || isempty(obj.Lines(lineIdx).Pyramid{level - 1})
@@ -2651,11 +2806,9 @@ classdef FastPlot < handle
                 end
                 srcX = obj.Lines(lineIdx).Pyramid{level - 1}.X;
                 srcY = obj.Lines(lineIdx).Pyramid{level - 1}.Y;
+                numBuckets = max(1, round(numel(srcX) / R));
+                [px, py] = minmax_downsample(srcX, srcY, numBuckets, false, logXFlag);
             end
-
-            numBuckets = max(1, round(numel(srcX) / R));
-            logXFlag = strcmp(obj.XScale, 'log');
-            [px, py] = minmax_downsample(srcX, srcY, numBuckets, false, logXFlag);
             obj.Lines(lineIdx).Pyramid{level} = struct('X', px, 'Y', py);
         end
 
@@ -2671,10 +2824,10 @@ classdef FastPlot < handle
             % Compute current global X range from all lines
             xmin = Inf; xmax = -Inf;
             for i = 1:numel(obj.Lines)
-                xi = obj.Lines(i).X;
-                if ~isempty(xi)
-                    if xi(1) < xmin; xmin = xi(1); end
-                    if xi(end) > xmax; xmax = xi(end); end
+                if obj.lineNumPoints(i) > 0
+                    [xiMin, xiMax] = obj.lineXRange(i);
+                    if xiMin < xmin; xmin = xiMin; end
+                    if xiMax > xmax; xmax = xiMax; end
                 end
             end
             if ~isfinite(xmin) || ~isfinite(xmax)
