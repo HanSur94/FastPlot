@@ -391,6 +391,7 @@ classdef FastPlot < handle
             knownDefaults.AssumeSorted = false;
             knownDefaults.HasNaN = [];
             knownDefaults.XType = 'numeric';
+            knownDefaults.DataStore = [];
             [known, passthrough] = parseOpts(knownDefaults, varargin, obj.Verbose);
 
             % Set XType if explicitly provided
@@ -403,7 +404,43 @@ classdef FastPlot < handle
             meta = known.Metadata;
             assumeSorted = known.AssumeSorted;
             hasNaNOverride = known.HasNaN;
+            preBuiltDS = known.DataStore;
             opts = passthrough;
+
+            % If a pre-built DataStore was provided, use it directly
+            if ~isempty(preBuiltDS)
+                nPts = preBuiltDS.NumPoints;
+
+                if ~isfield(opts, 'Color')
+                    obj.ColorIndex = obj.ColorIndex + 1;
+                    palette = obj.Theme.LineColorOrder;
+                    idx = mod(obj.ColorIndex - 1, size(palette, 1)) + 1;
+                    opts.Color = palette(idx, :);
+                end
+
+                lineStruct.DownsampleMethod = dsMethod;
+                lineStruct.Options = opts;
+                lineStruct.hLine = [];
+                lineStruct.Pyramid = {};
+                lineStruct.HasNaN = preBuiltDS.HasNaN;
+                lineStruct.Metadata = meta;
+                lineStruct.IsStatic = (nPts <= obj.MinPointsForDownsample);
+                lineStruct.NumPoints = nPts;
+                lineStruct.DataStore = preBuiltDS;
+                lineStruct.X = [];
+                lineStruct.Y = [];
+
+                if obj.Verbose
+                    fprintf('[FastPlot] addLine: %d pts -> pre-built DataStore\n', nPts);
+                end
+
+                if isempty(obj.Lines)
+                    obj.Lines = lineStruct;
+                else
+                    obj.Lines(end+1) = lineStruct;
+                end
+                return;
+            end
 
             % Monotonicity check (chunked vectorized — limits peak memory)
             if ~assumeSorted
@@ -511,9 +548,16 @@ classdef FastPlot < handle
                 displayName = sensor.Key;
             end
 
-            obj.addLine(sensor.X, sensor.Y, 'DisplayName', displayName);
+            if ~isempty(sensor.DataStore)
+                % Sensor is disk-backed — pass DataStore directly
+                obj.addLine([], [], 'DisplayName', displayName, ...
+                    'DataStore', sensor.DataStore);
+            else
+                obj.addLine(sensor.X, sensor.Y, 'DisplayName', displayName);
+            end
 
-            if showThresholds && ~isempty(sensor.ResolvedThresholds)
+            if showThresholds && ~isempty(sensor.ResolvedThresholds) ...
+                    && isfield(sensor.ResolvedThresholds, 'Label')
                 resolvedTh = sensor.ResolvedThresholds;
                 for i = 1:numel(resolvedTh)
                     th = resolvedTh(i);
@@ -2770,28 +2814,33 @@ classdef FastPlot < handle
             % Build from previous level if available, otherwise raw
             if level == 1
                 if obj.lineOnDisk(lineIdx)
-                    % Disk-backed: read and downsample in chunks to avoid
-                    % loading the entire dataset into memory at once
                     ds = obj.Lines(lineIdx).DataStore;
-                    nTotal = ds.NumPoints;
-                    numBuckets = max(1, round(nTotal / R));
-                    chunkSize = max(numBuckets * R, 1000000);
-                    if chunkSize >= nTotal
-                        [srcX, srcY] = ds.readSlice(1, nTotal);
-                        [px, py] = minmax_downsample(srcX, srcY, numBuckets, false, logXFlag);
+                    % Use pre-computed pyramid from DataStore if available
+                    if ~isempty(ds.PyramidX)
+                        px = ds.PyramidX;
+                        py = ds.PyramidY;
                     else
-                        nChunks = ceil(nTotal / chunkSize);
-                        bucketsPerChunk = max(1, round(numBuckets / nChunks));
-                        xCells = cell(1, nChunks);
-                        yCells = cell(1, nChunks);
-                        for ci = 1:nChunks
-                            s = (ci - 1) * chunkSize + 1;
-                            e = min(ci * chunkSize, nTotal);
-                            [cx, cy] = ds.readSlice(s, e);
-                            [xCells{ci}, yCells{ci}] = minmax_downsample(cx, cy, bucketsPerChunk, false, logXFlag);
+                        % Fallback: read and downsample in chunks
+                        nTotal = ds.NumPoints;
+                        numBuckets = max(1, round(nTotal / R));
+                        chunkSize = max(numBuckets * R, 1000000);
+                        if chunkSize >= nTotal
+                            [srcX, srcY] = ds.readSlice(1, nTotal);
+                            [px, py] = minmax_downsample(srcX, srcY, numBuckets, false, logXFlag);
+                        else
+                            nChunks = ceil(nTotal / chunkSize);
+                            bucketsPerChunk = max(1, round(numBuckets / nChunks));
+                            xCells = cell(1, nChunks);
+                            yCells = cell(1, nChunks);
+                            for ci = 1:nChunks
+                                s = (ci - 1) * chunkSize + 1;
+                                e = min(ci * chunkSize, nTotal);
+                                [cx, cy] = ds.readSlice(s, e);
+                                [xCells{ci}, yCells{ci}] = minmax_downsample(cx, cy, bucketsPerChunk, false, logXFlag);
+                            end
+                            px = [xCells{:}];
+                            py = [yCells{:}];
                         end
-                        px = [xCells{:}];
-                        py = [yCells{:}];
                     end
                 else
                     srcX = obj.Lines(lineIdx).X;

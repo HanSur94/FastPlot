@@ -60,6 +60,7 @@ classdef Sensor < handle
         KeyName       % char: field name in .mat file (defaults to Key)
         X             % 1xN double: datenum time stamps
         Y             % 1xN (or MxN) double: sensor values
+        DataStore     % FastPlotDataStore: disk-backed storage (set by toDisk)
         StateChannels % cell array of StateChannel objects
         ThresholdRules % cell array of ThresholdRule objects
         ResolvedThresholds  % struct array: precomputed threshold step-function lines
@@ -99,6 +100,7 @@ classdef Sensor < handle
             obj.MatFile = '';
             obj.X = [];
             obj.Y = [];
+            obj.DataStore = [];
             obj.StateChannels = {};
             obj.ThresholdRules = {};
             obj.ResolvedThresholds = struct();
@@ -171,6 +173,61 @@ classdef Sensor < handle
             obj.ThresholdRules{end+1} = rule;
         end
 
+        function toDisk(obj)
+            %TODISK Move sensor X/Y data to disk-backed DataStore.
+            %   s.toDisk() creates a FastPlotDataStore from the sensor's
+            %   X and Y arrays, then clears X and Y from memory. The data
+            %   remains accessible via s.DataStore.getRange() and
+            %   s.DataStore.readSlice(). Subsequent calls to resolve(),
+            %   addSensor(), and FastPlot rendering all work transparently.
+            %
+            %   Call toDisk() after setting X and Y but before or after
+            %   resolve(). resolve() automatically reads from the DataStore
+            %   when X/Y are empty.
+            %
+            %   Example:
+            %     s = Sensor('pressure', 'Name', 'Chamber Pressure');
+            %     s.X = linspace(0, 100, 5e6);
+            %     s.Y = 40 + 20*sin(2*pi*s.X/30) + 5*randn(1, 5e6);
+            %     s.toDisk();     % moves data to disk, frees memory
+            %     s.resolve();    % works with disk-backed data
+            %     fp.addSensor(s);
+            %     fp.render();
+            %
+            %   See also toMemory, isOnDisk, FastPlotDataStore.
+
+            if isempty(obj.X) && ~isempty(obj.DataStore)
+                return;  % already on disk
+            end
+            if isempty(obj.X)
+                error('Sensor:noData', 'No X/Y data to move to disk.');
+            end
+            obj.DataStore = FastPlotDataStore(obj.X, obj.Y);
+            obj.X = [];
+            obj.Y = [];
+        end
+
+        function toMemory(obj)
+            %TOMEMORY Load disk-backed data back into memory.
+            %   s.toMemory() reads the full dataset from the DataStore
+            %   back into s.X and s.Y, then cleans up the DataStore.
+            %
+            %   See also toDisk, isOnDisk.
+
+            if isempty(obj.DataStore)
+                return;  % already in memory
+            end
+            [obj.X, obj.Y] = obj.DataStore.readSlice(1, obj.DataStore.NumPoints);
+            obj.DataStore.cleanup();
+            obj.DataStore = [];
+        end
+
+        function tf = isOnDisk(obj)
+            %ISONDISK True if sensor data is stored on disk.
+            %   See also toDisk, toMemory.
+            tf = ~isempty(obj.DataStore);
+        end
+
         function resolve(obj)
             %RESOLVE Precompute threshold time series, violations, and state bands.
             %   s.resolve() evaluates all ThresholdRules against the
@@ -210,9 +267,14 @@ classdef Sensor < handle
                 return;
             end
 
-            % Cache sensor data locally to avoid repeated property access
-            sensorX = obj.X;
-            sensorY = obj.Y;
+            % Cache sensor data locally to avoid repeated property access.
+            % If data is on disk, read it into local variables for resolve.
+            if obj.isOnDisk()
+                [sensorX, sensorY] = obj.DataStore.readSlice(1, obj.DataStore.NumPoints);
+            else
+                sensorX = obj.X;
+                sensorY = obj.Y;
+            end
 
             % -------------------------------------------------------
             % Step 1: Find segment boundaries from state channels

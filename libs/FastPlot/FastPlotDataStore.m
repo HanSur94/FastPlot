@@ -37,6 +37,8 @@ classdef FastPlotDataStore < handle
         HasNaN     = false
         DbPath     = ''
         BinPath    = ''
+        PyramidX   = []   % Pre-computed L1 minmax downsample X
+        PyramidY   = []   % Pre-computed L1 minmax downsample Y
     end
 
     properties (Access = private)
@@ -69,6 +71,11 @@ classdef FastPlotDataStore < handle
             else
                 obj.initBinaryFallback(x, y);
             end
+
+            % Pre-compute L1 minmax pyramid while data is in memory.
+            % This avoids re-reading the full dataset from disk on first
+            % render.  Reduction factor 100 matches FastPlot.PyramidReduction.
+            obj.buildPyramidFromMemory(x, y, 100);
         end
 
         function [xOut, yOut] = getRange(obj, xMin, xMax)
@@ -342,7 +349,7 @@ classdef FastPlotDataStore < handle
             lo = ids(1).chunk_id - 1;
             hi = ids(end).chunk_id + 1;
             res = mksqlite(obj.DbId, ...
-                ['SELECT x_data, y_data FROM chunks ' ...
+                ['SELECT pt_count, x_data, y_data FROM chunks ' ...
                  'WHERE chunk_id BETWEEN ? AND ? ORDER BY chunk_id'], ...
                 max(1, lo), hi);
             if numel(res) == 0; xOut = []; yOut = []; return; end
@@ -370,6 +377,70 @@ classdef FastPlotDataStore < handle
             localEnd   = min(numel(xAll), localEnd);
             xOut = xAll(localStart:localEnd);
             yOut = yAll(localStart:localEnd);
+        end
+
+        function buildPyramidFromMemory(obj, x, y, R)
+            %BUILDPYRAMIDFROMMEMORY Build L1 minmax pyramid while data is in memory.
+            %   Avoids re-reading the entire dataset from disk on first render.
+            %   Implements inline minmax downsampling (cannot call private/
+            %   minmax_downsample from here).
+            n = numel(x);
+            nb = max(1, round(n / R));  % number of buckets
+            if n <= 2 * nb
+                % Too few points to downsample — store raw
+                obj.PyramidX = x;
+                obj.PyramidY = y;
+                return;
+            end
+
+            bucketSize = floor(n / nb);
+            usable = bucketSize * nb;
+            yMat = reshape(y(1:usable), bucketSize, nb);
+
+            [yMinVals, iMin] = min(yMat, [], 1);
+            [yMaxVals, iMax] = max(yMat, [], 1);
+
+            offsets = (0:nb-1) * bucketSize;
+            gMin = iMin + offsets;
+            gMax = iMax + offsets;
+
+            % Fold remainder into last bucket
+            if usable < n
+                remY = y(usable+1:end);
+                [remMinVal, remMinIdx] = min(remY);
+                [remMaxVal, remMaxIdx] = max(remY);
+                if remMinVal < yMinVals(nb)
+                    yMinVals(nb) = remMinVal;
+                    gMin(nb) = remMinIdx + usable;
+                end
+                if remMaxVal > yMaxVals(nb)
+                    yMaxVals(nb) = remMaxVal;
+                    gMax(nb) = remMaxIdx + usable;
+                end
+            end
+
+            xMinVals = x(gMin);
+            xMaxVals = x(gMax);
+
+            % Interleave min/max in X-monotonic order
+            minFirst = gMin <= gMax;
+            px = zeros(1, 2*nb);
+            py = zeros(1, 2*nb);
+            odd  = 1:2:2*nb;
+            even = 2:2:2*nb;
+
+            px(odd(minFirst))   = xMinVals(minFirst);
+            py(odd(minFirst))   = yMinVals(minFirst);
+            px(even(minFirst))  = xMaxVals(minFirst);
+            py(even(minFirst))  = yMaxVals(minFirst);
+
+            px(odd(~minFirst))  = xMaxVals(~minFirst);
+            py(odd(~minFirst))  = yMaxVals(~minFirst);
+            px(even(~minFirst)) = xMinVals(~minFirst);
+            py(even(~minFirst)) = yMinVals(~minFirst);
+
+            obj.PyramidX = px;
+            obj.PyramidY = py;
         end
 
         function initBinaryFallback(obj, x, y)
@@ -442,10 +513,28 @@ end
 
 function [xAll, yAll] = concatChunks(res)
 %CONCATCHUNKS Concatenate x_data/y_data from query results.
+%   Uses pre-allocated arrays when pt_count metadata is available.
     nRes = numel(res);
     if nRes == 1
         xAll = res(1).x_data(:)';
         yAll = res(1).y_data(:)';
+    elseif isfield(res, 'pt_count')
+        % Pre-allocate using known chunk sizes
+        totalPts = sum([res.pt_count]);
+        xAll = zeros(1, totalPts);
+        yAll = zeros(1, totalPts);
+        pos = 0;
+        for k = 1:nRes
+            chunk = res(k).x_data(:)';
+            n = numel(chunk);
+            xAll(pos+1:pos+n) = chunk;
+            yAll(pos+1:pos+n) = res(k).y_data(:)';
+            pos = pos + n;
+        end
+        if pos < totalPts
+            xAll = xAll(1:pos);
+            yAll = yAll(1:pos);
+        end
     else
         xCells = cell(1, nRes);
         yCells = cell(1, nRes);
