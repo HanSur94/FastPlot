@@ -391,18 +391,22 @@ classdef FastPlotDataStore < handle
             try
                 for i = 1:numel(resolvedTh)
                     th = resolvedTh(i);
+                    tx = th.X; if isempty(tx); tx = zeros(1,0); end
+                    ty = th.Y; if isempty(ty); ty = zeros(1,0); end
                     colorBlob = th.Color;
                     if isempty(colorBlob); colorBlob = zeros(1,0); end
                     mksqlite(obj.DbId, ...
                         'INSERT INTO resolved_thresholds VALUES (?,?,?,?,?,?,?,?)', ...
-                        i, th.X, th.Y, th.Direction, th.Label, ...
+                        i, tx, ty, th.Direction, th.Label, ...
                         colorBlob, th.LineStyle, th.Value);
                 end
                 for i = 1:numel(resolvedViol)
                     v = resolvedViol(i);
+                    vx = v.X; if isempty(vx); vx = zeros(1,0); end
+                    vy = v.Y; if isempty(vy); vy = zeros(1,0); end
                     mksqlite(obj.DbId, ...
                         'INSERT INTO resolved_violations VALUES (?,?,?,?,?)', ...
-                        i, v.X, v.Y, v.Direction, v.Label);
+                        i, vx, vy, v.Direction, v.Label);
                 end
                 mksqlite(obj.DbId, 'COMMIT');
             catch ME
