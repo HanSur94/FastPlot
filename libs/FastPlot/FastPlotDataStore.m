@@ -528,8 +528,9 @@ classdef FastPlotDataStore < handle
                     build_store_mex(obj.DbPath, x, y, cs);
                     obj.IsValid = true;
                     return;
-                catch
-                    % Fall through to MATLAB path
+                catch me
+                    warning('FastPlot:build_store_mex:fallback', ...
+                        'build_store_mex failed (%s), falling back to MATLAB path.', me.message);
                     if exist(obj.DbPath, 'file'); delete(obj.DbPath); end
                 end
             end
@@ -547,6 +548,7 @@ classdef FastPlotDataStore < handle
             mksqlite(obj.DbId, 'PRAGMA page_size = 65536');
             mksqlite(obj.DbId, 'PRAGMA mmap_size = 268435456');
 
+            % KEEP IN SYNC with build_store_mex.c CREATE TABLE chunks
             mksqlite(obj.DbId, [...
                 'CREATE TABLE chunks (' ...
                 '  chunk_id INTEGER PRIMARY KEY,' ...

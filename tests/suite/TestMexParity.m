@@ -207,19 +207,63 @@ classdef TestMexParity < matlab.unittest.TestCase
             mksqlite(dbId, 'PRAGMA mmap_size = 268435456');
             testCase.addTeardown(@() mksqlite(dbId, 'close'));
 
-            % Read all chunks and concatenate
+            % Read all chunks and concatenate (cell-based to avoid O(n^2) growth)
             rows = mksqlite(dbId, ...
                 'SELECT x_data, y_data FROM chunks ORDER BY chunk_id');
-            allX = [];
-            allY = [];
+            xCells = cell(1, numel(rows));
+            yCells = cell(1, numel(rows));
             for k = 1:numel(rows)
-                allX = [allX, rows(k).x_data(:)'];
-                allY = [allY, rows(k).y_data(:)'];
+                xCells{k} = rows(k).x_data(:)';
+                yCells{k} = rows(k).y_data(:)';
             end
+            allX = [xCells{:}];
+            allY = [yCells{:}];
 
             testCase.verifyEqual(numel(allX), n, 'total point count mismatch');
             testCase.verifyLessThan(max(abs(allX - x)), tol, 'X data mismatch');
             testCase.verifyLessThan(max(abs(allY - y)), tol, 'Y data mismatch');
+        end
+
+        function testBuildStoreNaNHandling(testCase)
+            testCase.assumeTrue(exist('build_store_mex', 'file') == 3, 'MEX not compiled');
+            testCase.assumeTrue(exist('mksqlite', 'file') == 3, 'mksqlite not compiled');
+
+            cs = 100;
+            % Chunk 1: mixed NaN, Chunk 2: all NaN, Chunk 3: normal
+            x = linspace(0, 300, 300);
+            y = ones(1, 300);
+            y(10) = NaN; y(50) = NaN;       % chunk 1: mixed
+            y(101:200) = NaN;                % chunk 2: all NaN
+            % chunk 3: normal (all ones)
+
+            dbMex = [tempname, '.fpdb'];
+            testCase.addTeardown(@() delete(dbMex));
+            build_store_mex(dbMex, x, y, cs);
+
+            dbId = mksqlite('open', dbMex);
+            mksqlite(dbId, 'typedBLOBs', 2);
+            testCase.addTeardown(@() mksqlite(dbId, 'close'));
+
+            rows = mksqlite(dbId, 'SELECT * FROM chunks ORDER BY chunk_id');
+            testCase.verifyEqual(numel(rows), 3, 'NaN: chunk count');
+
+            % Chunk 1 (mixed NaN): y_min/y_max should ignore NaN
+            testCase.verifyEqual(rows(1).y_min, 1, 'NaN: chunk1 y_min');
+            testCase.verifyEqual(rows(1).y_max, 1, 'NaN: chunk1 y_max');
+
+            % Chunk 2 (all NaN): should use Inf/-Inf sentinels
+            testCase.verifyTrue(isinf(rows(2).y_min) && rows(2).y_min > 0, ...
+                'NaN: chunk2 y_min should be +Inf');
+            testCase.verifyTrue(isinf(rows(2).y_max) && rows(2).y_max < 0, ...
+                'NaN: chunk2 y_max should be -Inf');
+
+            % Chunk 3 (normal): standard min/max
+            testCase.verifyEqual(rows(3).y_min, 1, 'NaN: chunk3 y_min');
+            testCase.verifyEqual(rows(3).y_max, 1, 'NaN: chunk3 y_max');
+
+            % Verify NaN data preserved in BLOBs
+            chunk2Y = rows(2).y_data(:)';
+            testCase.verifyTrue(all(isnan(chunk2Y)), 'NaN: chunk2 data should be all NaN');
         end
     end
 

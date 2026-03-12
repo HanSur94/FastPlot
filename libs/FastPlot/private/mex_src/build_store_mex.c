@@ -25,12 +25,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 
 /* mksqlite typed BLOB header — must match mksqlite.c format */
 #define TYPED_BLOB_MAGIC       0x4D4B5351  /* "MKSQ" */
 #define TYPED_BLOB_VERSION     3
 #define TYPED_BLOB_CLASS_DBL   6           /* mxDOUBLE_CLASS */
 #define TYPED_BLOB_HEADER_SIZE 24          /* 6 x uint32 */
+
+/* Runtime check in mexFunction verifies TYPED_BLOB_CLASS_DBL == mxDOUBLE_CLASS.
+ * (Cannot use #if because mxDOUBLE_CLASS is an enum, not a macro.) */
 
 /* ---- Build a typed BLOB in a pre-allocated buffer ---- */
 static void build_typed_blob(unsigned char *buf,
@@ -95,13 +99,15 @@ static void compute_yminmax(const double *data, size_t count,
     /* NaN handling: SIMD min/max propagate NaN (unlike MATLAB's min/max
      * which skip NaN).  If result is NaN, rescan with NaN-skipping scalar
      * loop.  For all-NaN chunks, use Inf/-Inf sentinels so SQLite doesn't
-     * convert NaN to NULL (which would violate NOT NULL constraints). */
-    if (*out_min != *out_min || *out_max != *out_max) {  /* NaN check */
+     * convert NaN to NULL (which would violate NOT NULL constraints).
+     * Note: isnan() is safe here — -ffast-math may break x!=x but the
+     * C99 isnan macro is a type-generic builtin that compilers preserve. */
+    if (isnan(*out_min) || isnan(*out_max)) {
         /* Use 1.0/0.0 instead of INFINITY macro to avoid -ffast-math warning */
         volatile double zero = 0.0;
         double dmin = 1.0 / zero, dmax = -1.0 / zero;
         for (i = 0; i < count; i++) {
-            if (data[i] == data[i]) {  /* !isnan */
+            if (!isnan(data[i])) {
                 if (data[i] < dmin) dmin = data[i];
                 if (data[i] > dmax) dmax = data[i];
             }
@@ -123,6 +129,13 @@ void mexFunction(int nlhs, mxArray *plhs[],
     size_t blobBufSize;
     size_t chunkId, s;
     int rc;
+
+    /* Sanity check: typed BLOB class constant must match MATLAB's mxDOUBLE_CLASS */
+    if (TYPED_BLOB_CLASS_DBL != mxDOUBLE_CLASS) {
+        mexErrMsgIdAndTxt("FastPlot:build_store_mex:classSync",
+            "TYPED_BLOB_CLASS_DBL (%d) != mxDOUBLE_CLASS (%d)",
+            TYPED_BLOB_CLASS_DBL, (int)mxDOUBLE_CLASS);
+    }
 
     /* ---- Validate inputs ---- */
     if (nrhs != 4) {
@@ -159,11 +172,12 @@ void mexFunction(int nlhs, mxArray *plhs[],
     rc = sqlite3_open_v2(dbPath, &db,
                          SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
     if (rc != SQLITE_OK) {
-        const char *msg = sqlite3_errmsg(db);
+        char errbuf[256];
+        snprintf(errbuf, sizeof(errbuf), "%s", sqlite3_errmsg(db));
         sqlite3_close(db);
         mxFree(dbPath);
         mexErrMsgIdAndTxt("FastPlot:build_store_mex:dbOpen",
-            "Cannot open database: %s", msg);
+            "Cannot open database: %s", errbuf);
     }
 
     /* ---- Performance PRAGMAs for bulk write ---- */
@@ -176,6 +190,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
     sqlite3_exec(db, "PRAGMA mmap_size = 268435456",    NULL, NULL, NULL);
 
     /* ---- Create tables ---- */
+    /* KEEP IN SYNC with FastPlotDataStore.initSqlite MATLAB fallback */
     rc = sqlite3_exec(db,
         "CREATE TABLE chunks ("
         "  chunk_id INTEGER PRIMARY KEY,"
@@ -189,13 +204,15 @@ void mexFunction(int nlhs, mxArray *plhs[],
         "  y_data BLOB NOT NULL"
         ")", NULL, NULL, NULL);
     if (rc != SQLITE_OK) {
-        const char *msg = sqlite3_errmsg(db);
+        char errbuf[256];
+        snprintf(errbuf, sizeof(errbuf), "%s", sqlite3_errmsg(db));
         sqlite3_close(db);
         mxFree(dbPath);
         mexErrMsgIdAndTxt("FastPlot:build_store_mex:createTable",
-            "CREATE TABLE chunks failed: %s", msg);
+            "CREATE TABLE chunks failed: %s", errbuf);
     }
 
+    /* KEEP IN SYNC with FastPlotDataStore.initSqlite MATLAB fallback */
     sqlite3_exec(db,
         "CREATE TABLE resolved_thresholds ("
         "  idx INTEGER PRIMARY KEY,"
@@ -208,6 +225,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
         "  value REAL NOT NULL"
         ")", NULL, NULL, NULL);
 
+    /* KEEP IN SYNC with FastPlotDataStore.initSqlite MATLAB fallback */
     sqlite3_exec(db,
         "CREATE TABLE resolved_violations ("
         "  idx INTEGER PRIMARY KEY,"
@@ -222,15 +240,20 @@ void mexFunction(int nlhs, mxArray *plhs[],
         "INSERT INTO chunks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        const char *msg = sqlite3_errmsg(db);
+        char errbuf[256];
+        snprintf(errbuf, sizeof(errbuf), "%s", sqlite3_errmsg(db));
         sqlite3_close(db);
         mxFree(dbPath);
         mexErrMsgIdAndTxt("FastPlot:build_store_mex:prepare",
-            "Prepare failed: %s", msg);
+            "Prepare failed: %s", errbuf);
     }
 
     /* ---- Allocate typed BLOB buffers (one for X, one for Y) ---- */
-    blobBufSize = TYPED_BLOB_HEADER_SIZE + cs * sizeof(double);
+    /* Cap to actual data length for the case where n < cs */
+    {
+        size_t maxChunkPts = (cs < n) ? cs : n;
+        blobBufSize = TYPED_BLOB_HEADER_SIZE + maxChunkPts * sizeof(double);
+    }
     xBlobBuf = (unsigned char *)mxMalloc(blobBufSize);
     yBlobBuf = (unsigned char *)mxMalloc(blobBufSize);
 
@@ -274,7 +297,8 @@ void mexFunction(int nlhs, mxArray *plhs[],
 
         rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
-            const char *msg = sqlite3_errmsg(db);
+            char errbuf[256];
+            snprintf(errbuf, sizeof(errbuf), "%s", sqlite3_errmsg(db));
             sqlite3_finalize(stmt);
             sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL);
             sqlite3_close(db);
@@ -282,7 +306,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
             mxFree(yBlobBuf);
             mxFree(dbPath);
             mexErrMsgIdAndTxt("FastPlot:build_store_mex:insert",
-                "Insert failed at chunk %d: %s", (int)chunkId, msg);
+                "Insert failed at chunk %d: %s", (int)chunkId, errbuf);
         }
     }
 
