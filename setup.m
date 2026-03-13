@@ -19,13 +19,10 @@ function setup()
 %     - SIMD-optimized downsampling kernels (AVX2/NEON)
 %     - mksqlite (SQLite3 MEX interface for large-dataset disk storage)
 %
-%   If libsqlite3-dev is not installed, mksqlite is skipped and
-%   FastPlotDataStore falls back to binary file storage.
-%
-%   Prerequisites for SQLite support:
-%     Ubuntu/Debian: sudo apt install libsqlite3-dev
-%     macOS:         brew install sqlite3
-%     Windows:       download from https://sqlite.org/download.html
+%   SQLite3 is bundled as the amalgamation (sqlite3.c + sqlite3.h) in
+%   libs/FastPlot/private/mex_src/, so no system SQLite installation is
+%   required. It compiles directly into the MEX files on all platforms
+%   (Linux, macOS, Windows).
 %
 %   Example:
 %     setup();   % adds libraries to path, compiles MEX; prints status
@@ -42,7 +39,7 @@ function setup()
     addpath(fullfile(root, 'libs', 'Dashboard'));
     fprintf('FastPlot + SensorThreshold + EventDetection + Dashboard libraries added to path.\n');
 
-    % Compile all MEX files (SIMD kernels + mksqlite)
+    % Compile all MEX files (SIMD kernels + bundled SQLite3)
     fprintf('\n--- Compiling MEX files ---\n');
     build_mex();
 end
