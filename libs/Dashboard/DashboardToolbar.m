@@ -16,6 +16,7 @@ classdef DashboardToolbar < handle
         hExportBtn   = []
         hTitleText   = []
         Engine       = []
+        Builder      = []
     end
 
     methods
@@ -101,7 +102,18 @@ classdef DashboardToolbar < handle
         end
 
         function onEdit(obj)
-            disp('Edit mode not yet implemented (Phase 4)');
+            if isempty(obj.Builder)
+                obj.Builder = DashboardBuilder(obj.Engine);
+            end
+            if obj.Builder.IsActive
+                obj.Builder.exitEditMode();
+                set(obj.hEditBtn, 'String', 'Edit');
+                set(obj.hLiveBtn, 'Enable', 'on');
+            else
+                obj.Builder.enterEditMode();
+                set(obj.hEditBtn, 'String', 'Done');
+                set(obj.hLiveBtn, 'Enable', 'off');
+            end
         end
 
         function contentArea = getContentArea(obj)

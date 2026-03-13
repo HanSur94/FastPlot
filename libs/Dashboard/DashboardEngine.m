@@ -124,6 +124,29 @@ classdef DashboardEngine < handle
             DashboardSerializer.exportScript(config, filepath);
         end
 
+        function removeWidget(obj, idx)
+        %REMOVEWIDGET Remove widget at given index.
+            if idx >= 1 && idx <= numel(obj.Widgets)
+                w = obj.Widgets{idx};
+                if ~isempty(w.hPanel) && ishandle(w.hPanel)
+                    delete(w.hPanel);
+                end
+                obj.Widgets(idx) = [];
+            end
+        end
+
+        function rerenderWidgets(obj)
+        %RERENDERWIDGETS Delete all widget panels and recreate them.
+            theme = DashboardTheme(obj.Theme);
+            for i = 1:numel(obj.Widgets)
+                w = obj.Widgets{i};
+                if ~isempty(w.hPanel) && ishandle(w.hPanel)
+                    delete(w.hPanel);
+                end
+            end
+            obj.Layout.createPanels(obj.hFigure, obj.Widgets, theme);
+        end
+
         function delete(obj)
             obj.stopLive();
         end
