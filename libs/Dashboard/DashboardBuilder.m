@@ -54,10 +54,15 @@ classdef DashboardBuilder < handle
 
         function enterEditMode(obj)
             if obj.IsActive, return; end
-            obj.IsActive = true;
-            obj.SelectedIdx = 0;
 
             eng = obj.Engine;
+            if isempty(eng.hFigure) || ~ishandle(eng.hFigure)
+                error('DashboardBuilder:noFigure', ...
+                    'Dashboard must be rendered before entering edit mode.');
+            end
+
+            obj.IsActive = true;
+            obj.SelectedIdx = 0;
             eng.stopLive();
 
             hFig = eng.hFigure;
@@ -84,10 +89,6 @@ classdef DashboardBuilder < handle
             obj.SelectedIdx = 0;
             obj.DragMode = '';
 
-            hFig = obj.Engine.hFigure;
-            set(hFig, 'WindowButtonMotionFcn', '');
-            set(hFig, 'WindowButtonUpFcn', '');
-
             obj.clearOverlays();
 
             % Delete sidebars
@@ -95,6 +96,14 @@ classdef DashboardBuilder < handle
             obj.hPalette = [];
             safeDelete(obj.hPropsPanel);
             obj.hPropsPanel = [];
+
+            hFig = obj.Engine.hFigure;
+            if isempty(hFig) || ~ishandle(hFig)
+                return;
+            end
+
+            set(hFig, 'WindowButtonMotionFcn', '');
+            set(hFig, 'WindowButtonUpFcn', '');
 
             % Restore full content area and re-render
             theme = DashboardTheme(obj.Engine.Theme);
@@ -126,7 +135,8 @@ classdef DashboardBuilder < handle
         function addWidget(obj, type)
             eng = obj.Engine;
             pos = obj.findNextSlot(type);
-            eng.addWidget(type, 'Title', type, 'Position', pos);
+            defaultTitle = obj.defaultTitleForType(type);
+            eng.addWidget(type, 'Title', defaultTitle, 'Position', pos);
 
             theme = DashboardTheme(eng.Theme);
             obj.relayoutWidgets(theme);
@@ -141,7 +151,6 @@ classdef DashboardBuilder < handle
 
             if obj.SelectedIdx == idx
                 obj.SelectedIdx = 0;
-                obj.updatePropertiesDisplay();
             elseif obj.SelectedIdx > idx
                 obj.SelectedIdx = obj.SelectedIdx - 1;
             end
@@ -150,6 +159,12 @@ classdef DashboardBuilder < handle
             obj.relayoutWidgets(theme);
             obj.clearOverlays();
             obj.createOverlays(theme);
+
+            if obj.SelectedIdx > 0
+                obj.selectWidget(obj.SelectedIdx);
+            else
+                obj.updatePropertiesDisplay();
+            end
         end
 
         function deleteSelected(obj)
@@ -181,6 +196,7 @@ classdef DashboardBuilder < handle
             obj.relayoutWidgets(theme);
             obj.clearOverlays();
             obj.createOverlays(theme);
+            obj.selectWidget(obj.SelectedIdx);
         end
 
         function pos = findNextSlot(obj, type)
@@ -579,6 +595,14 @@ classdef DashboardBuilder < handle
                     newGrid = [origGrid(1), origGrid(2), newW, newH];
             end
 
+            % Resolve overlaps with other widgets
+            existingPositions = {};
+            for i = 1:numel(obj.Engine.Widgets)
+                if i ~= obj.DragIdx
+                    existingPositions{end+1} = obj.Engine.Widgets{i}.Position;
+                end
+            end
+            newGrid = obj.Engine.Layout.resolveOverlap(newGrid, existingPositions);
             obj.Engine.Widgets{obj.DragIdx}.Position = newGrid;
 
             % Snap to grid by re-laying out
@@ -626,6 +650,20 @@ classdef DashboardBuilder < handle
             % Show/hide property labels
             labels = findobj(obj.hPropsPanel, 'Tag', 'propLabel');
             set(labels, 'Visible', vis);
+        end
+
+        function t = defaultTitleForType(~, type)
+            switch type
+                case 'fastplot', t = 'New Plot';
+                case 'kpi',      t = 'New KPI';
+                case 'status',   t = 'New Status';
+                case 'text',     t = 'New Text';
+                case 'gauge',    t = 'New Gauge';
+                case 'table',    t = 'New Table';
+                case 'rawaxes',  t = 'New Axes';
+                case 'timeline', t = 'New Timeline';
+                otherwise,       t = 'New Widget';
+            end
         end
 
     end

@@ -119,5 +119,103 @@ classdef TestDashboardBugFixes < matlab.unittest.TestCase
             builder.selectWidget(3);
             testCase.verifyEqual(builder.SelectedIdx, 3);
         end
+
+        %% Usability: applyProperties preserves selection highlight
+        function testApplyPropertiesPreservesSelection(testCase)
+            d = DashboardEngine('Apply Test');
+            d.addWidget('kpi', 'Title', 'KPI', 'Position', [1 1 3 1], ...
+                'StaticValue', 42);
+            d.render();
+            set(d.hFigure, 'Visible', 'off');
+            testCase.addTeardown(@() close(d.hFigure));
+
+            b = DashboardBuilder(d);
+            b.enterEditMode();
+            b.selectWidget(1);
+
+            % Change title and apply
+            set(b.hPropTitle, 'String', 'Updated KPI');
+            set(b.hPropCol, 'String', '2');
+            set(b.hPropRow, 'String', '1');
+            set(b.hPropWidth, 'String', '4');
+            set(b.hPropHeight, 'String', '1');
+            b.applyProperties();
+
+            % Selection should still be active after apply
+            testCase.verifyEqual(b.SelectedIdx, 1, ...
+                'SelectedIdx should be preserved after applyProperties');
+
+            % Properties panel should show the actual (possibly clamped) values
+            testCase.verifyEqual(get(b.hPropCol, 'String'), '2');
+            testCase.verifyEqual(get(b.hPropWidth, 'String'), '4');
+        end
+
+        %% Usability: deleteWidget preserves selection of other widget
+        function testDeleteWidgetPreservesOtherSelection(testCase)
+            d = DashboardEngine('Delete Test');
+            d.addWidget('kpi', 'Title', 'A', 'Position', [1 1 3 1], ...
+                'StaticValue', 1);
+            d.addWidget('kpi', 'Title', 'B', 'Position', [4 1 3 1], ...
+                'StaticValue', 2);
+            d.addWidget('kpi', 'Title', 'C', 'Position', [7 1 3 1], ...
+                'StaticValue', 3);
+            d.render();
+            set(d.hFigure, 'Visible', 'off');
+            testCase.addTeardown(@() close(d.hFigure));
+
+            b = DashboardBuilder(d);
+            b.enterEditMode();
+            b.selectWidget(3);  % select widget C
+
+            b.deleteWidget(1);  % delete widget A
+
+            % Widget C is now at index 2; selection should track it
+            testCase.verifyEqual(b.SelectedIdx, 2, ...
+                'SelectedIdx should adjust when earlier widget is deleted');
+            testCase.verifyEqual(d.Widgets{2}.Title, 'C');
+        end
+
+        %% Usability: addWidget from palette gives readable default title
+        function testAddWidgetDefaultTitle(testCase)
+            d = DashboardEngine('Title Test');
+            d.render();
+            set(d.hFigure, 'Visible', 'off');
+            testCase.addTeardown(@() close(d.hFigure));
+
+            b = DashboardBuilder(d);
+            b.enterEditMode();
+            b.addWidget('kpi');
+
+            testCase.verifyEqual(d.Widgets{1}.Title, 'New KPI', ...
+                'Default title should be human-readable, not raw type');
+        end
+
+        %% Usability: enterEditMode errors when figure not rendered
+        function testEnterEditModeWithoutRenderErrors(testCase)
+            d = DashboardEngine('No Render');
+            b = DashboardBuilder(d);
+
+            testCase.verifyError(@() b.enterEditMode(), ...
+                'DashboardBuilder:noFigure');
+        end
+
+        %% Usability: exitEditMode handles closed figure gracefully
+        function testExitEditModeAfterFigureClose(testCase)
+            d = DashboardEngine('Close Test');
+            d.addWidget('kpi', 'Title', 'M', 'Position', [1 1 3 1], ...
+                'StaticValue', 1);
+            d.render();
+            set(d.hFigure, 'Visible', 'off');
+
+            b = DashboardBuilder(d);
+            b.enterEditMode();
+
+            % Simulate figure being closed externally
+            delete(d.hFigure);
+
+            % exitEditMode should not crash
+            testCase.verifyWarningFree(@() b.exitEditMode());
+            testCase.verifyFalse(b.IsActive);
+        end
     end
 end
