@@ -37,7 +37,8 @@ function setup()
     addpath(fullfile(root, 'libs', 'SensorThreshold'));
     addpath(fullfile(root, 'libs', 'EventDetection'));
     addpath(fullfile(root, 'libs', 'Dashboard'));
-    fprintf('FastPlot + SensorThreshold + EventDetection + Dashboard libraries added to path.\n');
+    addpath(fullfile(root, 'libs', 'WebBridge'));
+    fprintf('FastPlot + SensorThreshold + EventDetection + Dashboard + WebBridge libraries added to path.\n');
 
     % Compile all MEX files (SIMD kernels + bundled SQLite3)
     fprintf('\n--- Compiling MEX files ---\n');
