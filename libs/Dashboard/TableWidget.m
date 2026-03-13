@@ -89,7 +89,7 @@ classdef TableWidget < DashboardWidget
                 s.source = struct('type', 'callback', ...
                     'function', func2str(obj.DataFcn));
             elseif ~isempty(obj.Data)
-                s.source = struct('type', 'static');
+                s.source = struct('type', 'static', 'data', {obj.Data});
             end
         end
     end
@@ -103,8 +103,12 @@ classdef TableWidget < DashboardWidget
             if isfield(s, 'columnNames')
                 obj.ColumnNames = s.columnNames;
             end
-            if isfield(s, 'source') && strcmp(s.source.type, 'callback')
-                obj.DataFcn = str2func(s.source.function);
+            if isfield(s, 'source')
+                if strcmp(s.source.type, 'callback')
+                    obj.DataFcn = str2func(s.source.function);
+                elseif strcmp(s.source.type, 'static') && isfield(s.source, 'data')
+                    obj.Data = s.source.data;
+                end
             end
         end
     end

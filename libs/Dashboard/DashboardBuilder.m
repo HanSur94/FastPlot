@@ -393,9 +393,13 @@ classdef DashboardBuilder < handle
             widgets = obj.Engine.Widgets;
             hFig = obj.Engine.hFigure;
 
+            % Pre-allocate so overlay indices match widget indices
+            obj.Overlays = cell(1, numel(widgets));
+
             for i = 1:numel(widgets)
                 w = widgets{i};
                 if isempty(w.hPanel) || ~ishandle(w.hPanel)
+                    obj.Overlays{i} = struct('hDragBar', [], 'hResize', []);
                     continue;
                 end
 
@@ -452,7 +456,7 @@ classdef DashboardBuilder < handle
                     'Enable', 'inactive', ...
                     'ButtonDownFcn', @(~,~) obj.onResizeStart(idx));
 
-                obj.Overlays{end+1} = ov;
+                obj.Overlays{i} = ov;
             end
         end
 

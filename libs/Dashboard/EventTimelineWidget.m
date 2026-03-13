@@ -139,6 +139,8 @@ classdef EventTimelineWidget < DashboardWidget
             if ~isempty(obj.EventFcn)
                 s.source = struct('type', 'callback', ...
                     'function', func2str(obj.EventFcn));
+            elseif ~isempty(obj.Events)
+                s.source = struct('type', 'static', 'events', obj.Events);
             end
         end
     end
@@ -149,8 +151,12 @@ classdef EventTimelineWidget < DashboardWidget
             obj.Title = s.title;
             obj.Position = [s.position.col, s.position.row, ...
                             s.position.width, s.position.height];
-            if isfield(s, 'source') && strcmp(s.source.type, 'callback')
-                obj.EventFcn = str2func(s.source.function);
+            if isfield(s, 'source')
+                if strcmp(s.source.type, 'callback')
+                    obj.EventFcn = str2func(s.source.function);
+                elseif strcmp(s.source.type, 'static') && isfield(s.source, 'events')
+                    obj.Events = s.source.events;
+                end
             end
         end
     end
