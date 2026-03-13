@@ -45,6 +45,12 @@ classdef DashboardBuilder < handle
         % Layout constants (normalized figure coords)
         PaletteWidth    = 0.12
         PropsWidth      = 0.18
+
+    end
+
+    properties (Access = public)
+        % Test support: when non-empty, overrides figure CurrentPoint
+        MockCurrentPoint = []
     end
 
     methods (Access = public)
@@ -54,10 +60,15 @@ classdef DashboardBuilder < handle
 
         function enterEditMode(obj)
             if obj.IsActive, return; end
-            obj.IsActive = true;
-            obj.SelectedIdx = 0;
 
             eng = obj.Engine;
+            if isempty(eng.hFigure) || ~ishandle(eng.hFigure)
+                error('DashboardBuilder:noFigure', ...
+                    'Dashboard must be rendered before entering edit mode.');
+            end
+
+            obj.IsActive = true;
+            obj.SelectedIdx = 0;
             eng.stopLive();
 
             hFig = eng.hFigure;
@@ -84,10 +95,6 @@ classdef DashboardBuilder < handle
             obj.SelectedIdx = 0;
             obj.DragMode = '';
 
-            hFig = obj.Engine.hFigure;
-            set(hFig, 'WindowButtonMotionFcn', '');
-            set(hFig, 'WindowButtonUpFcn', '');
-
             obj.clearOverlays();
 
             % Delete sidebars
@@ -96,9 +103,17 @@ classdef DashboardBuilder < handle
             safeDelete(obj.hPropsPanel);
             obj.hPropsPanel = [];
 
+            hFig = obj.Engine.hFigure;
+            if isempty(hFig) || ~ishandle(hFig)
+                return;
+            end
+
+            set(hFig, 'WindowButtonMotionFcn', '');
+            set(hFig, 'WindowButtonUpFcn', '');
+
             % Restore full content area and re-render
             theme = DashboardTheme(obj.Engine.Theme);
-            obj.Engine.Layout.ContentArea = obj.Engine.Toolbar.getContentArea();
+            obj.Engine.setContentArea(obj.Engine.Toolbar.getContentArea());
             obj.relayoutWidgets(theme);
         end
     end
@@ -126,7 +141,8 @@ classdef DashboardBuilder < handle
         function addWidget(obj, type)
             eng = obj.Engine;
             pos = obj.findNextSlot(type);
-            eng.addWidget(type, 'Title', type, 'Position', pos);
+            defaultTitle = obj.defaultTitleForType(type);
+            eng.addWidget(type, 'Title', defaultTitle, 'Position', pos);
 
             theme = DashboardTheme(eng.Theme);
             obj.relayoutWidgets(theme);
@@ -141,7 +157,6 @@ classdef DashboardBuilder < handle
 
             if obj.SelectedIdx == idx
                 obj.SelectedIdx = 0;
-                obj.updatePropertiesDisplay();
             elseif obj.SelectedIdx > idx
                 obj.SelectedIdx = obj.SelectedIdx - 1;
             end
@@ -150,6 +165,12 @@ classdef DashboardBuilder < handle
             obj.relayoutWidgets(theme);
             obj.clearOverlays();
             obj.createOverlays(theme);
+
+            if obj.SelectedIdx > 0
+                obj.selectWidget(obj.SelectedIdx);
+            else
+                obj.updatePropertiesDisplay();
+            end
         end
 
         function deleteSelected(obj)
@@ -181,6 +202,7 @@ classdef DashboardBuilder < handle
             obj.relayoutWidgets(theme);
             obj.clearOverlays();
             obj.createOverlays(theme);
+            obj.selectWidget(obj.SelectedIdx);
         end
 
         function pos = findNextSlot(obj, type)
@@ -211,6 +233,17 @@ classdef DashboardBuilder < handle
     end
 
     methods (Access = private)
+        function cp = getMousePosition(obj)
+        %GETMOUSEPOSITION Return current mouse position.
+        %   Uses MockCurrentPoint when set (for testing), otherwise
+        %   reads from the figure's CurrentPoint property.
+            if ~isempty(obj.MockCurrentPoint)
+                cp = obj.MockCurrentPoint;
+            else
+                cp = get(obj.Engine.hFigure, 'CurrentPoint');
+            end
+        end
+
         function createPalette(obj, hFig, theme)
             toolbarH = obj.Engine.Toolbar.Height;
             obj.hPalette = uipanel('Parent', hFig, ...
@@ -382,7 +415,7 @@ classdef DashboardBuilder < handle
             else
                 contentArea = [0, 0, 1, 1 - toolbarH];
             end
-            obj.Engine.Layout.ContentArea = contentArea;
+            obj.Engine.setContentArea(contentArea);
 
             % Re-create all widget panels
             obj.Engine.Layout.createPanels(obj.Engine.hFigure, widgets, theme);
@@ -393,9 +426,13 @@ classdef DashboardBuilder < handle
             widgets = obj.Engine.Widgets;
             hFig = obj.Engine.hFigure;
 
+            % Pre-allocate so overlay indices match widget indices
+            obj.Overlays = cell(1, numel(widgets));
+
             for i = 1:numel(widgets)
                 w = widgets{i};
                 if isempty(w.hPanel) || ~ishandle(w.hPanel)
+                    obj.Overlays{i} = struct('hDragBar', [], 'hResize', []);
                     continue;
                 end
 
@@ -452,7 +489,7 @@ classdef DashboardBuilder < handle
                     'Enable', 'inactive', ...
                     'ButtonDownFcn', @(~,~) obj.onResizeStart(idx));
 
-                obj.Overlays{end+1} = ov;
+                obj.Overlays{i} = ov;
             end
         end
 
@@ -474,8 +511,7 @@ classdef DashboardBuilder < handle
             obj.DragOrigGrid = w.Position;
             obj.DragOrigNorm = get(w.hPanel, 'Position');
 
-            hFig = obj.Engine.hFigure;
-            obj.DragStart = get(hFig, 'CurrentPoint');
+            obj.DragStart = obj.getMousePosition();
             obj.selectWidget(widgetIdx);
         end
 
@@ -486,8 +522,7 @@ classdef DashboardBuilder < handle
             obj.DragOrigGrid = w.Position;
             obj.DragOrigNorm = get(w.hPanel, 'Position');
 
-            hFig = obj.Engine.hFigure;
-            obj.DragStart = get(hFig, 'CurrentPoint');
+            obj.DragStart = obj.getMousePosition();
             obj.selectWidget(widgetIdx);
         end
 
@@ -496,8 +531,7 @@ classdef DashboardBuilder < handle
                 return;
             end
 
-            hFig = obj.Engine.hFigure;
-            cp = get(hFig, 'CurrentPoint');
+            cp = obj.getMousePosition();
             dx = cp(1) - obj.DragStart(1);
             dy = cp(2) - obj.DragStart(2);
 
@@ -538,8 +572,7 @@ classdef DashboardBuilder < handle
                 return;
             end
 
-            hFig = obj.Engine.hFigure;
-            cp = get(hFig, 'CurrentPoint');
+            cp = obj.getMousePosition();
             dx = cp(1) - obj.DragStart(1);
             dy = cp(2) - obj.DragStart(2);
 
@@ -575,7 +608,15 @@ classdef DashboardBuilder < handle
                     newGrid = [origGrid(1), origGrid(2), newW, newH];
             end
 
-            obj.Engine.Widgets{obj.DragIdx}.Position = newGrid;
+            % Resolve overlaps with other widgets
+            existingPositions = {};
+            for i = 1:numel(obj.Engine.Widgets)
+                if i ~= obj.DragIdx
+                    existingPositions{end+1} = obj.Engine.Widgets{i}.Position;
+                end
+            end
+            newGrid = obj.Engine.Layout.resolveOverlap(newGrid, existingPositions);
+            obj.Engine.setWidgetPosition(obj.DragIdx, newGrid);
 
             % Snap to grid by re-laying out
             theme = DashboardTheme(obj.Engine.Theme);
@@ -622,6 +663,20 @@ classdef DashboardBuilder < handle
             % Show/hide property labels
             labels = findobj(obj.hPropsPanel, 'Tag', 'propLabel');
             set(labels, 'Visible', vis);
+        end
+
+        function t = defaultTitleForType(~, type)
+            switch type
+                case 'fastplot', t = 'New Plot';
+                case 'kpi',      t = 'New KPI';
+                case 'status',   t = 'New Status';
+                case 'text',     t = 'New Text';
+                case 'gauge',    t = 'New Gauge';
+                case 'table',    t = 'New Table';
+                case 'rawaxes',  t = 'New Axes';
+                case 'timeline', t = 'New Timeline';
+                otherwise,       t = 'New Widget';
+            end
         end
 
     end

@@ -62,29 +62,33 @@ classdef DashboardSerializer
 
         function widgets = configToWidgets(config)
             %CONFIGTOWIDGETS Create widget objects from config struct.
-            widgets = cell(1, numel(config.widgets));
+            widgets = {};
             for i = 1:numel(config.widgets)
                 ws = config.widgets{i};
+                w = [];
                 switch ws.type
                     case 'fastplot'
-                        widgets{i} = FastPlotWidget.fromStruct(ws);
+                        w = FastPlotWidget.fromStruct(ws);
                     case 'kpi'
-                        widgets{i} = KpiWidget.fromStruct(ws);
+                        w = KpiWidget.fromStruct(ws);
                     case 'status'
-                        widgets{i} = StatusWidget.fromStruct(ws);
+                        w = StatusWidget.fromStruct(ws);
                     case 'text'
-                        widgets{i} = TextWidget.fromStruct(ws);
+                        w = TextWidget.fromStruct(ws);
                     case 'gauge'
-                        widgets{i} = GaugeWidget.fromStruct(ws);
+                        w = GaugeWidget.fromStruct(ws);
                     case 'table'
-                        widgets{i} = TableWidget.fromStruct(ws);
+                        w = TableWidget.fromStruct(ws);
                     case 'rawaxes'
-                        widgets{i} = RawAxesWidget.fromStruct(ws);
+                        w = RawAxesWidget.fromStruct(ws);
                     case 'timeline'
-                        widgets{i} = EventTimelineWidget.fromStruct(ws);
+                        w = EventTimelineWidget.fromStruct(ws);
                     otherwise
                         warning('DashboardSerializer:unknownType', ...
                             'Unknown widget type: %s — skipping', ws.type);
+                end
+                if ~isempty(w)
+                    widgets{end+1} = w;
                 end
             end
         end

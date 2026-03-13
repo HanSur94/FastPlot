@@ -147,10 +147,12 @@ classdef StatusWidget < DashboardWidget
 
     methods (Access = private)
         function theme = getTheme(obj)
+            theme = DashboardTheme();
             if ~isempty(obj.ThemeOverride) && ~isempty(fieldnames(obj.ThemeOverride))
-                theme = obj.ThemeOverride;
-            else
-                theme = DashboardTheme();
+                fns = fieldnames(obj.ThemeOverride);
+                for i = 1:numel(fns)
+                    theme.(fns{i}) = obj.ThemeOverride.(fns{i});
+                end
             end
         end
     end
