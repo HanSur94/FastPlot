@@ -44,9 +44,23 @@ classdef DashboardEngine < handle
             switch type
                 case 'fastplot'
                     w = FastPlotWidget(varargin{:});
+                case 'kpi'
+                    w = KpiWidget(varargin{:});
+                case 'status'
+                    w = StatusWidget(varargin{:});
+                case 'text'
+                    w = TextWidget(varargin{:});
+                case 'gauge'
+                    w = GaugeWidget(varargin{:});
+                case 'table'
+                    w = TableWidget(varargin{:});
+                case 'rawaxes'
+                    w = RawAxesWidget(varargin{:});
+                case 'timeline'
+                    w = EventTimelineWidget(varargin{:});
                 otherwise
                     error('DashboardEngine:unknownType', ...
-                        'Unknown widget type: %s (Phase 2+ types not yet implemented)', type);
+                        'Unknown widget type: %s', type);
             end
 
             existingPositions = cell(1, numel(obj.Widgets));

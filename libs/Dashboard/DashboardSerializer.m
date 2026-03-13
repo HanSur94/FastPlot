@@ -68,9 +68,23 @@ classdef DashboardSerializer
                 switch ws.type
                     case 'fastplot'
                         widgets{i} = FastPlotWidget.fromStruct(ws);
+                    case 'kpi'
+                        widgets{i} = KpiWidget.fromStruct(ws);
+                    case 'status'
+                        widgets{i} = StatusWidget.fromStruct(ws);
+                    case 'text'
+                        widgets{i} = TextWidget.fromStruct(ws);
+                    case 'gauge'
+                        widgets{i} = GaugeWidget.fromStruct(ws);
+                    case 'table'
+                        widgets{i} = TableWidget.fromStruct(ws);
+                    case 'rawaxes'
+                        widgets{i} = RawAxesWidget.fromStruct(ws);
+                    case 'timeline'
+                        widgets{i} = EventTimelineWidget.fromStruct(ws);
                     otherwise
-                        error('DashboardSerializer:unknownType', ...
-                            'Unknown widget type: %s', ws.type);
+                        warning('DashboardSerializer:unknownType', ...
+                            'Unknown widget type: %s — skipping', ws.type);
                 end
             end
         end
@@ -116,6 +130,51 @@ classdef DashboardSerializer
                         else
                             lines{end+1} = sprintf('d.addWidget(''fastplot'', ''Title'', ''%s'', ''Position'', %s);', ws.title, pos);
                         end
+                    case 'kpi'
+                        line = sprintf('d.addWidget(''kpi'', ''Title'', ''%s'', ''Position'', %s', ws.title, pos);
+                        if isfield(ws, 'units') && ~isempty(ws.units)
+                            line = [line, sprintf(', ...\n    ''Units'', ''%s''', ws.units)];
+                        end
+                        if isfield(ws, 'source') && isfield(ws.source, 'type')
+                            if strcmp(ws.source.type, 'callback')
+                                line = [line, sprintf(', ...\n    ''ValueFcn'', @%s', ws.source.function)];
+                            elseif strcmp(ws.source.type, 'static')
+                                line = [line, sprintf(', ...\n    ''StaticValue'', %g', ws.source.value)];
+                            end
+                        end
+                        lines{end+1} = [line, ');'];
+                    case 'status'
+                        line = sprintf('d.addWidget(''status'', ''Title'', ''%s'', ''Position'', %s', ws.title, pos);
+                        if isfield(ws, 'source') && isfield(ws.source, 'type')
+                            if strcmp(ws.source.type, 'callback')
+                                line = [line, sprintf(', ...\n    ''StatusFcn'', @%s', ws.source.function)];
+                            elseif strcmp(ws.source.type, 'static')
+                                line = [line, sprintf(', ...\n    ''StaticStatus'', ''%s''', ws.source.value)];
+                            end
+                        end
+                        lines{end+1} = [line, ');'];
+                    case 'text'
+                        line = sprintf('d.addWidget(''text'', ''Title'', ''%s'', ''Position'', %s', ws.title, pos);
+                        if isfield(ws, 'content') && ~isempty(ws.content)
+                            line = [line, sprintf(', ...\n    ''Content'', ''%s''', ws.content)];
+                        end
+                        lines{end+1} = [line, ');'];
+                    case 'gauge'
+                        line = sprintf('d.addWidget(''gauge'', ''Title'', ''%s'', ''Position'', %s', ws.title, pos);
+                        if isfield(ws, 'range')
+                            line = [line, sprintf(', ...\n    ''Range'', [%g %g]', ws.range(1), ws.range(2))];
+                        end
+                        if isfield(ws, 'units') && ~isempty(ws.units)
+                            line = [line, sprintf(', ...\n    ''Units'', ''%s''', ws.units)];
+                        end
+                        if isfield(ws, 'source') && isfield(ws.source, 'type')
+                            if strcmp(ws.source.type, 'callback')
+                                line = [line, sprintf(', ...\n    ''ValueFcn'', @%s', ws.source.function)];
+                            elseif strcmp(ws.source.type, 'static')
+                                line = [line, sprintf(', ...\n    ''StaticValue'', %g', ws.source.value)];
+                            end
+                        end
+                        lines{end+1} = [line, ');'];
                     otherwise
                         lines{end+1} = sprintf('d.addWidget(''%s'', ''Title'', ''%s'', ''Position'', %s);', ws.type, ws.title, pos);
                 end
