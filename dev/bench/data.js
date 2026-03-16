@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773697298205,
+  "lastUpdate": 1773697800097,
   "repoUrl": "https://github.com/HanSur94/FastPlot",
   "entries": {
     "FastPlot Performance": [
@@ -38,6 +38,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Zoom Cycle (1M pts)",
             "value": 28.96,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sannahrush@googlemail.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "sannahrush@googlemail.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "distinct": true,
+          "id": "1102c04f7ba1ee0b119e44bf640633218494e995",
+          "message": "fix: Octave test compatibility — replace contains(), fix Abstract classdef\n\n- Replace contains() with strfind() in 6 Octave test files\n- Remove (Abstract) attribute from DataSource.m (unsupported in Octave)\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-03-16T22:47:12+01:00",
+          "tree_id": "cfcf2dcfadc30cb060b9ea03159ee47a3a7a7022",
+          "url": "https://github.com/HanSur94/FastPlot/commit/1102c04f7ba1ee0b119e44bf640633218494e995"
+        },
+        "date": 1773697799162,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample (1M pts)",
+            "value": 2.08,
+            "unit": "ms"
+          },
+          {
+            "name": "Binary Search",
+            "value": 101.84,
+            "unit": "us"
+          },
+          {
+            "name": "Zoom Cycle (1M pts)",
+            "value": 27.03,
             "unit": "ms"
           }
         ]
