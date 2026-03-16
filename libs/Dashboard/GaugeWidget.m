@@ -66,6 +66,7 @@ classdef GaugeWidget < DashboardWidget
 
         function refresh(obj)
             if ~isempty(obj.SensorObj)
+                if isempty(obj.SensorObj.Y), return; end
                 obj.CurrentValue = obj.SensorObj.Y(end);
                 if isempty(obj.Units) && ~isempty(obj.SensorObj.Units)
                     obj.Units = obj.SensorObj.Units;
@@ -423,7 +424,11 @@ classdef GaugeWidget < DashboardWidget
             theme = obj.getTheme();
             val = obj.CurrentValue;
             rng = obj.Range;
-            frac = max(0, min(1, (val - rng(1)) / (rng(2) - rng(1))));
+            if rng(2) == rng(1)
+                frac = 0.5;
+            else
+                frac = max(0, min(1, (val - rng(1)) / (rng(2) - rng(1))));
+            end
             arcColor = obj.getValueColor(frac, theme);
 
             % Update value text

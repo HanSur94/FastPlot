@@ -190,7 +190,7 @@ classdef FastPlotWidget < DashboardWidget
             if ~isempty(obj.YLabel), s.yLabel = obj.YLabel; end
 
             if ~isempty(obj.SensorObj)
-                s.source = struct('type', 'sensor', 'name', obj.SensorObj.Key);
+                % base class handles sensor source
                 s.thresholds = obj.Thresholds;
             elseif ~isempty(obj.File)
                 s.source = struct('type', 'file', 'path', obj.File, ...

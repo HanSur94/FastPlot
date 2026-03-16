@@ -85,6 +85,7 @@ classdef StatusWidget < DashboardWidget
             theme = obj.getTheme();
 
             if ~isempty(obj.SensorObj)
+                if isempty(obj.SensorObj.Y), return; end
                 [obj.CurrentStatus, obj.CurrentColor] = obj.deriveStatusFromSensor(theme);
             elseif ~isempty(obj.StatusFcn)
                 obj.CurrentStatus = obj.StatusFcn();
@@ -163,6 +164,8 @@ classdef StatusWidget < DashboardWidget
         function [status, color] = deriveStatusFromSensor(obj, theme)
             status = 'ok';
             color = theme.StatusOkColor;
+
+            if isempty(obj.SensorObj.Y), return; end
 
             if isempty(obj.SensorObj.ThresholdRules)
                 return;

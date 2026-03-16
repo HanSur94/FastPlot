@@ -146,6 +146,19 @@ classdef DashboardSerializer
                         else
                             lines{end+1} = sprintf('d.addWidget(''fastplot'', ''Title'', ''%s'', ''Position'', %s);', ws.title, pos);
                         end
+                    case 'number'
+                        line = sprintf('d.addWidget(''number'', ''Title'', ''%s'', ''Position'', %s', ws.title, pos);
+                        if isfield(ws, 'units') && ~isempty(ws.units)
+                            line = [line, sprintf(', ...\n    ''Units'', ''%s''', ws.units)];
+                        end
+                        if isfield(ws, 'source') && isfield(ws.source, 'type')
+                            if strcmp(ws.source.type, 'callback')
+                                line = [line, sprintf(', ...\n    ''ValueFcn'', @%s', ws.source.function)];
+                            elseif strcmp(ws.source.type, 'static')
+                                line = [line, sprintf(', ...\n    ''StaticValue'', %g', ws.source.value)];
+                            end
+                        end
+                        lines{end+1} = [line, ');'];
                     case 'kpi'
                         line = sprintf('d.addWidget(''kpi'', ''Title'', ''%s'', ''Position'', %s', ws.title, pos);
                         if isfield(ws, 'units') && ~isempty(ws.units)

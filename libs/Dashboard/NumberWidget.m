@@ -113,6 +113,7 @@ classdef NumberWidget < DashboardWidget
 
         function refresh(obj)
             if ~isempty(obj.SensorObj)
+                if isempty(obj.SensorObj.Y), return; end
                 obj.CurrentValue = obj.SensorObj.Y(end);
                 if isempty(obj.Units) && ~isempty(obj.SensorObj.Units)
                     obj.Units = obj.SensorObj.Units;
