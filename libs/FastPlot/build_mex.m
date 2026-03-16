@@ -152,6 +152,14 @@ function build_mex()
         extra_srcs  = mex_files{i, 3};  extra_srcs  = extra_srcs{1};
         extra_flags = mex_files{i, 4};  extra_flags = extra_flags{1};
 
+        % Skip if MEX binary already exists (e.g., from CI cache)
+        if exist(fullfile(outDir, [out_name, '.', mexext()]), 'file') == 3 || ...
+           exist(fullfile(outDir, [out_name, '.mex']), 'file') == 3
+            fprintf('Compiling %s ... SKIPPED (already exists)\n', mex_files{i, 1});
+            n_success = n_success + 1;
+            continue;
+        end
+
         fprintf('Compiling %s ... ', mex_files{i, 1});
 
         try
@@ -189,6 +197,11 @@ function build_mex()
     end
 
     % Compile mksqlite with bundled SQLite3 amalgamation
+    if exist(fullfile(rootDir, ['mksqlite.', mexext()]), 'file') == 3 || ...
+       exist(fullfile(rootDir, 'mksqlite.mex'), 'file') == 3
+        fprintf('Compiling mksqlite.c ... SKIPPED (already exists)\n');
+        n_success = n_success + 1;
+    else
     fprintf('Compiling mksqlite.c ... ');
     try
         compile_mex(mksqlite_src, 'mksqlite', rootDir, include_flag, ...
@@ -200,6 +213,7 @@ function build_mex()
         fprintf('  Error: %s\n', e.message);
         fprintf('  (DataStore will use binary file fallback)\n');
         n_fail = n_fail + 1;
+    end
     end
 
     total = size(mex_files, 1) + 1;
