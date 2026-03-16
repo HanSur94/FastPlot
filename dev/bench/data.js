@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773698350211,
+  "lastUpdate": 1773698910706,
   "repoUrl": "https://github.com/HanSur94/FastPlot",
   "entries": {
     "FastPlot Performance": [
@@ -116,6 +116,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Zoom Cycle (1M pts)",
             "value": 25.45,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sannahrush@googlemail.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "sannahrush@googlemail.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "distinct": true,
+          "id": "e3f40e8a1f3f5228c6ae36626b2ce4110739bd01",
+          "message": "fix: write test results incrementally to survive Octave cleanup crash\n\nrun_all_tests.m now writes passed/failed counts to a file after each\ntest (when FASTPLOT_RESULTS_FILE is set). The CI shell checks this\nfile even if Octave crashes during handle class garbage collection.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-03-16T23:06:13+01:00",
+          "tree_id": "d80bb396f7bbb697168cc3f700097369dd59add4",
+          "url": "https://github.com/HanSur94/FastPlot/commit/e3f40e8a1f3f5228c6ae36626b2ce4110739bd01"
+        },
+        "date": 1773698910222,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample (1M pts)",
+            "value": 3.74,
+            "unit": "ms"
+          },
+          {
+            "name": "Binary Search",
+            "value": 115.74,
+            "unit": "us"
+          },
+          {
+            "name": "Zoom Cycle (1M pts)",
+            "value": 20.03,
             "unit": "ms"
           }
         ]
