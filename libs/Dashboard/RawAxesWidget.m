@@ -20,11 +20,6 @@ classdef RawAxesWidget < DashboardWidget
 
     methods
         function obj = RawAxesWidget(varargin)
-            for k = 1:2:numel(varargin)
-                if strcmp(varargin{k}, 'Sensor')
-                    varargin{k} = 'SensorObj';
-                end
-            end
             obj = obj@DashboardWidget(varargin{:});
             if isequal(obj.Position, [1 1 6 2])
                 obj.Position = [1 1 8 2];
@@ -85,9 +80,9 @@ classdef RawAxesWidget < DashboardWidget
 
         function [tMin, tMax] = getTimeRange(obj)
             tMin = inf; tMax = -inf;
-            if ~isempty(obj.SensorObj) && ~isempty(obj.SensorObj.X)
-                tMin = min(obj.SensorObj.X);
-                tMax = max(obj.SensorObj.X);
+            if ~isempty(obj.Sensor) && ~isempty(obj.Sensor.X)
+                tMin = min(obj.Sensor.X);
+                tMax = max(obj.Sensor.X);
             elseif ~isempty(obj.DataRangeFcn)
                 r = obj.DataRangeFcn();
                 tMin = r(1); tMax = r(2);
@@ -103,8 +98,8 @@ classdef RawAxesWidget < DashboardWidget
 
         function s = toStruct(obj)
             s = toStruct@DashboardWidget(obj);
-            if ~isempty(obj.SensorObj)
-                s.source = struct('type', 'sensor', 'name', obj.SensorObj.Key);
+            if ~isempty(obj.Sensor)
+                s.source = struct('type', 'sensor', 'name', obj.Sensor.Key);
             elseif ~isempty(obj.PlotFcn)
                 s.source = struct('type', 'callback', ...
                     'function', func2str(obj.PlotFcn));
@@ -125,7 +120,7 @@ classdef RawAxesWidget < DashboardWidget
                 switch s.source.type
                     case 'sensor'
                         if exist('SensorRegistry', 'class')
-                            obj.SensorObj = SensorRegistry.get(s.source.name);
+                            obj.Sensor = SensorRegistry.get(s.source.name);
                         end
                     case 'callback'
                         obj.PlotFcn = str2func(s.source.function);
@@ -138,11 +133,11 @@ classdef RawAxesWidget < DashboardWidget
         function callPlotFcn(obj)
             if isempty(obj.PlotFcn), return; end
             nArgs = nargin(obj.PlotFcn);
-            if ~isempty(obj.SensorObj)
+            if ~isempty(obj.Sensor)
                 if ~isempty(obj.TimeRange) && nArgs >= 3
-                    obj.PlotFcn(obj.hAxes, obj.SensorObj, obj.TimeRange);
+                    obj.PlotFcn(obj.hAxes, obj.Sensor, obj.TimeRange);
                 elseif nArgs >= 2
-                    obj.PlotFcn(obj.hAxes, obj.SensorObj);
+                    obj.PlotFcn(obj.hAxes, obj.Sensor);
                 else
                     obj.PlotFcn(obj.hAxes);
                 end

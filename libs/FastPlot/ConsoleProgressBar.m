@@ -40,7 +40,7 @@ classdef ConsoleProgressBar < handle
 %     end
 %     pb.freeze();   % becomes permanent line
 %
-%   See also FastPlot, FastPlotFigure, FastPlotDock.
+%   See also FastPlot, FastPlotGrid, FastPlotDock.
 
     properties (Access = private)
         Label    = ''

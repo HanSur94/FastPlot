@@ -639,7 +639,7 @@ classdef EventViewer < handle
             minWidth = 1 / 1440;
 
             % --- Dashboard: 2 rows, 1 column (light theme) ---
-            dashboard = FastPlotFigure(2, 1, 'Theme', 'light', ...
+            dashboard = FastPlotGrid(2, 1, 'Theme', 'light', ...
                 'Name', sprintf('Event: %s — %s', ev.SensorName, ev.ThresholdLabel));
 
             % Get selected event's threshold color
@@ -672,14 +672,14 @@ classdef EventViewer < handle
 
             % Titles and labels (buffered — applied automatically during render)
             durationStr = obj.formatDuration(ev.Duration);
-            dashboard.tileTitle(1, sprintf('Event Detail — %s [%s]  (Peak: %.2f, Duration: %s)', ...
+            dashboard.setTileTitle(1, sprintf('Event Detail — %s [%s]  (Peak: %.2f, Duration: %s)', ...
                 ev.SensorName, ev.ThresholdLabel, ev.PeakValue, durationStr));
-            dashboard.tileTitle(2, sprintf('Full Timeline — %s  (%d events)', ...
+            dashboard.setTileTitle(2, sprintf('Full Timeline — %s  (%d events)', ...
                 ev.SensorName, numel(sensorEvents)));
-            dashboard.tileXLabel(1, 'Time');
-            dashboard.tileYLabel(1, ev.SensorName);
-            dashboard.tileXLabel(2, 'Time');
-            dashboard.tileYLabel(2, ev.SensorName);
+            dashboard.setTileXLabel(1, 'Time');
+            dashboard.setTileYLabel(1, ev.SensorName);
+            dashboard.setTileXLabel(2, 'Time');
+            dashboard.setTileYLabel(2, ev.SensorName);
 
             dashboard.render();
 

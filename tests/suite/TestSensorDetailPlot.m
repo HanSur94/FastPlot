@@ -133,8 +133,8 @@ classdef TestSensorDetailPlot < matlab.unittest.TestCase
             s = testCase.TestData.sensor;
 
             % Create mock events
-            ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
-            ev2 = Event(50, 55, 'test_pressure', 'HH Alarm', 70, 'high');
+            ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'upper');
+            ev2 = Event(50, 55, 'test_pressure', 'HH Alarm', 70, 'upper');
 
             sdp = SensorDetailPlot(s, 'Events', [ev1, ev2]);
             sdp.render();
@@ -157,7 +157,7 @@ classdef TestSensorDetailPlot < matlab.unittest.TestCase
         function testEventLinesInNavigator(testCase)
             s = testCase.TestData.sensor;
 
-            ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
+            ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'upper');
 
             sdp = SensorDetailPlot(s, 'Events', [ev1]);
             sdp.render();
@@ -184,8 +184,8 @@ classdef TestSensorDetailPlot < matlab.unittest.TestCase
             % Create EventStore and append events
             tmpFile = [tempname, '.mat'];
             store = EventStore(tmpFile);
-            ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
-            ev2 = Event(30, 35, 'other_sensor', 'H Warning', 65, 'high');
+            ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'upper');
+            ev2 = Event(30, 35, 'other_sensor', 'H Warning', 65, 'upper');
             store.append([ev1, ev2]);
 
             sdp = SensorDetailPlot(s, 'Events', store);
@@ -210,7 +210,7 @@ classdef TestSensorDetailPlot < matlab.unittest.TestCase
         %% Event color mapping
         function testEventColorHigh(testCase)
             s = testCase.TestData.sensor;
-            ev = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
+            ev = Event(20, 25, 'test_pressure', 'H Warning', 65, 'upper');
             sdp = SensorDetailPlot(s, 'Events', [ev]);
             sdp.render();
 
@@ -218,7 +218,7 @@ classdef TestSensorDetailPlot < matlab.unittest.TestCase
             foundPatch = false;
             for i = 1:numel(patches)
                 ud = get(patches(i), 'UserData');
-                if isstruct(ud) && isfield(ud, 'Direction') && strcmp(ud.Direction, 'high')
+                if isstruct(ud) && isfield(ud, 'Direction') && strcmp(ud.Direction, 'upper')
                     fc = get(patches(i), 'FaceColor');
                     % Should be orange-ish [1 0.6 0.2]
                     testCase.verifyGreaterThan(fc(1), 0.5);  % red channel high
@@ -226,13 +226,13 @@ classdef TestSensorDetailPlot < matlab.unittest.TestCase
                     break;
                 end
             end
-            testCase.verifyTrue(foundPatch, 'No event patch found with Direction=high');
+            testCase.verifyTrue(foundPatch, 'No event patch found with Direction=upper');
             delete(sdp);
         end
 
         function testEventColorEscalated(testCase)
             s = testCase.TestData.sensor;
-            ev = Event(20, 25, 'test_pressure', 'HH Alarm', 70, 'high');
+            ev = Event(20, 25, 'test_pressure', 'HH Alarm', 70, 'upper');
             sdp = SensorDetailPlot(s, 'Events', [ev]);
             sdp.render();
 
@@ -257,10 +257,10 @@ classdef TestSensorDetailPlot < matlab.unittest.TestCase
         %% UserData completeness
         function testEventPatchUserdataFields(testCase)
             s = testCase.TestData.sensor;
-            ev = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
-            % Event is a value class with private setters -- use setStats()
+            ev = Event(20, 25, 'test_pressure', 'H Warning', 65, 'upper');
+            % Event is a handle class with private setters -- use setStats()
             % setStats(peak, numPoints, min, max, mean, rms, std)
-            ev = ev.setStats(67, 50, 64, 67, 66, 66.1, 0.8);
+            ev.setStats(67, 50, 64, 67, 66, 66.1, 0.8);
 
             sdp = SensorDetailPlot(s, 'Events', [ev]);
             sdp.render();
@@ -285,25 +285,25 @@ classdef TestSensorDetailPlot < matlab.unittest.TestCase
             delete(sdp);
         end
 
-        %% FastPlotFigure tilePanel integration
+        %% FastPlotGrid tilePanel integration
         function testTilePanelReturnsUipanel(testCase)
-            fig = FastPlotFigure(2, 1);
+            fig = FastPlotGrid(2, 1);
             hp = fig.tilePanel(1);
             testCase.verifyTrue(isa(hp, 'matlab.ui.container.Panel'));
             delete(fig);
         end
 
         function testTilePanelConflictWithTile(testCase)
-            fig = FastPlotFigure(2, 1);
+            fig = FastPlotGrid(2, 1);
             fig.tile(1);  % Occupy tile 1 as FastPlot
-            testCase.verifyError(@() fig.tilePanel(1), 'FastPlotFigure:tileConflict');
+            testCase.verifyError(@() fig.tilePanel(1), 'FastPlotGrid:tileConflict');
             delete(fig);
         end
 
-        %% Embedded in FastPlotFigure
+        %% Embedded in FastPlotGrid
         function testEmbeddedInFigureTile(testCase)
             s = testCase.TestData.sensor;
-            fig = FastPlotFigure(1, 1);
+            fig = FastPlotGrid(1, 1);
             hp = fig.tilePanel(1);
             sdp = SensorDetailPlot(s, 'Parent', hp);
             sdp.render();

@@ -2,7 +2,8 @@
 % Demonstrates the interactive toolbar: data cursor, crosshair,
 % grid toggle, legend toggle, autoscale Y, and PNG export.
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 n = 1e6;
 x = linspace(0, 100, n);
@@ -24,15 +25,15 @@ fprintf('Rendered with toolbar in %.3f seconds.\n', toc);
 fprintf('Try: Data Cursor (click), Crosshair (hover), Grid, Legend, Autoscale Y, Export PNG\n');
 
 %% Dashboard with toolbar
-fig = FastPlotFigure(1, 2, 'Theme', 'industrial');
+fig = FastPlotGrid(1, 2, 'Theme', 'industrial');
 fp1 = fig.tile(1);
 fp1.addLine(x, y1, 'DisplayName', 'Pressure');
 fp1.addThreshold(1.0, 'Direction', 'upper', 'ShowViolations', true);
 fp2 = fig.tile(2);
 fp2.addLine(x, y2, 'DisplayName', 'Temperature');
 fig.renderAll();
-fig.tileTitle(1, 'Pressure');
-fig.tileTitle(2, 'Temperature');
+fig.setTileTitle(1, 'Pressure');
+fig.setTileTitle(2, 'Temperature');
 
 tb2 = FastPlotToolbar(fig);
 fprintf('Dashboard with toolbar ready.\n');

@@ -12,7 +12,8 @@
 %   Tab 4: Power Generation       — 2x2, 4 tiles, 8 sensors   (~24M pts)
 %   Tab 5: Environmental          — 1x3, 3 tiles, 5 sensors   (~11M pts)
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 wState = warning('off', 'all');
 restoreWarn = onCleanup(@() warning(wState));
@@ -34,7 +35,7 @@ tdn1 = datenum(t1);
 % Tab 1: Turbine Monitoring (2x2) — ~28M points
 % =========================================================================
 fprintf('Tab 1: Turbine Monitoring...\n');
-fig1 = FastPlotFigure(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
+fig1 = FastPlotGrid(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
 
 % Turbine operates in 3 modes over the shift
 scTurbine = StateChannel('turbine');
@@ -66,8 +67,8 @@ s1b.toDisk();
 fp = fig1.tile(1);
 fp.addSensor(s1a, 'ShowThresholds', true);
 fp.addSensor(s1b, 'ShowThresholds', true);
-fig1.tileTitle(1, 'Exhaust Gas Temperature (10M pts)');
-fig1.tileYLabel(1, 'Temp (°C)');
+fig1.setTileTitle(1, 'Exhaust Gas Temperature (10M pts)');
+fig1.setTileYLabel(1, 'Temp (°C)');
 
 % --- Tile 2: Bearing Vibration (2 sensors, 8M pts) ---
 n = 8e6;
@@ -96,8 +97,8 @@ s2b.toDisk();
 fp = fig1.tile(2);
 fp.addSensor(s2a, 'ShowThresholds', true);
 fp.addSensor(s2b, 'ShowThresholds', true);
-fig1.tileTitle(2, 'Bearing Vibration (8M pts)');
-fig1.tileYLabel(2, 'Velocity (mm/s)');
+fig1.setTileTitle(2, 'Bearing Vibration (8M pts)');
+fig1.setTileYLabel(2, 'Velocity (mm/s)');
 
 % --- Tile 3: Lube Oil (3 sensors, 5M pts) ---
 n = 5e6;
@@ -131,8 +132,8 @@ fp = fig1.tile(3);
 fp.addSensor(s3a, 'ShowThresholds', true);
 fp.addSensor(s3b, 'ShowThresholds', true);
 fp.addSensor(s3c, 'ShowThresholds', true);
-fig1.tileTitle(3, 'Lube Oil System (5M pts)');
-fig1.tileYLabel(3, 'Mixed Units');
+fig1.setTileTitle(3, 'Lube Oil System (5M pts)');
+fig1.setTileYLabel(3, 'Mixed Units');
 
 % --- Tile 4: Speed / Power (1 sensor, 5M pts) ---
 n = 5e6;
@@ -152,8 +153,8 @@ s4a.toDisk();
 
 fp = fig1.tile(4);
 fp.addSensor(s4a, 'ShowThresholds', true);
-fig1.tileTitle(4, 'Shaft Speed (5M pts)');
-fig1.tileYLabel(4, 'RPM');
+fig1.setTileTitle(4, 'Shaft Speed (5M pts)');
+fig1.setTileYLabel(4, 'RPM');
 
 dock.addTab(fig1, 'Turbine');
 
@@ -161,7 +162,7 @@ dock.addTab(fig1, 'Turbine');
 % Tab 2: Chemical Process (2x2) — ~22M points
 % =========================================================================
 fprintf('Tab 2: Chemical Process...\n');
-fig2 = FastPlotFigure(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
+fig2 = FastPlotGrid(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
 
 % Reactor modes: batch phases
 scReactor = StateChannel('phase');
@@ -195,8 +196,8 @@ s5b.toDisk();
 fp = fig2.tile(1);
 fp.addSensor(s5a, 'ShowThresholds', true);
 fp.addSensor(s5b, 'ShowThresholds', true);
-fig2.tileTitle(1, 'Reactor Temperature (8M pts)');
-fig2.tileYLabel(1, 'Temp (°C)');
+fig2.setTileTitle(1, 'Reactor Temperature (8M pts)');
+fig2.setTileYLabel(1, 'Temp (°C)');
 
 % --- Tile 2: Reactor Pressure (2 sensors, 5M pts) ---
 n = 5e6;
@@ -222,8 +223,8 @@ s6b.toDisk();
 fp = fig2.tile(2);
 fp.addSensor(s6a, 'ShowThresholds', true);
 fp.addSensor(s6b, 'ShowThresholds', true);
-fig2.tileTitle(2, 'Reactor Pressure (5M pts)');
-fig2.tileYLabel(2, 'bar / bar');
+fig2.setTileTitle(2, 'Reactor Pressure (5M pts)');
+fig2.setTileYLabel(2, 'bar / bar');
 
 % --- Tile 3: pH + Conductivity (2 sensors, 5M pts) ---
 n = 5e6;
@@ -249,8 +250,8 @@ s7b.toDisk();
 fp = fig2.tile(3);
 fp.addSensor(s7a, 'ShowThresholds', true);
 fp.addSensor(s7b, 'ShowThresholds', true);
-fig2.tileTitle(3, 'pH & Conductivity (5M pts)');
-fig2.tileYLabel(3, 'pH / µS/cm');
+fig2.setTileTitle(3, 'pH & Conductivity (5M pts)');
+fig2.setTileYLabel(3, 'pH / µS/cm');
 
 % --- Tile 4: Agitator (2 sensors, 4M pts) ---
 n = 4e6;
@@ -276,8 +277,8 @@ s8b.toDisk();
 fp = fig2.tile(4);
 fp.addSensor(s8a, 'ShowThresholds', true);
 fp.addSensor(s8b, 'ShowThresholds', true);
-fig2.tileTitle(4, 'Agitator (4M pts)');
-fig2.tileYLabel(4, 'RPM / N·m');
+fig2.setTileTitle(4, 'Agitator (4M pts)');
+fig2.setTileYLabel(4, 'RPM / N·m');
 
 dock.addTab(fig2, 'Chemical');
 
@@ -285,7 +286,7 @@ dock.addTab(fig2, 'Chemical');
 % Tab 3: Compressor Station (1x3) — ~18M points
 % =========================================================================
 fprintf('Tab 3: Compressor Station...\n');
-fig3 = FastPlotFigure(1, 3, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
+fig3 = FastPlotGrid(1, 3, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
 
 % Compressor modes
 scComp = StateChannel('stage');
@@ -327,8 +328,8 @@ fp = fig3.tile(1);
 fp.addSensor(s9a, 'ShowThresholds', true);
 fp.addSensor(s9b, 'ShowThresholds', true);
 fp.addSensor(s9c, 'ShowThresholds', true);
-fig3.tileTitle(1, 'Pressures (8M pts)');
-fig3.tileYLabel(1, 'bar');
+fig3.setTileTitle(1, 'Pressures (8M pts)');
+fig3.setTileYLabel(1, 'bar');
 
 % --- Tile 2: Temperatures (2 sensors, 5M pts) ---
 n = 5e6;
@@ -354,8 +355,8 @@ s10b.toDisk();
 fp = fig3.tile(2);
 fp.addSensor(s10a, 'ShowThresholds', true);
 fp.addSensor(s10b, 'ShowThresholds', true);
-fig3.tileTitle(2, 'Temperatures (5M pts)');
-fig3.tileYLabel(2, 'Temp (°C)');
+fig3.setTileTitle(2, 'Temperatures (5M pts)');
+fig3.setTileYLabel(2, 'Temp (°C)');
 
 % --- Tile 3: Anti-Surge (1 sensor, 5M pts) ---
 n = 5e6;
@@ -376,8 +377,8 @@ s11a.toDisk();
 
 fp = fig3.tile(3);
 fp.addSensor(s11a, 'ShowThresholds', true);
-fig3.tileTitle(3, 'Surge Margin (5M pts)');
-fig3.tileYLabel(3, 'Margin (%)');
+fig3.setTileTitle(3, 'Surge Margin (5M pts)');
+fig3.setTileYLabel(3, 'Margin (%)');
 
 dock.addTab(fig3, 'Compressor');
 
@@ -385,7 +386,7 @@ dock.addTab(fig3, 'Compressor');
 % Tab 4: Power Generation (2x2) — ~24M points
 % =========================================================================
 fprintf('Tab 4: Power Generation...\n');
-fig4 = FastPlotFigure(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
+fig4 = FastPlotGrid(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
 
 % Generator modes
 scGen = StateChannel('gen');
@@ -412,8 +413,8 @@ for p = 1:3
     fp = fig4.tile(1);
     fp.addSensor(sV, 'ShowThresholds', true);
 end
-fig4.tileTitle(1, 'Three-Phase Voltage (9M pts)');
-fig4.tileYLabel(1, 'Voltage (V)');
+fig4.setTileTitle(1, 'Three-Phase Voltage (9M pts)');
+fig4.setTileYLabel(1, 'Voltage (V)');
 
 % --- Tile 2: Frequency + Power Factor (2 sensors, 5M pts) ---
 n = 5e6;
@@ -441,8 +442,8 @@ s13b.toDisk();
 fp = fig4.tile(2);
 fp.addSensor(s13a, 'ShowThresholds', true);
 fp.addSensor(s13b, 'ShowThresholds', true);
-fig4.tileTitle(2, 'Frequency & PF (5M pts)');
-fig4.tileYLabel(2, 'Hz / PF');
+fig4.setTileTitle(2, 'Frequency & PF (5M pts)');
+fig4.setTileYLabel(2, 'Hz / PF');
 
 % --- Tile 3: Active Power (1 sensor, 5M pts) ---
 n = 5e6;
@@ -462,8 +463,8 @@ s14.toDisk();
 
 fp = fig4.tile(3);
 fp.addSensor(s14, 'ShowThresholds', true);
-fig4.tileTitle(3, 'Active Power (5M pts)');
-fig4.tileYLabel(3, 'MW');
+fig4.setTileTitle(3, 'Active Power (5M pts)');
+fig4.setTileYLabel(3, 'MW');
 
 % --- Tile 4: Stator + Rotor Temp (2 sensors, 5M pts) ---
 n = 5e6;
@@ -489,8 +490,8 @@ s15b.toDisk();
 fp = fig4.tile(4);
 fp.addSensor(s15a, 'ShowThresholds', true);
 fp.addSensor(s15b, 'ShowThresholds', true);
-fig4.tileTitle(4, 'Generator Temps (5M pts)');
-fig4.tileYLabel(4, 'Temp (°C)');
+fig4.setTileTitle(4, 'Generator Temps (5M pts)');
+fig4.setTileYLabel(4, 'Temp (°C)');
 
 dock.addTab(fig4, 'Power Gen');
 
@@ -498,7 +499,7 @@ dock.addTab(fig4, 'Power Gen');
 % Tab 5: Environmental (1x3) — ~11M points
 % =========================================================================
 fprintf('Tab 5: Environmental...\n');
-fig5 = FastPlotFigure(1, 3, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
+fig5 = FastPlotGrid(1, 3, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
 
 % HVAC modes
 scHvac = StateChannel('hvac');
@@ -531,8 +532,8 @@ s16b.toDisk();
 fp = fig5.tile(1);
 fp.addSensor(s16a, 'ShowThresholds', true);
 fp.addSensor(s16b, 'ShowThresholds', true);
-fig5.tileTitle(1, 'Air Quality (5M pts)');
-fig5.tileYLabel(1, 'ppm / µg/m³');
+fig5.setTileTitle(1, 'Air Quality (5M pts)');
+fig5.setTileYLabel(1, 'ppm / µg/m³');
 
 % --- Tile 2: Temperature & Humidity (2 sensors, 3M pts) ---
 n = 3e6;
@@ -560,8 +561,8 @@ s17b.toDisk();
 fp = fig5.tile(2);
 fp.addSensor(s17a, 'ShowThresholds', true);
 fp.addSensor(s17b, 'ShowThresholds', true);
-fig5.tileTitle(2, 'Temp & Humidity (3M pts)');
-fig5.tileYLabel(2, '°C / %RH');
+fig5.setTileTitle(2, 'Temp & Humidity (3M pts)');
+fig5.setTileYLabel(2, '°C / %RH');
 
 % --- Tile 3: Noise Level (1 sensor, 3M pts) ---
 n = 3e6;
@@ -582,8 +583,8 @@ s18.toDisk();
 
 fp = fig5.tile(3);
 fp.addSensor(s18, 'ShowThresholds', true);
-fig5.tileTitle(3, 'Noise Level (3M pts)');
-fig5.tileYLabel(3, 'dB(A)');
+fig5.setTileTitle(3, 'Noise Level (3M pts)');
+fig5.setTileYLabel(3, 'dB(A)');
 
 dock.addTab(fig5, 'Environmental');
 

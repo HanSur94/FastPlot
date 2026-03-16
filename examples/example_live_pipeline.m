@@ -33,7 +33,8 @@
 %     pipeline.start()    % begins 15s timer-driven cycles
 %     pipeline.stop()     % stops the timer
 
-setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 %% ========================================================================
 %  1. SENSORS WITH THRESHOLDS (upper + lower, multi-level)

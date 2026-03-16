@@ -97,7 +97,7 @@ classdef DashboardSerializer
                 if ~isempty(resolver) && ~isempty(widgets{i}) && ...
                         isfield(ws, 'source') && strcmp(ws.source.type, 'sensor')
                     try
-                        widgets{i}.SensorObj = resolver(ws.source.name);
+                        widgets{i}.Sensor = resolver(ws.source.name);
                     catch
                         warning('DashboardSerializer:sensorNotFound', ...
                             'Could not resolve sensor: %s', ws.source.name);

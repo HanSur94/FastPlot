@@ -15,11 +15,18 @@ classdef SensorRegistry
     %     get         — Retrieve a single Sensor by its string key
     %     getMultiple — Retrieve several Sensors at once (cell array input)
     %     list        — Print a formatted table of all available sensor keys
+    %     register    — Add a sensor to the catalog at runtime
+    %     unregister  — Remove a sensor from the catalog
     %
     %   Example:
     %     s = SensorRegistry.get('pressure');
     %     sensors = SensorRegistry.getMultiple({'pressure', 'temperature'});
     %     SensorRegistry.list();
+    %
+    %   Runtime registration:
+    %     s = Sensor('flow', 'Name', 'Gas Flow Rate');
+    %     SensorRegistry.register('flow', s);
+    %     SensorRegistry.unregister('flow');
     %
     %   See also Sensor, ThresholdRule, StateChannel.
 
@@ -87,6 +94,21 @@ classdef SensorRegistry
                 fprintf('    %-25s  %s\n', keys{i}, name);
             end
             fprintf('\n');
+        end
+
+        function register(key, sensor)
+            %REGISTER Add a sensor to the catalog at runtime.
+            %   SensorRegistry.register('myKey', sensorObj)
+            m = SensorRegistry.catalog();
+            m(key) = sensor;
+        end
+
+        function unregister(key)
+            %UNREGISTER Remove a sensor from the catalog.
+            m = SensorRegistry.catalog();
+            if m.isKey(key)
+                m.remove(key);
+            end
         end
 
         function printTable()

@@ -30,7 +30,7 @@ y2 = cos(x * 2*pi / 20) * 20 + 60 + 3 * randn(1, numel(x));
 y3 = sin(x * 2*pi / 8) * 15 + 30 + 4 * randn(1, numel(x));
 y4 = cumsum(randn(1, numel(x))) / 100 + 10;
 
-fig = FastPlotFigure(2, 2, 'Theme', 'dark');
+fig = FastPlotGrid(2, 2, 'Theme', 'dark');
 fig.setTileSpan(1, [1 2]);
 
 fp1 = fig.tile(1);
@@ -46,9 +46,9 @@ fp4 = fig.tile(4);
 fp4.addLine(x, y3, 'DisplayName', 'Vibration');
 
 fig.renderAll();
-fig.tileTitle(1, 'Temperature');
-fig.tileTitle(3, 'Pressure');
-fig.tileTitle(4, 'Vibration');
+fig.setTileTitle(1, 'Temperature');
+fig.setTileTitle(3, 'Pressure');
+fig.setTileTitle(4, 'Vibration');
 print(fig.hFigure, fullfile(img_dir, 'dashboard.png'), '-dpng', dpi);
 close(fig.hFigure);
 fprintf('  done.\n');

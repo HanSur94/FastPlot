@@ -12,8 +12,9 @@
 %     cd FastPlot
 %     octave --gui --eval "run('setup.m'); addpath('libs/FastPlot/private'); addpath('examples'); demo_all;"
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
-addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'libs', 'FastPlot', 'private'));
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
+addpath(fullfile(projectRoot, 'libs', 'FastPlot', 'private'));
 addpath(fileparts(mfilename('fullpath')));
 
 fprintf('\n');

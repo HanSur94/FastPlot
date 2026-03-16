@@ -32,7 +32,7 @@ classdef Sensor < handle
     %
     %   Sensor Methods:
     %     Sensor           — Constructor with key and name-value options
-    %     load             — Load data from external source (placeholder)
+    %     load             — Load data from a .mat file (MatFile + KeyName)
     %     addStateChannel  — Attach a StateChannel to this sensor
     %     addThresholdRule — Add a conditional threshold rule
     %     resolve          — Precompute thresholds, violations, state bands
@@ -128,16 +128,42 @@ classdef Sensor < handle
         end
 
         function load(obj)
-            %LOAD Load sensor data from the external data source.
+            %LOAD Load sensor data from a .mat file.
             %   s.load() populates s.X and s.Y by loading the file
-            %   specified in s.MatFile.  This is a placeholder that must
-            %   be overridden or extended to integrate with your project's
-            %   data loading library.  Alternatively, set X and Y directly.
+            %   specified in s.MatFile using the field name s.KeyName.
+            %   Requires MatFile and KeyName to be set.
+            %
+            %   If the field contains a struct with x/X and y/Y fields,
+            %   those are mapped to obj.X and obj.Y respectively.
+            %   Otherwise the field value is assigned to obj.Y and obj.X
+            %   is set to 1:numel(obj.Y).
             %
             %   See also Sensor.resolve.
 
-            error('Sensor:notImplemented', ...
-                'load() is a wrapper for an external loading library. Set X and Y directly or implement your loader.');
+            if isempty(obj.MatFile)
+                error('Sensor:noMatFile', 'MatFile property is not set.');
+            end
+            if ~exist(obj.MatFile, 'file')
+                error('Sensor:fileNotFound', 'File not found: %s', obj.MatFile);
+            end
+            % Use builtin() to call MATLAB's load and avoid recursion
+            % with this method name.
+            data = builtin('load', obj.MatFile);
+            if ~isfield(data, obj.KeyName)
+                error('Sensor:fieldNotFound', ...
+                    'Field ''%s'' not found in %s. Available: %s', ...
+                    obj.KeyName, obj.MatFile, strjoin(fieldnames(data), ', '));
+            end
+            entry = data.(obj.KeyName);
+            if isstruct(entry)
+                if isfield(entry, 'x'), obj.X = entry.x; end
+                if isfield(entry, 'X'), obj.X = entry.X; end
+                if isfield(entry, 'y'), obj.Y = entry.y; end
+                if isfield(entry, 'Y'), obj.Y = entry.Y; end
+            else
+                obj.Y = entry;
+                obj.X = 1:numel(entry);
+            end
         end
 
         function addStateChannel(obj, sc)

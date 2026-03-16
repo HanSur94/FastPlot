@@ -7,7 +7,8 @@ function example_event_detection_live()
 %   Run:  example_event_detection_live()
 %   Stop: Close the Event Viewer or Live Plot figure to stop.
 
-    setup();
+    projectRoot = fileparts(fileparts(mfilename('fullpath')));
+    run(fullfile(projectRoot, 'setup.m'));
 
     persistent dataTimer liveViewer liveCfg liveN fpTemp fpPres fpVib hPlotFig;
     persistent tempFile presFile vibFile;

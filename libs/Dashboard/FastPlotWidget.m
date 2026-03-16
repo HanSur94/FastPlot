@@ -28,24 +28,19 @@ classdef FastPlotWidget < DashboardWidget
 
     methods
         function obj = FastPlotWidget(varargin)
-            for k = 1:2:numel(varargin)
-                if strcmp(varargin{k}, 'Sensor')
-                    varargin{k} = 'SensorObj';
-                end
-            end
             obj = obj@DashboardWidget(varargin{:});
             if isequal(obj.Position, [1 1 6 2])
                 obj.Position = [1 1 12 3];
             end
-            if ~isempty(obj.SensorObj)
+            if ~isempty(obj.Sensor)
                 if isempty(obj.XLabel), obj.XLabel = 'Time'; end
                 if isempty(obj.YLabel)
-                    if ~isempty(obj.SensorObj.Units)
-                        obj.YLabel = obj.SensorObj.Units;
-                    elseif ~isempty(obj.SensorObj.Name)
-                        obj.YLabel = obj.SensorObj.Name;
+                    if ~isempty(obj.Sensor.Units)
+                        obj.YLabel = obj.Sensor.Units;
+                    elseif ~isempty(obj.Sensor.Name)
+                        obj.YLabel = obj.Sensor.Name;
                     else
-                        obj.YLabel = obj.SensorObj.Key;
+                        obj.YLabel = obj.Sensor.Key;
                     end
                 end
             end
@@ -64,8 +59,8 @@ classdef FastPlotWidget < DashboardWidget
             obj.FastPlotObj = fp;
 
             % Bind data
-            if ~isempty(obj.SensorObj)
-                fp.addSensor(obj.SensorObj);
+            if ~isempty(obj.Sensor)
+                fp.addSensor(obj.Sensor);
             elseif ~isempty(obj.DataStoreObj)
                 fp.addLine([], [], 'DataStore', obj.DataStoreObj);
             elseif ~isempty(obj.File)
@@ -100,7 +95,7 @@ classdef FastPlotWidget < DashboardWidget
         function refresh(obj)
             % Re-render sensor-bound widgets so updated data + violations show.
             % Preserves current zoom state (xlim) across the rebuild.
-            if isempty(obj.SensorObj), return; end
+            if isempty(obj.Sensor), return; end
             if isempty(obj.hPanel) || ~ishandle(obj.hPanel), return; end
 
             % Save zoom state before teardown
@@ -125,7 +120,7 @@ classdef FastPlotWidget < DashboardWidget
 
             fp = FastPlot('Parent', ax);
             obj.FastPlotObj = fp;
-            fp.addSensor(obj.SensorObj);
+            fp.addSensor(obj.Sensor);
 
             if ~isempty(obj.Title)
                 title(ax, obj.Title, 'Color', get(ax, 'XColor'));
@@ -184,10 +179,10 @@ classdef FastPlotWidget < DashboardWidget
 
         function [tMin, tMax] = getTimeRange(obj)
             tMin = inf; tMax = -inf;
-            if ~isempty(obj.SensorObj)
-                if ~isempty(obj.SensorObj.X)
-                    tMin = min(obj.SensorObj.X);
-                    tMax = max(obj.SensorObj.X);
+            if ~isempty(obj.Sensor)
+                if ~isempty(obj.Sensor.X)
+                    tMin = min(obj.Sensor.X);
+                    tMax = max(obj.Sensor.X);
                 end
             elseif ~isempty(obj.XData)
                 tMin = min(obj.XData);
@@ -204,7 +199,7 @@ classdef FastPlotWidget < DashboardWidget
             if ~isempty(obj.XLabel), s.xLabel = obj.XLabel; end
             if ~isempty(obj.YLabel), s.yLabel = obj.YLabel; end
 
-            if ~isempty(obj.SensorObj)
+            if ~isempty(obj.Sensor)
                 % base class handles sensor source
                 s.thresholds = obj.Thresholds;
             elseif ~isempty(obj.File)
@@ -231,7 +226,7 @@ classdef FastPlotWidget < DashboardWidget
                 switch s.source.type
                     case 'sensor'
                         if exist('SensorRegistry', 'class')
-                            obj.SensorObj = SensorRegistry.get(s.source.name);
+                            obj.Sensor = SensorRegistry.get(s.source.name);
                         end
                     case 'file'
                         obj.File = s.source.path;

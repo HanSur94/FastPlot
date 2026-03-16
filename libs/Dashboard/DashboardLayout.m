@@ -255,6 +255,7 @@ classdef DashboardLayout < handle
             % Create widget panels on canvas
             for i = 1:numel(widgets)
                 w = widgets{i};
+                w.ParentTheme = theme;
                 pos = obj.computePosition(w.Position);
                 hp = uipanel('Parent', obj.hCanvas, ...
                     'Units', 'normalized', ...

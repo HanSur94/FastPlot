@@ -4,7 +4,8 @@
 % firing a callback when the range changes. It can be used to build
 % custom overview+detail views.
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 %% Create a figure with two axes: overview (bottom) + detail (top)
 fig = figure('Name', 'NavigatorOverlay Demo', 'Position', [100 100 900 500]);

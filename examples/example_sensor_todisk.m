@@ -6,7 +6,8 @@
 % This is useful when working with large sensor datasets (millions of
 % points) that would otherwise consume too much memory.
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 %% 1. Basic toDisk workflow
 % Build sensor data normally, then call toDisk() to offload to SQLite.
@@ -144,7 +145,7 @@ for i = 1:4
     sensors{i} = si;
 end
 
-fpf = FastPlotFigure(2, 2);
+fpf = FastPlotGrid(2, 2);
 for i = 1:4
     fpf.tile(i).addSensor(sensors{i}, 'ShowThresholds', true);
 end

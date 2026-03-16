@@ -7,7 +7,7 @@ function test_group_violations()
     % testSingleGroup — continuous violation
     t      = [1 2 3 4 5 6 7 8 9 10];
     values = [5 5 12 14 11 13 5 5 5 5];
-    groups = groupViolations(t, values, 10, 'high');
+    groups = groupViolations(t, values, 10, 'upper');
     assert(numel(groups) == 1, 'singleGroup: count');
     assert(groups(1).startIdx == 3, 'singleGroup: startIdx');
     assert(groups(1).endIdx == 6, 'singleGroup: endIdx');
@@ -15,7 +15,7 @@ function test_group_violations()
     % testTwoGroups — gap splits into two events
     t      = [1 2 3 4 5 6 7 8 9 10];
     values = [12 13 5 5 5 14 15 5 5 5];
-    groups = groupViolations(t, values, 10, 'high');
+    groups = groupViolations(t, values, 10, 'upper');
     assert(numel(groups) == 2, 'twoGroups: count');
     assert(groups(1).startIdx == 1, 'twoGroups: g1 start');
     assert(groups(1).endIdx == 2, 'twoGroups: g1 end');
@@ -25,7 +25,7 @@ function test_group_violations()
     % testLowDirection
     t      = [1 2 3 4 5];
     values = [50 3 2 4 50];
-    groups = groupViolations(t, values, 10, 'low');
+    groups = groupViolations(t, values, 10, 'lower');
     assert(numel(groups) == 1, 'lowDir: count');
     assert(groups(1).startIdx == 2, 'lowDir: start');
     assert(groups(1).endIdx == 4, 'lowDir: end');
@@ -33,13 +33,13 @@ function test_group_violations()
     % testNoViolations
     t      = [1 2 3 4 5];
     values = [5 6 7 8 9];
-    groups = groupViolations(t, values, 10, 'high');
+    groups = groupViolations(t, values, 10, 'upper');
     assert(isempty(groups), 'noViolations: empty');
 
     % testAllViolations
     t      = [1 2 3];
     values = [20 30 40];
-    groups = groupViolations(t, values, 10, 'high');
+    groups = groupViolations(t, values, 10, 'upper');
     assert(numel(groups) == 1, 'allViolations: count');
     assert(groups(1).startIdx == 1, 'allViolations: start');
     assert(groups(1).endIdx == 3, 'allViolations: end');

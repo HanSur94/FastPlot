@@ -2,7 +2,8 @@
 %   Shows dynamic thresholds that change based on machine state.
 
 % Setup paths
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 % --- Create sensor with synthetic data ---
 s = Sensor('pressure', 'Name', 'Chamber Pressure', 'ID', 101);

@@ -9,8 +9,9 @@ function run_all_examples(mode)
         mode = 'interactive';
     end
 
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
-    addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'libs', 'FastPlot', 'private'));
+    projectRoot = fileparts(fileparts(mfilename('fullpath')));
+    run(fullfile(projectRoot, 'setup.m'));
+    addpath(fullfile(projectRoot, 'libs', 'FastPlot', 'private'));
     addpath(fileparts(mfilename('fullpath')));
 
     examples = {

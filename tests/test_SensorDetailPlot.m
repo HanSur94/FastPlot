@@ -145,8 +145,8 @@ function test_event_shading_in_main_plot(testCase)
     s = testCase.TestData.sensor;
 
     % Create mock events
-    ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
-    ev2 = Event(50, 55, 'test_pressure', 'HH Alarm', 70, 'high');
+    ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'upper');
+    ev2 = Event(50, 55, 'test_pressure', 'HH Alarm', 70, 'upper');
 
     sdp = SensorDetailPlot(s, 'Events', [ev1, ev2]);
     sdp.render();
@@ -169,7 +169,7 @@ end
 function test_event_lines_in_navigator(testCase)
     s = testCase.TestData.sensor;
 
-    ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
+    ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'upper');
 
     sdp = SensorDetailPlot(s, 'Events', [ev1]);
     sdp.render();
@@ -196,8 +196,8 @@ function test_events_from_eventstore(testCase)
     % Create EventStore and append events
     tmpFile = [tempname, '.mat'];
     store = EventStore(tmpFile);
-    ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
-    ev2 = Event(30, 35, 'other_sensor', 'H Warning', 65, 'high');
+    ev1 = Event(20, 25, 'test_pressure', 'H Warning', 65, 'upper');
+    ev2 = Event(30, 35, 'other_sensor', 'H Warning', 65, 'upper');
     store.append([ev1, ev2]);
 
     sdp = SensorDetailPlot(s, 'Events', store);
@@ -222,7 +222,7 @@ end
 %% Event color mapping
 function test_event_color_high(testCase)
     s = testCase.TestData.sensor;
-    ev = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
+    ev = Event(20, 25, 'test_pressure', 'H Warning', 65, 'upper');
     sdp = SensorDetailPlot(s, 'Events', [ev]);
     sdp.render();
 
@@ -230,7 +230,7 @@ function test_event_color_high(testCase)
     foundPatch = false;
     for i = 1:numel(patches)
         ud = get(patches(i), 'UserData');
-        if isstruct(ud) && isfield(ud, 'Direction') && strcmp(ud.Direction, 'high')
+        if isstruct(ud) && isfield(ud, 'Direction') && strcmp(ud.Direction, 'upper')
             fc = get(patches(i), 'FaceColor');
             % Should be orange-ish [1 0.6 0.2]
             verifyGreaterThan(testCase, fc(1), 0.5);  % red channel high
@@ -238,13 +238,13 @@ function test_event_color_high(testCase)
             break;
         end
     end
-    verifyTrue(testCase, foundPatch, 'No event patch found with Direction=high');
+    verifyTrue(testCase, foundPatch, 'No event patch found with Direction=upper');
     delete(sdp);
 end
 
 function test_event_color_escalated(testCase)
     s = testCase.TestData.sensor;
-    ev = Event(20, 25, 'test_pressure', 'HH Alarm', 70, 'high');
+    ev = Event(20, 25, 'test_pressure', 'HH Alarm', 70, 'upper');
     sdp = SensorDetailPlot(s, 'Events', [ev]);
     sdp.render();
 
@@ -269,10 +269,10 @@ end
 %% UserData completeness
 function test_event_patch_userdata_fields(testCase)
     s = testCase.TestData.sensor;
-    ev = Event(20, 25, 'test_pressure', 'H Warning', 65, 'high');
-    % Event is a value class with private setters — use setStats()
+    ev = Event(20, 25, 'test_pressure', 'H Warning', 65, 'upper');
+    % Event is a handle class with private setters — use setStats()
     % setStats(peak, numPoints, min, max, mean, rms, std)
-    ev = ev.setStats(67, 50, 64, 67, 66, 66.1, 0.8);
+    ev.setStats(67, 50, 64, 67, 66, 66.1, 0.8);
 
     sdp = SensorDetailPlot(s, 'Events', [ev]);
     sdp.render();
@@ -297,25 +297,25 @@ function test_event_patch_userdata_fields(testCase)
     delete(sdp);
 end
 
-%% FastPlotFigure tilePanel integration
+%% FastPlotGrid tilePanel integration
 function test_tilePanel_returns_uipanel(testCase)
-    fig = FastPlotFigure(2, 1);
+    fig = FastPlotGrid(2, 1);
     hp = fig.tilePanel(1);
     verifyTrue(testCase, isa(hp, 'matlab.ui.container.Panel'));
     delete(fig);
 end
 
 function test_tilePanel_conflict_with_tile(testCase)
-    fig = FastPlotFigure(2, 1);
+    fig = FastPlotGrid(2, 1);
     fig.tile(1);  % Occupy tile 1 as FastPlot
-    verifyError(testCase, @() fig.tilePanel(1), 'FastPlotFigure:tileConflict');
+    verifyError(testCase, @() fig.tilePanel(1), 'FastPlotGrid:tileConflict');
     delete(fig);
 end
 
-%% Embedded in FastPlotFigure
+%% Embedded in FastPlotGrid
 function test_embedded_in_figure_tile(testCase)
     s = testCase.TestData.sensor;
-    fig = FastPlotFigure(1, 1);
+    fig = FastPlotGrid(1, 1);
     hp = fig.tilePanel(1);
     sdp = SensorDetailPlot(s, 'Parent', hp);
     sdp.render();

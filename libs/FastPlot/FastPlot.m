@@ -57,7 +57,13 @@ classdef FastPlot < handle
     %     FastPlot.distFig()                         % auto-arrange all figures
     %     FastPlot.distFig('Rows', 2, 'Cols', 3)     % 2x3 grid
     %
-    %   See also FastPlotFigure, FastPlotDock, FastPlotTheme, FastPlotToolbar.
+    %   Notes:
+    %     addLine, addThreshold, addBand, addShaded, and addMarker must be
+    %     called BEFORE render().  After render(), use updateData(lineIndex,
+    %     newX, newY) to replace existing line data.  To add a new series
+    %     after render(), create a new FastPlot instance.
+    %
+    %   See also FastPlotGrid, FastPlotDock, FastPlotTheme, FastPlotToolbar.
 
     % ========================= PUBLIC PROPERTIES =========================
     % User-configurable settings. Set before calling render().
@@ -352,6 +358,9 @@ classdef FastPlot < handle
             %       'XType'            — 'numeric' or 'datenum'
             %       'Color','LineStyle','DisplayName',... — passed to line()
             %
+            %   Note: addLine must be called before render(). After rendering, use
+            %   updateData() to modify existing lines, or create a new FastPlot.
+            %
             %   Example:
             %     fp = FastPlot();
             %     fp.addLine(1:1e6, cumsum(randn(1,1e6)), 'DisplayName', 'Walk');
@@ -603,6 +612,9 @@ classdef FastPlot < handle
             %       'LineStyle'      — line style string (e.g. '--')
             %       'Label'          — text label for threshold
             %
+            %   Note: addThreshold must be called before render(). After
+            %   rendering, create a new FastPlot to add new thresholds.
+            %
             %   Example:
             %     fp.addThreshold(4.5, 'Direction', 'upper', ...
             %         'ShowViolations', true, 'Label', 'Max Temp');
@@ -684,6 +696,9 @@ classdef FastPlot < handle
             %       'EdgeColor' — edge color (default: 'none')
             %       'Label'     — text label for the band
             %
+            %   Note: addBand must be called before render(). After rendering,
+            %   create a new FastPlot to add new bands.
+            %
             %   Example:
             %     fp.addBand(3.5, 4.5, 'FaceColor', [1 0.9 0.9], ...
             %         'FaceAlpha', 0.2, 'Label', 'Warning zone');
@@ -737,6 +752,9 @@ classdef FastPlot < handle
             %       'MarkerSize' — marker size in points (default: 6)
             %       'Color'      — RGB triplet (default: Theme.ThresholdColor)
             %       'Label'      — text label for the marker group
+            %
+            %   Note: addMarker must be called before render(). After rendering,
+            %   create a new FastPlot to add new markers.
             %
             %   Example:
             %     events_x = [100 500 900];
@@ -801,6 +819,9 @@ classdef FastPlot < handle
             %       'FaceAlpha'   — scalar 0-1 (default: 0.15)
             %       'EdgeColor'   — edge color (default: 'none')
             %       'DisplayName' — legend entry text
+            %
+            %   Note: addShaded must be called before render(). After rendering,
+            %   create a new FastPlot to add new shaded regions.
             %
             %   Example:
             %     x = linspace(0, 10, 1e5);
@@ -922,7 +943,7 @@ classdef FastPlot < handle
             %     10. Registers in LinkGroup for synchronized zoom/pan
             %
             %   fp.RENDER(progressBar) uses an existing ConsoleProgressBar
-            %   for progress reporting (used by FastPlotFigure for batch
+            %   for progress reporting (used by FastPlotGrid for batch
             %   rendering of multiple tiles).
             %
             %   Can only be called once per FastPlot instance. After render(),
@@ -939,7 +960,7 @@ classdef FastPlot < handle
             %     fp.addThreshold(4.5, 'ShowViolations', true);
             %     fp.render();
             %
-            %   See also addLine, updateData, startLive, FastPlotFigure.
+            %   See also addLine, updateData, startLive, FastPlotGrid.
 
             if nargin < 2; progressBar = []; end
 
@@ -1893,7 +1914,7 @@ classdef FastPlot < handle
             %SETLINEMETADATA Set metadata on a line after construction.
             %   fp.SETLINEMETADATA(lineIdx, meta) attaches or replaces the
             %   metadata struct on the specified line. Primarily used by
-            %   FastPlotFigure to attach metadata loaded from a separate
+            %   FastPlotGrid to attach metadata loaded from a separate
             %   file after the plot has been rendered.
             %
             %   The metadata struct should contain a .datenum field with
@@ -1907,7 +1928,7 @@ classdef FastPlot < handle
             %     meta = struct('datenum', [1 5], 'batch', {{'A','B'}});
             %     fp.setLineMetadata(1, meta);
             %
-            %   See also lookupMetadata, addLine, FastPlotFigure.
+            %   See also lookupMetadata, addLine, FastPlotGrid.
             if lineIdx >= 1 && lineIdx <= numel(obj.Lines)
                 obj.Lines(lineIdx).Metadata = meta;
             end
@@ -3155,6 +3176,43 @@ classdef FastPlot < handle
 
     % ======================== PUBLIC STATIC ==============================
     methods (Static)
+        function fp = plot(x, y, varargin)
+            %PLOT One-liner convenience for quick plotting.
+            %   FastPlot.plot(x, y)
+            %   FastPlot.plot(x, y, 'DisplayName', 'Signal', 'Theme', 'dark')
+            %
+            %   Creates a FastPlot, adds a single line, and renders immediately.
+            %   Returns the FastPlot handle for further customization.
+            %
+            %   For multi-line plots or advanced features, use the builder pattern:
+            %     fp = FastPlot();
+            %     fp.addLine(x1, y1);
+            %     fp.addLine(x2, y2);
+            %     fp.render();
+
+            % Separate FastPlot constructor args from addLine args
+            fpArgs = {};
+            lineArgs = {};
+            fpProps = {'Parent', 'LinkGroup', 'Theme', 'Verbose', ...
+                'MinPointsForDownsample', 'DownsampleFactor', ...
+                'PyramidReduction', 'DefaultDownsampleMethod', ...
+                'XScale', 'YScale', 'LiveInterval'};
+            k = 1;
+            while k <= numel(varargin)
+                if ischar(varargin{k}) && ismember(varargin{k}, fpProps)
+                    fpArgs = [fpArgs, varargin(k:k+1)]; %#ok<AGROW>
+                    k = k + 2;
+                else
+                    lineArgs = [lineArgs, varargin(k:k+1)]; %#ok<AGROW>
+                    k = k + 2;
+                end
+            end
+
+            fp = FastPlot(fpArgs{:});
+            fp.addLine(x, y, lineArgs{:});
+            fp.render();
+        end
+
         function resetDefaults()
             %RESETDEFAULTS Force reload of FastPlotDefaults on next use.
             %   FastPlot.RESETDEFAULTS() clears the cached defaults struct

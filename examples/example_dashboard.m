@@ -1,8 +1,8 @@
 %% FastPlot Dashboard — Tiled layout with themes and visual enhancements
-% Demonstrates FastPlotFigure, theming, bands, shading, and markers.
+% Demonstrates FastPlotGrid, theming, bands, shading, and markers.
 %
 % Choosing your dashboard approach:
-%   FastPlotFigure — Lightweight tiled grid of FastPlot instances.
+%   FastPlotGrid — Lightweight tiled grid of FastPlot instances.
 %       Best for: pure time-series dashboards with linked zoom, tile
 %       spanning, and SensorDetailPlot embedding.  No widget types beyond
 %       plots.  See also: example_dashboard_9tile, example_sensor_dashboard.
@@ -24,7 +24,7 @@ x = linspace(0, 300, n);
 fprintf('Dashboard example: 4 tiles, %d points each, dark theme...\n', n);
 tic;
 
-fig = FastPlotFigure(2, 2, 'Theme', 'light', ...
+fig = FastPlotGrid(2, 2, 'Theme', 'light', ...
     'Name', 'FastPlot Dashboard Demo', 'Position', [50 50 1400 800]);
 
 % --- Tile 1: Temperature with alarm bands (spans 2 columns) ---
@@ -60,10 +60,10 @@ fp4.addThreshold(2.5, 'Direction', 'upper', 'ShowViolations', true);
 
 fig.renderAll();
 
-fig.tileTitle(1, 'Temperature (C)');
-fig.tileTitle(3, 'Pressure (bar)');
-fig.tileTitle(4, 'Vibration (mm/s)');
-fig.tileXLabel(3, 'Time (s)');
-fig.tileXLabel(4, 'Time (s)');
+fig.setTileTitle(1, 'Temperature (C)');
+fig.setTileTitle(3, 'Pressure (bar)');
+fig.setTileTitle(4, 'Vibration (mm/s)');
+fig.setTileXLabel(3, 'Time (s)');
+fig.setTileXLabel(4, 'Time (s)');
 
 fprintf('Dashboard rendered in %.3f seconds.\n', toc);

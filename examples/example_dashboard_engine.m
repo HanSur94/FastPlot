@@ -25,6 +25,7 @@ scMode.Y = [0, 1,    0,     1    ];
 
 % Temperature sensor with mode-dependent thresholds
 sTemp = Sensor('T-401', 'Name', 'Temperature');
+sTemp.Units = [char(176) 'C'];
 sTemp.X = t;
 sTemp.Y = 70 + 5*sin(2*pi*t/3600) + randn(1,N)*0.8;
 sTemp.addStateChannel(scMode);
@@ -38,6 +39,7 @@ sTemp.resolve();
 
 % Pressure sensor with unconditional thresholds
 sPress = Sensor('P-201', 'Name', 'Pressure');
+sPress.Units = 'bar';
 sPress.X = t;
 sPress.Y = 50 + 20*sin(2*pi*t/7200) + randn(1,N)*1.5;
 sPress.addThresholdRule(struct(), 65, ...
@@ -53,15 +55,15 @@ d.LiveInterval = 5;
 
 d.addWidget('fastplot', ...
     'Position', [1 1 16 8], ...
-    'SensorObj', sTemp);
+    'Sensor', sTemp);
 
 d.addWidget('fastplot', ...
     'Position', [17 1 8 8], ...
-    'SensorObj', sPress);
+    'Sensor', sPress);
 
 d.addWidget('fastplot', 'Title', 'Temperature (full view)', ...
     'Position', [1 9 24 8], ...
-    'SensorObj', sTemp);
+    'Sensor', sTemp);
 
 d.render();
 

@@ -5,7 +5,8 @@
 %   - SensorRegistry.getMultiple() — retrieve several sensors at once
 %   - Adding data + thresholds to registry sensors, then plotting
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 % --- List all sensors in the catalog ---
 fprintf('=== All registered sensors ===');

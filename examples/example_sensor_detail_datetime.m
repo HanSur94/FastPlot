@@ -3,7 +3,8 @@
 % Demonstrates SensorDetailPlot with datenum timestamps so the
 % x-axis shows human-readable date/time labels.
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 %% 1. Create sensor with datetime-based timestamps
 % Simulate 2 hours of data at ~10 Hz
@@ -41,7 +42,7 @@ s.resolve();
 
 %% 2. Create an event for the spike
 dSpike = data(idx1:idx2);
-ev = Event(tNum(idx1), tNum(idx2), 'line_pressure', 'H Warning', 5.2, 'high');
+ev = Event(tNum(idx1), tNum(idx2), 'line_pressure', 'H Warning', 5.2, 'upper');
 ev = ev.setStats(max(dSpike), numel(dSpike), min(dSpike), max(dSpike), ...
     mean(dSpike), rms(dSpike), std(dSpike));
 

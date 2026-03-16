@@ -16,12 +16,10 @@ classdef EventStore < handle
 
     methods
         function obj = EventStore(filePath, varargin)
-            p = inputParser();
-            p.addRequired('filePath', @ischar);
-            p.addParameter('MaxBackups', 5, @isnumeric);
-            p.parse(filePath, varargin{:});
-            obj.FilePath   = p.Results.filePath;
-            obj.MaxBackups = p.Results.MaxBackups;
+            defaults.MaxBackups = 5;
+            opts = parseOpts(defaults, varargin);
+            obj.FilePath   = filePath;
+            obj.MaxBackups = opts.MaxBackups;
         end
 
         function append(obj, newEvents)

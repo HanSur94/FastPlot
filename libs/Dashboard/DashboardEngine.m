@@ -9,9 +9,15 @@ classdef DashboardEngine < handle
 %                 'Sensor', SensorRegistry.get('temperature'));
 %     d.render();
 %
+%   One-liner with name-value options:
+%     d = DashboardEngine('My Dashboard', 'Theme', 'dark', 'LiveInterval', 5);
+%
 %   Loading from JSON:
 %     d = DashboardEngine.load('path/to/dashboard.json');
 %     d.render();
+%
+%   For a lightweight tiled grid of FastPlot charts without widgets,
+%   see FastPlotGrid.
 
     properties (Access = public)
         Name         = ''
@@ -44,7 +50,13 @@ classdef DashboardEngine < handle
                 obj.Name = name;
             end
             for k = 1:2:numel(varargin)
-                obj.(varargin{k}) = varargin{k+1};
+                key = varargin{k};
+                if ~isprop(obj, key)
+                    error('DashboardEngine:invalidOption', ...
+                        'Unknown option ''%s''. Valid options: %s', ...
+                        key, strjoin(properties(obj), ', '));
+                end
+                obj.(key) = varargin{k+1};
             end
             obj.Layout = DashboardLayout();
         end
@@ -417,6 +429,20 @@ classdef DashboardEngine < handle
     end
 
     methods (Static)
+        function types = widgetTypes()
+            %WIDGETTYPES List supported widget type strings.
+            types = {
+                'fastplot',    'Time-series plot (FastPlotWidget)'
+                'number',      'Single numeric value with trend (NumberWidget)'
+                'status',      'Status indicator with dot and label (StatusWidget)'
+                'gauge',       'Gauge display in arc/donut/bar/thermometer style (GaugeWidget)'
+                'table',       'Data table from sensor (TableWidget)'
+                'text',        'Static text block (TextWidget)'
+                'timeline',    'Event timeline display (EventTimelineWidget)'
+                'rawaxes',     'Raw MATLAB axes for custom plotting (RawAxesWidget)'
+            };
+        end
+
         function obj = load(filepath, varargin)
             resolver = [];
             for k = 1:2:numel(varargin)

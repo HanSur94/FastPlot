@@ -2,7 +2,8 @@
 % Five dashboards docked in a single window with tab switching.
 % All tabs use datetime X axes (auto-detected by FastPlot).
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 % Suppress MATLAB Variable Editor warnings during datetime/linspace
 wState = warning('off', 'all');
@@ -24,7 +25,7 @@ sec = @(t) seconds(t - t0);
 % =========================================================================
 % Tab 1: Temperature Monitoring (2x2)
 % =========================================================================
-fig1 = FastPlotFigure(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
+fig1 = FastPlotGrid(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
 
 fp = fig1.tile(1);
 n = 2e6; t = linspace(t0, t1, n); s = sec(t);
@@ -59,7 +60,7 @@ dock.addTab(fig1, 'Temperature');
 % =========================================================================
 % Tab 2: Power Systems (1x2)
 % =========================================================================
-fig2 = FastPlotFigure(1, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
+fig2 = FastPlotGrid(1, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
 
 fp = fig2.tile(1);
 n = 3e6; t = linspace(t0, t1, n); s = sec(t);
@@ -77,7 +78,7 @@ dock.addTab(fig2, 'Power Systems');
 % =========================================================================
 % Tab 3: Hydraulics (2x1)
 % =========================================================================
-fig3 = FastPlotFigure(2, 1, 'ParentFigure', dock.hFigure, 'Theme', 'light');
+fig3 = FastPlotGrid(2, 1, 'ParentFigure', dock.hFigure, 'Theme', 'light');
 
 fp = fig3.tile(1);
 n = 1.5e6; t = linspace(t0, t1, n); s = sec(t);
@@ -98,7 +99,7 @@ dock.addTab(fig3, 'Hydraulics');
 % =========================================================================
 % Tab 4: Electrical Grid (1x3)
 % =========================================================================
-fig4 = FastPlotFigure(1, 3, 'ParentFigure', dock.hFigure, 'Theme', 'light');
+fig4 = FastPlotGrid(1, 3, 'ParentFigure', dock.hFigure, 'Theme', 'light');
 
 fp = fig4.tile(1);
 n = 2e6; t = linspace(t0, t1, n); s = sec(t);
@@ -123,7 +124,7 @@ dock.addTab(fig4, 'Electrical Grid');
 % =========================================================================
 % Tab 5: Environment (2x2) — 24h span
 % =========================================================================
-fig5 = FastPlotFigure(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
+fig5 = FastPlotGrid(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
 
 te0 = datetime(2026, 3, 8, 0, 0, 0);
 te1 = datetime(2026, 3, 8, 23, 59, 59);
@@ -157,40 +158,40 @@ dock.addTab(fig5, 'Environment');
 % =========================================================================
 dock.renderAll();
 
-fig1.tileTitle(1, 'Temperature (2M pts)');
-fig1.tileYLabel(1, 'Temp (°F)');
-fig1.tileTitle(2, 'Coolant Flow (1M pts)');
-fig1.tileYLabel(2, 'Flow (L/min)');
-fig1.tileTitle(3, 'Reactor Pressure (500K pts)');
-fig1.tileYLabel(3, 'Pressure (kPa)');
-fig1.tileTitle(4, 'Vibration (800K pts)');
-fig1.tileYLabel(4, 'Amplitude (g)');
+fig1.setTileTitle(1, 'Temperature (2M pts)');
+fig1.setTileYLabel(1, 'Temp (°F)');
+fig1.setTileTitle(2, 'Coolant Flow (1M pts)');
+fig1.setTileYLabel(2, 'Flow (L/min)');
+fig1.setTileTitle(3, 'Reactor Pressure (500K pts)');
+fig1.setTileYLabel(3, 'Pressure (kPa)');
+fig1.setTileTitle(4, 'Vibration (800K pts)');
+fig1.setTileYLabel(4, 'Amplitude (g)');
 
-fig2.tileTitle(1, 'Motor Current (3M pts)');
-fig2.tileYLabel(1, 'Current (A)');
-fig2.tileTitle(2, 'RPM — LTTB (1M pts)');
-fig2.tileYLabel(2, 'RPM');
+fig2.setTileTitle(1, 'Motor Current (3M pts)');
+fig2.setTileYLabel(1, 'Current (A)');
+fig2.setTileTitle(2, 'RPM — LTTB (1M pts)');
+fig2.setTileYLabel(2, 'RPM');
 
-fig3.tileTitle(1, 'Hydraulic Pressure (1.5M pts)');
-fig3.tileYLabel(1, 'Pressure (bar)');
-fig3.tileTitle(2, 'Oil Temperature (1M pts)');
-fig3.tileYLabel(2, 'Temp (°C)');
+fig3.setTileTitle(1, 'Hydraulic Pressure (1.5M pts)');
+fig3.setTileYLabel(1, 'Pressure (bar)');
+fig3.setTileTitle(2, 'Oil Temperature (1M pts)');
+fig3.setTileYLabel(2, 'Temp (°C)');
 
-fig4.tileTitle(1, 'Three-Phase Voltage (2M pts)');
-fig4.tileYLabel(1, 'Voltage (V)');
-fig4.tileTitle(2, 'Grid Frequency (1M pts)');
-fig4.tileYLabel(2, 'Freq (Hz)');
-fig4.tileTitle(3, 'Load (800K pts)');
-fig4.tileYLabel(3, 'Power (kW)');
+fig4.setTileTitle(1, 'Three-Phase Voltage (2M pts)');
+fig4.setTileYLabel(1, 'Voltage (V)');
+fig4.setTileTitle(2, 'Grid Frequency (1M pts)');
+fig4.setTileYLabel(2, 'Freq (Hz)');
+fig4.setTileTitle(3, 'Load (800K pts)');
+fig4.setTileYLabel(3, 'Power (kW)');
 
-fig5.tileTitle(1, 'Room Temperature (1M pts)');
-fig5.tileYLabel(1, 'Temp (°C)');
-fig5.tileTitle(2, 'Humidity (800K pts)');
-fig5.tileYLabel(2, 'RH (%)');
-fig5.tileTitle(3, 'Noise Level (500K pts)');
-fig5.tileYLabel(3, 'Level (dB)');
-fig5.tileTitle(4, 'CO2 (600K pts)');
-fig5.tileYLabel(4, 'CO2 (ppm)');
+fig5.setTileTitle(1, 'Room Temperature (1M pts)');
+fig5.setTileYLabel(1, 'Temp (°C)');
+fig5.setTileTitle(2, 'Humidity (800K pts)');
+fig5.setTileYLabel(2, 'RH (%)');
+fig5.setTileTitle(3, 'Noise Level (500K pts)');
+fig5.setTileYLabel(3, 'Level (dB)');
+fig5.setTileTitle(4, 'CO2 (600K pts)');
+fig5.setTileYLabel(4, 'CO2 (ppm)');
 
 elapsed = toc;
 fprintf('Docked tabs rendered in %.2f seconds (~21M total pts).\n', elapsed);

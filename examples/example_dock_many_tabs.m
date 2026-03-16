@@ -2,7 +2,8 @@
 % 20 tabs in a single dock window to exercise the scrollable tab bar.
 % Each tab gets a simple 1x1 figure with a sine wave variant.
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 wState = warning('off', 'all');
 restoreWarn = onCleanup(@() warning(wState));
@@ -30,7 +31,7 @@ t = linspace(t0, t1, n);
 s = sec(t);
 
 for k = 1:20
-    fig = FastPlotFigure(1, 1, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
+    fig = FastPlotGrid(1, 1, 'ParentFigure', dock.hFigure, 'Theme', 'dark');
     fp = fig.tile(1);
 
     % Vary the signal per tab
@@ -49,8 +50,8 @@ dock.renderAll();
 
 % Label each tab's tile
 for k = 1:20
-    dock.Tabs(k).Figure.tileTitle(1, sprintf('%s (200K pts)', tabNames{k}));
-    dock.Tabs(k).Figure.tileYLabel(1, tabNames{k});
+    dock.Tabs(k).Figure.setTileTitle(1, sprintf('%s (200K pts)', tabNames{k}));
+    dock.Tabs(k).Figure.setTileYLabel(1, tabNames{k});
 end
 
 elapsed = toc;

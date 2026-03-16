@@ -27,20 +27,14 @@ classdef GaugeWidget < DashboardWidget
 
     methods
         function obj = GaugeWidget(varargin)
-            % Rename 'Sensor' shorthand to 'SensorObj' for base class
-            for k = 1:2:numel(varargin)
-                if strcmp(varargin{k}, 'Sensor')
-                    varargin{k} = 'SensorObj';
-                end
-            end
             obj = obj@DashboardWidget(varargin{:});
             if isequal(obj.Position, [1 1 6 2])
                 obj.Position = [1 1 6 4];
             end
             % Derive from Sensor
-            if ~isempty(obj.SensorObj)
-                if isempty(obj.Units) && ~isempty(obj.SensorObj.Units)
-                    obj.Units = obj.SensorObj.Units;
+            if ~isempty(obj.Sensor)
+                if isempty(obj.Units) && ~isempty(obj.Sensor.Units)
+                    obj.Units = obj.Sensor.Units;
                 end
                 if isempty(obj.Range)
                     obj.Range = obj.deriveRange();
@@ -65,11 +59,11 @@ classdef GaugeWidget < DashboardWidget
         end
 
         function refresh(obj)
-            if ~isempty(obj.SensorObj)
-                if isempty(obj.SensorObj.Y), return; end
-                obj.CurrentValue = obj.SensorObj.Y(end);
-                if isempty(obj.Units) && ~isempty(obj.SensorObj.Units)
-                    obj.Units = obj.SensorObj.Units;
+            if ~isempty(obj.Sensor)
+                if isempty(obj.Sensor.Y), return; end
+                obj.CurrentValue = obj.Sensor.Y(end);
+                if isempty(obj.Units) && ~isempty(obj.Sensor.Units)
+                    obj.Units = obj.Sensor.Units;
                 end
             elseif ~isempty(obj.ValueFcn)
                 obj.CurrentValue = obj.ValueFcn();
@@ -93,7 +87,7 @@ classdef GaugeWidget < DashboardWidget
             s.range = obj.Range;
             s.units = obj.Units;
             s.style = obj.Style;
-            if isempty(obj.SensorObj)
+            if isempty(obj.Sensor)
                 if ~isempty(obj.ValueFcn)
                     s.source = struct('type', 'callback', ...
                         'function', func2str(obj.ValueFcn));
@@ -118,7 +112,7 @@ classdef GaugeWidget < DashboardWidget
                 switch s.source.type
                     case 'sensor'
                         if exist('SensorRegistry', 'class')
-                            obj.SensorObj = SensorRegistry.get(s.source.name);
+                            obj.Sensor = SensorRegistry.get(s.source.name);
                         end
                     case 'callback'
                         obj.ValueFcn = str2func(s.source.function);
@@ -131,23 +125,23 @@ classdef GaugeWidget < DashboardWidget
 
     methods (Access = private)
         function rng = deriveRange(obj)
-            if ~isempty(obj.SensorObj.ThresholdRules)
-                vals = cellfun(@(r) r.Value, obj.SensorObj.ThresholdRules);
+            if ~isempty(obj.Sensor.ThresholdRules)
+                vals = cellfun(@(r) r.Value, obj.Sensor.ThresholdRules);
                 rng = [min(vals), max(vals)];
-            elseif ~isempty(obj.SensorObj.Y)
-                rng = [min(obj.SensorObj.Y), max(obj.SensorObj.Y)];
+            elseif ~isempty(obj.Sensor.Y)
+                rng = [min(obj.Sensor.Y), max(obj.Sensor.Y)];
             else
                 rng = [0 100];
             end
         end
 
         function color = getValueColor(obj, frac, theme)
-            if ~isempty(obj.SensorObj) && ~isempty(obj.SensorObj.ThresholdRules)
+            if ~isempty(obj.Sensor) && ~isempty(obj.Sensor.ThresholdRules)
                 val = obj.CurrentValue;
                 color = theme.StatusOkColor;
                 worstDist = -inf;
-                for i = 1:numel(obj.SensorObj.ThresholdRules)
-                    rule = obj.SensorObj.ThresholdRules{i};
+                for i = 1:numel(obj.Sensor.ThresholdRules)
+                    rule = obj.Sensor.ThresholdRules{i};
                     violated = (rule.IsUpper && val > rule.Value) || ...
                                (~rule.IsUpper && val < rule.Value);
                     if violated

@@ -34,12 +34,7 @@ function events = detectEventsFromSensor(sensor, detector)
             continue;
         end
 
-        % Map SensorThreshold direction to EventDetection direction
-        if strcmp(viol.Direction, 'upper')
-            direction = 'high';
-        else
-            direction = 'low';
-        end
+        direction = viol.Direction;
 
         label = viol.Label;
 

@@ -62,7 +62,7 @@ classdef TestEventSnapshot < matlab.unittest.TestCase
         function [ev, sensorData] = makeTestEvent()
             tStart = now - 1/24;
             tEnd = now - 0.5/24;
-            ev = Event(tStart, tEnd, 'temperature', 'HH', 100, 'high');
+            ev = Event(tStart, tEnd, 'temperature', 'HH', 100, 'upper');
             ev = ev.setStats(115, 50, 90, 115, 105, 106, 5);
             rng(42);
             t = linspace(now - 3/24, now, 1000);

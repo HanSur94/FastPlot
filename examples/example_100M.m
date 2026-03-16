@@ -1,7 +1,8 @@
 %% FastPlot Stress Test — 100M points
 % Demonstrates performance at maximum scale
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 n = 100e6;
 fprintf('Generating %d data points (~800 MB)...\n', n);

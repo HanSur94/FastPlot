@@ -1,7 +1,8 @@
 %% FastPlot Datetime X-Axis Demo
 % Demonstrates auto-formatted date/time tick labels that adapt to zoom level.
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 %% ~579 days of temperature data at 1-second resolution
 n = 50000000;

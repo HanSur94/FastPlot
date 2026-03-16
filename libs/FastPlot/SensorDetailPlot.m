@@ -55,7 +55,7 @@ classdef SensorDetailPlot < handle
             obj.IsPropagating = false;
             obj.OwnsFigure = false;
 
-            % Load cached defaults (same pattern as FastPlot / FastPlotFigure)
+            % Load cached defaults (same pattern as FastPlot / FastPlotGrid)
             cfg = getDefaults();
 
             % Parse options via standard parseOpts
@@ -70,7 +70,7 @@ classdef SensorDetailPlot < handle
             conDefaults.XType = 'numeric';
             [opts, ~] = parseOpts(conDefaults, varargin);
 
-            % Inherit theme from parent panel (set by FastPlotFigure.tilePanel)
+            % Inherit theme from parent panel (set by FastPlotGrid.tilePanel)
             % when no explicit Theme was given.
             if isempty(opts.Theme) && ~isempty(opts.Parent)
                 try
@@ -141,7 +141,7 @@ classdef SensorDetailPlot < handle
             set(obj.hMainAxes, 'XTickLabel', []);
             xlabel(obj.hMainAxes, '');
 
-            % Set title with theme formatting (matches FastPlotFigure.tileTitle)
+            % Set title with theme formatting (matches FastPlotGrid.setTileTitle)
             if ~isempty(obj.Title)
                 title(obj.hMainAxes, obj.Title, ...
                     'FontSize', obj.Theme.TitleFontSize, ...
@@ -485,7 +485,7 @@ classdef SensorDetailPlot < handle
             label = ev.ThresholdLabel;
             isEscalated = ~isempty(regexpi(label, '(HH|LL)', 'once'));
 
-            if strcmp(ev.Direction, 'high')
+            if strcmp(ev.Direction, 'upper')
                 if isEscalated
                     color = [0.9 0.1 0.1];   % red
                     alpha = 0.15;
@@ -493,7 +493,7 @@ classdef SensorDetailPlot < handle
                     color = [1 0.6 0.2];     % orange
                     alpha = 0.12;
                 end
-            elseif strcmp(ev.Direction, 'low')
+            elseif strcmp(ev.Direction, 'lower')
                 if isEscalated
                     color = [0.1 0.1 0.7];   % dark blue
                     alpha = 0.15;

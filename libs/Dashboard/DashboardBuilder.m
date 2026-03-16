@@ -936,9 +936,9 @@ classdef DashboardBuilder < handle
         function populateSourceControls(obj, w)
             switch w.Type
                 case 'fastplot'
-                    if ~isempty(w.SensorObj)
+                    if ~isempty(w.Sensor)
                         set(obj.hSourceType, 'Value', 2);  % Sensor
-                        set(obj.hSourceKey, 'String', w.SensorObj.Key);
+                        set(obj.hSourceKey, 'String', w.Sensor.Key);
                     elseif ~isempty(w.File)
                         set(obj.hSourceType, 'Value', 3);  % MAT File
                         set(obj.hSourceKey, 'String', w.File);
@@ -971,8 +971,8 @@ classdef DashboardBuilder < handle
                     if ~isempty(srcKey)
                         try
                             sensor = SensorRegistry.get(srcKey);
-                            if isprop(w, 'SensorObj')
-                                w.SensorObj = sensor;
+                            if isprop(w, 'Sensor')
+                                w.Sensor = sensor;
                             end
                         catch ME
                             warning('DashboardBuilder:sensorNotFound', ...

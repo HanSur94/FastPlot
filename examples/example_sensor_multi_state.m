@@ -6,7 +6,8 @@
 %   - Both upper and lower thresholds
 %   - getThresholdsAt() for querying active thresholds at a time point
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 % --- Create sensor with synthetic flow data ---
 s = Sensor('flow', 'Name', 'Gas Flow Rate', 'ID', 301);

@@ -9,7 +9,7 @@ run(fullfile(projectRoot, 'setup.m'));
 fprintf('3x3 Dashboard: 9 tiles, mixed data sizes, dark theme...\n');
 tic;
 
-fig = FastPlotFigure(3, 3, 'Theme', 'light', ...
+fig = FastPlotGrid(3, 3, 'Theme', 'light', ...
     'Name', 'Industrial Monitoring Console', 'Position', [30 30 1800 1000]);
 
 % =========================================================================
@@ -140,25 +140,25 @@ fp9.addLine(x9, y9b, 'DisplayName', 'Channel B');
 % =========================================================================
 fig.renderAll();
 
-fig.tileTitle(1, 'Temperature (3 sensors, 5M pts)');
-fig.tileTitle(2, 'Coolant Flow (500K pts)');
-fig.tileTitle(3, 'Reactor Pressure (2M pts)');
-fig.tileTitle(4, 'Motor Current (10M pts)');
-fig.tileTitle(5, 'Vibration + Faults (1M pts)');
-fig.tileTitle(6, 'Humidity Alarm Zones (200K pts)');
-fig.tileTitle(7, 'RPM — LTTB (50K pts)');
-fig.tileTitle(8, 'O2 with NaN Gaps (800K pts)');
-fig.tileTitle(9, 'Dual Channel (3M pts)');
+fig.setTileTitle(1, 'Temperature (3 sensors, 5M pts)');
+fig.setTileTitle(2, 'Coolant Flow (500K pts)');
+fig.setTileTitle(3, 'Reactor Pressure (2M pts)');
+fig.setTileTitle(4, 'Motor Current (10M pts)');
+fig.setTileTitle(5, 'Vibration + Faults (1M pts)');
+fig.setTileTitle(6, 'Humidity Alarm Zones (200K pts)');
+fig.setTileTitle(7, 'RPM — LTTB (50K pts)');
+fig.setTileTitle(8, 'O2 with NaN Gaps (800K pts)');
+fig.setTileTitle(9, 'Dual Channel (3M pts)');
 
-fig.tileYLabel(1, '\circC');
-fig.tileYLabel(2, 'L/min');
-fig.tileYLabel(3, 'kPa');
-fig.tileYLabel(4, 'Amps');
-fig.tileYLabel(5, 'mm/s');
-fig.tileYLabel(6, '%RH');
-fig.tileYLabel(7, 'RPM');
-fig.tileYLabel(8, '%');
-fig.tileYLabel(9, 'mV');
+fig.setTileYLabel(1, '\circC');
+fig.setTileYLabel(2, 'L/min');
+fig.setTileYLabel(3, 'kPa');
+fig.setTileYLabel(4, 'Amps');
+fig.setTileYLabel(5, 'mm/s');
+fig.setTileYLabel(6, '%RH');
+fig.setTileYLabel(7, 'RPM');
+fig.setTileYLabel(8, '%');
+fig.setTileYLabel(9, 'mV');
 
 elapsed = toc;
 total_pts = n1*3 + n2 + n3 + n4 + n5 + n6 + n7 + n8 + n9;
