@@ -225,7 +225,7 @@ classdef DashboardBuilder < handle
         function pos = findNextSlot(obj, type)
             switch type
                 case 'fastplot', defW = 12; defH = 3;
-                case 'kpi',      defW = 6; defH = 1;
+                case 'number',   defW = 6; defH = 1;
                 case 'status',   defW = 4; defH = 1;
                 case 'text',     defW = 6; defH = 1;
                 case 'gauge',    defW = 8; defH = 2;
@@ -271,9 +271,9 @@ classdef DashboardBuilder < handle
                 'BackgroundColor', theme.ToolbarBackground, ...
                 'HorizontalAlignment', 'center');
 
-            types  = {'fastplot','kpi','status','text', ...
+            types  = {'fastplot','number','status','text', ...
                       'gauge','table','rawaxes','timeline'};
-            labels = {'Plot','KPI','Status','Text', ...
+            labels = {'Plot','Number','Status','Text', ...
                       'Gauge','Table','Axes','Events'};
 
             btnH = 0.04;
@@ -906,7 +906,7 @@ classdef DashboardBuilder < handle
                         set(obj.hSourceType, 'Value', 1);  % None
                         set(obj.hSourceKey, 'String', '');
                     end
-                case {'kpi', 'gauge'}
+                case {'number', 'gauge'}
                     if ~isempty(w.StaticValue)
                         set(obj.hSourceType, 'Value', 4);  % Static
                         set(obj.hSourceKey, 'String', num2str(w.StaticValue));
