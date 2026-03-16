@@ -68,8 +68,10 @@ classdef DashboardSerializer
                 switch ws.type
                     case 'fastplot'
                         widgets{i} = FastPlotWidget.fromStruct(ws);
+                    case 'number'
+                        widgets{i} = NumberWidget.fromStruct(ws);
                     case 'kpi'
-                        widgets{i} = KpiWidget.fromStruct(ws);
+                        widgets{i} = NumberWidget.fromStruct(ws);
                     case 'status'
                         widgets{i} = StatusWidget.fromStruct(ws);
                     case 'text'

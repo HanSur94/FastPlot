@@ -53,8 +53,12 @@ classdef DashboardEngine < handle
             switch type
                 case 'fastplot'
                     w = FastPlotWidget(varargin{:});
+                case 'number'
+                    w = NumberWidget(varargin{:});
                 case 'kpi'
-                    w = KpiWidget(varargin{:});
+                    warning('DashboardEngine:deprecated', ...
+                        '''kpi'' type is deprecated, use ''number'' instead.');
+                    w = NumberWidget(varargin{:});
                 case 'status'
                     w = StatusWidget(varargin{:});
                 case 'text'
