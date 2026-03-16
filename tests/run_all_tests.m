@@ -1,5 +1,5 @@
 function results = run_all_tests()
-%RUN_ALL_TESTS Execute all FastPlot unit tests.
+%RUN_ALL_TESTS Execute all FastSense unit tests.
 %   On MATLAB: runs the class-based test suite in tests/suite/ using
 %   matlab.unittest.  On Octave: runs function-based test_*.m files.
 %
@@ -29,7 +29,7 @@ function results = run_matlab_suite(test_dir)
     suite_dir = fullfile(test_dir, 'suite');
     addpath(suite_dir);
 
-    fprintf('=== FastPlot Test Suite (MATLAB) ===\n\n');
+    fprintf('=== FastSense Test Suite (MATLAB) ===\n\n');
 
     suite = TestSuite.fromFolder(suite_dir);
 
@@ -72,7 +72,7 @@ end
 
 function results = run_octave_tests(test_dir)
 %RUN_OCTAVE_TESTS Run function-based tests for Octave compatibility.
-    add_fastplot_private_path();
+    add_fastsense_private_path();
     files = dir(fullfile(test_dir, 'test_*.m'));
 
     total = 0;

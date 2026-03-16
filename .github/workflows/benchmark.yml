@@ -24,7 +24,7 @@ jobs:
         run: |
           xvfb-run octave --eval "
             addpath(pwd); setup();
-            addpath(fullfile(pwd, 'libs', 'FastPlot', 'private'));
+            addpath(fullfile(pwd, 'libs', 'FastSense', 'private'));
 
             % Quick benchmark: 1M points, 10 zooms
             n = 1e6;
@@ -46,7 +46,7 @@ jobs:
             t_bs = toc / 1000;
 
             % Measure full render cycle
-            fp = FastPlot();
+            fp = FastSense();
             fp.addLine(x, y, 'DisplayName', 'bench');
             fp.addThreshold(1.5, 'Direction', 'upper', 'ShowViolations', true);
             fp.render();
@@ -79,7 +79,7 @@ jobs:
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: FastPlot Performance
+          name: FastSense Performance
           tool: customSmallerIsBetter
           output-file-path: benchmark-results.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
