@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773698910706,
+  "lastUpdate": 1773699533990,
   "repoUrl": "https://github.com/HanSur94/FastPlot",
   "entries": {
     "FastPlot Performance": [
@@ -155,6 +155,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Zoom Cycle (1M pts)",
             "value": 20.03,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sannahrush@googlemail.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "sannahrush@googlemail.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "distinct": true,
+          "id": "feb96a4a68c4be12d532ff0770e27727618d5799",
+          "message": "fix: skip 7 tests with known Octave classdef limitations\n\nThese tests pass on MATLAB but fail on Octave due to:\n- PostSet property listeners (not supported)\n- Abstract class instantiation check differences\n- RandStream (MATLAB-only)\n- Struct field access on empty classdef arrays (members bug)\n- parent_class_name_list internal error\n\nAll 7 are skipped on Octave with a clear message. They continue\nto run normally on MATLAB (weekly CI job).\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-03-16T23:16:30+01:00",
+          "tree_id": "73b6876bb3b471aacff48692c1b1b68c6e8d120a",
+          "url": "https://github.com/HanSur94/FastPlot/commit/feb96a4a68c4be12d532ff0770e27727618d5799"
+        },
+        "date": 1773699533684,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample (1M pts)",
+            "value": 2.1,
+            "unit": "ms"
+          },
+          {
+            "name": "Binary Search",
+            "value": 100.08,
+            "unit": "us"
+          },
+          {
+            "name": "Zoom Cycle (1M pts)",
+            "value": 25.82,
             "unit": "ms"
           }
         ]
