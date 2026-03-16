@@ -20,7 +20,7 @@ classdef TestDetectEventsFromSensor < matlab.unittest.TestCase
             testCase.verifyTrue(numel(events) >= 1, 'default: at least one event');
             testCase.verifyEqual(events(1).SensorName, 'Temperature', 'default: SensorName from sensor.Name');
             testCase.verifyEqual(events(1).ThresholdLabel, 'warn high', 'default: ThresholdLabel');
-            testCase.verifyEqual(events(1).Direction, 'high', 'default: Direction');
+            testCase.verifyEqual(events(1).Direction, 'upper', 'default: Direction');
         end
 
         function testCustomDetector(testCase)

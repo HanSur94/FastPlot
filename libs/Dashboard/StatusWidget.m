@@ -22,12 +22,6 @@ classdef StatusWidget < DashboardWidget
 
     methods
         function obj = StatusWidget(varargin)
-            % Map 'Sensor' shorthand to 'SensorObj'
-            for k = 1:2:numel(varargin)
-                if strcmp(varargin{k}, 'Sensor')
-                    varargin{k} = 'SensorObj';
-                end
-            end
             obj = obj@DashboardWidget(varargin{:});
             if isequal(obj.Position, [1 1 6 2])
                 obj.Position = [1 1 4 1]; % default compact size
@@ -84,8 +78,8 @@ classdef StatusWidget < DashboardWidget
         function refresh(obj)
             theme = obj.getTheme();
 
-            if ~isempty(obj.SensorObj)
-                if isempty(obj.SensorObj.Y), return; end
+            if ~isempty(obj.Sensor)
+                if isempty(obj.Sensor.Y), return; end
                 [obj.CurrentStatus, obj.CurrentColor] = obj.deriveStatusFromSensor(theme);
             elseif ~isempty(obj.StatusFcn)
                 obj.CurrentStatus = obj.StatusFcn();
@@ -104,11 +98,11 @@ classdef StatusWidget < DashboardWidget
 
             % Update label
             if ~isempty(obj.hLabelText) && ishandle(obj.hLabelText)
-                if ~isempty(obj.SensorObj)
-                    val = obj.SensorObj.Y(end);
+                if ~isempty(obj.Sensor)
+                    val = obj.Sensor.Y(end);
                     units = '';
-                    if ~isempty(obj.SensorObj.Units)
-                        units = [' ' obj.SensorObj.Units];
+                    if ~isempty(obj.Sensor.Units)
+                        units = [' ' obj.Sensor.Units];
                     end
                     lbl = sprintf('%s: %.1f%s', obj.Title, val, units);
                 else
@@ -127,7 +121,7 @@ classdef StatusWidget < DashboardWidget
 
         function s = toStruct(obj)
             s = toStruct@DashboardWidget(obj);
-            if isempty(obj.SensorObj)
+            if isempty(obj.Sensor)
                 if ~isempty(obj.StatusFcn)
                     s.source = struct('type', 'callback', ...
                         'function', func2str(obj.StatusFcn));
@@ -149,7 +143,7 @@ classdef StatusWidget < DashboardWidget
                 switch s.source.type
                     case 'sensor'
                         if exist('SensorRegistry', 'class')
-                            obj.SensorObj = SensorRegistry.get(s.source.name);
+                            obj.Sensor = SensorRegistry.get(s.source.name);
                         end
                     case 'callback'
                         obj.StatusFcn = str2func(s.source.function);
@@ -165,17 +159,17 @@ classdef StatusWidget < DashboardWidget
             status = 'ok';
             color = theme.StatusOkColor;
 
-            if isempty(obj.SensorObj.Y), return; end
+            if isempty(obj.Sensor.Y), return; end
 
-            if isempty(obj.SensorObj.ThresholdRules)
+            if isempty(obj.Sensor.ThresholdRules)
                 return;
             end
 
-            latestY = obj.SensorObj.Y(end);
+            latestY = obj.Sensor.Y(end);
             worstDist = -inf;
 
-            for i = 1:numel(obj.SensorObj.ThresholdRules)
-                rule = obj.SensorObj.ThresholdRules{i};
+            for i = 1:numel(obj.Sensor.ThresholdRules)
+                rule = obj.Sensor.ThresholdRules{i};
                 isViolated = false;
                 if rule.IsUpper && latestY > rule.Value
                     isViolated = true;

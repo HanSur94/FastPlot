@@ -1,12 +1,12 @@
 classdef FastPlotToolbar < handle
-    %FASTPLOTTOOLBAR Interactive toolbar for FastPlot and FastPlotFigure.
+    %FASTPLOTTOOLBAR Interactive toolbar for FastPlot and FastPlotGrid.
     %   Adds a uitoolbar with data cursor, crosshair, grid/legend toggles,
     %   Y-axis autoscale, PNG export, live mode controls, and metadata
     %   display. Integrates with MATLAB's built-in datacursormode for
     %   enhanced tooltips.
     %
     %   tb = FastPlotToolbar(fp)   — attach to a FastPlot instance
-    %   tb = FastPlotToolbar(fig)  — attach to a FastPlotFigure instance
+    %   tb = FastPlotToolbar(fig)  — attach to a FastPlotGrid instance
     %
     %   Toolbar buttons:
     %     Data Cursor  — click to snap to nearest data point, shows value
@@ -49,7 +49,7 @@ classdef FastPlotToolbar < handle
     %     fp.render();
     %     tb = FastPlotToolbar(fp);
     %
-    %   See also FastPlot, FastPlotFigure, FastPlotDock.
+    %   See also FastPlot, FastPlotGrid, FastPlotDock.
 
     % ========================= PUBLIC STATE ==============================
     properties (SetAccess = private, GetAccess = public)
@@ -59,7 +59,7 @@ classdef FastPlotToolbar < handle
     % ====================== INTERNAL STATE ===============================
     % Graphics handles, mode tracking, and saved callbacks.
     properties (SetAccess = private)
-        Target        = []    % FastPlot or FastPlotFigure
+        Target        = []    % FastPlot or FastPlotGrid
         hFigure       = []    % figure handle
         hToolbar      = []    % uitoolbar handle
         FastPlots     = {}    % cell array of all FastPlot instances
@@ -83,14 +83,14 @@ classdef FastPlotToolbar < handle
         function obj = FastPlotToolbar(target)
             %FASTPLOTTOOLBAR Construct and attach a toolbar to a plot target.
             %   tb = FastPlotToolbar(fp)   — FastPlot instance
-            %   tb = FastPlotToolbar(fig)  — FastPlotFigure instance
+            %   tb = FastPlotToolbar(fig)  — FastPlotGrid instance
             %
             %   Resolves the figure handle, collects all FastPlot instances,
             %   creates the uitoolbar, and installs the datacursor callback.
             obj.Target = target;
 
             % Resolve figure handle and FastPlot instances
-            if isa(target, 'FastPlotFigure')
+            if isa(target, 'FastPlotGrid')
                 obj.hFigure = target.hFigure;
                 obj.FastPlots = {};
                 for i = 1:numel(target.Tiles)
@@ -103,7 +103,7 @@ classdef FastPlotToolbar < handle
                 obj.FastPlots = {target};
             else
                 error('FastPlotToolbar:invalidTarget', ...
-                    'Target must be a FastPlot or FastPlotFigure instance.');
+                    'Target must be a FastPlot or FastPlotGrid instance.');
             end
 
             obj.createToolbar();
@@ -213,7 +213,7 @@ classdef FastPlotToolbar < handle
                     if isprop(target, 'MetadataLineIndex')
                         args = [args, 'MetadataLineIndex', target.MetadataLineIndex];
                     end
-                    if isprop(target, 'MetadataTileIndex') && isa(target, 'FastPlotFigure')
+                    if isprop(target, 'MetadataTileIndex') && isa(target, 'FastPlotGrid')
                         args = [args, 'MetadataTileIndex', target.MetadataTileIndex];
                     end
                     target.startLive(target.LiveFile, target.LiveUpdateFcn, args{:});
@@ -275,7 +275,7 @@ classdef FastPlotToolbar < handle
 
             % Update target references
             obj.Target = target;
-            if isa(target, 'FastPlotFigure')
+            if isa(target, 'FastPlotGrid')
                 obj.hFigure = target.hFigure;
                 obj.FastPlots = {};
                 for i = 1:numel(target.Tiles)
@@ -564,7 +564,7 @@ classdef FastPlotToolbar < handle
             %     name — theme name string (e.g. 'dark') or ''
             name = '';
             target = obj.Target;
-            if isa(target, 'FastPlotFigure') || isa(target, 'FastPlot')
+            if isa(target, 'FastPlotGrid') || isa(target, 'FastPlot')
                 currentTheme = target.Theme;
             else
                 return;
@@ -645,7 +645,7 @@ classdef FastPlotToolbar < handle
             end
 
             target = obj.Target;
-            if isa(target, 'FastPlotFigure')
+            if isa(target, 'FastPlotGrid')
                 % Check if the figure belongs to a dock (via AppData)
                 dock = getappdata(obj.hFigure, 'FastPlotDock');
                 if ~isempty(dock) && isa(dock, 'FastPlotDock')

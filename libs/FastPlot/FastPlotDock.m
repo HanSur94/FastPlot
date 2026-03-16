@@ -1,6 +1,6 @@
 classdef FastPlotDock < handle
-    %FASTPLOTDOCK Tabbed container for multiple FastPlotFigure dashboards.
-    %   Manages multiple FastPlotFigure instances as switchable tabs in a
+    %FASTPLOTDOCK Tabbed container for multiple FastPlotGrid dashboards.
+    %   Manages multiple FastPlotGrid instances as switchable tabs in a
     %   single window. Each tab has its own panel, toolbar, close button,
     %   and undock button. Tabs can be dynamically added, removed, or
     %   popped out into standalone figures.
@@ -21,7 +21,7 @@ classdef FastPlotDock < handle
     %
     %   FastPlotDock Methods:
     %     FastPlotDock    — construct a tabbed dock container
-    %     addTab          — register a FastPlotFigure as a tab
+    %     addTab          — register a FastPlotGrid as a tab
     %     render          — render active tab, create tab bar, show first tab
     %     renderAll       — eagerly render all tabs with hierarchical progress
     %     selectTab       — switch to tab n, rendering lazily if needed
@@ -33,15 +33,15 @@ classdef FastPlotDock < handle
     %
     %   Example:
     %     dock = FastPlotDock('Theme', 'dark', 'Name', 'Dashboard');
-    %     fig1 = FastPlotFigure(2, 1, 'ParentFigure', dock.hFigure);
+    %     fig1 = FastPlotGrid(2, 1, 'ParentFigure', dock.hFigure);
     %     fig1.tile(1).addLine(x, y1); fig1.tile(2).addLine(x, y2);
     %     dock.addTab(fig1, 'Temperature');
-    %     fig2 = FastPlotFigure(1, 1, 'ParentFigure', dock.hFigure);
+    %     fig2 = FastPlotGrid(1, 1, 'ParentFigure', dock.hFigure);
     %     fig2.tile(1).addLine(x, y3);
     %     dock.addTab(fig2, 'Pressure');
     %     dock.render();
     %
-    %   See also FastPlotFigure, FastPlot, FastPlotToolbar, FastPlotTheme.
+    %   See also FastPlotGrid, FastPlot, FastPlotToolbar, FastPlotTheme.
 
     % ========================= PUBLIC PROPERTIES =========================
     properties (Access = public)
@@ -79,7 +79,7 @@ classdef FastPlotDock < handle
             %   dock = FastPlotDock('Theme', 'dark', 'Name', 'My Dock')
             %
             %   Creates a figure with a tab bar. Use addTab() to register
-            %   FastPlotFigure instances, then call render().
+            %   FastPlotGrid instances, then call render().
             cfg = getDefaults();
             obj.TabBarHeight = cfg.TabBarHeight;
             obj.MinTabWidth  = cfg.MinTabWidth;
@@ -97,8 +97,8 @@ classdef FastPlotDock < handle
         end
 
         function addTab(obj, fig, name)
-            %ADDTAB Register a FastPlotFigure as a tab.
-            %   dock.addTab(fig, name) adds a FastPlotFigure as a new tab
+            %ADDTAB Register a FastPlotGrid as a tab.
+            %   dock.addTab(fig, name) adds a FastPlotGrid as a new tab
             %   in the dock. The figure's ParentFigure and hFigure are
             %   redirected to the dock's shared figure. A uipanel is created
             %   for the tab's content, offset below the tab bar.
@@ -107,7 +107,7 @@ classdef FastPlotDock < handle
             %   the new tab is rendered immediately and its button is added.
             %
             %   Inputs:
-            %     fig  — FastPlotFigure instance to dock
+            %     fig  — FastPlotGrid instance to dock
             %     name — display name for the tab button
             %
             %   See also removeTab, undockTab, selectTab.
@@ -236,7 +236,7 @@ classdef FastPlotDock < handle
             %SELECTTAB Switch to tab n, rendering it lazily if needed.
             %   dock.selectTab(n) hides the currently active tab, renders
             %   tab n if it hasn't been rendered yet, rebinds the shared
-            %   toolbar to the new tab's FastPlotFigure, and shows tab n.
+            %   toolbar to the new tab's FastPlotGrid, and shows tab n.
             %
             %   Input:
             %     n — tab index (1 to numel(Tabs))
@@ -549,10 +549,10 @@ classdef FastPlotDock < handle
             %REAPPLYTHEME Re-apply theme to dock, tab bar, panels, and all tabs.
             %   dock.reapplyTheme() updates the figure background, re-styles
             %   all tab/undock/close buttons, updates panel backgrounds, and
-            %   propagates the theme to every tab's FastPlotFigure (calling
+            %   propagates the theme to every tab's FastPlotGrid (calling
             %   reapplyTheme on rendered figures).
             %
-            %   See also FastPlotFigure.reapplyTheme.
+            %   See also FastPlotGrid.reapplyTheme.
             set(obj.hFigure, 'Color', obj.Theme.Background);
             for i = 1:numel(obj.hTabButtons)
                 if ishandle(obj.hTabButtons{i})
@@ -619,7 +619,7 @@ classdef FastPlotDock < handle
         function reparentAxes(obj, idx)
             %REPARENTAXES Move all tile axes into the tab's panel.
             %   reparentAxes(obj, idx) sets the Parent of every tile axes
-            %   in tab idx's FastPlotFigure to the tab's uipanel. This
+            %   in tab idx's FastPlotGrid to the tab's uipanel. This
             %   ensures axes are clipped to the panel and hidden/shown
             %   with it during tab switching.
             %
@@ -637,7 +637,7 @@ classdef FastPlotDock < handle
         function renderTab(obj, idx)
             %RENDERTAB Render a single tab: figure and axes reparenting.
             %   renderTab(obj, idx) calls renderAll on the tab's
-            %   FastPlotFigure, reparents the axes into the tab's panel,
+            %   FastPlotGrid, reparents the axes into the tab's panel,
             %   and marks the tab as rendered.
             %
             %   Input:

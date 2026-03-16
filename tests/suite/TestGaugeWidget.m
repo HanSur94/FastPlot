@@ -78,7 +78,7 @@ classdef TestGaugeWidget < matlab.unittest.TestCase
             rule1 = ThresholdRule(struct(), 30, 'Direction', 'lower', 'Label', 'Lo', 'Color', [1 0.6 0]);
             rule2 = ThresholdRule(struct(), 80, 'Direction', 'upper', 'Label', 'Hi', 'Color', [1 0 0]);
             s.ThresholdRules = {rule1, rule2};
-            w = GaugeWidget('SensorObj', s);
+            w = GaugeWidget('Sensor', s);
             testCase.verifyEqual(w.Title, 'Pressure');
             testCase.verifyEqual(w.Units, 'bar');
             testCase.verifyEqual(w.Range, [30 80]);

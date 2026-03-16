@@ -1,7 +1,8 @@
 %% FastPlot Basic Example — 10M points single line
 % Demonstrates basic usage with a large time series
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 n = 10e6;
 x = linspace(0, 100, n);

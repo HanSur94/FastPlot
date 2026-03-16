@@ -11,7 +11,7 @@ classdef TestGroupViolations < matlab.unittest.TestCase
         function testSingleGroup(testCase)
             t      = [1 2 3 4 5 6 7 8 9 10];
             values = [5 5 12 14 11 13 5 5 5 5];
-            groups = groupViolations(t, values, 10, 'high');
+            groups = groupViolations(t, values, 10, 'upper');
             testCase.verifyEqual(numel(groups), 1, 'singleGroup: count');
             testCase.verifyEqual(groups(1).startIdx, 3, 'singleGroup: startIdx');
             testCase.verifyEqual(groups(1).endIdx, 6, 'singleGroup: endIdx');
@@ -20,7 +20,7 @@ classdef TestGroupViolations < matlab.unittest.TestCase
         function testTwoGroups(testCase)
             t      = [1 2 3 4 5 6 7 8 9 10];
             values = [12 13 5 5 5 14 15 5 5 5];
-            groups = groupViolations(t, values, 10, 'high');
+            groups = groupViolations(t, values, 10, 'upper');
             testCase.verifyEqual(numel(groups), 2, 'twoGroups: count');
             testCase.verifyEqual(groups(1).startIdx, 1, 'twoGroups: g1 start');
             testCase.verifyEqual(groups(1).endIdx, 2, 'twoGroups: g1 end');
@@ -31,7 +31,7 @@ classdef TestGroupViolations < matlab.unittest.TestCase
         function testLowDirection(testCase)
             t      = [1 2 3 4 5];
             values = [50 3 2 4 50];
-            groups = groupViolations(t, values, 10, 'low');
+            groups = groupViolations(t, values, 10, 'lower');
             testCase.verifyEqual(numel(groups), 1, 'lowDir: count');
             testCase.verifyEqual(groups(1).startIdx, 2, 'lowDir: start');
             testCase.verifyEqual(groups(1).endIdx, 4, 'lowDir: end');
@@ -40,14 +40,14 @@ classdef TestGroupViolations < matlab.unittest.TestCase
         function testNoViolations(testCase)
             t      = [1 2 3 4 5];
             values = [5 6 7 8 9];
-            groups = groupViolations(t, values, 10, 'high');
+            groups = groupViolations(t, values, 10, 'upper');
             testCase.verifyEmpty(groups, 'noViolations: empty');
         end
 
         function testAllViolations(testCase)
             t      = [1 2 3];
             values = [20 30 40];
-            groups = groupViolations(t, values, 10, 'high');
+            groups = groupViolations(t, values, 10, 'upper');
             testCase.verifyEqual(numel(groups), 1, 'allViolations: count');
             testCase.verifyEqual(groups(1).startIdx, 1, 'allViolations: start');
             testCase.verifyEqual(groups(1).endIdx, 3, 'allViolations: end');

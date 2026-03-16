@@ -3,7 +3,8 @@
 % exceed available RAM. Data is stored in a temporary SQLite database
 % and only the visible slice is loaded into memory on zoom/pan.
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 %% 1. Automatic disk offload (default behaviour)
 % In 'auto' mode (the default), FastPlot stores data on disk when it

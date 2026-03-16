@@ -16,8 +16,8 @@ function test_toolbar()
     assert(ishandle(tb.hToolbar), 'testConstructorWithFastPlot: ishandle');
     close(fp.hFigure);
 
-    % testConstructorWithFastPlotFigure
-    fig = FastPlotFigure(1, 2);
+    % testConstructorWithFastPlotGrid
+    fig = FastPlotGrid(1, 2);
     fp1 = fig.tile(1); fp1.addLine(1:100, rand(1,100));
     fp2 = fig.tile(2); fp2.addLine(1:100, rand(1,100));
     fig.renderAll();

@@ -1,7 +1,7 @@
 function cfg = FastPlotDefaults()
 %FASTPLOTDEFAULTS User-editable default settings for FastPlot.
 %   cfg = FASTPLOTDEFAULTS() returns a struct of global defaults used by
-%   FastPlot, FastPlotFigure, and FastPlotDock. Edit this file to
+%   FastPlot, FastPlotGrid, and FastPlotDock. Edit this file to
 %   customize behavior project-wide.
 %
 %   Values are loaded once per MATLAB session via getDefaults() and cached

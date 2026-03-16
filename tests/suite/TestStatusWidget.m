@@ -69,7 +69,7 @@ classdef TestStatusWidget < matlab.unittest.TestCase
             s = Sensor('T-401', 'Name', 'Temperature', 'Units', 'degC');
             s.X = [1 2 3]; s.Y = [70 71 72];
             s.ThresholdRules = {};
-            w = StatusWidget('SensorObj', s);
+            w = StatusWidget('Sensor', s);
             testCase.verifyEqual(w.Title, 'Temperature');
             hFig = figure('Visible', 'off');
             testCase.addTeardown(@() close(hFig));
@@ -84,7 +84,7 @@ classdef TestStatusWidget < matlab.unittest.TestCase
             rule = ThresholdRule(struct(), 80, 'Direction', 'upper', ...
                 'Label', 'Hi Alarm', 'Color', [0.9 0.2 0.2]);
             s.ThresholdRules = {rule};
-            w = StatusWidget('SensorObj', s);
+            w = StatusWidget('Sensor', s);
             hFig = figure('Visible', 'off');
             testCase.addTeardown(@() close(hFig));
             hp = uipanel('Parent', hFig, 'Position', [0 0 1 1]);

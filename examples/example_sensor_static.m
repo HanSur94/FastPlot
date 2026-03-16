@@ -2,7 +2,8 @@
 % Demonstrates the SensorThreshold library without any state channels.
 % Static thresholds apply everywhere (condition is always true).
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 % --- Create sensor with synthetic vibration data ---
 s = Sensor('vibration', 'Name', 'Motor Vibration', 'ID', 201);

@@ -15,7 +15,8 @@ classdef DashboardWidget < handle
         ThemeOverride = struct()   % Per-widget theme overrides (merged on top of dashboard theme)
         UseGlobalTime = true       % false when user manually zooms this widget
         Description = ''           % Optional tooltip text shown via info icon hover
-        SensorObj   = []           % Sensor object for data binding (primary source)
+        Sensor      = []           % Sensor object for data binding (primary source)
+        ParentTheme = []           % Theme inherited from DashboardEngine
     end
 
     properties (SetAccess = protected)
@@ -32,11 +33,11 @@ classdef DashboardWidget < handle
                 obj.(varargin{k}) = varargin{k+1};
             end
             % Title cascade: if empty and Sensor bound, use Sensor.Name
-            if isempty(obj.Title) && ~isempty(obj.SensorObj)
-                if ~isempty(obj.SensorObj.Name)
-                    obj.Title = obj.SensorObj.Name;
+            if isempty(obj.Title) && ~isempty(obj.Sensor)
+                if ~isempty(obj.Sensor.Name)
+                    obj.Title = obj.Sensor.Name;
                 else
-                    obj.Title = obj.SensorObj.Key;
+                    obj.Title = obj.Sensor.Key;
                 end
             end
         end
@@ -56,8 +57,8 @@ classdef DashboardWidget < handle
             if ~isempty(fieldnames(obj.ThemeOverride))
                 s.themeOverride = obj.ThemeOverride;
             end
-            if ~isempty(obj.SensorObj)
-                s.source = struct('type', 'sensor', 'name', obj.SensorObj.Key);
+            if ~isempty(obj.Sensor)
+                s.source = struct('type', 'sensor', 'name', obj.Sensor.Key);
             end
         end
 
@@ -81,7 +82,11 @@ classdef DashboardWidget < handle
 
     methods (Access = protected)
         function theme = getTheme(obj)
-            theme = DashboardTheme();
+            if ~isempty(obj.ParentTheme) && isstruct(obj.ParentTheme)
+                theme = obj.ParentTheme;
+            else
+                theme = DashboardTheme();
+            end
             if ~isempty(fieldnames(obj.ThemeOverride))
                 fns = fieldnames(obj.ThemeOverride);
                 for i = 1:numel(fns)

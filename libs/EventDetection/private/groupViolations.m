@@ -5,7 +5,7 @@ function groups = groupViolations(t, values, thresholdValue, direction)
 %   Returns struct array with fields: startIdx, endIdx.
 %   Empty if no violations found.
 
-    if strcmp(direction, 'high')
+    if strcmp(direction, 'upper')
         violating = values > thresholdValue;
     else
         violating = values < thresholdValue;

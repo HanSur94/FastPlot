@@ -40,10 +40,10 @@ classdef TestEventConsole < matlab.unittest.TestCase
 
     methods (Static, Access = private)
         function [e1, e2] = makeEvents()
-            e1 = Event(10, 25, 'Temperature', 'warning high', 80, 'high');
-            e1 = e1.setStats(95.2, 150, 72, 95.2, 87.3, 88.1, 4.21);
-            e2 = Event(50, 55, 'Pressure', 'low alarm', 5, 'low');
-            e2 = e2.setStats(2.1, 50, 2.1, 6.8, 4.5, 4.7, 1.2);
+            e1 = Event(10, 25, 'Temperature', 'warning high', 80, 'upper');
+            e1.setStats(95.2, 150, 72, 95.2, 87.3, 88.1, 4.21);
+            e2 = Event(50, 55, 'Pressure', 'low alarm', 5, 'lower');
+            e2.setStats(2.1, 50, 2.1, 6.8, 4.5, 4.7, 1.2);
         end
     end
 end

@@ -1,7 +1,8 @@
 %% FastPlot Visual Features — Bands, Shading, Fill, and Markers
 % Demonstrates all new visual enhancement methods in a 2x2 dashboard
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 n = 5e5;
 x = linspace(0, 100, n);
@@ -9,7 +10,7 @@ x = linspace(0, 100, n);
 fprintf('Visual features example: 4 tiles, %d points...\n', n);
 tic;
 
-fig = FastPlotFigure(2, 2, 'Theme', 'default', ...
+fig = FastPlotGrid(2, 2, 'Theme', 'default', ...
     'Name', 'Visual Features Demo', 'Position', [50 50 1200 800]);
 
 % --- Tile 1: addBand — Alarm bands with thresholds ---
@@ -51,9 +52,9 @@ fp4.addMarker(event_x, event_y - 0.5, 'Marker', '^', 'MarkerSize', 8, ...
 
 fig.renderAll();
 
-fig.tileTitle(1, 'addBand — Alarm Zones');
-fig.tileTitle(2, 'addShaded — Confidence Envelope');
-fig.tileTitle(3, 'addFill — Area Under Curve');
-fig.tileTitle(4, 'addMarker — Event Annotations');
+fig.setTileTitle(1, 'addBand — Alarm Zones');
+fig.setTileTitle(2, 'addShaded — Confidence Envelope');
+fig.setTileTitle(3, 'addFill — Area Under Curve');
+fig.setTileTitle(4, 'addMarker — Event Annotations');
 
 fprintf('Visual features rendered in %.3f seconds.\n', toc);

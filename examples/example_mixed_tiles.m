@@ -2,7 +2,8 @@
 % Demonstrates using fig.axes(n) alongside fig.tile(n) for plot types
 % that FastPlot doesn't handle (bar, scatter, histogram, stem, etc.)
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 n = 500000;
 x = linspace(0, 120, n);
@@ -10,7 +11,7 @@ x = linspace(0, 120, n);
 fprintf('Mixed tile dashboard: 2x3 grid, FastPlot + raw axes...\n');
 tic;
 
-fig = FastPlotFigure(2, 3, 'Theme', 'light', ...
+fig = FastPlotGrid(2, 3, 'Theme', 'light', ...
     'Name', 'Mixed Tile Types Demo', 'Position', [50 50 1500 800]);
 
 % --- Tile 1: FastPlot time series (temperature) ---
@@ -55,17 +56,17 @@ grid(ax6, 'on');
 fig.renderAll();
 
 % Apply labels (works on both FastPlot and raw axes tiles)
-fig.tileTitle(1, 'Temperature (C)');
-fig.tileXLabel(1, 'Time (s)');
-fig.tileTitle(2, 'Alarm Events / Day');
-fig.tileYLabel(2, 'Count');
-fig.tileTitle(3, 'Temp vs Pressure');
-fig.tileXLabel(3, 'Temperature (C)');
-fig.tileYLabel(3, 'Pressure (bar)');
-fig.tileTitle(4, 'Pressure with Confidence Band');
-fig.tileXLabel(4, 'Time (s)');
-fig.tileTitle(6, 'Temperature Distribution');
-fig.tileXLabel(6, 'Temperature (C)');
-fig.tileYLabel(6, 'Frequency');
+fig.setTileTitle(1, 'Temperature (C)');
+fig.setTileXLabel(1, 'Time (s)');
+fig.setTileTitle(2, 'Alarm Events / Day');
+fig.setTileYLabel(2, 'Count');
+fig.setTileTitle(3, 'Temp vs Pressure');
+fig.setTileXLabel(3, 'Temperature (C)');
+fig.setTileYLabel(3, 'Pressure (bar)');
+fig.setTileTitle(4, 'Pressure with Confidence Band');
+fig.setTileXLabel(4, 'Time (s)');
+fig.setTileTitle(6, 'Temperature Distribution');
+fig.setTileXLabel(6, 'Temperature (C)');
+fig.setTileYLabel(6, 'Frequency');
 
 fprintf('Mixed tile dashboard rendered in %.3f seconds.\n', toc);

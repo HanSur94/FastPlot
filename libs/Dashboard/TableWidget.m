@@ -23,11 +23,6 @@ classdef TableWidget < DashboardWidget
 
     methods
         function obj = TableWidget(varargin)
-            for k = 1:2:numel(varargin)
-                if strcmp(varargin{k}, 'Sensor')
-                    varargin{k} = 'SensorObj';
-                end
-            end
             obj = obj@DashboardWidget(varargin{:});
             if isequal(obj.Position, [1 1 6 2])
                 obj.Position = [1 1 8 2];
@@ -75,23 +70,23 @@ classdef TableWidget < DashboardWidget
             data = [];
             colNames = obj.ColumnNames;
 
-            if ~isempty(obj.SensorObj)
+            if ~isempty(obj.Sensor)
                 if strcmp(obj.Mode, 'data')
-                    n = min(obj.N, numel(obj.SensorObj.X));
-                    x = obj.SensorObj.X(end-n+1:end);
-                    y = obj.SensorObj.Y(end-n+1:end);
+                    n = min(obj.N, numel(obj.Sensor.X));
+                    x = obj.Sensor.X(end-n+1:end);
+                    y = obj.Sensor.Y(end-n+1:end);
                     data = cell(n, 2);
                     for i = 1:n
                         data{i,1} = datestr(x(i), 'HH:MM:SS');
                         data{i,2} = y(i);
                     end
                     if isempty(colNames)
-                        colNames = {'Time', obj.SensorObj.Name};
+                        colNames = {'Time', obj.Sensor.Name};
                     end
                 elseif strcmp(obj.Mode, 'events') && ~isempty(obj.EventStoreObj)
                     evts = obj.EventStoreObj.getEvents();
                     if ~isempty(evts)
-                        sName = obj.SensorObj.Name;
+                        sName = obj.Sensor.Name;
                         mask = arrayfun(@(e) contains(e.SensorName, sName), evts);
                         evts = evts(mask);
                         n = min(obj.N, numel(evts));
@@ -136,8 +131,8 @@ classdef TableWidget < DashboardWidget
             s.columnNames = obj.ColumnNames;
             s.mode = obj.Mode;
             s.n = obj.N;
-            if ~isempty(obj.SensorObj)
-                s.source = struct('type', 'sensor', 'name', obj.SensorObj.Key, ...
+            if ~isempty(obj.Sensor)
+                s.source = struct('type', 'sensor', 'name', obj.Sensor.Key, ...
                     'mode', obj.Mode);
             elseif ~isempty(obj.DataFcn)
                 s.source = struct('type', 'callback', ...
@@ -170,7 +165,7 @@ classdef TableWidget < DashboardWidget
                 switch s.source.type
                     case 'sensor'
                         if exist('SensorRegistry', 'class')
-                            obj.SensorObj = SensorRegistry.get(s.source.name);
+                            obj.Sensor = SensorRegistry.get(s.source.name);
                         end
                         if isfield(s.source, 'mode')
                             obj.Mode = s.source.mode;

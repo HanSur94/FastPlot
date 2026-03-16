@@ -137,8 +137,7 @@ classdef EventConfig < handle
                 if isempty(s.ResolvedThresholds); continue; end
                 for j = 1:numel(s.ResolvedThresholds)
                     th = s.ResolvedThresholds(j);
-                    if strcmp(th.Direction, 'upper'); dir = 'high'; else; dir = 'low'; end
-                    key = [sName, '|', dir];
+                    key = [sName, '|', th.Direction];
                     validY = th.Y(~isnan(th.Y));
                     if isempty(validY); continue; end
                     entry.Label = th.Label;
@@ -163,8 +162,8 @@ classdef EventConfig < handle
 
                 for j = 1:numel(thresholds)
                     th = thresholds(j);
-                    if strcmp(ev.Direction, 'high')
-                        % For 'high': escalate if peak exceeds a higher threshold
+                    if strcmp(ev.Direction, 'upper')
+                        % For 'upper': escalate if peak exceeds a higher threshold
                         if th.Value > ev.ThresholdValue && ev.PeakValue >= th.Value
                             if th.Value > bestValue
                                 bestValue = th.Value;
@@ -172,7 +171,7 @@ classdef EventConfig < handle
                             end
                         end
                     else
-                        % For 'low': escalate if peak is below a lower threshold
+                        % For 'lower': escalate if peak is below a lower threshold
                         if th.Value < ev.ThresholdValue && ev.PeakValue <= th.Value
                             if th.Value < bestValue
                                 bestValue = th.Value;
@@ -183,7 +182,7 @@ classdef EventConfig < handle
                 end
 
                 if ~strcmp(bestLabel, ev.ThresholdLabel)
-                    events(i) = ev.escalateTo(bestLabel, bestValue);
+                    ev.escalateTo(bestLabel, bestValue);
                 end
             end
 

@@ -6,7 +6,8 @@
 %   - ~86M total data points across all tabs
 %   - Tests rendering, downsampling, threshold resolve, and zoom/pan
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 fprintf('\n=== FastPlot Stress Test: 5 Tabbed Dashboards ===\n');
 totalTic = tic;
@@ -31,7 +32,7 @@ dock = FastPlotDock('Theme', 'light', 'Name', 'Stress Test — 26 Sensors, 104 T
 % =========================================================================
 % TAB 1: Vacuum Chamber — 3x2 grid, 6 sensors
 % =========================================================================
-fig1 = FastPlotFigure(3, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
+fig1 = FastPlotGrid(3, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
 
 % 1.1: Chamber Pressure — 5M pts
 s = make_sensor('pressure', 'Chamber Pressure', 5e6, 40, 18, 800, 4, {scMachine, scVacuum});
@@ -75,7 +76,7 @@ dock.addTab(fig1, 'Vacuum Chamber');
 % =========================================================================
 % TAB 2: Motor Diagnostics — 2x3 grid, 6 sensors
 % =========================================================================
-fig2 = FastPlotFigure(2, 3, 'ParentFigure', dock.hFigure, 'Theme', 'light');
+fig2 = FastPlotGrid(2, 3, 'ParentFigure', dock.hFigure, 'Theme', 'light');
 
 % 2.1: Motor Current A — 5M pts
 s = make_sensor('motor_A', 'Motor Current A', 5e6, 12, 4, 400, 1.5, {scMachine});
@@ -121,7 +122,7 @@ dock.addTab(fig2, 'Motor Diagnostics');
 % =========================================================================
 % TAB 3: Environmental — 2x2 grid, 4 sensors
 % =========================================================================
-fig3 = FastPlotFigure(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
+fig3 = FastPlotGrid(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
 
 % 3.1: Cleanroom Temp — 5M pts
 s = make_sensor('room_temp', 'Cleanroom Temp', 5e6, 22, 1.5, 1800, 0.3, {scMachine});
@@ -154,7 +155,7 @@ dock.addTab(fig3, 'Environmental');
 % =========================================================================
 % TAB 4: Gas Delivery — 3x2 grid, 6 sensors
 % =========================================================================
-fig4 = FastPlotFigure(3, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
+fig4 = FastPlotGrid(3, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
 
 gasNames   = {'Argon', 'Nitrogen', 'Oxygen', 'CF4', 'CHF3', 'Helium'};
 gasNominal = [200    150     80     50    30    500];
@@ -184,7 +185,7 @@ dock.addTab(fig4, 'Gas Delivery');
 % =========================================================================
 % TAB 5: Power & Cooling — 2x2 grid, 4 sensors
 % =========================================================================
-fig5 = FastPlotFigure(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
+fig5 = FastPlotGrid(2, 2, 'ParentFigure', dock.hFigure, 'Theme', 'light');
 
 % 5.1: Chiller Supply — 3M pts
 s = make_sensor('chiller_supply', 'Chiller Supply', 3e6, 18, 2, 1200, 0.5, {scMachine});
@@ -220,36 +221,36 @@ dock.addTab(fig5, 'Power & Cooling');
 dock.renderAll();
 
 % Add titles and labels
-fig1.tileTitle(1, 'Chamber Pressure (5M)');  fig1.tileYLabel(1, 'mbar');
-fig1.tileTitle(2, 'Base Pressure (5M)');     fig1.tileYLabel(2, 'mbar');
-fig1.tileTitle(3, 'Gate Valve (3M)');        fig1.tileYLabel(3, '%');
-fig1.tileTitle(4, 'Gas Flow (5M)');          fig1.tileYLabel(4, 'sccm');
-fig1.tileTitle(5, 'RF Power (4M)');          fig1.tileYLabel(5, 'W');
-fig1.tileTitle(6, 'Substrate Temp (3M)');    fig1.tileYLabel(6, '°C');
+fig1.setTileTitle(1, 'Chamber Pressure (5M)');  fig1.setTileYLabel(1, 'mbar');
+fig1.setTileTitle(2, 'Base Pressure (5M)');     fig1.setTileYLabel(2, 'mbar');
+fig1.setTileTitle(3, 'Gate Valve (3M)');        fig1.setTileYLabel(3, '%');
+fig1.setTileTitle(4, 'Gas Flow (5M)');          fig1.setTileYLabel(4, 'sccm');
+fig1.setTileTitle(5, 'RF Power (4M)');          fig1.setTileYLabel(5, 'W');
+fig1.setTileTitle(6, 'Substrate Temp (3M)');    fig1.setTileYLabel(6, '°C');
 
-fig2.tileTitle(1, 'Current A (5M)');         fig2.tileYLabel(1, 'A');
-fig2.tileTitle(2, 'Current B (5M)');         fig2.tileYLabel(2, 'A');
-fig2.tileTitle(3, 'Current C (5M)');         fig2.tileYLabel(3, 'A');
-fig2.tileTitle(4, 'Vibration X (3M)');       fig2.tileYLabel(4, 'mm/s');
-fig2.tileTitle(5, 'Spindle RPM (2M)');       fig2.tileYLabel(5, 'RPM');
-fig2.tileTitle(6, 'Bearing Temp (3M)');      fig2.tileYLabel(6, '°C');
+fig2.setTileTitle(1, 'Current A (5M)');         fig2.setTileYLabel(1, 'A');
+fig2.setTileTitle(2, 'Current B (5M)');         fig2.setTileYLabel(2, 'A');
+fig2.setTileTitle(3, 'Current C (5M)');         fig2.setTileYLabel(3, 'A');
+fig2.setTileTitle(4, 'Vibration X (3M)');       fig2.setTileYLabel(4, 'mm/s');
+fig2.setTileTitle(5, 'Spindle RPM (2M)');       fig2.setTileYLabel(5, 'RPM');
+fig2.setTileTitle(6, 'Bearing Temp (3M)');      fig2.setTileYLabel(6, '°C');
 
-fig3.tileTitle(1, 'Cleanroom Temp (5M)');    fig3.tileYLabel(1, '°C');
-fig3.tileTitle(2, 'Humidity (5M)');          fig3.tileYLabel(2, '%RH');
-fig3.tileTitle(3, 'Particles (3M)');         fig3.tileYLabel(3, 'ct/m³');
-fig3.tileTitle(4, 'Diff Pressure (3M)');     fig3.tileYLabel(4, 'Pa');
+fig3.setTileTitle(1, 'Cleanroom Temp (5M)');    fig3.setTileYLabel(1, '°C');
+fig3.setTileTitle(2, 'Humidity (5M)');          fig3.setTileYLabel(2, '%RH');
+fig3.setTileTitle(3, 'Particles (3M)');         fig3.setTileYLabel(3, 'ct/m³');
+fig3.setTileTitle(4, 'Diff Pressure (3M)');     fig3.setTileYLabel(4, 'Pa');
 
-fig4.tileTitle(1, 'Argon (3M)');     fig4.tileYLabel(1, 'sccm');
-fig4.tileTitle(2, 'Nitrogen (3M)');  fig4.tileYLabel(2, 'sccm');
-fig4.tileTitle(3, 'Oxygen (2M)');    fig4.tileYLabel(3, 'sccm');
-fig4.tileTitle(4, 'CF4 (2M)');       fig4.tileYLabel(4, 'sccm');
-fig4.tileTitle(5, 'CHF3 (2M)');      fig4.tileYLabel(5, 'sccm');
-fig4.tileTitle(6, 'Helium (3M)');    fig4.tileYLabel(6, 'sccm');
+fig4.setTileTitle(1, 'Argon (3M)');     fig4.setTileYLabel(1, 'sccm');
+fig4.setTileTitle(2, 'Nitrogen (3M)');  fig4.setTileYLabel(2, 'sccm');
+fig4.setTileTitle(3, 'Oxygen (2M)');    fig4.setTileYLabel(3, 'sccm');
+fig4.setTileTitle(4, 'CF4 (2M)');       fig4.setTileYLabel(4, 'sccm');
+fig4.setTileTitle(5, 'CHF3 (2M)');      fig4.setTileYLabel(5, 'sccm');
+fig4.setTileTitle(6, 'Helium (3M)');    fig4.setTileYLabel(6, 'sccm');
 
-fig5.tileTitle(1, 'Chiller Supply (3M)');    fig5.tileYLabel(1, '°C');
-fig5.tileTitle(2, 'Chiller Return (3M)');    fig5.tileYLabel(2, '°C');
-fig5.tileTitle(3, 'Mains Voltage (2M)');     fig5.tileYLabel(3, 'V');
-fig5.tileTitle(4, 'UPS Load (2M)');          fig5.tileYLabel(4, '%');
+fig5.setTileTitle(1, 'Chiller Supply (3M)');    fig5.setTileYLabel(1, '°C');
+fig5.setTileTitle(2, 'Chiller Return (3M)');    fig5.setTileYLabel(2, '°C');
+fig5.setTileTitle(3, 'Mains Voltage (2M)');     fig5.setTileYLabel(3, 'V');
+fig5.setTileTitle(4, 'UPS Load (2M)');          fig5.setTileYLabel(4, '%');
 
 totalTime = toc(totalTic);
 totalPts = 5e6*6 + 3e6*6 + 4e6 + 2e6*6 + sum(gasSizes);

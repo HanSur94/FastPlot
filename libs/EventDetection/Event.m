@@ -1,7 +1,7 @@
-classdef Event
+classdef Event < handle
     %EVENT Represents a single detected threshold violation event.
     %   e = Event(startTime, endTime, sensorName, thresholdLabel, thresholdValue, direction)
-    %   e = e.setStats(peakValue, numPoints, minVal, maxVal, meanVal, rmsVal, stdVal)
+    %   e.setStats(peakValue, numPoints, minVal, maxVal, meanVal, rmsVal, stdVal)
 
     properties (SetAccess = private)
         StartTime       % numeric: first violation timestamp
@@ -10,7 +10,7 @@ classdef Event
         SensorName      % char: sensor/channel name
         ThresholdLabel  % char: threshold label
         ThresholdValue  % numeric: threshold value that was violated
-        Direction       % char: 'high' or 'low'
+        Direction       % char: 'upper' or 'lower'
         PeakValue       % numeric: worst violation value
         NumPoints       % numeric: number of data points in event window
         MinValue        % numeric: minimum signal value during event
@@ -21,14 +21,14 @@ classdef Event
     end
 
     properties (Constant)
-        DIRECTIONS = {'high', 'low'}
+        DIRECTIONS = {'upper', 'lower'}
     end
 
     methods
         function obj = Event(startTime, endTime, sensorName, thresholdLabel, thresholdValue, direction)
             if ~ismember(direction, Event.DIRECTIONS)
                 error('Event:invalidDirection', ...
-                    'Direction must be ''high'' or ''low'', got ''%s''.', direction);
+                    'Direction must be ''upper'' or ''lower'', got ''%s''.', direction);
             end
             if endTime < startTime
                 error('Event:invalidTimeRange', ...

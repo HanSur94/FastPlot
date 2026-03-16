@@ -17,7 +17,7 @@ function test_detect_events_from_sensor()
     assert(numel(events) >= 1, 'default: at least one event');
     assert(strcmp(events(1).SensorName, 'Temperature'), 'default: SensorName from sensor.Name');
     assert(strcmp(events(1).ThresholdLabel, 'warn high'), 'default: ThresholdLabel');
-    assert(strcmp(events(1).Direction, 'high'), 'default: Direction');
+    assert(strcmp(events(1).Direction, 'upper'), 'default: Direction');
 
     % testCustomDetector
     det = EventDetector('MinDuration', 5);

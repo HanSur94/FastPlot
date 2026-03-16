@@ -193,7 +193,7 @@ classdef IncrementalEventDetector < handle
         function tf = isViolationAtEnd(~, fullY, ev)
             % Check if the last data point is still in violation
             lastVal = fullY(end);
-            if strcmp(ev.Direction, 'high')
+            if strcmp(ev.Direction, 'upper')
                 tf = lastVal > ev.ThresholdValue;
             else
                 tf = lastVal < ev.ThresholdValue;
@@ -211,7 +211,7 @@ classdef IncrementalEventDetector < handle
             meanVal = mean(window);
             rmsVal = sqrt(mean(window.^2));
             stdVal = std(window);
-            if strcmp(direction, 'high')
+            if strcmp(direction, 'upper')
                 peakVal = maxVal;
             else
                 peakVal = minVal;
@@ -224,24 +224,15 @@ classdef IncrementalEventDetector < handle
                 ev = events(i);
                 for j = 1:numel(sensor.ThresholdRules)
                     rule = sensor.ThresholdRules{j};
-                    % Map direction: ThresholdRule uses upper/lower, Event uses high/low
-                    ruleDir = rule.Direction;
-                    if strcmp(ruleDir, 'upper')
-                        evDir = 'high';
-                    else
-                        evDir = 'low';
-                    end
-                    if ~strcmp(evDir, ev.Direction)
+                    if ~strcmp(rule.Direction, ev.Direction)
                         continue;
                     end
-                    if strcmp(ev.Direction, 'high') && rule.Value > ev.ThresholdValue && ...
+                    if strcmp(ev.Direction, 'upper') && rule.Value > ev.ThresholdValue && ...
                        ~isempty(ev.PeakValue) && ev.PeakValue > rule.Value
-                        events(i) = ev.escalateTo(rule.Label, rule.Value);
-                        ev = events(i);
-                    elseif strcmp(ev.Direction, 'low') && rule.Value < ev.ThresholdValue && ...
+                        ev.escalateTo(rule.Label, rule.Value);
+                    elseif strcmp(ev.Direction, 'lower') && rule.Value < ev.ThresholdValue && ...
                        ~isempty(ev.PeakValue) && ev.PeakValue < rule.Value
-                        events(i) = ev.escalateTo(rule.Label, rule.Value);
-                        ev = events(i);
+                        ev.escalateTo(rule.Label, rule.Value);
                     end
                 end
             end

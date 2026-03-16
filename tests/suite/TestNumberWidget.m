@@ -104,7 +104,7 @@ classdef TestNumberWidget < matlab.unittest.TestCase
             s = Sensor('T-401', 'Name', 'Temperature');
             s.X = [1 2 3 4 5];
             s.Y = [70 71 72 73 74]; % rising
-            w = NumberWidget('SensorObj', s);
+            w = NumberWidget('Sensor', s);
             hFig = figure('Visible', 'off');
             testCase.addTeardown(@() close(hFig));
             hp = uipanel('Parent', hFig, 'Position', [0 0 1 1]);

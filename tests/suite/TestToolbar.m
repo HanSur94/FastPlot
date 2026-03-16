@@ -18,8 +18,8 @@ classdef TestToolbar < matlab.unittest.TestCase
             testCase.verifyTrue(ishandle(tb.hToolbar), 'testConstructorWithFastPlot: ishandle');
         end
 
-        function testConstructorWithFastPlotFigure(testCase)
-            fig = FastPlotFigure(1, 2);
+        function testConstructorWithFastPlotGrid(testCase)
+            fig = FastPlotGrid(1, 2);
             fp1 = fig.tile(1); fp1.addLine(1:100, rand(1,100));
             fp2 = fig.tile(2); fp2.addLine(1:100, rand(1,100));
             fig.renderAll();

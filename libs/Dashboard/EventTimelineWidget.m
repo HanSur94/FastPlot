@@ -27,11 +27,6 @@ classdef EventTimelineWidget < DashboardWidget
 
     methods
         function obj = EventTimelineWidget(varargin)
-            for k = 1:2:numel(varargin)
-                if strcmp(varargin{k}, 'Sensor')
-                    varargin{k} = 'SensorObj';
-                end
-            end
             obj = obj@DashboardWidget(varargin{:});
             if isequal(obj.Position, [1 1 6 2])
                 obj.Position = [1 1 24 2];

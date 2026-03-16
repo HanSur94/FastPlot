@@ -7,7 +7,7 @@
 %   3. addShaded rendering + zoom cost (data-driven fill — downsampled)
 %   4. addFill rendering + zoom cost (area under curve)
 %   5. addMarker rendering cost
-%   6. FastPlotFigure tiled dashboard overhead
+%   6. FastPlotGrid tiled dashboard overhead
 %   7. Combined: all features together vs baseline
 
 addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
@@ -158,7 +158,7 @@ for c = 1:n_cases
 
     % ---- Dashboard: 2x2 with all features ----
     tic;
-    fig = FastPlotFigure(2, 2, 'Theme', 'light', 'Name', 'Bench');
+    fig = FastPlotGrid(2, 2, 'Theme', 'light', 'Name', 'Bench');
     fp1 = fig.tile(1); fp1.addLine(x, y); fp1.addBand(60, 65, 'FaceColor', [1 0.8 0.3]);
     fp2 = fig.tile(2); fp2.addLine(x, y); fp2.addShaded(x, envelope_hi, envelope_lo);
     fp3 = fig.tile(3); fp3.addLine(x, y_abs); fp3.addFill(x, y_abs, 'FaceColor', [0.2 0.7 0.3]);

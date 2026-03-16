@@ -23,8 +23,8 @@ classdef TestFastPlotWidget < matlab.unittest.TestCase
             s.X = 1:100;
             s.Y = rand(1,100);
 
-            w = FastPlotWidget('SensorObj', s);
-            testCase.verifyEqual(w.SensorObj, s);
+            w = FastPlotWidget('Sensor', s);
+            testCase.verifyEqual(w.Sensor, s);
             testCase.verifyEqual(w.Title, 'Temperature', ...
                 'Title should default to Sensor.Name');
         end
@@ -68,7 +68,7 @@ classdef TestFastPlotWidget < matlab.unittest.TestCase
             s.addThresholdRule(struct(), 80, 'Direction', 'upper', 'Label', 'Hi Alarm');
             s.resolve();
 
-            w = FastPlotWidget('SensorObj', s);
+            w = FastPlotWidget('Sensor', s);
             w.render(hp);
 
             testCase.verifyNotEmpty(w.FastPlotObj);
@@ -90,7 +90,7 @@ classdef TestFastPlotWidget < matlab.unittest.TestCase
             sensor = Sensor('P-201', 'Name', 'Pressure');
             sensor.X = 1:100;
             sensor.Y = rand(1,100);
-            w = FastPlotWidget('SensorObj', sensor);
+            w = FastPlotWidget('Sensor', sensor);
 
             s = w.toStruct();
             testCase.verifyEqual(s.source.type, 'sensor');

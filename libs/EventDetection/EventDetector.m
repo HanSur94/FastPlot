@@ -64,7 +64,7 @@ classdef EventDetector < handle
                 rmsVal  = sqrt(mean(windowValues.^2));
                 stdVal  = std(windowValues);
 
-                if strcmp(direction, 'high')
+                if strcmp(direction, 'upper')
                     peakVal = maxVal;
                 else
                     peakVal = minVal;

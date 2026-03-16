@@ -6,12 +6,12 @@ function test_event_viewer()
     add_event_path();
 
     % --- Setup events ---
-    e1 = Event(10, 25, 'Temperature', 'warning high', 80, 'high');
-    e1 = e1.setStats(95.2, 150, 72, 95.2, 87.3, 88.1, 4.21);
-    e2 = Event(50, 55, 'Pressure', 'low alarm', 5, 'low');
-    e2 = e2.setStats(2.1, 50, 2.1, 6.8, 4.5, 4.7, 1.2);
-    e3 = Event(30, 40, 'Temperature', 'critical high', 100, 'high');
-    e3 = e3.setStats(110, 80, 95, 110, 103, 104, 3.5);
+    e1 = Event(10, 25, 'Temperature', 'warning high', 80, 'upper');
+    e1.setStats(95.2, 150, 72, 95.2, 87.3, 88.1, 4.21);
+    e2 = Event(50, 55, 'Pressure', 'low alarm', 5, 'lower');
+    e2.setStats(2.1, 50, 2.1, 6.8, 4.5, 4.7, 1.2);
+    e3 = Event(30, 40, 'Temperature', 'critical high', 100, 'upper');
+    e3.setStats(110, 80, 95, 110, 103, 104, 3.5);
     events = [e1, e2, e3];
 
     sensorData(1).name = 'Temperature';
@@ -44,8 +44,8 @@ function test_event_viewer()
 
     % testUpdate — should not error
     viewer = EventViewer(events, sensorData);
-    e4 = Event(70, 75, 'Temperature', 'warning high', 80, 'high');
-    e4 = e4.setStats(88, 50, 78, 88, 83, 84, 2.1);
+    e4 = Event(70, 75, 'Temperature', 'warning high', 80, 'upper');
+    e4.setStats(88, 50, 78, 88, 83, 84, 2.1);
     viewer.update([events, e4]);
     close(viewer.hFigure);
 
@@ -69,10 +69,10 @@ function test_event_viewer()
 end
 
 function test_bar_positions_cached()
-    e1 = Event(10, 25, 'Temperature', 'warning high', 80, 'high');
-    e1 = e1.setStats(95.2, 150, 72, 95.2, 87.3, 88.1, 4.21);
-    e2 = Event(50, 55, 'Pressure', 'low alarm', 5, 'low');
-    e2 = e2.setStats(2.1, 50, 2.1, 6.8, 4.5, 4.7, 1.2);
+    e1 = Event(10, 25, 'Temperature', 'warning high', 80, 'upper');
+    e1.setStats(95.2, 150, 72, 95.2, 87.3, 88.1, 4.21);
+    e2 = Event(50, 55, 'Pressure', 'low alarm', 5, 'lower');
+    e2.setStats(2.1, 50, 2.1, 6.8, 4.5, 4.7, 1.2);
     events = [e1, e2];
 
     viewer = EventViewer(events);

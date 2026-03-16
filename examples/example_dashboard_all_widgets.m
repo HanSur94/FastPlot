@@ -15,7 +15,6 @@
 close all force;
 clear functions;  % flush MATLAB function cache
 
-% Use this project's setup (not worktree copies)
 projectRoot = fileparts(fileparts(mfilename('fullpath')));
 run(fullfile(projectRoot, 'setup.m'));
 
@@ -50,6 +49,7 @@ overIdx = t >= 36000 & t <= 38000;
 temp(overIdx) = temp(overIdx) + 12;
 
 sTemp = Sensor('T-401', 'Name', 'Temperature');
+sTemp.Units = [char(176) 'F'];
 sTemp.X = t;
 sTemp.Y = temp;
 sTemp.addStateChannel(scMode);
@@ -80,6 +80,7 @@ pressNoise = 8*sin(2*pi*t/7200) + randn(1,N)*2;
 pressure = pressBase + pressNoise;
 
 sPress = Sensor('P-201', 'Name', 'Pressure');
+sPress.Units = 'psi';
 sPress.X = t;
 sPress.Y = pressure;
 sPress.addStateChannel(scMode);
@@ -108,6 +109,7 @@ flowNoise = 5*sin(2*pi*t/1800) + randn(1,N)*3;
 flow = max(0, flowBase + flowNoise);
 
 sFlow = Sensor('F-301', 'Name', 'Flow Rate');
+sFlow.Units = 'L/min';
 sFlow.X = t;
 sFlow.Y = flow;
 sFlow.addStateChannel(scMode);
@@ -193,13 +195,11 @@ d.addWidget('text', 'Title', 'Overview', ...
 d.addWidget('number', 'Title', 'Temperature', ...
     'Position', [5 1 5 2], ...
     'Sensor', sTemp, ...
-    'Units', [char(176) 'F'], ...
     'Format', '%.1f');
 
 d.addWidget('number', 'Title', 'Pressure', ...
     'Position', [10 1 5 2], ...
     'Sensor', sPress, ...
-    'Units', 'psi', ...
     'Format', '%.0f');
 
 % Sensor-bound status widgets: auto-derive ok/warning/alarm from
@@ -215,23 +215,22 @@ d.addWidget('status', 'Title', 'Press', ...
 % --- Row 3-10: Sensor-driven FastPlot widgets with thresholds ---
 d.addWidget('fastplot', ...
     'Position', [1 3 12 8], ...
-    'SensorObj', sTemp);
+    'Sensor', sTemp);
 
 d.addWidget('fastplot', ...
     'Position', [13 3 12 8], ...
-    'SensorObj', sPress);
+    'Sensor', sPress);
 
 % --- Row 11-18: Flow plot + Table + Histogram + Gauge ---
 d.addWidget('fastplot', ...
     'Position', [1 11 12 8], ...
-    'SensorObj', sFlow);
+    'Sensor', sFlow);
 
 % Sensor-bound gauge: auto-derives value, units, and range from sensor.
 d.addWidget('gauge', 'Title', 'Flow', ...
     'Position', [13 11 6 6], ...
     'Sensor', sFlow, ...
-    'Range', [0 160], ...
-    'Units', 'L/min');
+    'Range', [0 160]);
 
 d.addWidget('rawaxes', 'Title', 'Temp Distribution', ...
     'Position', [19 11 6 6], ...

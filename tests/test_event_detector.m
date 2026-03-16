@@ -7,7 +7,7 @@ function test_event_detector()
     det = EventDetector();
     t      = [1 2 3 4 5 6 7 8 9 10];
     values = [5 5 12 14 11 13 5 5 5 5];
-    events = det.detect(t, values, 10, 'high', 'warn', 'temp');
+    events = det.detect(t, values, 10, 'upper', 'warn', 'temp');
     assert(numel(events) == 1, 'singleEvent: count');
     assert(events(1).StartTime == 3, 'singleEvent: StartTime');
     assert(events(1).EndTime == 6, 'singleEvent: EndTime');
@@ -15,7 +15,7 @@ function test_event_detector()
     assert(strcmp(events(1).SensorName, 'temp'), 'singleEvent: SensorName');
     assert(strcmp(events(1).ThresholdLabel, 'warn'), 'singleEvent: ThresholdLabel');
     assert(events(1).ThresholdValue == 10, 'singleEvent: ThresholdValue');
-    assert(strcmp(events(1).Direction, 'high'), 'singleEvent: Direction');
+    assert(strcmp(events(1).Direction, 'upper'), 'singleEvent: Direction');
 
     % testStats — computed over ALL points in event window
     % Event window is indices 3-6: values [12 14 11 13], t [3 4 5 6]
@@ -33,14 +33,14 @@ function test_event_detector()
     det = EventDetector();
     t      = [1 2 3 4 5];
     values = [50 3 2 4 50];
-    events = det.detect(t, values, 10, 'low', 'alarm', 'pressure');
+    events = det.detect(t, values, 10, 'lower', 'alarm', 'pressure');
     assert(events(1).PeakValue == 2, 'peakLow: PeakValue is min');
 
     % testMultipleEvents
     det = EventDetector();
     t      = [1 2 3 4 5 6 7 8 9 10];
     values = [12 13 5 5 5 14 15 5 5 5];
-    events = det.detect(t, values, 10, 'high', 'warn', 'temp');
+    events = det.detect(t, values, 10, 'upper', 'warn', 'temp');
     assert(numel(events) == 2, 'multipleEvents: count');
     assert(events(1).StartTime == 1, 'multipleEvents: e1 start');
     assert(events(2).StartTime == 6, 'multipleEvents: e2 start');
@@ -49,7 +49,7 @@ function test_event_detector()
     det = EventDetector('MinDuration', 2);
     t      = [1 2 3 4 5 6 7 8 9 10];
     values = [12 5 5 14 15 16 17 5 5 5];
-    events = det.detect(t, values, 10, 'high', 'warn', 'temp');
+    events = det.detect(t, values, 10, 'upper', 'warn', 'temp');
     % First event: t=1 to t=1, duration=0 -> filtered
     % Second event: t=4 to t=7, duration=3 -> kept
     assert(numel(events) == 1, 'debounce: count');
@@ -59,7 +59,7 @@ function test_event_detector()
     det = EventDetector();
     t      = [1 2 3 4 5];
     values = [5 6 7 8 9];
-    events = det.detect(t, values, 10, 'high', 'warn', 'temp');
+    events = det.detect(t, values, 10, 'upper', 'warn', 'temp');
     assert(isempty(events), 'noViolations: empty');
 
     % testCallback
@@ -72,7 +72,7 @@ function test_event_detector()
     det = EventDetector('OnEventStart', @onEvent);
     t      = [1 2 3 4 5 6 7 8 9 10];
     values = [12 13 5 5 5 14 15 5 5 5];
-    det.detect(t, values, 10, 'high', 'warn', 'temp');
+    det.detect(t, values, 10, 'upper', 'warn', 'temp');
     assert(callCount == 2, 'callback: called twice');
     assert(lastEvent.StartTime == 6, 'callback: last event');
 
@@ -81,7 +81,7 @@ function test_event_detector()
     det = EventDetector('OnEventStart', @onEvent, 'MaxCallsPerEvent', 1);
     t      = [1 2 3 4 5];
     values = [12 13 14 15 16];
-    det.detect(t, values, 10, 'high', 'warn', 'temp');
+    det.detect(t, values, 10, 'upper', 'warn', 'temp');
     assert(callCount == 1, 'maxCalls: only called once for one event');
 
     fprintf('    All 7 event_detector tests passed.\n');

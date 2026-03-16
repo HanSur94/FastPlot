@@ -115,9 +115,9 @@ classdef TestDashboardEngine < matlab.unittest.TestCase
             s.resolve();
 
             d = DashboardEngine('Sensor Test');
-            d.addWidget('fastplot', 'SensorObj', s, 'Position', [1 1 16 3]);
+            d.addWidget('fastplot', 'Sensor', s, 'Position', [1 1 16 3]);
             testCase.verifyEqual(d.Widgets{1}.Title, 'Temperature');
-            testCase.verifyEqual(d.Widgets{1}.SensorObj, s);
+            testCase.verifyEqual(d.Widgets{1}.Sensor, s);
         end
 
         function testCloseDeletesTimer(testCase)

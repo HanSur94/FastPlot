@@ -1,7 +1,8 @@
 %% FastPlot Linked Axes Example
 % Demonstrates synchronized zoom/pan across subplots
 
-addpath(fullfile(fileparts(mfilename('fullpath')), '..'));setup();
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'setup.m'));
 
 n = 5e6;
 x = linspace(0, 100, n);

@@ -1,19 +1,22 @@
-classdef FastPlotFigure < handle
-    %FASTPLOTFIGURE Tiled layout manager for FastPlot dashboards.
+classdef FastPlotGrid < handle
+    %FASTPLOTGRID Tiled layout manager for FastPlot dashboards.
     %   Creates a grid of FastPlot tiles in a single figure window with
     %   configurable spacing, per-tile theme overrides, and tile spanning.
     %   Supports live mode that synchronizes file polling across all tiles.
     %
-    %   fig = FastPlotFigure(rows, cols)
-    %   fig = FastPlotFigure(rows, cols, 'Theme', 'dark')
-    %   fig = FastPlotFigure(rows, cols, 'ParentFigure', hFig)
+    %   For widget-based dashboards with gauges, numbers, status indicators,
+    %   and edit mode, see DashboardEngine.
+    %
+    %   fig = FastPlotGrid(rows, cols)
+    %   fig = FastPlotGrid(rows, cols, 'Theme', 'dark')
+    %   fig = FastPlotGrid(rows, cols, 'ParentFigure', hFig)
     %
     %   Constructor options (name-value):
     %     'Theme'        — theme preset name, struct, or FastPlotTheme
     %     'ParentFigure' — existing figure handle (skip figure creation)
     %     Any additional name-value pairs are passed to figure().
     %
-    %   FastPlotFigure Properties:
+    %   FastPlotGrid Properties:
     %     Grid             — [rows, cols] grid dimensions
     %     Theme            — FastPlotTheme struct for all tiles
     %     hFigure          — figure handle
@@ -33,15 +36,15 @@ classdef FastPlotFigure < handle
     %     GapH             — horizontal gap between tiles (normalized)
     %     GapV             — vertical gap between tiles (normalized)
     %
-    %   FastPlotFigure Methods:
-    %     FastPlotFigure    — construct a tiled dashboard
+    %   FastPlotGrid Methods:
+    %     FastPlotGrid      — construct a tiled dashboard
     %     tile              — get or create the FastPlot instance for tile n
     %     axes              — get or create a raw MATLAB axes for tile n
     %     setTileSpan       — set the row/column span for tile n
     %     setTileTheme      — set per-tile theme overrides
-    %     tileTitle         — set title for tile n
-    %     tileXLabel        — set xlabel for tile n
-    %     tileYLabel        — set ylabel for tile n
+    %     setTileTitle      — set title for tile n
+    %     setTileXLabel     — set xlabel for tile n
+    %     setTileYLabel     — set ylabel for tile n
     %     renderAll         — render all tiles that haven't been rendered yet
     %     render            — alias for renderAll
     %     reapplyTheme      — re-apply theme to figure and all rendered tiles
@@ -53,26 +56,36 @@ classdef FastPlotFigure < handle
     %     computeTilePosition — calculate normalized [x y w h] for tile n
     %
     %   Example — 2x2 dashboard:
-    %     fig = FastPlotFigure(2, 2, 'Theme', 'dark');
+    %     fig = FastPlotGrid(2, 2, 'Theme', 'dark');
     %     fig.tile(1).addLine(x1, y1); fig.tile(2).addLine(x2, y2);
     %     fig.tile(3).addLine(x3, y3); fig.tile(4).addLine(x4, y4);
     %     fig.renderAll();
     %
     %   Example — tile spanning:
-    %     fig = FastPlotFigure(2, 2);
+    %     fig = FastPlotGrid(2, 2);
     %     fig.setTileSpan(1, [1, 2]);  % tile 1 spans full width
     %     fig.tile(1).addLine(x, y);
     %     fig.renderAll();
     %
     %   Example — mixed tile types:
-    %     fig = FastPlotFigure(2, 2, 'Theme', 'dark');
+    %     fig = FastPlotGrid(2, 2, 'Theme', 'dark');
     %     fig.tile(1).addLine(t, y1);           % FastPlot (optimized)
     %     ax = fig.axes(2); bar(ax, x, y2);     % raw axes (bar chart)
     %     ax = fig.axes(3); scatter(ax, x, y3); % raw axes (scatter)
     %     fig.tile(4).addLine(t, y4);           % FastPlot (optimized)
     %     fig.renderAll();
     %
-    %   See also FastPlot, FastPlotDock, FastPlotTheme, FastPlotToolbar.
+    %   Example — embedding custom content in a tile:
+    %     fig = FastPlotGrid(2, 2);
+    %     fig.tile(1).addLine(x, y1);
+    %     hp = fig.tilePanel(2);          % raw uipanel for custom content
+    %     uicontrol(hp, 'Style', 'text', 'String', 'KPI: 42.5', ...
+    %               'Units', 'normalized', 'Position', [0.1 0.3 0.8 0.4], ...
+    %               'FontSize', 24, 'HorizontalAlignment', 'center');
+    %     fig.tile(3).addLine(x, y2);
+    %     fig.renderAll();
+    %
+    %   See also FastPlot, FastPlotDock, FastPlotTheme, FastPlotToolbar, DashboardEngine.
 
     % ========================= PUBLIC PROPERTIES =========================
     properties (Access = public)
@@ -118,10 +131,10 @@ classdef FastPlotFigure < handle
     end
 
     methods (Access = public)
-        function obj = FastPlotFigure(rows, cols, varargin)
-            %FASTPLOTFIGURE Construct a tiled dashboard.
-            %   fig = FastPlotFigure(rows, cols)
-            %   fig = FastPlotFigure(rows, cols, 'Theme', 'dark')
+        function obj = FastPlotGrid(rows, cols, varargin)
+            %FASTPLOTGRID Construct a tiled dashboard.
+            %   fig = FastPlotGrid(rows, cols)
+            %   fig = FastPlotGrid(rows, cols, 'Theme', 'dark')
             %
             %   rows, cols — grid dimensions
             %   Remaining name-value pairs: 'Theme', 'ParentFigure', or
@@ -182,12 +195,12 @@ classdef FastPlotFigure < handle
             %   See also setTileSpan, setTileTheme.
             nTiles = obj.Grid(1) * obj.Grid(2);
             if n < 1 || n > nTiles
-                error('FastPlotFigure:outOfBounds', ...
+                error('FastPlotGrid:outOfBounds', ...
                     'Tile %d is out of range (1-%d).', n, nTiles);
             end
 
             if obj.RawAxesTiles(n)
-                error('FastPlotFigure:tileConflict', ...
+                error('FastPlotGrid:tileConflict', ...
                     'Tile %d is a raw axes tile. Use axes(%d) to access it.', n, n);
             end
 
@@ -231,12 +244,12 @@ classdef FastPlotFigure < handle
             %   See also tile, setTileSpan.
             nTiles = obj.Grid(1) * obj.Grid(2);
             if n < 1 || n > nTiles
-                error('FastPlotFigure:outOfBounds', ...
+                error('FastPlotGrid:outOfBounds', ...
                     'Tile %d is out of range (1-%d).', n, nTiles);
             end
 
             if ~isempty(obj.Tiles{n})
-                error('FastPlotFigure:tileConflict', ...
+                error('FastPlotGrid:tileConflict', ...
                     'Tile %d is a FastPlot tile. Use tile(%d) to access it.', n, n);
             end
 
@@ -261,7 +274,7 @@ classdef FastPlotFigure < handle
 
             nTiles = obj.Grid(1) * obj.Grid(2);
             if n < 1 || n > nTiles
-                error('FastPlotFigure:invalidTile', ...
+                error('FastPlotGrid:invalidTile', ...
                     'Tile index %d is out of range [1, %d].', n, nTiles);
             end
 
@@ -273,13 +286,13 @@ classdef FastPlotFigure < handle
 
             % Conflict check: occupied by FastPlot?
             if ~isempty(obj.Tiles{n})
-                error('FastPlotFigure:tileConflict', ...
+                error('FastPlotGrid:tileConflict', ...
                     'Tile %d is a FastPlot tile. Use tile(%d) to access it.', n, n);
             end
 
             % Conflict check: occupied by raw axes?
             if obj.RawAxesTiles(n)
-                error('FastPlotFigure:tileConflict', ...
+                error('FastPlotGrid:tileConflict', ...
                     'Tile %d is a raw axes tile. Use axes(%d) to access it.', n, n);
             end
 
@@ -318,7 +331,7 @@ classdef FastPlotFigure < handle
             %   See also tile, computeTilePosition.
             nTiles = obj.Grid(1) * obj.Grid(2);
             if n < 1 || n > nTiles
-                error('FastPlotFigure:outOfBounds', ...
+                error('FastPlotGrid:outOfBounds', ...
                     'Tile %d is out of range (1-%d).', n, nTiles);
             end
             obj.TileSpans{n} = span;
@@ -346,15 +359,15 @@ classdef FastPlotFigure < handle
             %   See also tile, reapplyTheme.
             nTiles = obj.Grid(1) * obj.Grid(2);
             if n < 1 || n > nTiles
-                error('FastPlotFigure:outOfBounds', ...
+                error('FastPlotGrid:outOfBounds', ...
                     'Tile %d is out of range (1-%d).', n, nTiles);
             end
             obj.TileThemes{n} = themeOverrides;
         end
 
-        function tileTitle(obj, n, str)
-            %TILETITLE Set title for tile n.
-            %   fig.tileTitle(n, str) sets the axes title on tile n using
+        function setTileTitle(obj, n, str)
+            %SETTILETITLE Set title for tile n.
+            %   fig.setTileTitle(n, str) sets the axes title on tile n using
             %   the figure theme's TitleFontSize and ForegroundColor.
             %   Can be called before or after render().
             %
@@ -362,7 +375,7 @@ classdef FastPlotFigure < handle
             %     n   — tile index (1 to rows*cols)
             %     str — title string
             %
-            %   See also tileXLabel, tileYLabel.
+            %   See also setTileXLabel, setTileYLabel.
             obj.TileTitles{n} = str;
             ax = obj.getTileAxesHandle(n);
             if ~isempty(ax)
@@ -371,9 +384,9 @@ classdef FastPlotFigure < handle
             end
         end
 
-        function tileXLabel(obj, n, str)
-            %TILEXLABEL Set xlabel for tile n.
-            %   fig.tileXLabel(n, str) sets the X-axis label on tile n
+        function setTileXLabel(obj, n, str)
+            %SETTILEXLABEL Set xlabel for tile n.
+            %   fig.setTileXLabel(n, str) sets the X-axis label on tile n
             %   using the figure theme's ForegroundColor.
             %   Can be called before or after render().
             %
@@ -381,7 +394,7 @@ classdef FastPlotFigure < handle
             %     n   — tile index (1 to rows*cols)
             %     str — label string
             %
-            %   See also tileTitle, tileYLabel.
+            %   See also setTileTitle, setTileYLabel.
             obj.TileXLabels{n} = str;
             ax = obj.getTileAxesHandle(n);
             if ~isempty(ax)
@@ -389,9 +402,9 @@ classdef FastPlotFigure < handle
             end
         end
 
-        function tileYLabel(obj, n, str)
-            %TILEYLABEL Set ylabel for tile n.
-            %   fig.tileYLabel(n, str) sets the Y-axis label on tile n
+        function setTileYLabel(obj, n, str)
+            %SETTILEYLABEL Set ylabel for tile n.
+            %   fig.setTileYLabel(n, str) sets the Y-axis label on tile n
             %   using the figure theme's ForegroundColor.
             %   Can be called before or after render().
             %
@@ -399,7 +412,7 @@ classdef FastPlotFigure < handle
             %     n   — tile index (1 to rows*cols)
             %     str — label string
             %
-            %   See also tileTitle, tileXLabel.
+            %   See also setTileTitle, setTileXLabel.
             obj.TileYLabels{n} = str;
             ax = obj.getTileAxesHandle(n);
             if ~isempty(ax)
@@ -640,11 +653,11 @@ classdef FastPlotFigure < handle
             %
             %   See also startLive, stopLive.
             if isempty(obj.LiveFile) || isempty(obj.LiveUpdateFcn)
-                error('FastPlotFigure:noLiveSource', ...
+                error('FastPlotGrid:noLiveSource', ...
                     'No live source configured.');
             end
             if ~exist(obj.LiveFile, 'file')
-                warning('FastPlotFigure:fileNotFound', 'File not found: %s', obj.LiveFile);
+                warning('FastPlotGrid:fileNotFound', 'File not found: %s', obj.LiveFile);
                 return;
             end
             try

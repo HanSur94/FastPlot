@@ -45,15 +45,15 @@ function test_rule_matching_priority()
     ns.addRule(NotificationRule('SensorKey', 'temp', 'ThresholdLabel', 'HH', ...
         'Recipients', {{'exact@b.com'}}));
 
-    ev = Event(now, now+0.01, 'temp', 'HH', 100, 'high');
+    ev = Event(now, now+0.01, 'temp', 'HH', 100, 'upper');
     rule = ns.findBestRule(ev);
     assert(strcmp(rule.Recipients{1}, 'exact@b.com'), 'best_is_exact');
 
-    ev2 = Event(now, now+0.01, 'temp', 'H', 80, 'high');
+    ev2 = Event(now, now+0.01, 'temp', 'H', 80, 'upper');
     rule2 = ns.findBestRule(ev2);
     assert(strcmp(rule2.Recipients{1}, 'sensor@b.com'), 'best_is_sensor');
 
-    ev3 = Event(now, now+0.01, 'pressure', 'X', 50, 'high');
+    ev3 = Event(now, now+0.01, 'pressure', 'X', 50, 'upper');
     rule3 = ns.findBestRule(ev3);
     assert(strcmp(rule3.Recipients{1}, 'default@b.com'), 'best_is_default');
     fprintf('  PASS: test_rule_matching_priority\n');
@@ -62,7 +62,7 @@ end
 function test_notify_dry_run()
     ns = NotificationService('DryRun', true);
     ns.setDefaultRule(NotificationRule('Recipients', {{'test@b.com'}}, 'IncludeSnapshot', false));
-    ev = Event(now, now+0.01, 'temp', 'HH', 100, 'high');
+    ev = Event(now, now+0.01, 'temp', 'HH', 100, 'upper');
     ev = ev.setStats(105, 10, 90, 105, 98, 99, 3);
     sd = struct('X', linspace(now-1,now,100), 'Y', 80*ones(1,100), ...
         'thresholdValue', 100, 'thresholdDirection', 'upper');
@@ -74,7 +74,7 @@ end
 
 function test_default_rule()
     ns = NotificationService('DryRun', true);
-    ev = Event(now, now+0.01, 'x', 'Y', 1, 'high');
+    ev = Event(now, now+0.01, 'x', 'Y', 1, 'upper');
     rule = ns.findBestRule(ev);
     assert(isempty(rule), 'no_default_no_match');
     fprintf('  PASS: test_default_rule\n');
@@ -83,7 +83,7 @@ end
 function test_disabled()
     ns = NotificationService('Enabled', false, 'DryRun', true);
     ns.setDefaultRule(NotificationRule('Recipients', {{'x@y.com'}}, 'IncludeSnapshot', false));
-    ev = Event(now, now+0.01, 'x', 'Y', 1, 'high');
+    ev = Event(now, now+0.01, 'x', 'Y', 1, 'upper');
     ev = ev.setStats(2, 1, 1, 2, 1.5, 1.6, 0.5);
     sd = struct('X', [now], 'Y', [2], 'thresholdValue', 1, 'thresholdDirection', 'upper');
     ns.notify(ev, sd);
@@ -94,7 +94,7 @@ end
 function test_snapshot_generation()
     ns = NotificationService('DryRun', true, 'SnapshotDir', tempname);
     ns.setDefaultRule(NotificationRule('Recipients', {{'x@y.com'}}, 'IncludeSnapshot', true));
-    ev = Event(now-1/24, now-0.5/24, 'temp', 'HH', 100, 'high');
+    ev = Event(now-1/24, now-0.5/24, 'temp', 'HH', 100, 'upper');
     ev = ev.setStats(115, 50, 90, 115, 105, 106, 5);
     rng(42);
     t = linspace(now-3/24, now, 500);

@@ -22,29 +22,26 @@ classdef LiveEventPipeline < handle
 
     methods
         function obj = LiveEventPipeline(sensors, dataSourceMap, varargin)
-            p = inputParser();
-            p.addRequired('sensors');
-            p.addRequired('dataSourceMap');
-            p.addParameter('EventFile', '', @ischar);
-            p.addParameter('Interval', 15, @isnumeric);
-            p.addParameter('MinDuration', 0, @isnumeric);
-            p.addParameter('EscalateSeverity', true, @islogical);
-            p.addParameter('MaxBackups', 5, @isnumeric);
-            p.addParameter('MaxCallsPerEvent', 1, @isnumeric);
-            p.addParameter('OnEventStart', []);
-            p.parse(sensors, dataSourceMap, varargin{:});
+            defaults.EventFile         = '';
+            defaults.Interval          = 15;
+            defaults.MinDuration       = 0;
+            defaults.EscalateSeverity  = true;
+            defaults.MaxBackups        = 5;
+            defaults.MaxCallsPerEvent  = 1;
+            defaults.OnEventStart      = [];
+            opts = parseOpts(defaults, varargin);
 
             obj.Sensors       = sensors;
             obj.DataSourceMap = dataSourceMap;
-            obj.Interval      = p.Results.Interval;
-            obj.MinDuration   = p.Results.MinDuration;
-            obj.EscalateSeverity = p.Results.EscalateSeverity;
-            obj.MaxCallsPerEvent = p.Results.MaxCallsPerEvent;
-            obj.OnEventStart     = p.Results.OnEventStart;
+            obj.Interval      = opts.Interval;
+            obj.MinDuration   = opts.MinDuration;
+            obj.EscalateSeverity = opts.EscalateSeverity;
+            obj.MaxCallsPerEvent = opts.MaxCallsPerEvent;
+            obj.OnEventStart     = opts.OnEventStart;
 
-            if ~isempty(p.Results.EventFile)
-                obj.EventStore = EventStore(p.Results.EventFile, ...
-                    'MaxBackups', p.Results.MaxBackups);
+            if ~isempty(opts.EventFile)
+                obj.EventStore = EventStore(opts.EventFile, ...
+                    'MaxBackups', opts.MaxBackups);
             end
 
             obj.detector_ = IncrementalEventDetector( ...
