@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773697800097,
+  "lastUpdate": 1773698350211,
   "repoUrl": "https://github.com/HanSur94/FastPlot",
   "entries": {
     "FastPlot Performance": [
@@ -77,6 +77,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Zoom Cycle (1M pts)",
             "value": 27.03,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sannahrush@googlemail.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "sannahrush@googlemail.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "distinct": true,
+          "id": "8c71c525063ebb6846599b41e5d72f12fdf08de7",
+          "message": "fix: DataSource abstract method for Octave, resilient test runner\n\n- Replace methods (Abstract) with runtime error (Octave doesn't\n  support Abstract methods block)\n- Make CI test runner resilient to Octave cleanup crashes: save\n  results to file before potential crash, check results from shell\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-03-16T22:56:48+01:00",
+          "tree_id": "7ae0d9a5230f7d00f865b22bc0b8d4b1a3bc1df8",
+          "url": "https://github.com/HanSur94/FastPlot/commit/8c71c525063ebb6846599b41e5d72f12fdf08de7"
+        },
+        "date": 1773698349419,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample (1M pts)",
+            "value": 2.07,
+            "unit": "ms"
+          },
+          {
+            "name": "Binary Search",
+            "value": 102.37,
+            "unit": "us"
+          },
+          {
+            "name": "Zoom Cycle (1M pts)",
+            "value": 25.45,
             "unit": "ms"
           }
         ]
