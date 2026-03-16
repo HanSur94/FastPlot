@@ -404,7 +404,14 @@ classdef DashboardEngine < handle
     end
 
     methods (Static)
-        function obj = load(filepath)
+        function obj = load(filepath, varargin)
+            resolver = [];
+            for k = 1:2:numel(varargin)
+                if strcmp(varargin{k}, 'SensorResolver')
+                    resolver = varargin{k+1};
+                end
+            end
+
             config = DashboardSerializer.load(filepath);
             obj = DashboardEngine(config.name);
             if isfield(config, 'theme')
@@ -415,7 +422,7 @@ classdef DashboardEngine < handle
             end
             obj.FilePath = filepath;
 
-            widgets = DashboardSerializer.configToWidgets(config);
+            widgets = DashboardSerializer.configToWidgets(config, resolver);
             for i = 1:numel(widgets)
                 w = widgets{i};
                 existingPositions = cell(1, numel(obj.Widgets));

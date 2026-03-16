@@ -60,8 +60,12 @@ classdef DashboardSerializer
             end
         end
 
-        function widgets = configToWidgets(config)
+        function widgets = configToWidgets(config, resolver)
             %CONFIGTOWIDGETS Create widget objects from config struct.
+            %   configToWidgets(config) — no sensor resolution
+            %   configToWidgets(config, resolver) — resolver is a function
+            %     handle @(name) that returns a Sensor object by name.
+            if nargin < 2, resolver = []; end
             widgets = cell(1, numel(config.widgets));
             for i = 1:numel(config.widgets)
                 ws = config.widgets{i};
@@ -87,6 +91,16 @@ classdef DashboardSerializer
                     otherwise
                         warning('DashboardSerializer:unknownType', ...
                             'Unknown widget type: %s — skipping', ws.type);
+                end
+                % Resolve sensor binding using resolver
+                if ~isempty(resolver) && ~isempty(widgets{i}) && ...
+                        isfield(ws, 'source') && strcmp(ws.source.type, 'sensor')
+                    try
+                        widgets{i}.SensorObj = resolver(ws.source.name);
+                    catch
+                        warning('DashboardSerializer:sensorNotFound', ...
+                            'Could not resolve sensor: %s', ws.source.name);
+                    end
                 end
             end
         end
