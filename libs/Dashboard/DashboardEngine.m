@@ -186,6 +186,21 @@ classdef DashboardEngine < handle
             obj.updateTimeLabels(tMin, tMax);
         end
 
+        function updateLiveTimeRange(obj)
+        %UPDATELIVETIMERANGE Update DataTimeRange without resetting sliders.
+        %   Called during live mode to expand the time range as data grows.
+            tMin = inf; tMax = -inf;
+            for i = 1:numel(obj.Widgets)
+                [wMin, wMax] = obj.Widgets{i}.getTimeRange();
+                if wMin < tMin, tMin = wMin; end
+                if wMax > tMax, tMax = wMax; end
+            end
+            if isinf(tMin) || isinf(tMax)
+                return;  % no widgets report time data
+            end
+            obj.DataTimeRange = [tMin, tMax];
+        end
+
         function broadcastTimeRange(obj, tStart, tEnd)
         %BROADCASTTIMERANGE Push time range to widgets using global time.
             for i = 1:numel(obj.Widgets)
@@ -354,6 +369,10 @@ classdef DashboardEngine < handle
             if isempty(obj.hFigure) || ~ishandle(obj.hFigure)
                 return;
             end
+
+            % Update global time range from live data
+            obj.updateLiveTimeRange();
+
             for i = 1:numel(obj.Widgets)
                 try
                     obj.Widgets{i}.refresh();
@@ -366,6 +385,11 @@ classdef DashboardEngine < handle
             obj.LastUpdateTime = now;
             if ~isempty(obj.Toolbar)
                 obj.Toolbar.setLastUpdateTime(obj.LastUpdateTime);
+            end
+
+            % Re-apply current slider positions to the updated time range
+            if ~isempty(obj.hTimeSliderL) && ishandle(obj.hTimeSliderL)
+                obj.onTimeSlidersChanged();
             end
         end
     end
