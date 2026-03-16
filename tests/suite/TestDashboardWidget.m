@@ -38,5 +38,34 @@ classdef TestDashboardWidget < matlab.unittest.TestCase
             testCase.verifyEqual(w.Type, 'mock', ...
                 'Type should return widget type string');
         end
+
+        function testDescriptionProperty(testCase)
+            w = MockDashboardWidget('Description', 'Measures outlet temp');
+            testCase.verifyEqual(w.Description, 'Measures outlet temp');
+        end
+
+        function testSensorObjProperty(testCase)
+            s = Sensor('T-401', 'Name', 'Temperature');
+            w = MockDashboardWidget('SensorObj', s);
+            testCase.verifyEqual(w.SensorObj.Key, 'T-401');
+        end
+
+        function testTitleDefaultsToSensorName(testCase)
+            s = Sensor('T-401', 'Name', 'Temperature');
+            w = MockDashboardWidget('SensorObj', s);
+            testCase.verifyEqual(w.Title, 'Temperature');
+        end
+
+        function testTitleOverrideBeatsSensorName(testCase)
+            s = Sensor('T-401', 'Name', 'Temperature');
+            w = MockDashboardWidget('Title', 'Custom', 'SensorObj', s);
+            testCase.verifyEqual(w.Title, 'Custom');
+        end
+
+        function testToStructIncludesDescription(testCase)
+            w = MockDashboardWidget('Title', 'Test', 'Description', 'Info text');
+            s = w.toStruct();
+            testCase.verifyEqual(s.description, 'Info text');
+        end
     end
 end

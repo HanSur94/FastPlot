@@ -10,10 +10,12 @@ classdef (Abstract) DashboardWidget < handle
 %   Subclasses must also provide a static fromStruct(s) method.
 
     properties (Access = public)
-        Title    = ''           % Widget title displayed in header
-        Position = [1 1 6 2]    % [col, row, width, height] in grid units
-        ThemeOverride = struct() % Per-widget theme overrides (merged on top of dashboard theme)
-        UseGlobalTime = true    % false when user manually zooms this widget
+        Title       = ''           % Widget title displayed in header
+        Position    = [1 1 6 2]    % [col, row, width, height] in grid units
+        ThemeOverride = struct()   % Per-widget theme overrides (merged on top of dashboard theme)
+        UseGlobalTime = true       % false when user manually zooms this widget
+        Description = ''           % Optional tooltip text shown via info icon hover
+        SensorObj   = []           % Sensor object for data binding (primary source)
     end
 
     properties (SetAccess = protected)
@@ -29,6 +31,14 @@ classdef (Abstract) DashboardWidget < handle
             for k = 1:2:numel(varargin)
                 obj.(varargin{k}) = varargin{k+1};
             end
+            % Title cascade: if empty and Sensor bound, use Sensor.Name
+            if isempty(obj.Title) && ~isempty(obj.SensorObj)
+                if ~isempty(obj.SensorObj.Name)
+                    obj.Title = obj.SensorObj.Name;
+                else
+                    obj.Title = obj.SensorObj.Key;
+                end
+            end
         end
 
         function t = get.Type(obj)
@@ -38,12 +48,16 @@ classdef (Abstract) DashboardWidget < handle
         function s = toStruct(obj)
             s.type = obj.Type;
             s.title = obj.Title;
+            s.description = obj.Description;
             s.position = struct('col', obj.Position(1), ...
                                 'row', obj.Position(2), ...
                                 'width', obj.Position(3), ...
                                 'height', obj.Position(4));
             if ~isempty(fieldnames(obj.ThemeOverride))
                 s.themeOverride = obj.ThemeOverride;
+            end
+            if ~isempty(obj.SensorObj)
+                s.source = struct('type', 'sensor', 'name', obj.SensorObj.Key);
             end
         end
 
@@ -62,6 +76,18 @@ classdef (Abstract) DashboardWidget < handle
         function [tMin, tMax] = getTimeRange(~)
             % Override in subclasses to report data time range.
             tMin = inf; tMax = -inf;
+        end
+    end
+
+    methods (Access = protected)
+        function theme = getTheme(obj)
+            theme = DashboardTheme();
+            if ~isempty(fieldnames(obj.ThemeOverride))
+                fns = fieldnames(obj.ThemeOverride);
+                for i = 1:numel(fns)
+                    theme.(fns{i}) = obj.ThemeOverride.(fns{i});
+                end
+            end
         end
     end
 
