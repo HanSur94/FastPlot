@@ -1,0 +1,40 @@
+name: Generate API Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'libs/**/*.m'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    name: Generate API Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate API docs
+        run: python3 scripts/generate_api_docs.py
+
+      - name: Commit updated wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add wiki/API-Reference-*.md
+          if git diff --cached --quiet; then
+            echo "No documentation changes"
+          else
+            git commit -m "docs: auto-update API reference from source code"
+            git push
+          fi
