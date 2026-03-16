@@ -75,7 +75,30 @@ jobs:
 
       - name: Run tests
         run: |
-          xvfb-run octave --eval "cd('tests'); r = run_all_tests(); if r.failed > 0; exit(1); end"
+          # Octave 8.x has a known crash during handle class cleanup
+          # (break_closure_cycles: invalid object). Run tests and capture
+          # the results file before any potential crash.
+          xvfb-run octave --eval "
+            cd('tests');
+            r = run_all_tests();
+            fid = fopen('/tmp/test-results.txt', 'w');
+            fprintf(fid, '%d %d\n', r.passed, r.failed);
+            fclose(fid);
+            if r.failed > 0; exit(1); end
+          " || true
+          # Check results even if Octave crashed during cleanup
+          if [ -f /tmp/test-results.txt ]; then
+            read passed failed < /tmp/test-results.txt
+            echo "Results: $passed passed, $failed failed"
+            if [ "$failed" -gt 0 ]; then
+              echo "::error::$failed test(s) failed"
+              exit 1
+            fi
+            echo "All $passed tests passed (Octave may have crashed during cleanup — known bug)"
+          else
+            echo "::error::Octave crashed before completing tests"
+            exit 1
+          fi
 
   mex-build-macos:
     name: MEX Build (macOS)
