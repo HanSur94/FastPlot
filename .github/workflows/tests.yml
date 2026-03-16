@@ -40,6 +40,7 @@ jobs:
           path: |
             libs/FastPlot/private/*.mex
             libs/SensorThreshold/private/*.mex
+            libs/FastPlot/mksqlite.mex
           key: mex-linux-${{ hashFiles('libs/FastPlot/private/mex_src/**', 'libs/FastPlot/build_mex.m') }}
 
       - name: Compile MEX files
@@ -53,6 +54,7 @@ jobs:
           path: |
             libs/FastPlot/private/*.mex
             libs/SensorThreshold/private/*.mex
+            libs/FastPlot/mksqlite.mex
           retention-days: 1
 
   octave:
@@ -61,6 +63,8 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     container: gnuoctave/octave:8.4.0
+    env:
+      FASTPLOT_SKIP_BUILD: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -71,14 +75,7 @@ jobs:
 
       - name: Run tests
         run: |
-          xvfb-run octave --eval "
-            addpath(pwd);
-            addpath(fullfile(pwd, 'libs', 'FastPlot'));
-            addpath(fullfile(pwd, 'libs', 'SensorThreshold'));
-            addpath(fullfile(pwd, 'libs', 'EventDetection'));
-            addpath(fullfile(pwd, 'libs', 'Dashboard'));
-            addpath(fullfile(pwd, 'libs', 'WebBridge'));
-            cd('tests'); r = run_all_tests(); if r.failed > 0; exit(1); end"
+          xvfb-run octave --eval "cd('tests'); r = run_all_tests(); if r.failed > 0; exit(1); end"
 
   mex-build-macos:
     name: MEX Build (macOS)

@@ -41,6 +41,11 @@ function setup()
     fprintf('FastPlot + SensorThreshold + EventDetection + Dashboard + WebBridge libraries added to path.\n');
 
     % Compile all MEX files (SIMD kernels + bundled SQLite3)
-    fprintf('\n--- Compiling MEX files ---\n');
-    build_mex();
+    % Set FASTPLOT_SKIP_BUILD=1 to skip (e.g., CI with pre-cached MEX)
+    if isempty(getenv('FASTPLOT_SKIP_BUILD'))
+        fprintf('\n--- Compiling MEX files ---\n');
+        build_mex();
+    else
+        fprintf('MEX compilation skipped (FASTPLOT_SKIP_BUILD set).\n');
+    end
 end
