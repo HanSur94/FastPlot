@@ -164,7 +164,7 @@ function build_mex()
             fprintf('  Error: %s\n', e.message);
 
             % If AVX2 failed on x86_64, retry with SSE2
-            hasAVX2 = any(contains(opt_flags, 'mavx2')) || any(contains(opt_flags, 'AVX2'));
+            hasAVX2 = any(~cellfun('isempty', strfind(opt_flags, 'mavx2'))) || any(~cellfun('isempty', strfind(opt_flags, 'AVX2')));
             if strcmp(arch, 'x86_64') && hasAVX2
                 fprintf('  Retrying with SSE2 fallback ... ');
                 try

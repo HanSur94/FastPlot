@@ -92,7 +92,7 @@ classdef TableWidget < DashboardWidget
                     evts = obj.EventStoreObj.getEvents();
                     if ~isempty(evts)
                         sName = obj.SensorObj.Name;
-                        mask = arrayfun(@(e) contains(e.SensorName, sName), evts);
+                        mask = arrayfun(@(e) ~isempty(strfind(e.SensorName, sName)), evts);
                         evts = evts(mask);
                         n = min(obj.N, numel(evts));
                         if n > 0

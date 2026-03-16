@@ -584,7 +584,7 @@ classdef Sensor < handle
                     violated = true;
                 end
                 if violated
-                    if contains(rule.Label, 'Alarm')
+                    if ~isempty(strfind(rule.Label, 'Alarm'))
                         st = 'alarm';
                         return;
                     else

@@ -235,7 +235,7 @@ classdef EventTimelineWidget < DashboardWidget
                 mask = false(1, numel(evts));
                 for i = 1:numel(evts)
                     for j = 1:numel(obj.FilterSensors)
-                        if contains(evts(i).label, obj.FilterSensors{j})
+                        if ~isempty(strfind(evts(i).label, obj.FilterSensors{j}))
                             mask(i) = true;
                             break;
                         end
@@ -263,7 +263,7 @@ classdef EventTimelineWidget < DashboardWidget
                     lbl = [ev.SensorName ' — ' ev.ThresholdLabel];
                 end
                 % Color based on direction/severity hint in label
-                if contains(lower(ev.ThresholdLabel), 'alarm')
+                if ~isempty(strfind(lower(ev.ThresholdLabel), 'alarm'))
                     clr = alarmColor;
                 else
                     clr = warnColor;
@@ -292,7 +292,7 @@ classdef EventTimelineWidget < DashboardWidget
                     if ~isempty(ev.ThresholdLabel)
                         lbl = [ev.SensorName ' — ' ev.ThresholdLabel];
                     end
-                    if contains(lower(ev.ThresholdLabel), 'alarm')
+                    if ~isempty(strfind(lower(ev.ThresholdLabel), 'alarm'))
                         clr = alarmColor;
                     else
                         clr = warnColor;
@@ -307,7 +307,7 @@ classdef EventTimelineWidget < DashboardWidget
                         lbl = [lbl ' — ' ev.ThresholdLabel];
                     end
                     clr = warnColor;
-                    if isfield(ev, 'ThresholdLabel') && contains(lower(ev.ThresholdLabel), 'alarm')
+                    if isfield(ev, 'ThresholdLabel') && ~isempty(strfind(lower(ev.ThresholdLabel), 'alarm'))
                         clr = alarmColor;
                     end
                     evts(end+1) = struct('startTime', ev.StartTime, ...
