@@ -222,15 +222,4 @@ classdef GaugeWidget < DashboardWidget
         end
     end
 
-    methods (Access = private)
-        function theme = getTheme(obj)
-            theme = DashboardTheme();
-            if ~isempty(fieldnames(obj.ThemeOverride))
-                fns = fieldnames(obj.ThemeOverride);
-                for i = 1:numel(fns)
-                    theme.(fns{i}) = obj.ThemeOverride.(fns{i});
-                end
-            end
-        end
-    end
 end
