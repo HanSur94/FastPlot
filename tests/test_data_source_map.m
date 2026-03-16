@@ -49,7 +49,7 @@ function test_unknown_key_errors()
         m.get('nope');
         error('Should not reach here');
     catch ex
-        assert(contains(ex.identifier, 'unknownKey'), 'error_id');
+        assert(~isempty(strfind(ex.identifier, 'unknownKey')), 'error_id');
     end
     fprintf('  PASS: test_unknown_key_errors\n');
 end

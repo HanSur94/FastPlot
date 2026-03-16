@@ -38,8 +38,8 @@ function test_generates_two_pngs()
     assert(numel(files) == 2, 'two_files');
     assert(isfile(files{1}), 'detail_exists');
     assert(isfile(files{2}), 'context_exists');
-    assert(contains(files{1}, 'detail'), 'detail_name');
-    assert(contains(files{2}, 'context'), 'context_name');
+    assert(~isempty(strfind(files{1}, 'detail')), 'detail_name');
+    assert(~isempty(strfind(files{2}, 'context')), 'context_name');
     rmdir(outDir, 's');
     fprintf('  PASS: test_generates_two_pngs\n');
 end

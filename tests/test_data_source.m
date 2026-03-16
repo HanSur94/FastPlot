@@ -18,7 +18,7 @@ function test_cannot_instantiate()
         ds = DataSource();
         error('Should not reach here');
     catch ex
-        assert(contains(ex.message, 'Abstract'), 'cannot_instantiate');
+        assert(~isempty(strfind(ex.message, 'Abstract')), 'cannot_instantiate');
     end
     fprintf('  PASS: test_cannot_instantiate\n');
 end

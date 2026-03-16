@@ -56,10 +56,10 @@ function test_fill_template()
     ev = Event(now, now + 1/24, 'temp', 'HH', 100, 'upper');
     ev.setStats(105, 10, 90, 105, 98, 99, 3);
     subj = r.fillTemplate(r.Subject, ev);
-    assert(contains(subj, 'temp'), 'subj_sensor');
-    assert(contains(subj, 'HH'), 'subj_threshold');
-    assert(contains(subj, 'upper'), 'subj_direction');
+    assert(~isempty(strfind(subj, 'temp')), 'subj_sensor');
+    assert(~isempty(strfind(subj, 'HH')), 'subj_threshold');
+    assert(~isempty(strfind(subj, 'upper')), 'subj_direction');
     msg = r.fillTemplate(r.Message, ev);
-    assert(contains(msg, '105'), 'msg_peak');
+    assert(~isempty(strfind(msg, '105')), 'msg_peak');
     fprintf('  PASS: test_fill_template\n');
 end

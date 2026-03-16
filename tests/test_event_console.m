@@ -13,13 +13,13 @@ function test_event_console()
     % testPrintEventSummary — should not error, should produce output
     out = evalc('printEventSummary(events)');
     assert(~isempty(out), 'printSummary: produces output');
-    assert(contains(out, 'Temperature'), 'printSummary: contains sensor name');
-    assert(contains(out, 'warning high'), 'printSummary: contains threshold label');
-    assert(contains(out, 'Pressure'), 'printSummary: contains second sensor');
+    assert(~isempty(strfind(out, 'Temperature')), 'printSummary: contains sensor name');
+    assert(~isempty(strfind(out, 'warning high')), 'printSummary: contains threshold label');
+    assert(~isempty(strfind(out, 'Pressure')), 'printSummary: contains second sensor');
 
     % testPrintEventSummaryEmpty — should not error
     out = evalc('printEventSummary([])');
-    assert(contains(out, 'No events'), 'printSummaryEmpty: no events message');
+    assert(~isempty(strfind(out, 'No events')), 'printSummaryEmpty: no events message');
 
     % testEventLogger — returns function handle
     logger = eventLogger();
@@ -28,9 +28,9 @@ function test_event_console()
     % testEventLoggerOutput — prints one-line log
     out = evalc('logger(e1)');
     assert(~isempty(out), 'eventLoggerOutput: produces output');
-    assert(contains(out, 'EVENT'), 'eventLoggerOutput: contains EVENT tag');
-    assert(contains(out, 'Temperature'), 'eventLoggerOutput: contains sensor name');
-    assert(contains(out, 'warning high'), 'eventLoggerOutput: contains label');
+    assert(~isempty(strfind(out, 'EVENT')), 'eventLoggerOutput: contains EVENT tag');
+    assert(~isempty(strfind(out, 'Temperature')), 'eventLoggerOutput: contains sensor name');
+    assert(~isempty(strfind(out, 'warning high')), 'eventLoggerOutput: contains label');
 
     fprintf('    All 4 event_console tests passed.\n');
 end

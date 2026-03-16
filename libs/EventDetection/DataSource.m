@@ -1,4 +1,4 @@
-classdef (Abstract) DataSource < handle
+classdef DataSource < handle
     % DataSource  Abstract interface for fetching new sensor data.
     %
     %   Subclasses must implement fetchNew() which returns a struct:
