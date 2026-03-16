@@ -15,7 +15,7 @@ classdef TestStatusWidget < matlab.unittest.TestCase
 
         function testDefaultPosition(testCase)
             w = StatusWidget('Title', 'Test');
-            testCase.verifyEqual(w.Position, [1 1 2 1]);
+            testCase.verifyEqual(w.Position, [1 1 4 1]);
         end
 
         function testGetType(testCase)
@@ -26,7 +26,7 @@ classdef TestStatusWidget < matlab.unittest.TestCase
         function testToStruct(testCase)
             w = StatusWidget('Title', 'Valve', ...
                 'StatusFcn', @() 'ok', ...
-                'Position', [1 1 2 1]);
+                'Position', [1 1 4 1]);
             s = w.toStruct();
             testCase.verifyEqual(s.type, 'status');
             testCase.verifyEqual(s.title, 'Valve');
@@ -36,7 +36,7 @@ classdef TestStatusWidget < matlab.unittest.TestCase
             s = struct();
             s.type = 'status';
             s.title = 'Pump';
-            s.position = struct('col', 1, 'row', 1, 'width', 2, 'height', 1);
+            s.position = struct('col', 1, 'row', 1, 'width', 4, 'height', 1);
             s.source = struct('type', 'static', 'value', 'ok');
             w = StatusWidget.fromStruct(s);
             testCase.verifyEqual(w.Title, 'Pump');

@@ -26,7 +26,7 @@ classdef GaugeWidget < DashboardWidget
     methods
         function obj = GaugeWidget(varargin)
             obj = obj@DashboardWidget();
-            obj.Position = [1 1 4 2]; % default gauge size
+            obj.Position = [1 1 8 2]; % default gauge size
             for k = 1:2:numel(varargin)
                 obj.(varargin{k}) = varargin{k+1};
             end
@@ -41,13 +41,16 @@ classdef GaugeWidget < DashboardWidget
             fontName = theme.FontName;
             arcWidth = theme.GaugeArcWidth;
 
-            % Axes for gauge arc
+            % Axes for gauge arc (non-interactive)
             obj.hAxes = axes('Parent', parentPanel, ...
                 'Units', 'normalized', ...
                 'Position', [0.1 0.15 0.8 0.7], ...
                 'Visible', 'off', ...
                 'XLim', [-1.4 1.4], 'YLim', [-0.5 1.5], ...
-                'DataAspectRatio', [1 1 1]);
+                'DataAspectRatio', [1 1 1], ...
+                'HitTest', 'off');
+            try set(obj.hAxes, 'PickableParts', 'none'); catch, end
+            try disableDefaultInteractivity(obj.hAxes); catch, end
             hold(obj.hAxes, 'on');
 
             % Draw background arc (240 degrees from 210 to -30)

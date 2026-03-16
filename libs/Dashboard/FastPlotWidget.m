@@ -18,6 +18,8 @@ classdef FastPlotWidget < DashboardWidget
         XVar         = ''
         YVar         = ''
         Thresholds   = 'auto'
+        XLabel       = ''    % X-axis label (auto-set from Sensor if empty)
+        YLabel       = ''    % Y-axis label (auto-set from Sensor if empty)
     end
 
     properties (SetAccess = private)
@@ -28,19 +30,31 @@ classdef FastPlotWidget < DashboardWidget
     methods
         function obj = FastPlotWidget(varargin)
             obj = obj@DashboardWidget();
-            obj.Position = [1 1 6 3]; % default size for FastPlot
+            obj.Position = [1 1 12 3]; % default size for FastPlot
 
             % Parse name-value pairs
             for k = 1:2:numel(varargin)
                 obj.(varargin{k}) = varargin{k+1};
             end
 
-            % Default title from Sensor name
-            if ~isempty(obj.SensorObj) && isempty(obj.Title)
-                if ~isempty(obj.SensorObj.Name)
-                    obj.Title = obj.SensorObj.Name;
-                else
-                    obj.Title = obj.SensorObj.Key;
+            % Default title and labels from Sensor
+            if ~isempty(obj.SensorObj)
+                if isempty(obj.Title)
+                    if ~isempty(obj.SensorObj.Name)
+                        obj.Title = obj.SensorObj.Name;
+                    else
+                        obj.Title = obj.SensorObj.Key;
+                    end
+                end
+                if isempty(obj.XLabel)
+                    obj.XLabel = 'Time';
+                end
+                if isempty(obj.YLabel)
+                    if ~isempty(obj.SensorObj.Name)
+                        obj.YLabel = obj.SensorObj.Name;
+                    else
+                        obj.YLabel = obj.SensorObj.Key;
+                    end
                 end
             end
         end
@@ -71,9 +85,15 @@ classdef FastPlotWidget < DashboardWidget
                 fp.addLine(obj.XData, obj.YData);
             end
 
-            % Set title
+            % Set title and axis labels
             if ~isempty(obj.Title)
                 title(ax, obj.Title, 'Color', get(ax, 'XColor'));
+            end
+            if ~isempty(obj.XLabel)
+                xlabel(ax, obj.XLabel, 'Color', get(ax, 'XColor'));
+            end
+            if ~isempty(obj.YLabel)
+                ylabel(ax, obj.YLabel, 'Color', get(ax, 'XColor'));
             end
 
             fp.render();
@@ -140,6 +160,8 @@ classdef FastPlotWidget < DashboardWidget
 
         function s = toStruct(obj)
             s = toStruct@DashboardWidget(obj);
+            if ~isempty(obj.XLabel), s.xLabel = obj.XLabel; end
+            if ~isempty(obj.YLabel), s.yLabel = obj.YLabel; end
 
             if ~isempty(obj.SensorObj)
                 s.source = struct('type', 'sensor', 'name', obj.SensorObj.Key);
@@ -178,6 +200,12 @@ classdef FastPlotWidget < DashboardWidget
 
             if isfield(s, 'thresholds')
                 obj.Thresholds = s.thresholds;
+            end
+            if isfield(s, 'xLabel')
+                obj.XLabel = s.xLabel;
+            end
+            if isfield(s, 'yLabel')
+                obj.YLabel = s.yLabel;
             end
         end
     end

@@ -26,6 +26,7 @@ classdef DashboardEngine < handle
         Toolbar        = []
         LiveTimer      = []
         IsLive         = false
+        LastUpdateTime = []
         FilePath       = ''
         % Time control
         TimePanelHeight = 0.06
@@ -146,10 +147,8 @@ classdef DashboardEngine < handle
         %REMOVEWIDGET Remove widget at given index.
             if idx >= 1 && idx <= numel(obj.Widgets)
                 w = obj.Widgets{idx};
-                if ~isempty(w.hPanel) && ishandle(w.hPanel)
-                    delete(w.hPanel);
-                end
                 obj.Widgets(idx) = [];
+                delete(w);
             end
         end
 
@@ -192,7 +191,10 @@ classdef DashboardEngine < handle
             for i = 1:numel(obj.Widgets)
                 try
                     obj.Widgets{i}.setTimeRange(tStart, tEnd);
-                catch
+                catch ME
+                    warning('DashboardEngine:timeRangeError', ...
+                        'Widget "%s" setTimeRange failed: %s', ...
+                        obj.Widgets{i}.Title, ME.message);
                 end
             end
         end
@@ -295,6 +297,10 @@ classdef DashboardEngine < handle
             % Enforce left < right
             if valL >= valR
                 valR = min(1, valL + 0.01);
+                if valL >= valR
+                    valL = valR - 0.01;
+                    set(obj.hTimeSliderL, 'Value', valL);
+                end
                 set(obj.hTimeSliderR, 'Value', valR);
             end
 
@@ -337,12 +343,17 @@ classdef DashboardEngine < handle
 
         function onClose(obj)
             obj.stopLive();
-            if ~isempty(obj.hFigure) && ishandle(obj.hFigure)
-                delete(obj.hFigure);
+            hf = obj.hFigure;
+            obj.hFigure = [];
+            if ~isempty(hf) && ishandle(hf)
+                delete(hf);
             end
         end
 
         function onLiveTick(obj)
+            if isempty(obj.hFigure) || ~ishandle(obj.hFigure)
+                return;
+            end
             for i = 1:numel(obj.Widgets)
                 try
                     obj.Widgets{i}.refresh();
@@ -351,6 +362,10 @@ classdef DashboardEngine < handle
                         'Widget "%s" refresh failed: %s', ...
                         obj.Widgets{i}.Title, ME.message);
                 end
+            end
+            obj.LastUpdateTime = now;
+            if ~isempty(obj.Toolbar)
+                obj.Toolbar.setLastUpdateTime(obj.LastUpdateTime);
             end
         end
     end

@@ -15,7 +15,7 @@ classdef RawAxesWidget < DashboardWidget
     methods
         function obj = RawAxesWidget(varargin)
             obj = obj@DashboardWidget();
-            obj.Position = [1 1 4 2];
+            obj.Position = [1 1 8 2];
             for k = 1:2:numel(varargin)
                 obj.(varargin{k}) = varargin{k+1};
             end

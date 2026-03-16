@@ -17,7 +17,7 @@ classdef TestGaugeWidget < matlab.unittest.TestCase
 
         function testDefaultPosition(testCase)
             w = GaugeWidget('Title', 'Test');
-            testCase.verifyEqual(w.Position, [1 1 4 2]);
+            testCase.verifyEqual(w.Position, [1 1 8 2]);
         end
 
         function testGetType(testCase)

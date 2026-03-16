@@ -16,7 +16,7 @@ classdef TestKpiWidget < matlab.unittest.TestCase
 
         function testDefaultPosition(testCase)
             w = KpiWidget('Title', 'Test');
-            testCase.verifyEqual(w.Position, [1 1 3 1]);
+            testCase.verifyEqual(w.Position, [1 1 6 1]);
         end
 
         function testGetType(testCase)
@@ -28,7 +28,7 @@ classdef TestKpiWidget < matlab.unittest.TestCase
             w = KpiWidget('Title', 'Pressure', ...
                 'ValueFcn', @() 50, ...
                 'Units', 'bar', ...
-                'Position', [4 1 3 1]);
+                'Position', [7 1 6 1]);
             s = w.toStruct();
             testCase.verifyEqual(s.type, 'kpi');
             testCase.verifyEqual(s.title, 'Pressure');
@@ -41,13 +41,13 @@ classdef TestKpiWidget < matlab.unittest.TestCase
             s = struct();
             s.type = 'kpi';
             s.title = 'RPM';
-            s.position = struct('col', 1, 'row', 1, 'width', 3, 'height', 1);
+            s.position = struct('col', 1, 'row', 1, 'width', 6, 'height', 1);
             s.units = 'rpm';
             s.source = struct('type', 'static', 'value', 1500);
             w = KpiWidget.fromStruct(s);
             testCase.verifyEqual(w.Title, 'RPM');
             testCase.verifyEqual(w.Units, 'rpm');
-            testCase.verifyEqual(w.Position, [1 1 3 1]);
+            testCase.verifyEqual(w.Position, [1 1 6 1]);
         end
 
         function testRenderCreatesGraphics(testCase)

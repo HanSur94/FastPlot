@@ -29,6 +29,13 @@ classdef DashboardBuilder < handle
         DragOrigGrid    = [0 0 0 0]
         DragOrigNorm    = [0 0 0 0]
 
+        % Cached layout values for drag (avoid recalc every mouse move)
+        CachedStepW     = 0
+        CachedStepH     = 0
+
+        % Lightweight ghost rectangle for drag preview
+        hGhost          = []
+
         % Grid overlay axes (edit mode)
         hGridOverlay    = []
 
@@ -45,6 +52,10 @@ classdef DashboardBuilder < handle
         hPropDelete     = []
         hPropLabel      = []
 
+        % Axis label controls (fastplot only)
+        hPropXLabel     = []
+        hPropYLabel     = []
+
         % Data source controls
         hSourceType     = []
         hSourceKey      = []
@@ -56,8 +67,8 @@ classdef DashboardBuilder < handle
         OldButtonUpFcn  = ''
 
         % Layout constants (normalized figure coords)
-        PaletteWidth    = 0.12
-        PropsWidth      = 0.18
+        PaletteWidth    = 0.08
+        PropsWidth      = 0.14
     end
 
     methods (Access = public)
@@ -107,6 +118,7 @@ classdef DashboardBuilder < handle
 
             obj.clearOverlays();
             obj.clearGrid();
+            obj.destroyGhost();
 
             % Delete sidebars
             safeDelete(obj.hPalette);
@@ -182,15 +194,21 @@ classdef DashboardBuilder < handle
             w = obj.Engine.Widgets{obj.SelectedIdx};
             w.Title = get(obj.hPropTitle, 'String');
 
+            % Apply axis labels if widget supports them
+            if isprop(w, 'XLabel')
+                w.XLabel = get(obj.hPropXLabel, 'String');
+                w.YLabel = get(obj.hPropYLabel, 'String');
+            end
+
             col = str2double(get(obj.hPropCol, 'String'));
             row = str2double(get(obj.hPropRow, 'String'));
             wid = str2double(get(obj.hPropWidth, 'String'));
             hgt = str2double(get(obj.hPropHeight, 'String'));
 
             if ~isnan(col) && ~isnan(row) && ~isnan(wid) && ~isnan(hgt)
-                col = max(1, min(col, 12));
+                col = max(1, min(col, 24));
                 row = max(1, row);
-                wid = max(1, min(wid, 13 - col));
+                wid = max(1, min(wid, 25 - col));
                 hgt = max(1, hgt);
                 w.Position = [col, row, wid, hgt];
             end
@@ -206,15 +224,15 @@ classdef DashboardBuilder < handle
 
         function pos = findNextSlot(obj, type)
             switch type
-                case 'fastplot', defW = 6; defH = 3;
-                case 'kpi',      defW = 3; defH = 1;
-                case 'status',   defW = 2; defH = 1;
-                case 'text',     defW = 3; defH = 1;
-                case 'gauge',    defW = 4; defH = 2;
-                case 'table',    defW = 4; defH = 2;
-                case 'rawaxes',  defW = 4; defH = 2;
-                case 'timeline', defW = 12; defH = 2;
-                otherwise,       defW = 4; defH = 2;
+                case 'fastplot', defW = 12; defH = 3;
+                case 'kpi',      defW = 6; defH = 1;
+                case 'status',   defW = 4; defH = 1;
+                case 'text',     defW = 6; defH = 1;
+                case 'gauge',    defW = 8; defH = 2;
+                case 'table',    defW = 8; defH = 2;
+                case 'rawaxes',  defW = 8; defH = 2;
+                case 'timeline', defW = 24; defH = 2;
+                otherwise,       defW = 8; defH = 2;
             end
 
             maxBottom = 0;
@@ -245,22 +263,22 @@ classdef DashboardBuilder < handle
             uicontrol('Parent', obj.hPalette, ...
                 'Style', 'text', ...
                 'Units', 'normalized', ...
-                'Position', [0.05 0.93 0.9 0.05], ...
-                'String', 'Widgets', ...
-                'FontSize', theme.HeaderFontSize, ...
+                'Position', [0.05 0.94 0.9 0.04], ...
+                'String', 'Add', ...
+                'FontSize', 9, ...
                 'FontWeight', 'bold', ...
                 'ForegroundColor', theme.ToolbarFontColor, ...
                 'BackgroundColor', theme.ToolbarBackground, ...
-                'HorizontalAlignment', 'left');
+                'HorizontalAlignment', 'center');
 
             types  = {'fastplot','kpi','status','text', ...
                       'gauge','table','rawaxes','timeline'};
-            labels = {'FastPlot','KPI','Status','Text', ...
-                      'Gauge','Table','Raw Axes','Timeline'};
+            labels = {'Plot','KPI','Status','Text', ...
+                      'Gauge','Table','Axes','Events'};
 
-            btnH = 0.05;
-            btnGap = 0.01;
-            startY = 0.92 - btnH;
+            btnH = 0.04;
+            btnGap = 0.006;
+            startY = 0.93 - btnH;
 
             for i = 1:numel(types)
                 y = startY - (i-1) * (btnH + btnGap);
@@ -268,8 +286,9 @@ classdef DashboardBuilder < handle
                 uicontrol('Parent', obj.hPalette, ...
                     'Style', 'pushbutton', ...
                     'Units', 'normalized', ...
-                    'Position', [0.05 y 0.9 btnH], ...
+                    'Position', [0.06 y 0.88 btnH], ...
                     'String', labels{i}, ...
+                    'FontSize', 8, ...
                     'Callback', @(~,~) obj.addWidget(t));
             end
         end
@@ -289,9 +308,9 @@ classdef DashboardBuilder < handle
             uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'text', ...
                 'Units', 'normalized', ...
-                'Position', [0.05 0.93 0.9 0.05], ...
+                'Position', [0.04 0.95 0.92 0.04], ...
                 'String', 'Properties', ...
-                'FontSize', theme.HeaderFontSize, ...
+                'FontSize', 9, ...
                 'FontWeight', 'bold', ...
                 'ForegroundColor', theme.ToolbarFontColor, ...
                 'BackgroundColor', theme.ToolbarBackground, ...
@@ -300,120 +319,150 @@ classdef DashboardBuilder < handle
             obj.hPropLabel = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'text', ...
                 'Units', 'normalized', ...
-                'Position', [0.05 0.86 0.9 0.05], ...
-                'String', 'Select a widget to edit', ...
+                'Position', [0.04 0.90 0.92 0.04], ...
+                'String', 'Select a widget', ...
+                'FontSize', 8, ...
                 'ForegroundColor', theme.ToolbarFontColor, ...
                 'BackgroundColor', theme.ToolbarBackground, ...
                 'HorizontalAlignment', 'left');
 
-            lh = 0.035;  % label height
-            fh = 0.04;   % field height
-            gap = 0.005;
+            lh = 0.025;  % label height
+            fh = 0.035;  % field height
+            gap = 0.004;
             bg = theme.ToolbarBackground;
             fg = theme.ToolbarFontColor;
+            fs = 8;  % font size for labels
 
-            y = 0.78;
+            y = 0.85;
 
             % Title field
             uicontrol('Parent', obj.hPropsPanel, 'Style', 'text', ...
-                'Units', 'normalized', 'Position', [0.05 y 0.9 lh], ...
-                'String', 'Title:', 'ForegroundColor', fg, ...
-                'BackgroundColor', bg, 'HorizontalAlignment', 'left', ...
+                'Units', 'normalized', 'Position', [0.04 y 0.92 lh], ...
+                'String', 'Title:', 'FontSize', fs, ...
+                'ForegroundColor', fg, 'BackgroundColor', bg, ...
+                'HorizontalAlignment', 'left', ...
                 'Visible', 'off', 'Tag', 'propLabel');
             y = y - fh - gap;
             obj.hPropTitle = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'edit', 'Units', 'normalized', ...
-                'Position', [0.05 y 0.9 fh], ...
+                'Position', [0.04 y 0.92 fh], 'FontSize', fs, ...
                 'String', '', 'Visible', 'off');
-            y = y - lh - gap*3;
+            y = y - lh - gap*2;
 
             % Col / Row
             uicontrol('Parent', obj.hPropsPanel, 'Style', 'text', ...
-                'Units', 'normalized', 'Position', [0.05 y 0.4 lh], ...
-                'String', 'Col:', 'ForegroundColor', fg, ...
-                'BackgroundColor', bg, 'HorizontalAlignment', 'left', ...
+                'Units', 'normalized', 'Position', [0.04 y 0.44 lh], ...
+                'String', 'Col:', 'FontSize', fs, ...
+                'ForegroundColor', fg, 'BackgroundColor', bg, ...
+                'HorizontalAlignment', 'left', ...
                 'Visible', 'off', 'Tag', 'propLabel');
             uicontrol('Parent', obj.hPropsPanel, 'Style', 'text', ...
-                'Units', 'normalized', 'Position', [0.5 y 0.4 lh], ...
-                'String', 'Row:', 'ForegroundColor', fg, ...
-                'BackgroundColor', bg, 'HorizontalAlignment', 'left', ...
+                'Units', 'normalized', 'Position', [0.5 y 0.44 lh], ...
+                'String', 'Row:', 'FontSize', fs, ...
+                'ForegroundColor', fg, 'BackgroundColor', bg, ...
+                'HorizontalAlignment', 'left', ...
                 'Visible', 'off', 'Tag', 'propLabel');
             y = y - fh - gap;
             obj.hPropCol = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'edit', 'Units', 'normalized', ...
-                'Position', [0.05 y 0.4 fh], ...
+                'Position', [0.04 y 0.44 fh], 'FontSize', fs, ...
                 'String', '', 'Visible', 'off');
             obj.hPropRow = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'edit', 'Units', 'normalized', ...
-                'Position', [0.5 y 0.4 fh], ...
+                'Position', [0.5 y 0.44 fh], 'FontSize', fs, ...
                 'String', '', 'Visible', 'off');
-            y = y - lh - gap*3;
+            y = y - lh - gap*2;
 
             % Width / Height
             uicontrol('Parent', obj.hPropsPanel, 'Style', 'text', ...
-                'Units', 'normalized', 'Position', [0.05 y 0.4 lh], ...
-                'String', 'Width:', 'ForegroundColor', fg, ...
-                'BackgroundColor', bg, 'HorizontalAlignment', 'left', ...
+                'Units', 'normalized', 'Position', [0.04 y 0.44 lh], ...
+                'String', 'W:', 'FontSize', fs, ...
+                'ForegroundColor', fg, 'BackgroundColor', bg, ...
+                'HorizontalAlignment', 'left', ...
                 'Visible', 'off', 'Tag', 'propLabel');
             uicontrol('Parent', obj.hPropsPanel, 'Style', 'text', ...
-                'Units', 'normalized', 'Position', [0.5 y 0.4 lh], ...
-                'String', 'Height:', 'ForegroundColor', fg, ...
-                'BackgroundColor', bg, 'HorizontalAlignment', 'left', ...
+                'Units', 'normalized', 'Position', [0.5 y 0.44 lh], ...
+                'String', 'H:', 'FontSize', fs, ...
+                'ForegroundColor', fg, 'BackgroundColor', bg, ...
+                'HorizontalAlignment', 'left', ...
                 'Visible', 'off', 'Tag', 'propLabel');
             y = y - fh - gap;
             obj.hPropWidth = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'edit', 'Units', 'normalized', ...
-                'Position', [0.05 y 0.4 fh], ...
+                'Position', [0.04 y 0.44 fh], 'FontSize', fs, ...
                 'String', '', 'Visible', 'off');
             obj.hPropHeight = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'edit', 'Units', 'normalized', ...
-                'Position', [0.5 y 0.4 fh], ...
+                'Position', [0.5 y 0.44 fh], 'FontSize', fs, ...
                 'String', '', 'Visible', 'off');
-            y = y - fh - gap*4;
+            y = y - fh - gap*2;
+
+            % --- Axis Labels (shown for fastplot) ---
+            uicontrol('Parent', obj.hPropsPanel, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [0.04 y 0.44 lh], ...
+                'String', 'X:', 'FontSize', fs, ...
+                'ForegroundColor', fg, 'BackgroundColor', bg, ...
+                'HorizontalAlignment', 'left', ...
+                'Visible', 'off', 'Tag', 'propLabel');
+            uicontrol('Parent', obj.hPropsPanel, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [0.5 y 0.44 lh], ...
+                'String', 'Y:', 'FontSize', fs, ...
+                'ForegroundColor', fg, 'BackgroundColor', bg, ...
+                'HorizontalAlignment', 'left', ...
+                'Visible', 'off', 'Tag', 'propLabel');
+            y = y - fh - gap;
+            obj.hPropXLabel = uicontrol('Parent', obj.hPropsPanel, ...
+                'Style', 'edit', 'Units', 'normalized', ...
+                'Position', [0.04 y 0.44 fh], 'FontSize', fs, ...
+                'String', '', 'Visible', 'off');
+            obj.hPropYLabel = uicontrol('Parent', obj.hPropsPanel, ...
+                'Style', 'edit', 'Units', 'normalized', ...
+                'Position', [0.5 y 0.44 fh], 'FontSize', fs, ...
+                'String', '', 'Visible', 'off');
+            y = y - fh - gap*2;
 
             % --- Data Source section ---
-            y = y - lh - gap*2;
             obj.hSourceLabel = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'text', 'Units', 'normalized', ...
-                'Position', [0.05 y 0.9 lh], ...
-                'String', 'Data Source:', 'ForegroundColor', fg, ...
-                'BackgroundColor', bg, 'HorizontalAlignment', 'left', ...
-                'FontWeight', 'bold', ...
+                'Position', [0.04 y 0.92 lh], ...
+                'String', 'Source:', 'FontSize', fs, ...
+                'ForegroundColor', fg, 'BackgroundColor', bg, ...
+                'HorizontalAlignment', 'left', 'FontWeight', 'bold', ...
                 'Visible', 'off', 'Tag', 'propLabel');
             y = y - fh - gap;
 
             % Source type dropdown
             obj.hSourceType = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'popupmenu', 'Units', 'normalized', ...
-                'Position', [0.05 y 0.9 fh], ...
-                'String', {'None', 'Sensor', 'MAT File', 'Static Value'}, ...
+                'Position', [0.04 y 0.92 fh], 'FontSize', fs, ...
+                'String', {'None', 'Sensor', 'MAT File', 'Static'}, ...
                 'Value', 1, 'Visible', 'off');
             y = y - fh - gap;
 
             % Source key / path / value field
             obj.hSourceKey = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'edit', 'Units', 'normalized', ...
-                'Position', [0.05 y 0.65 fh], ...
+                'Position', [0.04 y 0.6 fh], 'FontSize', fs, ...
                 'String', '', 'Visible', 'off');
 
             % Browse button (for MAT files)
             obj.hSourceBrowse = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'pushbutton', 'Units', 'normalized', ...
-                'Position', [0.72 y 0.23 fh], ...
-                'String', 'Browse', 'Visible', 'off', ...
+                'Position', [0.66 y 0.3 fh], 'FontSize', 7, ...
+                'String', '...', 'Visible', 'off', ...
                 'Callback', @(~,~) obj.onSourceBrowse());
-            y = y - fh - gap*4;
+            y = y - fh - gap*3;
 
             % Apply / Delete buttons
             obj.hPropApply = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'pushbutton', 'Units', 'normalized', ...
-                'Position', [0.05 y 0.42 fh], ...
+                'Position', [0.04 y 0.44 fh], 'FontSize', fs, ...
                 'String', 'Apply', 'Visible', 'off', ...
                 'Callback', @(~,~) obj.applyProperties());
 
             obj.hPropDelete = uicontrol('Parent', obj.hPropsPanel, ...
                 'Style', 'pushbutton', 'Units', 'normalized', ...
-                'Position', [0.52 y 0.42 fh], ...
+                'Position', [0.52 y 0.44 fh], 'FontSize', fs, ...
                 'String', 'Delete', 'Visible', 'off', ...
                 'Callback', @(~,~) obj.deleteSelected());
         end
@@ -537,9 +586,16 @@ classdef DashboardBuilder < handle
             obj.DragOrigGrid = w.Position;
             obj.DragOrigNorm = get(w.hPanel, 'Position');
 
+            % Cache step sizes to avoid recalc on every mouse move
+            [obj.CachedStepW, obj.CachedStepH] = ...
+                obj.Engine.Layout.canvasStepSizes();
+
             hFig = obj.Engine.hFigure;
             obj.DragStart = get(hFig, 'CurrentPoint');
             obj.selectWidget(widgetIdx);
+
+            % Create lightweight ghost rectangle instead of moving heavy panel
+            obj.createGhost(obj.DragOrigNorm);
         end
 
         function onResizeStart(obj, widgetIdx)
@@ -549,9 +605,14 @@ classdef DashboardBuilder < handle
             obj.DragOrigGrid = w.Position;
             obj.DragOrigNorm = get(w.hPanel, 'Position');
 
+            [obj.CachedStepW, obj.CachedStepH] = ...
+                obj.Engine.Layout.canvasStepSizes();
+
             hFig = obj.Engine.hFigure;
             obj.DragStart = get(hFig, 'CurrentPoint');
             obj.selectWidget(widgetIdx);
+
+            obj.createGhost(obj.DragOrigNorm);
         end
 
         function onMouseMove(obj)
@@ -559,41 +620,10 @@ classdef DashboardBuilder < handle
                 return;
             end
 
-            hFig = obj.Engine.hFigure;
-            cp = get(hFig, 'CurrentPoint');
-            dx_fig = cp(1) - obj.DragStart(1);
-            dy_fig = cp(2) - obj.DragStart(2);
+            newGrid = obj.computeSnappedGrid();
 
-            % Convert figure deltas to canvas deltas
+            % Snap ghost to grid position (lightweight — no widget rerender)
             layout = obj.Engine.Layout;
-            [dx, dy] = layout.figureToCanvasDelta(dx_fig, dy_fig);
-            [stepW, stepH] = layout.canvasStepSizes();
-
-            origGrid = obj.DragOrigGrid;
-            w = obj.Engine.Widgets{obj.DragIdx};
-            ov = obj.Overlays{obj.DragIdx};
-            handleH = 0.022;
-            rsW = 0.012; rsH = 0.012;
-
-            switch obj.DragMode
-                case 'drag'
-                    deltaCol = round(dx / stepW);
-                    deltaRow = round(-dy / stepH);
-                    newCol = max(1, min(origGrid(1) + deltaCol, ...
-                        13 - origGrid(3)));
-                    newRow = max(1, origGrid(2) + deltaRow);
-                    newGrid = [newCol, newRow, origGrid(3), origGrid(4)];
-
-                case 'resize'
-                    deltaW = round(dx / stepW);
-                    deltaH = round(-dy / stepH);
-                    newW = max(1, min(origGrid(3) + deltaW, ...
-                        13 - origGrid(1)));
-                    newH = max(1, origGrid(4) + deltaH);
-                    newGrid = [origGrid(1), origGrid(2), newW, newH];
-            end
-
-            % Snap to exact grid position via computePosition
             savedRows = layout.TotalRows;
             maxNeeded = newGrid(2) + newGrid(4) - 1;
             if maxNeeded > layout.TotalRows
@@ -602,58 +632,58 @@ classdef DashboardBuilder < handle
             pos = layout.computePosition(newGrid);
             layout.TotalRows = savedRows;
 
-            set(w.hPanel, 'Position', pos);
-            set(ov.hDragBar, 'Position', ...
-                [pos(1), pos(2) + pos(4) - handleH, pos(3), handleH]);
-            set(ov.hResize, 'Position', ...
-                [pos(1) + pos(3) - rsW, pos(2), rsW, rsH]);
+            % Move only the ghost outline (not the heavy widget panel)
+            if ~isempty(obj.hGhost) && ishandle(obj.hGhost)
+                set(obj.hGhost, 'Position', pos);
+            end
         end
 
         function onMouseUp(obj)
             if isempty(obj.DragMode) || obj.DragIdx == 0
+                obj.destroyGhost();
                 return;
             end
 
-            hFig = obj.Engine.hFigure;
-            cp = get(hFig, 'CurrentPoint');
-            dx_fig = cp(1) - obj.DragStart(1);
-            dy_fig = cp(2) - obj.DragStart(2);
+            newGrid = obj.computeSnappedGrid();
+            obj.destroyGhost();
 
-            % Convert figure deltas to canvas deltas
-            layout = obj.Engine.Layout;
-            [dx, dy] = layout.figureToCanvasDelta(dx_fig, dy_fig);
-            [stepW, stepH] = layout.canvasStepSizes();
-
-            origGrid = obj.DragOrigGrid;
-
-            switch obj.DragMode
-                case 'drag'
-                    deltaCol = round(dx / stepW);
-                    deltaRow = round(-dy / stepH);
-                    newCol = max(1, origGrid(1) + deltaCol);
-                    newRow = max(1, origGrid(2) + deltaRow);
-                    newCol = min(newCol, 13 - origGrid(3));
-                    newGrid = [newCol, newRow, origGrid(3), origGrid(4)];
-
-                case 'resize'
-                    deltaW = round(dx / stepW);
-                    deltaH = round(-dy / stepH);
-                    newW = max(1, origGrid(3) + deltaW);
-                    newH = max(1, origGrid(4) + deltaH);
-                    newW = min(newW, 13 - origGrid(1));
-                    newGrid = [origGrid(1), origGrid(2), newW, newH];
-            end
-
-            obj.Engine.Widgets{obj.DragIdx}.Position = newGrid;
-
-            % Snap to grid by re-laying out
-            theme = DashboardTheme(obj.Engine.Theme);
-            obj.relayoutWidgets(theme);
-            obj.clearOverlays();
-            obj.createOverlays(theme);
-
+            widgetIdx = obj.DragIdx;
             obj.DragMode = '';
             obj.DragIdx = 0;
+
+            layout = obj.Engine.Layout;
+            w = obj.Engine.Widgets{widgetIdx};
+            oldGrid = w.Position;
+            w.Position = newGrid;
+
+            % Check if total rows changed (need full relayout for scroll)
+            oldMaxRow = layout.TotalRows;
+            newMaxRow = layout.calculateMaxRow(obj.Engine.Widgets);
+            rowsChanged = newMaxRow ~= oldMaxRow;
+
+            if rowsChanged
+                % Full relayout only when grid dimensions actually changed
+                theme = DashboardTheme(obj.Engine.Theme);
+                obj.relayoutWidgets(theme);
+                obj.clearOverlays();
+                obj.createOverlays(theme);
+            else
+                % Fast path: just reposition the panel and overlays in-place
+                pos = layout.computePosition(newGrid);
+                set(w.hPanel, 'Position', pos);
+
+                handleH = 0.022;
+                rsW = 0.012; rsH = 0.012;
+                ov = obj.Overlays{widgetIdx};
+                if ishandle(ov.hDragBar)
+                    set(ov.hDragBar, 'Position', ...
+                        [pos(1), pos(2)+pos(4)-handleH, pos(3), handleH]);
+                end
+                if ishandle(ov.hResize)
+                    set(ov.hResize, 'Position', ...
+                        [pos(1)+pos(3)-rsW, pos(2), rsW, rsH]);
+                end
+            end
 
             if obj.SelectedIdx > 0
                 obj.updatePropertiesDisplay();
@@ -662,6 +692,42 @@ classdef DashboardBuilder < handle
     end
 
     methods (Access = private)
+        function newGrid = computeSnappedGrid(obj)
+        %COMPUTESNAPPEDGRID Shared snap-to-grid logic for drag and resize.
+            hFig = obj.Engine.hFigure;
+            cp = get(hFig, 'CurrentPoint');
+            dx_fig = cp(1) - obj.DragStart(1);
+            dy_fig = cp(2) - obj.DragStart(2);
+
+            layout = obj.Engine.Layout;
+            [dx, dy] = layout.figureToCanvasDelta(dx_fig, dy_fig);
+            stepW = obj.CachedStepW;
+            stepH = obj.CachedStepH;
+            origGrid = obj.DragOrigGrid;
+            nCols = layout.Columns;
+
+            switch obj.DragMode
+                case 'drag'
+                    deltaCol = round(dx / stepW);
+                    deltaRow = round(-dy / stepH);
+                    newCol = max(1, min(origGrid(1) + deltaCol, ...
+                        nCols + 1 - origGrid(3)));
+                    newRow = max(1, origGrid(2) + deltaRow);
+                    newGrid = [newCol, newRow, origGrid(3), origGrid(4)];
+
+                case 'resize'
+                    deltaW = round(dx / stepW);
+                    deltaH = round(-dy / stepH);
+                    newW = max(1, min(origGrid(3) + deltaW, ...
+                        nCols + 1 - origGrid(1)));
+                    newH = max(1, origGrid(4) + deltaH);
+                    newGrid = [origGrid(1), origGrid(2), newW, newH];
+
+                otherwise
+                    newGrid = origGrid;
+            end
+        end
+
         function updatePropertiesDisplay(obj)
             idx = obj.SelectedIdx;
             if idx == 0 || idx > numel(obj.Engine.Widgets)
@@ -678,6 +744,15 @@ classdef DashboardBuilder < handle
             set(obj.hPropRow, 'String', num2str(w.Position(2)));
             set(obj.hPropWidth, 'String', num2str(w.Position(3)));
             set(obj.hPropHeight, 'String', num2str(w.Position(4)));
+
+            % Populate axis label fields (fastplot only)
+            if isprop(w, 'XLabel')
+                set(obj.hPropXLabel, 'String', w.XLabel, 'Enable', 'on');
+                set(obj.hPropYLabel, 'String', w.YLabel, 'Enable', 'on');
+            else
+                set(obj.hPropXLabel, 'String', '', 'Enable', 'off');
+                set(obj.hPropYLabel, 'String', '', 'Enable', 'off');
+            end
 
             % Populate data source controls
             obj.populateSourceControls(w);
@@ -701,17 +776,14 @@ classdef DashboardBuilder < handle
             cols = layout.Columns;
             rows = max(layout.TotalRows, 1);
 
-            cr = layout.canvasRatio();
-            if cr <= 1
-                yBase = padB;
-            else
-                yBase = padB / cr;
-            end
+            % Use computePosition to get grid bounds (consistent with widget placement)
+            topLeftPos = layout.computePosition([1, 1, 1, 1]);
+            botRightPos = layout.computePosition([cols, rows, 1, 1]);
 
             xLeft  = padL;
-            yBot   = yBase;
             xRight = xLeft + (cols - 1) * stepW + cellW;
-            yTop   = yBot  + (rows - 1) * stepH + cellH;
+            yBot   = botRightPos(2);
+            yTop   = topLeftPos(2) + topLeftPos(4);
 
             % Transparent axes on canvas for grid lines
             hAx = axes('Parent', hCanvas, ...
@@ -726,34 +798,73 @@ classdef DashboardBuilder < handle
 
             gc = theme.GridLineColor;
 
-            % Vertical lines (column boundaries)
-            for c = 1:(cols + 1)
+            % Build all vertical lines as a single NaN-separated line
+            nV = cols + 1;
+            xV = zeros(1, nV * 3); yV = zeros(1, nV * 3);
+            for c = 1:nV
                 if c <= cols
                     x = xLeft + (c - 1) * stepW;
                 else
                     x = xRight;
                 end
-                hL = line(hAx, [x x], [yBot yTop], 'Color', gc, ...
-                    'LineStyle', ':', 'LineWidth', 0.5, ...
-                    'HitTest', 'off');
-                try set(hL, 'PickableParts', 'none'); catch, end
+                k = (c-1)*3;
+                xV(k+1) = x; yV(k+1) = yBot;
+                xV(k+2) = x; yV(k+2) = yTop;
+                xV(k+3) = NaN; yV(k+3) = NaN;
             end
+            hL = line(hAx, xV, yV, 'Color', gc, ...
+                'LineStyle', ':', 'LineWidth', 0.5, 'HitTest', 'off');
+            try set(hL, 'PickableParts', 'none'); catch, end
 
-            % Horizontal lines (row boundaries)
-            for r = 1:(rows + 1)
+            % Build all horizontal lines as a single NaN-separated line
+            nH = rows + 1;
+            xH = zeros(1, nH * 3); yH = zeros(1, nH * 3);
+            for r = 1:nH
                 if r <= rows
                     y = yBot + (r - 1) * stepH;
                 else
                     y = yTop;
                 end
-                hL = line(hAx, [xLeft xRight], [y y], 'Color', gc, ...
-                    'LineStyle', ':', 'LineWidth', 0.5, ...
-                    'HitTest', 'off');
-                try set(hL, 'PickableParts', 'none'); catch, end
+                k = (r-1)*3;
+                xH(k+1) = xLeft;  yH(k+1) = y;
+                xH(k+2) = xRight; yH(k+2) = y;
+                xH(k+3) = NaN;    yH(k+3) = NaN;
             end
+            hL = line(hAx, xH, yH, 'Color', gc, ...
+                'LineStyle', ':', 'LineWidth', 0.5, 'HitTest', 'off');
+            try set(hL, 'PickableParts', 'none'); catch, end
 
             hold(hAx, 'off');
             obj.hGridOverlay = hAx;
+        end
+
+        function createGhost(obj, pos)
+        %CREATEGHOST Lightweight semi-transparent rectangle for drag preview.
+            obj.destroyGhost();
+            hCanvas = obj.Engine.Layout.hCanvas;
+            if isempty(hCanvas) || ~ishandle(hCanvas), return; end
+
+            obj.hGhost = uipanel('Parent', hCanvas, ...
+                'Units', 'normalized', ...
+                'Position', pos, ...
+                'BorderType', 'line', ...
+                'BorderWidth', 2, ...
+                'ForegroundColor', [0.2 0.5 1], ...
+                'BackgroundColor', [0.2 0.5 1], ...
+                'HighlightColor', [0.2 0.5 1]);
+            % Make it semi-transparent by setting a light background
+            % (true alpha not available on uipanels in classic MATLAB)
+            try
+                set(obj.hGhost, 'BackgroundColor', [0.7 0.85 1]);
+            catch
+            end
+        end
+
+        function destroyGhost(obj)
+            if ~isempty(obj.hGhost) && ishandle(obj.hGhost)
+                delete(obj.hGhost);
+            end
+            obj.hGhost = [];
         end
 
         function clearGrid(obj)
@@ -769,6 +880,8 @@ classdef DashboardBuilder < handle
             set(obj.hPropRow, 'Visible', vis);
             set(obj.hPropWidth, 'Visible', vis);
             set(obj.hPropHeight, 'Visible', vis);
+            set(obj.hPropXLabel, 'Visible', vis);
+            set(obj.hPropYLabel, 'Visible', vis);
             set(obj.hPropApply, 'Visible', vis);
             set(obj.hPropDelete, 'Visible', vis);
             set(obj.hSourceType, 'Visible', vis);

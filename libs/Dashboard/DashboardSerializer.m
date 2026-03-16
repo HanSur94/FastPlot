@@ -53,7 +53,7 @@ classdef DashboardSerializer
             config.name = name;
             config.theme = theme;
             config.liveInterval = liveInterval;
-            config.grid = struct('columns', 12);
+            config.grid = struct('columns', 24);
             config.widgets = cell(1, numel(widgets));
             for i = 1:numel(widgets)
                 config.widgets{i} = widgets{i}.toStruct();

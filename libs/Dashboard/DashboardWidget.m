@@ -11,7 +11,7 @@ classdef (Abstract) DashboardWidget < handle
 
     properties (Access = public)
         Title    = ''           % Widget title displayed in header
-        Position = [1 1 3 2]    % [col, row, width, height] in grid units
+        Position = [1 1 6 2]    % [col, row, width, height] in grid units
         ThemeOverride = struct() % Per-widget theme overrides (merged on top of dashboard theme)
         UseGlobalTime = true    % false when user manually zooms this widget
     end
@@ -48,7 +48,7 @@ classdef (Abstract) DashboardWidget < handle
         end
 
         function delete(obj)
-            if ~isempty(obj.hPanel) && isvalid(obj.hPanel)
+            if ~isempty(obj.hPanel) && ishandle(obj.hPanel)
                 delete(obj.hPanel);
             end
         end

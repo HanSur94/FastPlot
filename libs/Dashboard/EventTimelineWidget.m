@@ -15,12 +15,13 @@ classdef EventTimelineWidget < DashboardWidget
     properties (SetAccess = private)
         hAxes     = []
         hBars     = {}
+        IsSettingTime = false  % guard for programmatic vs user xlim change
     end
 
     methods
         function obj = EventTimelineWidget(varargin)
             obj = obj@DashboardWidget();
-            obj.Position = [1 1 12 2];
+            obj.Position = [1 1 24 2];
             for k = 1:2:numel(varargin)
                 obj.(varargin{k}) = varargin{k+1};
             end
@@ -51,6 +52,39 @@ classdef EventTimelineWidget < DashboardWidget
             end
 
             obj.refresh();
+
+            % Listen for manual zoom/pan to detach from global time
+            try
+                addlistener(obj.hAxes, 'XLim', 'PostSet', @(~,~) obj.onXLimChanged());
+            catch
+            end
+        end
+
+        function setTimeRange(obj, tStart, tEnd)
+            if ~obj.UseGlobalTime
+                return;
+            end
+            if ~isempty(obj.hAxes) && ishandle(obj.hAxes)
+                obj.IsSettingTime = true;
+                xlim(obj.hAxes, [tStart tEnd]);
+                obj.IsSettingTime = false;
+            end
+        end
+
+        function [tMin, tMax] = getTimeRange(obj)
+            tMin = inf; tMax = -inf;
+            evts = [];
+            if ~isempty(obj.EventFcn)
+                try evts = obj.EventFcn(); catch, end
+            elseif ~isempty(obj.Events)
+                evts = obj.Events;
+            end
+            if ~isempty(evts)
+                for i = 1:numel(evts)
+                    if evts(i).startTime < tMin, tMin = evts(i).startTime; end
+                    if evts(i).endTime > tMax, tMax = evts(i).endTime; end
+                end
+            end
         end
 
         function refresh(obj)
@@ -139,6 +173,8 @@ classdef EventTimelineWidget < DashboardWidget
             if ~isempty(obj.EventFcn)
                 s.source = struct('type', 'callback', ...
                     'function', func2str(obj.EventFcn));
+            elseif ~isempty(obj.Events)
+                s.source = struct('type', 'static', 'events', obj.Events);
             end
         end
     end
@@ -149,13 +185,23 @@ classdef EventTimelineWidget < DashboardWidget
             obj.Title = s.title;
             obj.Position = [s.position.col, s.position.row, ...
                             s.position.width, s.position.height];
-            if isfield(s, 'source') && strcmp(s.source.type, 'callback')
-                obj.EventFcn = str2func(s.source.function);
+            if isfield(s, 'source')
+                if strcmp(s.source.type, 'callback')
+                    obj.EventFcn = str2func(s.source.function);
+                elseif strcmp(s.source.type, 'static') && isfield(s.source, 'events')
+                    obj.Events = s.source.events;
+                end
             end
         end
     end
 
     methods (Access = private)
+        function onXLimChanged(obj)
+            if ~obj.IsSettingTime
+                obj.UseGlobalTime = false;
+            end
+        end
+
         function theme = getTheme(obj)
             theme = DashboardTheme();
             if ~isempty(fieldnames(obj.ThemeOverride))

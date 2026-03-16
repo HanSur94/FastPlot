@@ -1,5 +1,5 @@
 classdef DashboardLayout < handle
-%DASHBOARDLAYOUT Manages 12-column responsive grid positioning.
+%DASHBOARDLAYOUT Manages 24-column responsive grid positioning.
 %
 %   Converts widget grid positions [col, row, width, height] to normalized
 %   canvas coordinates [x, y, w, h]. Handles overlap resolution, row
@@ -12,7 +12,7 @@ classdef DashboardLayout < handle
 %     pos = layout.computePosition([1 1 6 2]);
 
     properties (Access = public)
-        Columns         = 12
+        Columns         = 24
         TotalRows       = 4
         ContentArea     = [0 0 1 1]
         Padding         = [0.02 0.02 0.02 0.02]
@@ -65,14 +65,15 @@ classdef DashboardLayout < handle
             x = padL + (col - 1) * (cellW + obj.GapH);
             w = wCols * cellW + (wCols - 1) * obj.GapH;
 
-            % Vertical (canvas-relative, scaled for scroll)
+            % Vertical (canvas-relative, using square RowHeight)
             cr = obj.canvasRatio();
             if cr <= 1
-                % Content fits - stretch to fill viewport
-                innerH = 1 - padB - padT;
-                cellH = (innerH - (obj.TotalRows - 1) * obj.GapV) / obj.TotalRows;
+                % Content fits — use square RowHeight, anchor to top
+                cellH = obj.RowHeight;
                 gapV = obj.GapV;
-                yBase = padB;
+                % Align rows to top of viewport (padT from top)
+                usedH = obj.TotalRows * cellH + (obj.TotalRows - 1) * gapV;
+                yBase = 1 - padT - usedH;
             else
                 % Scrolling - fixed row height scaled to canvas
                 cellH = obj.RowHeight / cr;
@@ -99,8 +100,7 @@ classdef DashboardLayout < handle
 
             cr = obj.canvasRatio();
             if cr <= 1
-                innerH = 1 - padB - padT;
-                cellH = (innerH - (obj.TotalRows - 1) * obj.GapV) / obj.TotalRows;
+                cellH = obj.RowHeight;
                 stepH = cellH + obj.GapV;
             else
                 cellH = obj.RowHeight / cr;
@@ -163,8 +163,33 @@ classdef DashboardLayout < handle
         end
 
         function createPanels(obj, hFigure, widgets, theme)
+            % Save current scroll state before any updates
+            prevCr = obj.canvasRatio();
+            prevScrollVal = 1;  % default = top
+            if ~isempty(obj.hScrollbar) && ishandle(obj.hScrollbar)
+                prevScrollVal = get(obj.hScrollbar, 'Value');
+            end
+
             obj.Widgets = widgets;
             obj.TotalRows = obj.calculateMaxRow(widgets);
+
+            % Compute RowHeight so grid cells are square in pixels
+            ca = obj.ContentArea;
+            oldUnits = get(hFigure, 'Units');
+            set(hFigure, 'Units', 'pixels');
+            figPx = get(hFigure, 'Position');
+            set(hFigure, 'Units', oldUnits);
+            vpPxW = figPx(3) * ca(3);
+            vpPxH = figPx(4) * ca(4);
+            padL = obj.Padding(1); padR = obj.Padding(3);
+            innerW = 1 - padL - padR;
+            cellW = (innerW - (obj.Columns - 1) * obj.GapH) / obj.Columns;
+            % cellW is in normalized viewport width; convert to pixel ratio
+            if vpPxH > 0
+                obj.RowHeight = cellW * vpPxW / vpPxH;
+            end
+            obj.GapV = obj.GapH * vpPxW / vpPxH;
+
             cr = obj.canvasRatio();
 
             % Clean up old viewport/canvas/scrollbar
@@ -189,10 +214,21 @@ classdef DashboardLayout < handle
                 'BorderType', 'none', ...
                 'BackgroundColor', theme.DashboardBackground);
 
+            % Restore scroll position, compensating for canvas ratio change
+            if prevCr > 1 && cr > 1
+                % Convert old scroll offset to proportional position, then
+                % map to new canvas ratio so the same content stays visible
+                oldOffset = prevScrollVal * (1 - prevCr);
+                scrollVal = max(0, min(1, oldOffset / (1 - cr)));
+            else
+                scrollVal = max(0, min(1, prevScrollVal));
+            end
+            canvasY = scrollVal * (1 - cr);
+
             % Create canvas (may be taller than viewport for scrolling)
             obj.hCanvas = uipanel('Parent', obj.hViewport, ...
                 'Units', 'normalized', ...
-                'Position', [0, 1 - cr, 1, cr], ...
+                'Position', [0, canvasY, 1, cr], ...
                 'BorderType', 'none', ...
                 'BackgroundColor', theme.DashboardBackground);
 
@@ -203,7 +239,7 @@ classdef DashboardLayout < handle
                     'Units', 'normalized', ...
                     'Position', [ca(1) + vpW, ca(2), ...
                                  obj.ScrollbarWidth, ca(4)], ...
-                    'Min', 0, 'Max', 1, 'Value', 1, ...
+                    'Min', 0, 'Max', 1, 'Value', scrollVal, ...
                     'SliderStep', [1/obj.TotalRows, 3/obj.TotalRows], ...
                     'Callback', @(src,~) obj.onScroll(get(src, 'Value')));
                 try
