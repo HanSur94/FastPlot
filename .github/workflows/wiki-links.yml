@@ -1,0 +1,32 @@
+name: Wiki Link Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wiki/**'
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  check-links:
+    name: Check Wiki Links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone wiki
+        run: |
+          git clone https://github.com/HanSur94/FastPlot.wiki.git wiki-check
+
+      - name: Check markdown links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --exclude-loopback
+            --exclude 'github.com/HanSur94/FastPlot/wiki'
+            --suggest
+            wiki-check/*.md
+          fail: true

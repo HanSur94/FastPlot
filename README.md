@@ -1,6 +1,7 @@
 # FastPlot
 
 [![Tests](https://github.com/HanSur94/FastPlot/actions/workflows/tests.yml/badge.svg)](https://github.com/HanSur94/FastPlot/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/HanSur94/FastPlot/graph/badge.svg)](https://codecov.io/gh/HanSur94/FastPlot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![MATLAB](https://img.shields.io/badge/MATLAB-R2020b%2B-orange.svg)](https://www.mathworks.com/products/matlab.html)
 [![Octave](https://img.shields.io/badge/GNU%20Octave-7%2B-blue.svg)](https://octave.org)

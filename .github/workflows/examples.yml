@@ -1,0 +1,60 @@
+name: Example Smoke Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke-test:
+    name: Example Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Octave and Xvfb
+        run: sudo apt-get update && sudo apt-get install -y octave octave-dev xvfb
+
+      - name: Run example smoke tests
+        run: |
+          xvfb-run octave --eval "
+            addpath(pwd); setup();
+            examples = {
+              'example_basic',
+              'example_multi',
+              'example_datetime',
+              'example_nan_gaps',
+              'example_sensor_threshold',
+              'example_sensor_static',
+              'example_linked',
+              'example_themes',
+              'example_uneven_sampling',
+              'example_alarm_bands'
+            };
+            failed = {};
+            for i = 1:numel(examples)
+              name = examples{i};
+              fprintf('Running %s... ', name);
+              try
+                cd('examples');
+                feval(name);
+                close all force;
+                cd('..');
+                fprintf('OK\n');
+              catch e
+                cd('..');
+                fprintf('FAILED: %s\n', e.message);
+                failed{end+1} = sprintf('%s: %s', name, e.message);
+                close all force;
+              end
+            end
+            fprintf('\n=== %d/%d examples passed ===\n', numel(examples)-numel(failed), numel(examples));
+            if ~isempty(failed)
+              fprintf('\nFailed:\n');
+              for i = 1:numel(failed)
+                fprintf('  - %s\n', failed{i});
+              end
+              exit(1);
+            end
+          "

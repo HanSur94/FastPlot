@@ -50,7 +50,40 @@ jobs:
       - name: Setup MATLAB
         uses: matlab-actions/setup-matlab@v2
 
-      - name: Run tests
+      - name: Run tests with coverage
         uses: matlab-actions/run-command@v2
         with:
-          command: "cd('tests'); r = run_all_tests(); assert(r.failed == 0, 'Tests failed');"
+          command: "addpath('scripts'); run_tests_with_coverage();"
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          flags: matlab
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  mex-build:
+    name: MEX Build (${{ matrix.os }})
+    if: github.event_name != 'schedule'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Octave (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y octave octave-dev
+
+      - name: Install Octave (macOS)
+        if: runner.os == 'macOS'
+        run: brew install octave
+
+      - name: Compile MEX files
+        run: |
+          octave --eval "setup(); fprintf('All MEX files compiled successfully on %s\n', computer());"

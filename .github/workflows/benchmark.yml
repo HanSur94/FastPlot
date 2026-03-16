@@ -1,0 +1,90 @@
+name: Benchmark
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  benchmark:
+    name: Performance Benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Octave and Xvfb
+        run: sudo apt-get update && sudo apt-get install -y octave octave-dev xvfb
+
+      - name: Run benchmark
+        run: |
+          xvfb-run octave --eval "
+            addpath(pwd); setup();
+            addpath(fullfile(pwd, 'libs', 'FastPlot', 'private'));
+
+            % Quick benchmark: 1M points, 10 zooms
+            n = 1e6;
+            x = linspace(0, 100, n);
+            y = sin(x * 2*pi / 10) + 0.5 * randn(1, n);
+
+            % Measure downsampling
+            tic;
+            for i = 1:100
+              minmax_downsample(x, y, 2000);
+            end
+            t_ds = toc / 100;
+
+            % Measure binary search
+            tic;
+            for i = 1:1000
+              binary_search(x, 20, 80);
+            end
+            t_bs = toc / 1000;
+
+            % Measure full render cycle
+            fp = FastPlot();
+            fp.addLine(x, y, 'DisplayName', 'bench');
+            fp.addThreshold(1.5, 'Direction', 'upper', 'ShowViolations', true);
+            fp.render();
+
+            tic;
+            for i = 1:20
+              center = 10 + 80 * rand();
+              width = 1 + 20 * rand();
+              set(fp.hAxes, 'XLim', [center-width/2, center+width/2]);
+              drawnow;
+            end
+            t_zoom = toc / 20;
+            close all force;
+
+            % Write results as JSON (customSmallerIsBetter format)
+            fid = fopen('benchmark-results.json', 'w');
+            fprintf(fid, '[\n');
+            fprintf(fid, '  {\"name\": \"Downsample (1M pts)\", \"unit\": \"ms\", \"value\": %.2f},\n', t_ds * 1000);
+            fprintf(fid, '  {\"name\": \"Binary Search\", \"unit\": \"us\", \"value\": %.2f},\n', t_bs * 1e6);
+            fprintf(fid, '  {\"name\": \"Zoom Cycle (1M pts)\", \"unit\": \"ms\", \"value\": %.2f}\n', t_zoom * 1000);
+            fprintf(fid, ']\n');
+            fclose(fid);
+
+            fprintf('\n=== Benchmark Results (1M points) ===\n');
+            fprintf('Downsample:    %.2f ms\n', t_ds * 1000);
+            fprintf('Binary search: %.2f us\n', t_bs * 1e6);
+            fprintf('Zoom cycle:    %.2f ms\n', t_zoom * 1000);
+          "
+
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: FastPlot Performance
+          tool: customSmallerIsBetter
+          output-file-path: benchmark-results.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: '110%'
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: '@HanSur94'
