@@ -266,5 +266,33 @@ classdef TestExternalSensorRegistry < matlab.unittest.TestCase
             testCase.addTeardown(@close, hFig);
             testCase.verifyTrue(ishandle(hFig), 'handles_empty');
         end
+
+        function testLivePipelineCompatibility(testCase)
+            % Create .mat file with sensor data
+            time = linspace(now - 1, now, 100);
+            temp = randn(1, 100) * 5 + 50;
+            matPath = fullfile(testCase.TempDir, 'live.mat');
+            save(matPath, 'time', 'temp');
+
+            % Build registry
+            reg = ExternalSensorRegistry('IntegrationTest');
+            s = Sensor('temp', 'Name', 'Temperature', 'Units', 'degC');
+            s.addThresholdRule(struct(), 60, 'Direction', 'upper', 'Label', 'Warning');
+            reg.register('temp', s);
+            reg.wireMatFile(matPath, {'temp', 'XVar', 'time', 'YVar', 'temp'});
+
+            % Verify outputs are the right types for LiveEventPipeline
+            dsMap = reg.getDataSourceMap();
+            sensors = reg.getAll();
+
+            testCase.verifyTrue(isa(dsMap, 'DataSourceMap'), 'dsMap_type');
+            testCase.verifyTrue(isa(sensors, 'containers.Map'), 'sensors_type');
+
+            % Verify DataSource can fetch data
+            ds = dsMap.get('temp');
+            result = ds.fetchNew();
+            testCase.verifyTrue(result.changed, 'fetched_data');
+            testCase.verifyEqual(numel(result.X), 100, 'all_points');
+        end
     end
 end
