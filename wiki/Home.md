@@ -20,9 +20,9 @@ FastPlot consists of five integrated libraries:
 | Library | Description |
 |---------|-------------|
 | **FastSense** | Core plotting engine with dynamic downsampling, dashboard layouts (FastSenseGrid, FastSenseDock), interactive toolbar, themes, and disk-backed storage via FastSenseDataStore |
+| **Dashboard** | Widget-based dashboard engine with 8 widget types, 24-column responsive grid, edit mode, and JSON persistence |
 | **SensorThreshold** | Sensor data containers with state-dependent threshold rules, violation detection, and SensorRegistry catalog |
 | **EventDetection** | Event detection from threshold violations, EventViewer with Gantt timeline, live pipeline with notifications |
-| **Dashboard** | Widget-based dashboard engine with 8 widget types, 24-column responsive grid, edit mode, and JSON persistence |
 | **WebBridge** | TCP server for web-based visualization with NDJSON protocol |
 
 ## Features

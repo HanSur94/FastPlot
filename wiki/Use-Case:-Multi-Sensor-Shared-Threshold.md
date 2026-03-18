@@ -78,7 +78,7 @@ fp.addThreshold(4.5, 'Direction', 'upper', 'ShowViolations', true, ...
     'Label', 'Max Temp', 'Color', 'r');
 ```
 
-This approach draws a single shared threshold line and FastSense computes violation markers against **all lines** on the tile during rendering (see `updateViolations` in FastSense.m).
+This approach draws a single shared threshold line and FastSense computes violation markers against **all lines** on the tile during rendering.
 
 ### 3. Event detection works per-sensor
 
@@ -101,14 +101,16 @@ end
 The shared threshold can also be state-dependent. Attach the same `StateChannel` and conditional `ThresholdRule` to each sensor:
 
 ```matlab
+% Create shared state channel
+sc = StateChannel('mode');
+sc.X = [0, 30, 60, 90];
+sc.Y = [0,  1,  1,  0];  % 0=idle, 1=run
+
 for i = 1:numel(sensors)
-    sc = StateChannel('mode');
-    sc.X = modeX;
-    sc.Y = modeValues;   % same state for all sensors
     sensors{i}.addStateChannel(sc);
 
     % Threshold only active during 'run' mode
-    sensors{i}.addThresholdRule(struct('mode', 'run'), 4.5, ...
+    sensors{i}.addThresholdRule(struct('mode', 1), 4.5, ...
         'Direction', 'upper', 'Label', 'Run HI');
     sensors{i}.resolve();
 end
@@ -128,7 +130,7 @@ t = linspace(0, 120, 50000);
 
 % Create state channel for system mode
 modeX = [0, 30, 60, 90];
-modeY = [0, 1, 1, 0];  % 0=idle, 1=active
+modeY = [0,  1,  1,  0];  % 0=idle, 1=active
 
 for i = 1:3
     s = Sensor(sprintf('temp_zone_%d', i), 'Name', sprintf('Zone %s', zones{i}));
@@ -178,6 +180,33 @@ for i = 1:numel(allEvents)
         allEvents(i).StartTime, allEvents(i).EndTime, allEvents(i).PeakValue);
 end
 ```
+
+---
+
+## Using SensorRegistry for Consistency
+
+For repeated multi-sensor setups, define template sensors in the [[Sensors|API Reference: Sensors]] registry and retrieve copies:
+
+```matlab
+% Define a template sensor with standard thresholds
+template = Sensor('temp_template', 'Name', 'Temperature Template');
+template.addThresholdRule(struct(), 30, 'Direction', 'upper', 'Label', 'Max Temp');
+SensorRegistry.register('temp_template', template);
+
+% Create multiple instances
+sensors = cell(1, 4);
+for i = 1:4
+    s = SensorRegistry.get('temp_template');
+    s.Key = sprintf('zone_%d', i);
+    s.Name = sprintf('Zone %d', i);
+    s.X = t;
+    s.Y = generateZoneData(i, t);  % your data generation function
+    s.resolve();
+    sensors{i} = s;
+end
+```
+
+This ensures all sensors have identical threshold configurations without manual duplication.
 
 ---
 

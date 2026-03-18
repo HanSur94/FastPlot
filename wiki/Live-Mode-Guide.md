@@ -102,27 +102,6 @@ end
 
 ---
 
-## Live Mode with Metadata
-
-Attach metadata that updates on each poll:
-
-```matlab
-fp.startLive('data.mat', @updateFcn, ...
-    'MetadataFile', 'meta.mat', ...
-    'MetadataVars', {'units', 'calibration'});
-```
-
-The metadata is loaded from a separate file and attached to the specified line and tile:
-
-```matlab
-fig.MetadataFile = 'metadata.mat';
-fig.MetadataVars = {'sensor_id', 'location', 'units'};
-fig.MetadataLineIndex = 1;   % which line within the tile
-fig.MetadataTileIndex = 1;   % which tile to attach to
-```
-
----
-
 ## Live Event Detection
 
 Combine live mode with event detection for real-time monitoring using the LiveEventPipeline:
@@ -149,6 +128,57 @@ pipeline = LiveEventPipeline(sensors, dsMap, ...
 
 % Start live event detection
 pipeline.start();
+```
+
+---
+
+## Live Mode with Metadata
+
+Attach metadata that updates on each poll:
+
+```matlab
+fp.startLive('data.mat', @updateFcn, ...
+    'MetadataFile', 'meta.mat', ...
+    'MetadataVars', {'units', 'calibration'});
+```
+
+The metadata is loaded from a separate file and attached to the specified line and tile:
+
+```matlab
+fig.MetadataFile = 'metadata.mat';
+fig.MetadataVars = {'sensor_id', 'location', 'units'};
+fig.MetadataLineIndex = 1;   % which line within the tile
+fig.MetadataTileIndex = 1;   % which tile to attach metadata to
+```
+
+---
+
+## Progress Indicators
+
+Use ConsoleProgressBar for visual feedback during long operations:
+
+```matlab
+pb = ConsoleProgressBar(2);   % 2-space indent
+pb.start();
+for k = 1:8
+    pb.update(k, 8, 'Tile 1');
+    pause(0.1);
+end
+pb.freeze();   % becomes permanent line
+```
+
+The progress bar renders in the console with platform-appropriate characters:
+- MATLAB: Unicode block characters for smooth appearance
+- Octave: ASCII characters (# and -)
+
+Progress bar lifecycle: construct → start → update (loop) → freeze or finish
+
+```matlab
+pb = ConsoleProgressBar();  % No indentation
+pb.start();                 % Initialize the bar
+pb.update(current, total, label);  % Update progress
+pb.freeze();                % Make permanent (print newline)
+pb.finish();                % Set to 100% and freeze
 ```
 
 ---
@@ -185,11 +215,13 @@ fp.refresh();
 fig.refresh();
 ```
 
+Manual refresh is useful for debugging data sources or triggering updates without waiting for the timer.
+
 ---
 
 ## Toolbar Integration
 
-The [[FastSenseToolbar|API Reference: FastSenseToolbar]] provides a Live Mode button:
+The [[API Reference: FastSenseToolbar|FastSenseToolbar]] provides a Live Mode button:
 
 ```matlab
 tb = FastSenseToolbar(fp);
@@ -205,18 +237,48 @@ tb.refresh();
 
 ---
 
-## Console Progress Bars
+## Data Source Configuration
 
-Use ConsoleProgressBar for visual feedback during long operations:
+Configure different data sources for the pipeline:
 
 ```matlab
-pb = ConsoleProgressBar(2);   % 2-space indent
-pb.start();
-for k = 1:8
-    pb.update(k, 8, 'Tile 1');
-    pause(0.1);
-end
-pb.freeze();   % becomes permanent line
+% Mock data source for testing
+dsMap.add('temperature', MockDataSource( ...
+    'BaseValue', 85, 'NoiseStd', 2, ...
+    'ViolationProbability', 0.0001, ...
+    'ViolationAmplitude', 38, ...
+    'BacklogDays', 2));
+
+% File-based data source
+dsMap.add('pressure', MatFileDataSource('pressure_data.mat', 'x', 'y'));
+```
+
+The DataSourceMap allows swapping data sources without changing the pipeline configuration.
+
+---
+
+## Live Dashboards with Widgets
+
+For comprehensive live dashboards with widgets, use DashboardEngine:
+
+```matlab
+% Create dashboard with sensor-bound widgets
+d = DashboardEngine('Live Monitor');
+d.Theme = 'light';
+d.LiveInterval = 1;
+
+% Add sensor-bound widgets that auto-update
+d.addWidget('number', 'Title', 'Temperature', ...
+    'Position', [1 1 5 2], ...
+    'Sensor', tempSensor, ...
+    'Format', '%.1f');
+
+d.addWidget('status', 'Title', 'Status', ...
+    'Position', [6 1 5 2], ...
+    'Sensor', tempSensor);
+
+d.render();
+d.startLive();  % Start dashboard-wide live updates
 ```
 
 ---
@@ -229,6 +291,8 @@ pb.freeze();   % becomes permanent line
 - The .mat file should be written atomically (write to temp file, then rename) to avoid partial reads
 - Live mode works with linked axes — all linked plots update together
 - Use `DeferDraw = true` to skip drawnow during batch render for better performance
+- Progress bars support hierarchical indentation for nested operations
+- Event detection pipelines can run independently with their own timers and intervals
 
 ---
 

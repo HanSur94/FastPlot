@@ -193,10 +193,36 @@ FastSense.distFig();
 FastSense.distFig('Rows', 2, 'Cols', 3);
 ```
 
+## 15. Global Defaults
+
+```matlab
+% Inspect the current defaults
+cfg = FastSenseDefaults();
+fprintf('Theme: %s\n', cfg.Theme);
+fprintf('DefaultDownsampleMethod: %s\n', cfg.DefaultDownsampleMethod);
+
+% Force reload after editing FastSenseDefaults.m
+FastSense.resetDefaults();
+```
+
+## 16. Color Cycling
+
+```matlab
+fp = FastSense('Theme', 'light');
+for i = 1:3
+    fp.addLine(x, sin(x*2*pi*i/10) + i*3, 'DisplayName', sprintf('Group A-%d', i));
+end
+fp.resetColorIndex();  % restart color cycle
+for i = 1:3
+    fp.addLine(x, cos(x*2*pi*i/8) + i*3, 'DisplayName', sprintf('Group B-%d', i));
+end
+fp.render();
+```
+
 ## Next Steps
 
 - [[FastPlot|API Reference: FastPlot]] — full constructor options, properties, methods
-- [[Dashboard|API Reference: Dashboard]] — tiled and tabbed layouts
+- [[Dashboard|API Reference: Dashboard]] — tiled and tabbed layouts  
 - [[Sensors|API Reference: Sensors]] — state-dependent thresholds
 - [[Event Detection|API Reference: Event Detection]] — event detection and viewer
 - [[Live Mode Guide]] — live data polling

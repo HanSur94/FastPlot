@@ -56,30 +56,23 @@ MEX kernels use SIMD instructions (AVX2/NEON) to process 4 doubles per CPU cycle
 
 ## Running Your Own Benchmarks
 
-FastSense includes several benchmark scripts to measure performance on your system:
+FastSense includes demonstration scripts that showcase performance at scale:
 
 ```matlab
 setup;
 cd examples
 
-% Compare FastSense vs plot() across different data sizes
-benchmark;
+% Stress test: 5 tabs, 26 sensors, 86M points, 104 thresholds
+example_stress_test;
 
-% Measure zoom/pan latency frame-by-frame
-benchmark_zoom;
+% 100M point rendering with progress control
+example_100M;
 
-% Test specific features (downsampling, violations, etc.)
-benchmark_features;
-
-% Benchmark Sensor.resolve() with thresholds
-benchmark_resolve;
+% Compare MinMax vs LTTB downsampling methods
+example_lttb_vs_minmax;
 ```
 
-The stress test example creates a realistic large-scale scenario:
-
-```matlab
-example_stress_test;  % 5 tabs, 26 sensors, 86M points, 104 thresholds
-```
+The stress test example creates a realistic large-scale scenario with multiple tabbed dashboards, state-dependent thresholds, and live data simulation.
 
 ## Why FastSense is Fast
 
@@ -87,7 +80,14 @@ example_stress_test;  % 5 tabs, 26 sensors, 86M points, 104 thresholds
 Only renders ~4,000 points regardless of dataset size. A 100M point dataset uses the same GPU memory as a 4K dataset once downsampled.
 
 ### 2. Binary Search for Range Queries
-Uses O(log N) binary search instead of O(N) linear scanning to find visible data ranges on zoom/pan.
+Uses O(log N) binary search instead of O(N) linear scanning to find visible data ranges on zoom/pan:
+
+```matlab
+% Fast range lookup using binary_search()
+startIdx = binary_search(x, xMin, 'left');
+endIdx = binary_search(x, xMax, 'right');
+visibleData = x(startIdx:endIdx);
+```
 
 ### 3. Lazy Multi-Level Pyramid
 Pre-computes downsampled levels (100:1, 10000:1, etc.) so zooming out never touches raw data. Cache is built incrementally as needed.
@@ -144,7 +144,7 @@ fp.StorageMode = 'disk';    % always SQLite
 fp.MemoryLimit = 1e9;  % 1 GB threshold
 ```
 
-The `'auto'` mode uses [[FastSenseDataStore|API Reference: FastSenseDataStore]] for lines exceeding the memory limit, seamlessly providing disk-based storage without performance degradation.
+The `'auto'` mode uses [[FastSenseDataStore|API Reference: Utilities]] for lines exceeding the memory limit, seamlessly providing disk-based storage without performance degradation.
 
 ## Monitoring Performance
 
@@ -173,3 +173,37 @@ for k = 1:1000
 end
 pb.finish();
 ```
+
+## Batch Processing Controls
+
+For headless or batch workflows, FastSense provides special controls:
+
+```matlab
+fp = FastSense();
+
+% Skip drawnow during render (requires manual drawnow afterward)
+fp.DeferDraw = true;
+
+% Hide console progress bar
+fp.ShowProgress = false;
+
+fp.addLine(x, y);
+fp.render();
+drawnow;  % manual refresh needed when DeferDraw=true
+```
+
+## Large-Scale Example
+
+The stress test demonstrates real-world performance with complex scenarios:
+
+```matlab
+% Creates 5-tab dashboard with:
+%   - 26 sensor tiles across 5 tabs
+%   - 104 dynamic state-dependent thresholds
+%   - ~86M total data points
+%   - Hierarchical progress bars
+%   - Full toolbar integration
+example_stress_test;
+```
+
+This example renders in seconds rather than minutes, maintaining interactive zoom/pan performance across all tiles simultaneously.
