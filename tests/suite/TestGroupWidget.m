@@ -153,6 +153,23 @@ classdef TestGroupWidget < matlab.unittest.TestCase
             testCase.verifyNotEmpty(g.hHeader);
         end
 
+        function testNestingDepthLimit(testCase)
+            inner = GroupWidget('Label', 'Inner');
+            outer = GroupWidget('Label', 'Outer');
+            outer.addChild(inner);  % depth = 2, should work
+
+            tooDeep = GroupWidget('Label', 'TooDeep');
+            testCase.verifyError(@() inner.addChild(tooDeep), ...
+                'GroupWidget:maxDepth');
+        end
+
+        function testNestingDepthAllowsTwo(testCase)
+            inner = GroupWidget('Label', 'Inner');
+            outer = GroupWidget('Label', 'Outer');
+            outer.addChild(inner);  % depth = 2, should not error
+            testCase.verifyLength(outer.Children, 1);
+        end
+
         function testThemeHasGroupFields(testCase)
             presets = {'dark', 'light', 'industrial', 'scientific', 'ocean', 'default'};
             for i = 1:numel(presets)
