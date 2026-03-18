@@ -12,27 +12,26 @@ FastPlot uses a render-once, re-downsample-on-zoom architecture. Instead of push
 FastPlot/
 ├── install.m                        # Path install + MEX compilation
 ├── libs/
-│   ├── FastSense/                 # Core plotting engine
-│   │   ├── FastSense.m            # Main class
-│   │   ├── FastSenseGrid.m        # Dashboard layout
-│   │   ├── FastSenseDock.m        # Tabbed container
-│   │   ├── FastSenseToolbar.m     # Interactive toolbar
-│   │   ├── FastSenseTheme.m       # Theme system
-│   │   ├── FastSenseDataStore.m   # SQLite-backed chunked storage
-│   │   ├── SensorDetailPlot.m     # Sensor detail view with state bands
-│   │   ├── NavigatorOverlay.m     # Minimap zoom navigator
-│   │   ├── ConsoleProgressBar.m   # Progress indication
-│   │   ├── binary_search.m        # Binary search utility
-│   │   ├── build_mex.m            # MEX compilation script
-│   │   ├── mksqlite.c             # SQLite3 MEX interface
-│   │   └── private/               # Internal algorithms + MEX sources
-│   ├── SensorThreshold/           # Sensor and threshold system
+│   ├── FastSense/                    # Core plotting engine
+│   │   ├── FastSense.m               # Main class
+│   │   ├── FastSenseGrid.m           # Dashboard layout
+│   │   ├── FastSenseDock.m           # Tabbed container
+│   │   ├── FastSenseToolbar.m        # Interactive toolbar
+│   │   ├── FastSenseTheme.m          # Theme system
+│   │   ├── FastSenseDataStore.m      # SQLite-backed chunked storage
+│   │   ├── SensorDetailPlot.m        # Sensor detail view with state bands
+│   │   ├── NavigatorOverlay.m        # Minimap zoom navigator
+│   │   ├── ConsoleProgressBar.m      # Progress indication
+│   │   ├── binary_search.m           # Binary search utility
+│   │   ├── build_mex.m               # MEX compilation script
+│   │   └── private/                  # Internal algorithms + MEX sources
+│   ├── SensorThreshold/              # Sensor and threshold system
 │   │   ├── Sensor.m
 │   │   ├── StateChannel.m
 │   │   ├── ThresholdRule.m
 │   │   ├── SensorRegistry.m
-│   │   └── private/               # Resolution algorithms
-│   ├── EventDetection/            # Event detection and viewer
+│   │   └── private/                  # Resolution algorithms
+│   ├── EventDetection/               # Event detection and viewer
 │   │   ├── Event.m
 │   │   ├── EventDetector.m
 │   │   ├── EventViewer.m
@@ -41,12 +40,12 @@ FastPlot/
 │   │   ├── EventStore.m
 │   │   ├── EventConfig.m
 │   │   ├── IncrementalEventDetector.m
-│   │   ├── DataSource.m           # Abstract data source
-│   │   ├── MatFileDataSource.m    # File-based data source
-│   │   ├── MockDataSource.m       # Test data generation
-│   │   ├── NotificationRule.m     # Email notification rules
-│   │   └── private/               # Event grouping algorithms
-│   ├── Dashboard/                 # Dashboard engine (serializable)
+│   │   ├── DataSource.m              # Abstract data source
+│   │   ├── MatFileDataSource.m       # File-based data source
+│   │   ├── MockDataSource.m          # Test data generation
+│   │   ├── NotificationRule.m        # Email notification rules
+│   │   └── private/                  # Event grouping algorithms
+│   ├── Dashboard/                    # Dashboard engine (serializable)
 │   │   ├── DashboardEngine.m
 │   │   ├── DashboardBuilder.m
 │   │   ├── DashboardLayout.m
@@ -62,11 +61,11 @@ FastPlot/
 │   │   ├── TableWidget.m
 │   │   ├── RawAxesWidget.m
 │   │   └── EventTimelineWidget.m
-│   └── WebBridge/                 # TCP server for web visualization
+│   └── WebBridge/                    # TCP server for web visualization
 │       ├── WebBridge.m
 │       └── WebBridgeProtocol.m
-├── examples/                      # 40+ runnable examples
-└── tests/                         # 30+ test suites
+├── examples/                         # 40+ runnable examples
+└── tests/                            # 30+ test suites
 ```
 
 ## Render Pipeline
@@ -136,7 +135,6 @@ Optional C MEX functions with SIMD intrinsics (AVX2 on x86_64, NEON on arm64):
 | compute_violations_mex | significant | Batch violation detection for resolve() |
 | resolve_disk_mex | significant | SQLite disk-based sensor resolution |
 | build_store_mex | 2-3x | Bulk SQLite writer for DataStore init |
-| mksqlite | — | SQLite3 interface with typed BLOB support |
 
 All share a common `simd_utils.h` abstraction layer. If MEX is unavailable, pure-MATLAB implementations are used with identical behavior.
 
@@ -293,59 +291,14 @@ When `EscalateSeverity` is enabled, events are promoted to the highest violated 
 - If "Alarm" threshold is also crossed, the event is escalated to "Alarm"
 - The event retains the highest severity level encountered
 
-## WebBridge Architecture
+## Progress Indication
 
-The `WebBridge` class provides a TCP server that bridges MATLAB dashboards to web-based visualization. It uses NDJSON (newline-delimited JSON) for message framing over TCP.
-
-### Protocol
-
-All messages are JSON objects terminated by a newline character. The protocol is defined in `WebBridgeProtocol`:
-
-| Message Type | Direction | Description |
-|-------------|-----------|-------------|
-| `init` | MATLAB → Bridge | Initial handshake with signal list, dashboard config, and registered actions |
-| `data_changed` | MATLAB → Bridge | Notify that signal data has been updated |
-| `config_changed` | MATLAB → Bridge | Dashboard layout/theme has changed |
-| `actions_changed` | MATLAB → Bridge | Available custom actions have changed |
-| `action` | Bridge → MATLAB | Execute a registered action (with optional args) |
-| `action_result` | MATLAB → Bridge | Result of action execution (ok/error) |
-| `bridge_ready` | Bridge → MATLAB | Bridge reports its HTTP port |
-| `shutdown` | MATLAB → Bridge | Graceful shutdown signal |
-
-### Data Flow
-
-```
-MATLAB (DashboardEngine)
-    │
-    ├── WebBridge.serve()
-    │       ├── Start TCP server (localhost, random port)
-    │       ├── Launch Python bridge process
-    │       └── Start config poll timer
-    │
-    ├── On connection:
-    │       └── Send init message (signals + dashboard config + actions)
-    │
-    ├── On data change:
-    │       └── notifyDataChanged(signalId) → data_changed message
-    │
-    └── On config change (poll timer):
-            └── MD5 hash comparison → config_changed message
-```
-
-### Key Features
-
-- **Signal list:** FastSenseWidgets with Sensor or DataStore bindings are enumerated as signals with `id`, `dbPath`, and `title`
-- **Custom actions:** MATLAB callbacks registered via `registerAction(name, callback)` are exposed to the web UI and invoked over TCP
-- **Config polling:** a timer periodically hashes the dashboard config JSON and sends `config_changed` when the layout changes
-- **WAL mode:** SQLite DataStore databases are switched to WAL (Write-Ahead Logging) mode during serving for concurrent MATLAB writes and bridge reads
-
-## Interactive Features
-
-### Progress Indication
 `ConsoleProgressBar` provides hierarchical progress feedback:
 - Single-line ASCII/Unicode bars with backspace-based updates
 - Indentation support for nested operations (e.g., dock → tabs → tiles)
 - Freeze/finish modes for permanent status lines
+
+## Interactive Features
 
 ### Toolbars and Navigation
 - **FastSenseToolbar**: Data cursor, crosshair, grid toggle, autoscale, export, live mode
