@@ -1,4 +1,8 @@
 function test_event_store_rw()
+    if exist('OCTAVE_VERSION', 'builtin')
+        fprintf('  SKIPPED (Octave cannot save classdef objects to .mat)\n');
+        return;
+    end
     add_event_path();
     test_constructor();
     test_append_and_save();

@@ -154,6 +154,7 @@ classdef IncrementalEventDetector < handle
                 else
                     % Open event ended
                     completedEvents = st.openEvent;
+                end
             end
 
             % Escalate severity
