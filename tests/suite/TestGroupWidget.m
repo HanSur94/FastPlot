@@ -45,5 +45,22 @@ classdef TestGroupWidget < matlab.unittest.TestCase
             testCase.verifyLength(g.Children, 1);
             testCase.verifyEqual(g.Children{1}.Title, 'W2');
         end
+
+        function testPanelModeRender(testCase)
+            g = GroupWidget('Label', 'Motor Health', 'Mode', 'panel');
+            g.addChild(MockDashboardWidget('Title', 'W1'));
+            g.addChild(MockDashboardWidget('Title', 'W2'));
+
+            fig = figure('Visible', 'off');
+            cleanup = onCleanup(@() close(fig));
+            hp = uipanel(fig, 'Position', [0 0 1 1]);
+            g.ParentTheme = DashboardTheme('dark');
+            g.render(hp);
+
+            testCase.verifyNotEmpty(g.hHeader);
+            testCase.verifyNotEmpty(g.hChildPanel);
+            testCase.verifyNotEmpty(g.Children{1}.hPanel);
+            testCase.verifyNotEmpty(g.Children{2}.hPanel);
+        end
     end
 end

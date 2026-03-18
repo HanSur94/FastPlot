@@ -64,7 +64,66 @@ classdef GroupWidget < DashboardWidget
 
         function render(obj, parentPanel)
             obj.hPanel = parentPanel;
-            % Stub - will be replaced in Task 2
+            theme = obj.getTheme();
+
+            headerFrac = 0.12;
+            if isempty(obj.Label)
+                headerFrac = 0;
+            end
+
+            headerBg = obj.getThemeField(theme, ...
+                'GroupHeaderBg', [0.20 0.20 0.25]);
+            headerFg = obj.getThemeField(theme, ...
+                'GroupHeaderFg', [0.92 0.92 0.92]);
+
+            if headerFrac > 0
+                obj.hHeader = uipanel(parentPanel, ...
+                    'Units', 'normalized', ...
+                    'Position', [0 1-headerFrac 1 headerFrac], ...
+                    'BackgroundColor', headerBg, ...
+                    'BorderType', 'none');
+                uicontrol(obj.hHeader, ...
+                    'Style', 'text', ...
+                    'String', obj.Label, ...
+                    'Units', 'normalized', ...
+                    'Position', [0.02 0 0.96 1], ...
+                    'HorizontalAlignment', 'left', ...
+                    'FontWeight', 'bold', ...
+                    'FontSize', 11, ...
+                    'ForegroundColor', headerFg, ...
+                    'BackgroundColor', headerBg);
+
+                if strcmp(obj.Mode, 'collapsible')
+                    if obj.Collapsed
+                        btnStr = '>';
+                    else
+                        btnStr = 'v';
+                    end
+                    uicontrol(obj.hHeader, ...
+                        'Style', 'pushbutton', ...
+                        'String', btnStr, ...
+                        'Units', 'normalized', ...
+                        'Position', [0.92 0.1 0.06 0.8], ...
+                        'Callback', @(~,~) obj.toggleCollapse(), ...
+                        'FontSize', 10, ...
+                        'ForegroundColor', headerFg, ...
+                        'BackgroundColor', headerBg);
+                end
+            end
+
+            contentBg = obj.getThemeField(theme, ...
+                'WidgetBackground', [0.15 0.15 0.20]);
+            obj.hChildPanel = uipanel(parentPanel, ...
+                'Units', 'normalized', ...
+                'Position', [0 0 1 1-headerFrac], ...
+                'BorderType', 'none', ...
+                'BackgroundColor', contentBg);
+
+            if obj.Collapsed
+                set(obj.hChildPanel, 'Visible', 'off');
+            end
+
+            obj.renderChildren();
         end
 
         function refresh(obj)
@@ -135,6 +194,76 @@ classdef GroupWidget < DashboardWidget
                 val = theme.(field);
             else
                 val = default;
+            end
+        end
+
+        function renderChildren(obj)
+            if strcmp(obj.Mode, 'tabbed')
+                obj.renderTabbedChildren();
+                return;
+            end
+
+            children = obj.Children;
+            positions = obj.computeChildPositions(children);
+            obj.hChildPanels = cell(1, numel(children));
+
+            for i = 1:numel(children)
+                pos = positions{i};
+                hp = uipanel(obj.hChildPanel, ...
+                    'Units', 'normalized', ...
+                    'Position', pos, ...
+                    'BorderType', 'none');
+                children{i}.ParentTheme = obj.getTheme();
+                children{i}.render(hp);
+                obj.hChildPanels{i} = hp;
+            end
+        end
+
+        function positions = computeChildPositions(obj, children)
+            n = numel(children);
+            positions = cell(1, n);
+            if n == 0
+                return;
+            end
+
+            if obj.ChildAutoFlow
+                maxPerRow = min(n, 4);
+                colWidth = 1.0 / maxPerRow;
+                gap = 0.01;
+                for i = 1:n
+                    col = mod(i-1, maxPerRow);
+                    row = floor((i-1) / maxPerRow);
+                    totalRows = ceil(n / maxPerRow);
+                    rowHeight = 1.0 / totalRows;
+                    x = col * colWidth + gap/2;
+                    y = 1 - (row+1) * rowHeight + gap/2;
+                    w = colWidth - gap;
+                    h = rowHeight - gap;
+                    positions{i} = [x y w h];
+                end
+            else
+                maxRow = max(cellfun(@(c) c.Position(2) + c.Position(4) - 1, ...
+                    children));
+                for i = 1:n
+                    cp = children{i}.Position;
+                    x = (cp(1) - 1) / obj.ChildColumns;
+                    y = 1 - (cp(2) + cp(4) - 1) / maxRow;
+                    w = cp(3) / obj.ChildColumns;
+                    h = cp(4) / maxRow;
+                    positions{i} = [x y w h];
+                end
+            end
+        end
+
+        function renderTabbedChildren(obj) %#ok<MANU>
+            % Stub - will be implemented in tabbed mode task
+        end
+
+        function toggleCollapse(obj)
+            if obj.Collapsed
+                obj.expand();
+            else
+                obj.collapse();
             end
         end
     end
