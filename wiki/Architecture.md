@@ -1,3 +1,5 @@
+<!-- AUTO-GENERATED from source code by scripts/generate_wiki.py — do not edit manually -->
+
 # Architecture
 
 ## Overview
@@ -12,13 +14,16 @@ FastPlot/
 ├── libs/
 │   ├── FastSense/                 # Core plotting engine
 │   │   ├── FastSense.m            # Main class
-│   │   ├── FastSenseGrid.m       # Dashboard layout
-│   │   ├── FastSenseDock.m         # Tabbed container
-│   │   ├── FastSenseToolbar.m      # Interactive toolbar
-│   │   ├── FastSenseTheme.m        # Theme system
-│   │   ├── FastSenseDataStore.m    # SQLite-backed chunked storage
+│   │   ├── FastSenseGrid.m        # Dashboard layout
+│   │   ├── FastSenseDock.m        # Tabbed container
+│   │   ├── FastSenseToolbar.m     # Interactive toolbar
+│   │   ├── FastSenseTheme.m       # Theme system
+│   │   ├── FastSenseDataStore.m   # SQLite-backed chunked storage
 │   │   ├── SensorDetailPlot.m     # Sensor detail view with state bands
 │   │   ├── NavigatorOverlay.m     # Minimap zoom navigator
+│   │   ├── ConsoleProgressBar.m   # Progress indication
+│   │   ├── binary_search.m        # Binary search utility
+│   │   ├── build_mex.m            # MEX compilation script
 │   │   ├── mksqlite.c             # SQLite3 MEX interface
 │   │   └── private/               # Internal algorithms + MEX sources
 │   ├── SensorThreshold/           # Sensor and threshold system
@@ -33,7 +38,14 @@ FastPlot/
 │   │   ├── EventViewer.m
 │   │   ├── LiveEventPipeline.m
 │   │   ├── NotificationService.m
-│   │   └── private/               # Violation grouping
+│   │   ├── EventStore.m
+│   │   ├── EventConfig.m
+│   │   ├── IncrementalEventDetector.m
+│   │   ├── DataSource.m           # Abstract data source
+│   │   ├── MatFileDataSource.m    # File-based data source
+│   │   ├── MockDataSource.m       # Test data generation
+│   │   ├── NotificationRule.m     # Email notification rules
+│   │   └── private/               # Event grouping algorithms
 │   ├── Dashboard/                 # Dashboard engine (serializable)
 │   │   ├── DashboardEngine.m
 │   │   ├── DashboardBuilder.m
@@ -128,6 +140,28 @@ Optional C MEX functions with SIMD intrinsics (AVX2 on x86_64, NEON on arm64):
 
 All share a common `simd_utils.h` abstraction layer. If MEX is unavailable, pure-MATLAB implementations are used with identical behavior.
 
+## Data Flow Architecture
+
+### Core Data Path
+```
+Raw Data (X, Y arrays)
+    ↓
+FastSenseDataStore (optional, for large datasets)
+    ↓
+Downsampling Engine (MinMax/LTTB)
+    ↓
+Pyramid Cache (lazy multi-resolution)
+    ↓
+Graphics Objects (line handles)
+    ↓
+Interactive Display
+```
+
+### Storage Modes
+- **Memory mode**: X/Y arrays held in MATLAB workspace
+- **Disk mode**: Data chunked into SQLite database via `FastSenseDataStore`
+- **Auto mode**: Switches to disk when data exceeds `MemoryLimit` (default 500MB)
+
 ## Sensor Threshold Resolution
 
 The `Sensor.resolve()` algorithm is segment-based:
@@ -139,7 +173,7 @@ The `Sensor.resolve()` algorithm is segment-based:
 3. Assign threshold values per segment
 4. Detect violations using SIMD-accelerated comparison
 
-Complexity: O(S x R) where S = state segments and R = rules, instead of O(N x R) per-point evaluation.
+Complexity: O(S × R) where S = state segments and R = rules, instead of O(N × R) per-point evaluation.
 
 ## Disk-Backed Data Storage
 
@@ -221,6 +255,44 @@ Clicking "Edit" in the toolbar creates a `DashboardBuilder` instance:
 - **Load:** JSON is decoded, widgets array is normalized to cell, and `configToWidgets()` dispatches to each widget class's `fromStruct()` static method. An optional `SensorResolver` function handle re-binds Sensor objects by name.
 - **Export script:** generates a `.m` file with `DashboardEngine` constructor calls and `addWidget` calls for each widget.
 
+## Event Detection Architecture
+
+The event detection system provides real-time threshold violation monitoring with configurable notifications and data persistence.
+
+### Core Components
+
+```
+LiveEventPipeline
+├── DataSourceMap          — Maps sensor keys to data sources
+├── IncrementalEventDetector — Tracks per-sensor state and open events
+├── EventStore            — Thread-safe .mat file persistence
+├── NotificationService   — Rule-based email alerts
+└── EventViewer          — Interactive Gantt chart + filterable table
+```
+
+### Data Sources
+
+- **MatFileDataSource**: Polls .mat files for new data
+- **MockDataSource**: Generates realistic test signals with violations
+- **Custom sources**: Implement `DataSource.fetchNew()` interface
+
+### Event Detection Flow
+
+1. `LiveEventPipeline.runCycle()` polls all data sources
+2. New data is passed to `IncrementalEventDetector.process()`
+3. Sensor state is evaluated via `Sensor.resolve()`
+4. Violations are grouped into events with debouncing (`MinDuration`)
+5. Events are stored via `EventStore.append()` (atomic .mat writes)
+6. `NotificationService` sends rule-based email alerts with plot snapshots
+7. Active `EventViewer` instances auto-refresh to show new events
+
+### Escalation Logic
+
+When `EscalateSeverity` is enabled, events are promoted to the highest violated threshold:
+- A violation starts at "Warning" level
+- If "Alarm" threshold is also crossed, the event is escalated to "Alarm"
+- The event retains the highest severity level encountered
+
 ## WebBridge Architecture
 
 The `WebBridge` class provides a TCP server that bridges MATLAB dashboards to web-based visualization. It uses NDJSON (newline-delimited JSON) for message framing over TCP.
@@ -231,14 +303,14 @@ All messages are JSON objects terminated by a newline character. The protocol is
 
 | Message Type | Direction | Description |
 |-------------|-----------|-------------|
-| `init` | MATLAB -> Bridge | Initial handshake with signal list, dashboard config, and registered actions |
-| `data_changed` | MATLAB -> Bridge | Notify that signal data has been updated |
-| `config_changed` | MATLAB -> Bridge | Dashboard layout/theme has changed |
-| `actions_changed` | MATLAB -> Bridge | Available custom actions have changed |
-| `action` | Bridge -> MATLAB | Execute a registered action (with optional args) |
-| `action_result` | MATLAB -> Bridge | Result of action execution (ok/error) |
-| `bridge_ready` | Bridge -> MATLAB | Bridge reports its HTTP port |
-| `shutdown` | MATLAB -> Bridge | Graceful shutdown signal |
+| `init` | MATLAB → Bridge | Initial handshake with signal list, dashboard config, and registered actions |
+| `data_changed` | MATLAB → Bridge | Notify that signal data has been updated |
+| `config_changed` | MATLAB → Bridge | Dashboard layout/theme has changed |
+| `actions_changed` | MATLAB → Bridge | Available custom actions have changed |
+| `action` | Bridge → MATLAB | Execute a registered action (with optional args) |
+| `action_result` | MATLAB → Bridge | Result of action execution (ok/error) |
+| `bridge_ready` | Bridge → MATLAB | Bridge reports its HTTP port |
+| `shutdown` | MATLAB → Bridge | Graceful shutdown signal |
 
 ### Data Flow
 
@@ -266,3 +338,19 @@ MATLAB (DashboardEngine)
 - **Custom actions:** MATLAB callbacks registered via `registerAction(name, callback)` are exposed to the web UI and invoked over TCP
 - **Config polling:** a timer periodically hashes the dashboard config JSON and sends `config_changed` when the layout changes
 - **WAL mode:** SQLite DataStore databases are switched to WAL (Write-Ahead Logging) mode during serving for concurrent MATLAB writes and bridge reads
+
+## Interactive Features
+
+### Progress Indication
+`ConsoleProgressBar` provides hierarchical progress feedback:
+- Single-line ASCII/Unicode bars with backspace-based updates
+- Indentation support for nested operations (e.g., dock → tabs → tiles)
+- Freeze/finish modes for permanent status lines
+
+### Toolbars and Navigation
+- **FastSenseToolbar**: Data cursor, crosshair, grid toggle, autoscale, export, live mode
+- **DashboardToolbar**: Live toggle, edit mode, save/export, name editing
+- **NavigatorOverlay**: Minimap with draggable zoom rectangle for `SensorDetailPlot`
+
+### Link Groups
+Multiple FastSense instances can share synchronized zoom/pan via `LinkGroup` strings. When one plot's XLim changes, all plots in the same group update automatically.

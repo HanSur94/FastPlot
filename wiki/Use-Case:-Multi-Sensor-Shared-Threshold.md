@@ -1,3 +1,5 @@
+<!-- AUTO-GENERATED from source code by scripts/generate_wiki.py — do not edit manually -->
+
 # Use Case: Multi-Sensor Shared Threshold
 
 Plot multiple sensors on a single tile with one shared threshold, see violation markers for all sensors, and run event detection.
@@ -101,7 +103,8 @@ The shared threshold can also be state-dependent. Attach the same `StateChannel`
 ```matlab
 for i = 1:numel(sensors)
     sc = StateChannel('mode');
-    sc.setData(modeX, modeValues);   % same state for all
+    sc.X = modeX;
+    sc.Y = modeValues;   % same state for all sensors
     sensors{i}.addStateChannel(sc);
 
     % Threshold only active during 'run' mode
@@ -111,17 +114,70 @@ for i = 1:numel(sensors)
 end
 ```
 
+Each sensor evaluates the same state conditions independently, so thresholds activate/deactivate synchronously across all sensors while maintaining individual violation tracking.
+
 ---
 
-## With EventViewer
-
-Display all events in the Gantt-style EventViewer:
+## Complete Multi-Zone Example
 
 ```matlab
-viewer = EventViewer(allEvents);
-```
+%% Multi-zone temperature monitoring with shared alarm level
+sensors = cell(1, 3);
+zones = {'North', 'Central', 'South'};
+t = linspace(0, 120, 50000);
 
-Each event row shows the sensor name, threshold label, and time span. Click any event to drill down into the data.
+% Create state channel for system mode
+modeX = [0, 30, 60, 90];
+modeY = [0, 1, 1, 0];  % 0=idle, 1=active
+
+for i = 1:3
+    s = Sensor(sprintf('temp_zone_%d', i), 'Name', sprintf('Zone %s', zones{i}));
+    s.X = t;
+    
+    % Each zone has different baseline but similar patterns
+    baseline = 20 + i * 2;
+    s.Y = baseline + 5*sin(2*pi*t/40) + 2*randn(1, numel(t));
+    
+    % Add state channel
+    sc = StateChannel('system_mode');
+    sc.X = modeX;
+    sc.Y = modeY;
+    s.addStateChannel(sc);
+    
+    % Shared threshold rules
+    s.addThresholdRule(struct(), 30, 'Direction', 'upper', 'Label', 'Max Temp (any mode)');
+    s.addThresholdRule(struct('system_mode', 1), 28, 'Direction', 'upper', 'Label', 'Max Temp (active)');
+    s.resolve();
+    
+    sensors{i} = s;
+end
+
+%% Plot with shared thresholds
+fp = FastSense();
+for i = 1:numel(sensors)
+    fp.addSensor(sensors{i}, 'ShowThresholds', (i == 1));
+end
+fp.render();
+title('Multi-Zone Temperature Monitoring');
+xlabel('Time (s)');
+ylabel('Temperature (°C)');
+legend('show');
+
+%% Event detection
+detector = EventDetector('MinDuration', 2.0);
+allEvents = [];
+for i = 1:numel(sensors)
+    evts = detectEventsFromSensor(sensors{i}, detector);
+    allEvents = [allEvents, evts];
+end
+
+fprintf('\n=== Event Summary ===\n');
+for i = 1:numel(allEvents)
+    fprintf('%s: %s violation at %.1f-%.1fs (peak %.2f°C)\n', ...
+        allEvents(i).SensorName, allEvents(i).ThresholdLabel, ...
+        allEvents(i).StartTime, allEvents(i).EndTime, allEvents(i).PeakValue);
+end
+```
 
 ---
 
@@ -139,4 +195,4 @@ Each event row shows the sensor name, threshold label, and time span. Click any 
 
 - [[Sensors|API Reference: Sensors]] — `Sensor`, `ThresholdRule`, `StateChannel`
 - [[Event Detection|API Reference: Event Detection]] — `EventDetector`, `detectEventsFromSensor`, `EventViewer`
-- [[Examples]] — `example_multi`, `example_sensor_dashboard`, `example_event_detection_live`
+- [[Examples]] — `example_multi_sensor_linked`, `example_sensor_threshold`, `example_sensor_multi_state`

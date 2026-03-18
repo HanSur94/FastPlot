@@ -1,15 +1,17 @@
+<!-- AUTO-GENERATED from source code by scripts/generate_wiki.py — do not edit manually -->
+
 # MEX Acceleration
 
-FastPlot includes optional C MEX functions with SIMD intrinsics for maximum performance. All MEX functions have pure-MATLAB fallbacks — behavior is identical.
+FastSense includes optional C MEX functions with SIMD intrinsics for maximum performance. All MEX functions have pure-MATLAB fallbacks — behavior is identical.
 
 ## Building MEX Files
 
 ```matlab
-cd libs/FastPlot
+cd libs/FastSense
 build_mex();
 ```
 
-The build script auto-detects your architecture and compiles all MEX functions.
+The build script auto-detects your architecture and compiles all MEX functions with appropriate SIMD optimizations.
 
 ### Requirements
 
@@ -19,98 +21,91 @@ The build script auto-detects your architecture and compiles all MEX functions.
 | Linux | GCC |
 | Windows | MSVC |
 
-For SQLite-backed features (DataStore, disk-based resolve), `libsqlite3` is also needed:
+SQLite3 is bundled as an amalgamation and compiled directly into MEX files that need it — no system installation required.
 
-| Platform | Install |
-|----------|---------|
-| macOS | `brew install sqlite3` (usually pre-installed) |
-| Ubuntu/Debian | `sudo apt install libsqlite3-dev` |
-| Windows | Download from [sqlite.org](https://sqlite.org/download.html) |
+## Architecture Support
+
+All MEX functions include a common SIMD abstraction layer that adapts to your CPU:
+
+| Architecture | SIMD Instructions | Fallback |
+|-------------|------------------|----------|
+| x86_64 | AVX2 + FMA | SSE2 |
+| ARM64 (Apple Silicon) | NEON | - |
+| Other | Scalar operations | - |
+
+If AVX2 compilation fails on x86_64, the build script automatically retries with SSE2.
 
 ## Accelerated Functions
 
-### binary_search_mex
+### Core Downsampling
 
-O(log n) binary search for the visible data range within sorted X arrays.
-
+**binary_search_mex** — O(log n) binary search for visible data range
 - **Speedup**: 10-20x over MATLAB's `find`
-- **Used by**: Zoom/pan callback to locate visible data indices
+- **Used by**: Zoom/pan callbacks to locate visible indices
 
-### minmax_core_mex
-
-Per-pixel MinMax reduction with SIMD vectorization.
-
-- **Speedup**: 3-10x
+**minmax_core_mex** — Per-pixel MinMax reduction with SIMD vectorization
+- **Speedup**: 3-10x over pure MATLAB
 - **SIMD**: Processes 4 doubles (AVX2) or 2 doubles (NEON) per cycle
-- **Used by**: Default downsampling algorithm
+- **Used by**: Default downsampling algorithm in [[FastPlot|API Reference: FastPlot]]
 
-### lttb_core_mex
-
-Largest Triangle Three Buckets downsampling with SIMD-accelerated triangle area computation.
-
-- **Speedup**: 10-50x
+**lttb_core_mex** — Largest Triangle Three Buckets with SIMD triangle area computation
+- **Speedup**: 10-50x over MATLAB implementation
 - **Used by**: LTTB downsampling method
 
-### violation_cull_mex
+### Threshold Processing
 
-Fused threshold violation detection and pixel-space culling in a single pass.
+**violation_cull_mex** — Fused threshold violation detection and pixel culling
+- **Speedup**: Significant (single-pass vs two-pass MATLAB)
+- **Used by**: Violation marker rendering during zoom/pan
 
-- **Speedup**: Significant (avoids two-pass MATLAB approach)
-- **Used by**: Violation marker rendering on zoom/pan
-
-### compute_violations_mex
-
-Batch threshold violation detection for `Sensor.resolve()`.
-
+**compute_violations_mex** — Batch threshold violation detection
 - **Speedup**: Significant over per-point MATLAB comparison
-- **Used by**: Sensor resolution pipeline
+- **Used by**: [[Sensors|API Reference: Sensors]] resolution pipeline
 
-### resolve_disk_mex
+### Data Storage
 
-SQLite disk-based sensor resolution — reads chunks from the database and computes violations without loading full datasets into memory.
-
-- **Used by**: `Sensor.resolve()` with disk-backed storage
-
-### build_store_mex
-
-Bulk SQLite writer that creates the DataStore database in a single C call, replacing ~20K mksqlite round-trips.
-
-- **Speedup**: 2-3x (eliminates MATLAB-to-MEX overhead per chunk)
+**build_store_mex** — Bulk SQLite writer for DataStore initialization
+- **Speedup**: 2-3x (eliminates ~20K MATLAB-to-MEX round-trips)
 - **SIMD**: Accelerated Y min/max computation per chunk
-- **Used by**: `FastSenseDataStore` initialization
+- **Used by**: `FastSenseDataStore` construction
 
-### mksqlite
+**resolve_disk_mex** — SQLite disk-based sensor resolution
+- **Used by**: `Sensor.resolve()` with disk-backed storage
+- **Benefit**: Reads chunks from database without loading full datasets
 
-SQLite3 MEX interface with typed BLOB support (serializes MATLAB arrays into SQLite BLOBs preserving type and shape).
-
-- **Used by**: DataStore, disk-backed Sensor resolution
-- **Requires**: `libsqlite3`
-
-## SIMD Architecture
-
-All MEX functions share a common `simd_utils.h` abstraction layer:
-
-| Architecture | Instructions |
-|-------------|-------------|
-| x86_64 | AVX2 (with SSE2 fallback) |
-| arm64 (Apple Silicon) | NEON |
-
-The abstraction provides platform-independent load, store, min, max, and comparison operations.
+**mksqlite** — SQLite3 MEX interface with typed BLOB support
+- **Used by**: DataStore, disk-backed sensor resolution
+- **Features**: Serializes MATLAB arrays preserving type and shape
 
 ## Fallback Behavior
 
-If MEX files are not compiled:
+When MEX files are unavailable:
 
-- Each function has a pure-MATLAB equivalent in `libs/FastPlot/private/`
-- The MATLAB code auto-detects MEX availability at runtime
-- Zero behavior change — same numerical results, same API
-- Performance is still excellent for datasets under ~10M points
+- Each function has a pure-MATLAB equivalent in `libs/FastSense/private/`
+- Runtime auto-detection switches between MEX and MATLAB seamlessly
+- Identical numerical results and API
+- Performance remains excellent for datasets under ~10M points
 
-## Verifying MEX Installation
+## Compilation Process
+
+The `build_mex()` function:
+
+1. **Detects architecture** — normalizes platform strings (`maca64`, `aarch64`, etc.) into canonical labels
+2. **Selects compiler** — prefers GCC on Octave for better auto-vectorization; uses MATLAB's default on MATLAB
+3. **Sets SIMD flags** — chooses instruction sets based on detected CPU architecture
+4. **Compiles sources** — builds all MEX files with bundled SQLite3 amalgamation
+5. **Handles failures** — automatically retries x86_64 builds with SSE2 if AVX2 fails
+6. **Copies shared files** — distributes MEX binaries to other library directories
+
+## Verifying Installation
+
+Test that MEX functions produce identical results to MATLAB fallbacks:
 
 ```matlab
 setup;
 addpath('tests');
 test_mex_parity;      % Verify MEX matches MATLAB output
-test_mex_edge_cases;  % Test edge cases (empty arrays, single points, NaN)
+test_mex_edge_cases;  % Test edge cases (empty arrays, NaN, etc.)
 ```
+
+The test suite validates numerical accuracy across all MEX functions and handles edge cases like empty arrays, single points, and NaN values.

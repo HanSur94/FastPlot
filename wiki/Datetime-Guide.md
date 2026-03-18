@@ -1,6 +1,8 @@
+<!-- AUTO-GENERATED from source code by scripts/generate_wiki.py — do not edit manually -->
+
 # Datetime Guide
 
-FastPlot supports time series data with datetime X-axes. Both datenum values and MATLAB datetime objects are supported.
+FastSense supports time series data with datetime X-axes. Both datenum values and MATLAB datetime objects are supported.
 
 ---
 
@@ -77,11 +79,11 @@ fig = FastSenseGrid(2, 1, 'Theme', 'dark');
 
 fp1 = fig.tile(1);
 fp1.addLine(x, sin(2*pi*(1:1e6)/86400)*20+50, 'XType', 'datenum', 'DisplayName', 'Pressure');
-fig.tileTitle(1, 'Pressure');
+fig.setTileTitle(1, 'Pressure');
 
 fp2 = fig.tile(2);
 fp2.addLine(x, cos(2*pi*(1:1e6)/86400)*10+25, 'XType', 'datenum', 'DisplayName', 'Temperature');
-fig.tileTitle(2, 'Temperature');
+fig.setTileTitle(2, 'Temperature');
 
 fig.renderAll();
 ```
@@ -143,6 +145,31 @@ fp = FastSense('Theme', 'dark');
 fp.addSensor(s, 'ShowThresholds', true);
 fp.render();
 ```
+
+---
+
+## SensorDetailPlot with Datetime
+
+The `SensorDetailPlot` component supports datetime X-axes through the `'XType'` parameter:
+
+```matlab
+% Create sensor with datenum timestamps
+tStart = datetime(2024, 3, 11, 8, 0, 0);
+tEnd = datetime(2024, 3, 11, 10, 0, 0);
+tDatetime = linspace(tStart, tEnd, 72000);
+tNum = datenum(tDatetime);
+
+s = Sensor('pressure', 'Name', 'Line Pressure');
+s.X = tNum;
+s.Y = 4.2 + 0.6*sin(2*pi*tNum*24/1.5) + 0.15*randn(1, 72000);
+s.resolve();
+
+% Create detail plot with datetime formatting
+sdp = SensorDetailPlot(s, 'XType', 'datenum', 'Theme', 'light');
+sdp.render();
+```
+
+The navigator and main plot both show human-readable time labels.
 
 ---
 
