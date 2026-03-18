@@ -23,6 +23,7 @@ classdef DashboardEngine < handle
         Name         = ''
         Theme        = 'light'
         LiveInterval = 5
+        InfoFile     = ''
     end
 
     properties (SetAccess = private)
@@ -34,6 +35,7 @@ classdef DashboardEngine < handle
         IsLive         = false
         LastUpdateTime = []
         FilePath       = ''
+        InfoTempFile   = ''
         % Time control
         TimePanelHeight = 0.06
         DataTimeRange   = [0 1]    % [tMin tMax] across all widget data
@@ -162,6 +164,83 @@ classdef DashboardEngine < handle
             config = DashboardSerializer.widgetsToConfig( ...
                 obj.Name, obj.Theme, obj.LiveInterval, obj.Widgets);
             DashboardSerializer.exportScript(config, filepath);
+        end
+
+        function showInfo(obj)
+        %SHOWINFO Display the linked Markdown info file in a browser.
+            if isempty(obj.InfoFile)
+                return;
+            end
+
+            % Resolve file path — pure string check (Octave-compatible)
+            isAbsPath = (numel(obj.InfoFile) > 0 && obj.InfoFile(1) == '/') || ...
+                (numel(obj.InfoFile) > 1 && obj.InfoFile(2) == ':');
+            if isAbsPath
+                mdPath = obj.InfoFile;
+            else
+                if ~isempty(obj.FilePath)
+                    baseDir = fileparts(obj.FilePath);
+                else
+                    baseDir = pwd;
+                end
+                mdPath = fullfile(baseDir, obj.InfoFile);
+            end
+
+            % Check file exists
+            if ~exist(mdPath, 'file')
+                warning('DashboardEngine:infoFileNotFound', ...
+                    'Info file not found: %s', mdPath);
+                return;
+            end
+
+            % Read file with safe fclose on both paths
+            fid = fopen(mdPath, 'r');
+            if fid == -1
+                warning('DashboardEngine:infoReadError', ...
+                    'Cannot open info file: %s', mdPath);
+                return;
+            end
+            try
+                mdText = fread(fid, '*char')';
+                fclose(fid);
+            catch ME
+                fclose(fid);
+                warning('DashboardEngine:infoReadError', ...
+                    'Failed to read info file: %s', ME.message);
+                return;
+            end
+
+            % Convert to HTML
+            html = MarkdownRenderer.render(mdText, obj.Theme);
+
+            % Write temp file (reuse path)
+            if isempty(obj.InfoTempFile)
+                obj.InfoTempFile = [tempname '.html'];
+            end
+            fid = fopen(obj.InfoTempFile, 'w');
+            fwrite(fid, html);
+            fclose(fid);
+
+            % Display
+            if exist('OCTAVE_VERSION', 'builtin')
+                if ismac
+                    system(['open "' obj.InfoTempFile '"']);
+                elseif ispc
+                    system(['cmd /c start "" "' obj.InfoTempFile '"']);
+                else
+                    system(['xdg-open "' obj.InfoTempFile '"']);
+                end
+            else
+                web(obj.InfoTempFile, '-new');
+            end
+        end
+
+        function cleanupInfoTempFile(obj)
+        %CLEANUPINFOTEMPFILE Delete the temporary HTML file if it exists.
+            if ~isempty(obj.InfoTempFile) && exist(obj.InfoTempFile, 'file')
+                delete(obj.InfoTempFile);
+                obj.InfoTempFile = '';
+            end
         end
 
         function removeWidget(obj, idx)
@@ -295,6 +374,7 @@ classdef DashboardEngine < handle
 
         function delete(obj)
             obj.stopLive();
+            obj.cleanupInfoTempFile();
         end
     end
 
