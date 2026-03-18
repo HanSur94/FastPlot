@@ -137,8 +137,8 @@ classdef TestExternalSensorRegistry < matlab.unittest.TestCase
             reg.register('oil_pressure', Sensor('oil_pressure'));
 
             reg.wireMatFile(matPath, {
-                'bearing_temp',  'XVar', 'time', 'YVar', 'temp_bearing';
-                'oil_pressure',  'XVar', 'time', 'YVar', 'press_oil';
+                'bearing_temp',  'XVar', 'time', 'YVar', 'temp_bearing'
+                'oil_pressure',  'XVar', 'time', 'YVar', 'press_oil'
             });
 
             % Verify Sensor properties were set
