@@ -193,10 +193,42 @@ FastSense.distFig();
 FastSense.distFig('Rows', 2, 'Cols', 3);
 ```
 
+## 15. Tabbed Dashboards
+
+```matlab
+dock = FastSenseDock('Theme', 'dark', 'Name', 'Dashboard');
+
+fig1 = FastSenseGrid(2, 1, 'ParentFigure', dock.hFigure);
+fig1.tile(1).addLine(x, y1);
+fig1.tile(2).addLine(x, y2);
+dock.addTab(fig1, 'Temperature');
+
+fig2 = FastSenseGrid(1, 1, 'ParentFigure', dock.hFigure);
+fig2.tile(1).addLine(x, y3);
+dock.addTab(fig2, 'Pressure');
+
+dock.render();
+```
+
+## 16. Sensors with State-Based Thresholds
+
+```matlab
+fp = FastSense();
+sensor = Sensor(...); % see SensorThreshold library
+fp.addSensor(sensor, 'ShowThresholds', true);
+fp.render();
+```
+
+## 17. One-liner Static Method
+
+```matlab
+fp = FastSense.plot(x, y, 'DisplayName', 'Signal', 'Theme', 'dark');
+```
+
 ## Next Steps
 
 - [[FastPlot|API Reference: FastPlot]] — full constructor options, properties, methods
-- [[Dashboard|API Reference: Dashboard]] — tiled and tabbed layouts
+- [[Dashboard|API Reference: Dashboard]] — tiled and tabbed layouts  
 - [[Sensors|API Reference: Sensors]] — state-dependent thresholds
 - [[Event Detection|API Reference: Event Detection]] — event detection and viewer
 - [[Live Mode Guide]] — live data polling

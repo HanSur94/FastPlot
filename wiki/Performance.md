@@ -56,29 +56,28 @@ MEX kernels use SIMD instructions (AVX2/NEON) to process 4 doubles per CPU cycle
 
 ## Running Your Own Benchmarks
 
-FastSense includes several benchmark scripts to measure performance on your system:
+The stress test example creates a realistic large-scale scenario:
 
 ```matlab
 install;
 cd examples
 
-% Compare FastSense vs plot() across different data sizes
-benchmark;
-
-% Measure zoom/pan latency frame-by-frame
-benchmark_zoom;
-
-% Test specific features (downsampling, violations, etc.)
-benchmark_features;
-
-% Benchmark Sensor.resolve() with thresholds
-benchmark_resolve;
+% Creates 5 tabs, 26 sensors, 86M points, 104 thresholds
+example_stress_test;
 ```
 
-The stress test example creates a realistic large-scale scenario:
+For maximum scale testing:
 
 ```matlab
-example_stress_test;  % 5 tabs, 26 sensors, 86M points, 104 thresholds
+% 100M point stress test with progress control
+example_100M;
+```
+
+Compare downsampling algorithms visually:
+
+```matlab
+% LTTB vs MinMax side-by-side comparison
+example_lttb_vs_minmax;
 ```
 
 ## Why FastSense is Fast
@@ -87,7 +86,13 @@ example_stress_test;  % 5 tabs, 26 sensors, 86M points, 104 thresholds
 Only renders ~4,000 points regardless of dataset size. A 100M point dataset uses the same GPU memory as a 4K dataset once downsampled.
 
 ### 2. Binary Search for Range Queries
-Uses O(log N) binary search instead of O(N) linear scanning to find visible data ranges on zoom/pan.
+Uses O(log N) binary search instead of O(N) linear scanning to find visible data ranges on zoom/pan:
+
+```matlab
+% FastSense uses optimized binary search
+idx = binary_search(x, val, 'left');   % first index where x >= val
+idx = binary_search(x, val, 'right');  % last index where x <= val
+```
 
 ### 3. Lazy Multi-Level Pyramid
 Pre-computes downsampled levels (100:1, 10000:1, etc.) so zooming out never touches raw data. Cache is built incrementally as needed.
@@ -96,6 +101,12 @@ Pre-computes downsampled levels (100:1, 10000:1, etc.) so zooming out never touc
 C implementations use vectorized instructions to process multiple data points per CPU cycle:
 - **AVX2** on x86_64: processes 4 doubles simultaneously
 - **NEON** on ARM64: processes 2-4 elements per cycle
+
+Compile MEX acceleration with:
+
+```matlab
+build_mex();  % detects architecture and compiles with SIMD flags
+```
 
 ### 5. Fused Operations
 Combines multiple operations in single passes:
@@ -173,3 +184,33 @@ for k = 1:1000
 end
 pb.finish();
 ```
+
+## Batch Processing Options
+
+For automated workflows, control rendering behavior:
+
+```matlab
+fp = FastSense();
+fp.DeferDraw = true;      % skip drawnow during render
+fp.ShowProgress = false;  % hide console progress bar
+fp.addLine(x, y);
+fp.render();
+drawnow;  % manual refresh when ready
+```
+
+## Large Dataset Handling
+
+FastSense scales to 100M+ points through automatic storage management:
+
+```matlab
+% 100M points - handled automatically
+n = 100e6;
+x = linspace(0, 1000, n);
+y = cumsum(randn(1, n)) / sqrt(n);
+
+fp = FastSense();
+fp.addLine(x, y, 'DisplayName', '100M Random Walk');
+fp.render();  % seamless regardless of data size
+```
+
+Large datasets automatically use [[FastSenseDataStore]] with SQLite backend when memory limits are exceeded, providing transparent disk-based operation with minimal performance impact.

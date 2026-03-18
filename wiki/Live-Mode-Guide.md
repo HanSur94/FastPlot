@@ -187,24 +187,6 @@ fig.refresh();
 
 ---
 
-## Toolbar Integration
-
-The [[FastSenseToolbar|API Reference: FastSenseToolbar]] provides a Live Mode button:
-
-```matlab
-tb = FastSenseToolbar(fp);
-% Click the Live Mode button to toggle polling on/off
-% Or programmatically:
-tb.toggleLive();
-```
-
-The Refresh button triggers a manual one-shot reload:
-```matlab
-tb.refresh();
-```
-
----
-
 ## Console Progress Bars
 
 Use ConsoleProgressBar for visual feedback during long operations:
@@ -217,6 +199,26 @@ for k = 1:8
     pause(0.1);
 end
 pb.freeze();   % becomes permanent line
+```
+
+ConsoleProgressBar provides hierarchical progress indication with freeze capability to make current state permanent while starting a new progress bar below.
+
+---
+
+## Toolbar Integration
+
+The [[API Reference: FastSenseToolbar]] provides a Live Mode button:
+
+```matlab
+tb = FastSenseToolbar(fp);
+% Click the Live Mode button to toggle polling on/off
+% Or programmatically:
+tb.toggleLive();
+```
+
+The Refresh button triggers a manual one-shot reload:
+```matlab
+tb.refresh();
 ```
 
 ---
