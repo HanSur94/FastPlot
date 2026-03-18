@@ -386,12 +386,80 @@ def assemble_context(page: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# LLM generation (placeholder — implemented in Task 6)
+# LLM generation
 # ---------------------------------------------------------------------------
 
 def generate_page_with_llm(ctx: dict) -> str:
-    """Call Claude to generate a wiki page. Placeholder for Task 6."""
-    raise NotImplementedError("LLM generation not yet implemented — see Task 6")
+    """Call Claude to generate a wiki page.
+
+    Args:
+        ctx: Context dict from assemble_context() with keys:
+            source_context, example_context, current_page, sidebar,
+            page_type, filename
+
+    Returns:
+        Generated markdown content as a string.
+    """
+    import anthropic
+
+    client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+
+    system_prompt = PROMPTS.get(ctx["page_type"], PROMPTS["guide"])
+
+    # Build user message with all context
+    user_parts = []
+    user_parts.append(f"Generate the wiki page: {ctx['filename']}\n")
+
+    if ctx["current_page"]:
+        user_parts.append("=== CURRENT PAGE CONTENT (use as structural template) ===")
+        user_parts.append(ctx["current_page"])
+        user_parts.append("=== END CURRENT PAGE ===\n")
+
+    if ctx["sidebar"]:
+        user_parts.append("=== WIKI SIDEBAR (for link references) ===")
+        user_parts.append(ctx["sidebar"])
+        user_parts.append("=== END SIDEBAR ===\n")
+
+    if ctx["source_context"]:
+        user_parts.append("=== SOURCE CODE (public API surface) ===")
+        user_parts.append(ctx["source_context"])
+        user_parts.append("=== END SOURCE CODE ===\n")
+
+    if ctx["example_context"]:
+        user_parts.append("=== EXAMPLE SCRIPTS ===")
+        user_parts.append(ctx["example_context"])
+        user_parts.append("=== END EXAMPLES ===\n")
+
+    user_parts.append(
+        "Generate the complete wiki page now. Output ONLY the markdown content, "
+        "starting with the auto-generated notice comment."
+    )
+
+    user_message = "\n".join(user_parts)
+
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=8192,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
+
+    # Extract text content
+    content = response.content[0].text
+
+    # Strip any markdown code fence wrapper (Claude sometimes wraps output)
+    if content.startswith("```markdown"):
+        content = content[len("```markdown"):].strip()
+    elif content.startswith("```"):
+        content = content[3:].strip()
+    if content.endswith("```"):
+        content = content[:-3].strip()
+
+    # Ensure trailing newline
+    if not content.endswith("\n"):
+        content += "\n"
+
+    return content
 
 
 # ---------------------------------------------------------------------------
