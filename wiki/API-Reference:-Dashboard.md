@@ -19,6 +19,7 @@ obj = DashboardEngine(name, varargin)
 | Name | `''` |  |
 | Theme | `'light'` |  |
 | LiveInterval | `5` |  |
+| InfoFile | `''` |  |
 
 ### Methods
 
@@ -33,6 +34,14 @@ obj = DashboardEngine(name, varargin)
 #### `save(obj, filepath)`
 
 #### `exportScript(obj, filepath)`
+
+#### `showInfo(obj)`
+
+SHOWINFO Display the linked Markdown info file in a browser.
+
+#### `cleanupInfoTempFile(obj)`
+
+CLEANUPINFOTEMPFILE Delete the temporary HTML file if it exists.
 
 #### `removeWidget(obj, idx)`
 
@@ -552,7 +561,7 @@ SAVE Write dashboard config struct to JSON file.
 
 LOAD Read dashboard config from JSON file.
 
-#### `DashboardSerializer.config = widgetsToConfig(name, theme, liveInterval, widgets)`
+#### `DashboardSerializer.config = widgetsToConfig(name, theme, liveInterval, widgets, infoFile)`
 
 WIDGETSTOCONFIG Build a config struct from widget objects.
 
@@ -664,6 +673,8 @@ SETLASTUPDATETIME Update the last-update label with a timestamp.
 #### `onSave(obj)`
 
 #### `onExport(obj)`
+
+#### `onInfo(obj)`
 
 #### `onEdit(obj)`
 

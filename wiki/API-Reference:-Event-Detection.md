@@ -295,7 +295,7 @@ obj = NotificationService(varargin)
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| Rules | `NotificationRule.empty()` |  |
+| Rules | `[]` |  |
 | DefaultRule | `[]` |  |
 | Enabled | `true` |  |
 | DryRun | `false` |  |
