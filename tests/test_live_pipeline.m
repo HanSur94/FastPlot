@@ -73,6 +73,10 @@ function test_multiple_cycles_incremental()
 end
 
 function test_events_written_to_store()
+    if exist('OCTAVE_VERSION', 'builtin')
+        fprintf('  SKIPPED (Octave cannot save classdef objects to .mat)\n');
+        return;
+    end
     [p, f] = makePipeline();
     p.runCycle();
     data = load(f);
