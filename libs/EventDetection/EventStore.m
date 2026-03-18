@@ -24,10 +24,12 @@ classdef EventStore < handle
 
         function append(obj, newEvents)
             if isempty(newEvents); return; end
-            if isempty(obj.events_)
-                obj.events_ = newEvents(:).';
-            else
-                obj.events_ = [obj.events_, newEvents(:).'];
+            for i = 1:numel(newEvents)
+                if isempty(obj.events_)
+                    obj.events_ = newEvents(i);
+                else
+                    obj.events_(end+1) = newEvents(i);
+                end
             end
         end
 

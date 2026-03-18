@@ -94,6 +94,10 @@ function test_notification_triggered()
 end
 
 function test_start_stop()
+    if exist('OCTAVE_VERSION', 'builtin')
+        fprintf('  SKIPPED (timer not implemented in Octave)\n');
+        return;
+    end
     [p, f] = makePipeline();
     p.start();
     assert(strcmp(p.Status, 'running'), 'running');

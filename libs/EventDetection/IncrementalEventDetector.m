@@ -100,7 +100,11 @@ classdef IncrementalEventDetector < handle
                 for i = 1:numel(allEvents)
                     ev = allEvents(i);
                     if ev.EndTime >= sliceStartTime
-                        relevantEvents = [relevantEvents, ev];
+                        if isempty(relevantEvents)
+                            relevantEvents = ev;
+                        else
+                            relevantEvents(end+1) = ev;
+                        end
                     end
                 end
             end
@@ -127,9 +131,17 @@ classdef IncrementalEventDetector < handle
                         idx2 = find(st.fullX <= ev.EndTime, 1, 'last');
                         window = st.fullY(idx1:idx2);
                         merged = obj.computeAndSetStats(merged, window, ev.Direction);
-                        completedEvents = [completedEvents, merged];
+                        if isempty(completedEvents)
+                            completedEvents = merged;
+                        else
+                            completedEvents(end+1) = merged;
+                        end
                     elseif ~obj.isOldEvent(ev, st.lastProcessedTime)
-                        completedEvents = [completedEvents, ev];
+                        if isempty(completedEvents)
+                            completedEvents = ev;
+                        else
+                            completedEvents(end+1) = ev;
+                        end
                     end
                 end
             end
@@ -141,8 +153,7 @@ classdef IncrementalEventDetector < handle
                     % Still open, carry forward
                 else
                     % Open event ended
-                    completedEvents = [completedEvents, st.openEvent];
-                end
+                    completedEvents = st.openEvent;
             end
 
             % Escalate severity

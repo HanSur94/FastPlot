@@ -95,7 +95,11 @@ classdef LiveEventPipeline < handle
                     [newEvents, gotData] = obj.processSensor(key);
                     hasNewData = hasNewData || gotData;
                     if ~isempty(newEvents)
-                        allNewEvents = [allNewEvents, newEvents];
+                        if isempty(allNewEvents)
+                            allNewEvents = newEvents;
+                        else
+                            allNewEvents = [allNewEvents, newEvents];
+                        end
                     end
                 catch ex
                     fprintf('[PIPELINE WARNING] Sensor "%s" failed: %s\n', key, ex.message);
