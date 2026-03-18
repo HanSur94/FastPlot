@@ -72,7 +72,8 @@ classdef GroupWidget < DashboardWidget
             theme = obj.getTheme();
 
             headerFrac = 0.12;
-            if isempty(obj.Label)
+            if isempty(obj.Label) && ~strcmp(obj.Mode, 'tabbed')
+                % Tabbed mode always needs a header for tab buttons
                 headerFrac = 0;
             end
 
@@ -213,6 +214,9 @@ classdef GroupWidget < DashboardWidget
             if ~isempty(obj.hChildPanel) && ishandle(obj.hChildPanel)
                 set(obj.hChildPanel, 'Visible', 'off');
             end
+            % TODO: call DashboardLayout.reflow() to re-compact the grid.
+            % Requires engine-level wiring (LayoutRef/FigureRef) — tracked
+            % as a follow-up. Position(4) is updated for serialization.
         end
 
         function expand(obj)
@@ -229,6 +233,7 @@ classdef GroupWidget < DashboardWidget
             if ~isempty(obj.hChildPanel) && ishandle(obj.hChildPanel)
                 set(obj.hChildPanel, 'Visible', 'on');
             end
+            % TODO: call DashboardLayout.reflow() — same as collapse()
         end
 
         function switchTab(obj, tabName)
@@ -457,9 +462,17 @@ classdef GroupWidget < DashboardWidget
             end
 
             % Deserialize children (panel/collapsible mode)
+            % jsondecode converts cell arrays of structs to struct arrays;
+            % normalize back to cell arrays for consistent indexing.
             if isfield(s, 'children') && ~isempty(s.children)
-                for i = 1:numel(s.children)
-                    cs = s.children{i};
+                ch = s.children;
+                if isstruct(ch)
+                    tmp = ch;
+                    ch = cell(1, numel(tmp));
+                    for k = 1:numel(tmp), ch{k} = tmp(k); end
+                end
+                for i = 1:numel(ch)
+                    cs = ch{i};
                     child = DashboardSerializer.createWidgetFromStruct(cs);
                     if ~isempty(child)
                         obj.Children{end+1} = child;
@@ -469,11 +482,23 @@ classdef GroupWidget < DashboardWidget
 
             % Deserialize tabs (tabbed mode)
             if isfield(s, 'tabs') && ~isempty(s.tabs)
-                for i = 1:numel(s.tabs)
-                    ts = s.tabs{i};
+                tb = s.tabs;
+                if isstruct(tb)
+                    tmp = tb;
+                    tb = cell(1, numel(tmp));
+                    for k = 1:numel(tmp), tb{k} = tmp(k); end
+                end
+                for i = 1:numel(tb)
+                    ts = tb{i};
                     tabEntry = struct('name', ts.name, 'widgets', {{}});
-                    for j = 1:numel(ts.widgets)
-                        ws = ts.widgets{j};
+                    wlist = ts.widgets;
+                    if isstruct(wlist)
+                        tmp2 = wlist;
+                        wlist = cell(1, numel(tmp2));
+                        for k = 1:numel(tmp2), wlist{k} = tmp2(k); end
+                    end
+                    for j = 1:numel(wlist)
+                        ws = wlist{j};
                         w = DashboardSerializer.createWidgetFromStruct(ws);
                         if ~isempty(w)
                             tabEntry.widgets{end+1} = w;
