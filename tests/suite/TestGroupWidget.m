@@ -62,5 +62,22 @@ classdef TestGroupWidget < matlab.unittest.TestCase
             testCase.verifyNotEmpty(g.Children{1}.hPanel);
             testCase.verifyNotEmpty(g.Children{2}.hPanel);
         end
+
+        function testThemeHasGroupFields(testCase)
+            presets = {'dark', 'light', 'industrial', 'scientific', 'ocean', 'default'};
+            for i = 1:numel(presets)
+                theme = DashboardTheme(presets{i});
+                testCase.verifyTrue(isfield(theme, 'GroupHeaderBg'), ...
+                    sprintf('%s missing GroupHeaderBg', presets{i}));
+                testCase.verifyTrue(isfield(theme, 'GroupHeaderFg'), ...
+                    sprintf('%s missing GroupHeaderFg', presets{i}));
+                testCase.verifyTrue(isfield(theme, 'GroupBorderColor'), ...
+                    sprintf('%s missing GroupBorderColor', presets{i}));
+                testCase.verifyTrue(isfield(theme, 'TabActiveBg'), ...
+                    sprintf('%s missing TabActiveBg', presets{i}));
+                testCase.verifyTrue(isfield(theme, 'TabInactiveBg'), ...
+                    sprintf('%s missing TabInactiveBg', presets{i}));
+            end
+        end
     end
 end
