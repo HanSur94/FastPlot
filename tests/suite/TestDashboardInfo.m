@@ -152,5 +152,26 @@ classdef TestDashboardInfo < matlab.unittest.TestCase
             content = fileread(filepath);
             testCase.verifyFalse(contains(content, 'InfoFile'));
         end
+
+        function testToolbarInfoButtonPresent(testCase)
+            d = DashboardEngine('Toolbar Test', 'InfoFile', 'dummy.md');
+            d.addWidget('text', 'Title', 'T', 'Position', [1 1 4 2], ...
+                'Content', 'x');
+            d.render();
+            testCase.addTeardown(@() close(d.hFigure));
+
+            testCase.verifyNotEmpty(d.Toolbar.hInfoBtn);
+            testCase.verifyTrue(ishandle(d.Toolbar.hInfoBtn));
+        end
+
+        function testToolbarInfoButtonAbsent(testCase)
+            d = DashboardEngine('Toolbar No Info');
+            d.addWidget('text', 'Title', 'T', 'Position', [1 1 4 2], ...
+                'Content', 'x');
+            d.render();
+            testCase.addTeardown(@() close(d.hFigure));
+
+            testCase.verifyTrue(isempty(d.Toolbar.hInfoBtn));
+        end
     end
 end

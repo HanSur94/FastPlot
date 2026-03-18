@@ -17,6 +17,7 @@ classdef DashboardToolbar < handle
         hSyncBtn     = []
         hTitleText   = []
         hLastUpdate  = []
+        hInfoBtn     = []
         Engine       = []
         Builder      = []
     end
@@ -46,6 +47,20 @@ classdef DashboardToolbar < handle
             btnW = 0.06;
             btnH = 0.7;
             btnY = 0.15;
+
+            % Conditional Info button (only when InfoFile is set)
+            if ~isempty(engine.InfoFile)
+                % Shorten title to make room
+                set(obj.hTitleText, 'Position', [0.01 0.1 0.27 0.8]);
+
+                obj.hInfoBtn = uicontrol('Parent', obj.hPanel, ...
+                    'Style', 'pushbutton', ...
+                    'Units', 'normalized', ...
+                    'Position', [0.29 btnY 0.05 btnH], ...
+                    'String', 'Info', ...
+                    'Callback', @(~,~) obj.onInfo());
+            end
+
             rightEdge = 0.99;
 
             rightEdge = rightEdge - btnW - 0.005;
@@ -138,6 +153,10 @@ classdef DashboardToolbar < handle
             if file ~= 0
                 obj.Engine.exportScript(fullfile(path, file));
             end
+        end
+
+        function onInfo(obj)
+            obj.Engine.showInfo();
         end
 
         function onEdit(obj)
