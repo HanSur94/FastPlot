@@ -28,7 +28,7 @@ Add an "Info" button to the dashboard toolbar that opens a rendered Markdown fil
 
 ### 2. Info button in `DashboardToolbar`
 
-- New private handle property: `hInfoBtn`
+- New handle property in `properties (SetAccess = private)` block (matching all other toolbar handles): `hInfoBtn`
 - Created only when `engine.InfoFile` is non-empty at render time
 - **Position:** Title text is shortened from `0.30` to `0.27` width when the Info button is present. Info button placed at `[0.29, btnY, 0.05, btnH]` — a narrower button (`0.05` vs `0.06` for action buttons) with a `0.01` gap after the title.
 - Label: `"Info"` (plain text, no Unicode for cross-platform compatibility)
@@ -65,7 +65,7 @@ Pure MATLAB string operations (`regexprep`, `strsplit`, line-by-line). No extern
 Flow when the Info button is clicked:
 
 1. **Resolve file path** — if `InfoFile` is relative, resolve against `fileparts(obj.FilePath)` (the saved JSON directory). If `FilePath` is empty (unsaved), resolve against `pwd`. Note: `FilePath` reflects the last save/load location; if the JSON is moved externally, relative resolution may point to an unexpected location.
-2. **Read the `.md` file** — `fopen`/`fread`/`fclose` wrapped in `try/catch`. `fclose(fid)` is called on both the success path (after `fread`, still inside `try`) and in the `catch` block. If file not found, show `warndlg` with the attempted path.
+2. **Read the `.md` file** — `fid = fopen(path, 'r')`, `mdText = fread(fid, '*char')'`, `fclose(fid)` — wrapped in `try/catch`. `fclose(fid)` is called on both the success path (after `fread`, still inside `try`) and in the `catch` block. This matches the `fread` pattern in `DashboardSerializer.load`. If file not found, show `warndlg` with the attempted path.
 3. **Convert to HTML** — `html = MarkdownRenderer.render(mdText, obj.Theme)`
 4. **Write temp HTML file** — Store the temp file path as a private property `InfoTempFile`. Reuse and overwrite the same path on each click (avoids temp file leaks). Create the path on first use with `[tempname '.html']`. The `delete(obj)` destructor cleans up the temp file when the engine is destroyed (check `~isempty(obj.InfoTempFile) && exist(obj.InfoTempFile, 'file')` before deleting).
 5. **Display** — Use `web(htmlFile, '-new')` on MATLAB. On Octave (detected via `exist('OCTAVE_VERSION', 'builtin')`), fall back to `system()` with the platform-appropriate command: `xdg-open` (Linux), `open` (macOS), or `cmd /c start` (Windows). The file path must be quoted in the `system()` call to handle paths with spaces: e.g. `system(['open "' htmlFile '"'])`.
@@ -87,7 +87,7 @@ No caching — re-reads the `.md` file each click so edits are reflected immedia
 ```
 
 **`DashboardSerializer` changes:**
-- `widgetsToConfig` — add optional 5th argument `infoFile` (defaults to `''` when omitted via `nargin < 5` check, preserving backward compatibility with existing callers and tests). Include `infoFile` in config struct only when non-empty.
+- `widgetsToConfig` — add optional 5th argument `infoFile` (defaults to `''` when omitted via `nargin < 5` check, preserving backward compatibility with existing callers and tests). Include `infoFile` in config struct only when non-empty. Existing `TestDashboardSerializer` and `TestDashboardEngine` tests pass unmodified — 4-argument calls continue to work and produce configs without an `infoFile` field.
 - `exportScript` — emits `d.InfoFile = '...';` when `infoFile` is present in config
 
 **`DashboardEngine` changes:**
