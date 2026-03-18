@@ -203,8 +203,40 @@ classdef GroupWidget < DashboardWidget
             end
         end
 
-        function switchTab(obj, tabName) %#ok<INUSD>
-            % Stub - will be implemented in tabbed mode task
+        function switchTab(obj, tabName)
+            if ~strcmp(obj.Mode, 'tabbed')
+                return;
+            end
+            idx = obj.findTab(tabName);
+            if idx == 0
+                return;
+            end
+            obj.ActiveTab = tabName;
+
+            % Update visibility of tab content panels
+            if ~isempty(obj.hChildPanels)
+                for i = 1:numel(obj.hChildPanels)
+                    if i == idx
+                        set(obj.hChildPanels{i}, 'Visible', 'on');
+                    else
+                        set(obj.hChildPanels{i}, 'Visible', 'off');
+                    end
+                end
+            end
+
+            % Update tab button appearance
+            if ~isempty(obj.hTabButtons)
+                theme = obj.getTheme();
+                activeBg = obj.getThemeField(theme, 'TabActiveBg', [0.20 0.20 0.25]);
+                inactiveBg = obj.getThemeField(theme, 'TabInactiveBg', [0.12 0.12 0.16]);
+                for i = 1:numel(obj.hTabButtons)
+                    if i == idx
+                        set(obj.hTabButtons{i}, 'BackgroundColor', activeBg);
+                    else
+                        set(obj.hTabButtons{i}, 'BackgroundColor', inactiveBg);
+                    end
+                end
+            end
         end
     end
 
@@ -294,8 +326,77 @@ classdef GroupWidget < DashboardWidget
             end
         end
 
-        function renderTabbedChildren(obj) %#ok<MANU>
-            % Stub - will be implemented in tabbed mode task
+        function renderTabbedChildren(obj)
+            theme = obj.getTheme();
+            activeBg = obj.getThemeField(theme, 'TabActiveBg', [0.20 0.20 0.25]);
+            inactiveBg = obj.getThemeField(theme, 'TabInactiveBg', [0.12 0.12 0.16]);
+            headerFg = obj.getThemeField(theme, 'GroupHeaderFg', [0.92 0.92 0.92]);
+
+            nTabs = numel(obj.Tabs);
+
+            if nTabs == 0
+                uicontrol(obj.hChildPanel, ...
+                    'Style', 'text', ...
+                    'String', '(no tabs)', ...
+                    'Units', 'normalized', ...
+                    'Position', [0.3 0.4 0.4 0.2], ...
+                    'HorizontalAlignment', 'center', ...
+                    'ForegroundColor', [0.5 0.5 0.5], ...
+                    'BackgroundColor', get(obj.hChildPanel, 'BackgroundColor'));
+                return;
+            end
+
+            % Create tab buttons in header
+            obj.hTabButtons = cell(1, nTabs);
+            tabWidth = min(0.15, 0.9 / nTabs);
+            for i = 1:nTabs
+                isActive = strcmp(obj.Tabs{i}.name, obj.ActiveTab);
+                if isActive
+                    bg = activeBg;
+                else
+                    bg = inactiveBg;
+                end
+                tabName = obj.Tabs{i}.name;
+                obj.hTabButtons{i} = uicontrol(obj.hHeader, ...
+                    'Style', 'pushbutton', ...
+                    'String', tabName, ...
+                    'Units', 'normalized', ...
+                    'Position', [0.02 + (i-1)*tabWidth 0 tabWidth 0.5], ...
+                    'FontSize', 9, ...
+                    'ForegroundColor', headerFg, ...
+                    'BackgroundColor', bg, ...
+                    'Callback', @(~,~) obj.switchTab(tabName));
+            end
+
+            % Create content panel per tab
+            obj.hChildPanels = cell(1, nTabs);
+            for i = 1:nTabs
+                isActive = strcmp(obj.Tabs{i}.name, obj.ActiveTab);
+                if isActive
+                    vis = 'on';
+                else
+                    vis = 'off';
+                end
+                tabPanel = uipanel(obj.hChildPanel, ...
+                    'Units', 'normalized', ...
+                    'Position', [0 0 1 1], ...
+                    'BorderType', 'none', ...
+                    'Visible', vis, ...
+                    'BackgroundColor', get(obj.hChildPanel, 'BackgroundColor'));
+                obj.hChildPanels{i} = tabPanel;
+
+                % Render tab's widgets
+                widgets = obj.Tabs{i}.widgets;
+                positions = obj.computeChildPositions(widgets);
+                for j = 1:numel(widgets)
+                    wp = uipanel(tabPanel, ...
+                        'Units', 'normalized', ...
+                        'Position', positions{j}, ...
+                        'BorderType', 'none');
+                    widgets{j}.ParentTheme = obj.getTheme();
+                    widgets{j}.render(wp);
+                end
+            end
         end
 
         function toggleCollapse(obj)

@@ -103,6 +103,56 @@ classdef TestGroupWidget < matlab.unittest.TestCase
             testCase.verifyTrue(strcmp(get(g.hChildPanel, 'Visible'), 'off'));
         end
 
+        function testTabbedModeAddChild(testCase)
+            g = GroupWidget('Label', 'Analysis', 'Mode', 'tabbed');
+            g.addChild(MockDashboardWidget('Title', 'W1'), 'Overview');
+            g.addChild(MockDashboardWidget('Title', 'W2'), 'Overview');
+            g.addChild(MockDashboardWidget('Title', 'W3'), 'Detail');
+
+            testCase.verifyLength(g.Tabs, 2);
+            testCase.verifyEqual(g.Tabs{1}.name, 'Overview');
+            testCase.verifyLength(g.Tabs{1}.widgets, 2);
+            testCase.verifyEqual(g.Tabs{2}.name, 'Detail');
+            testCase.verifyLength(g.Tabs{2}.widgets, 1);
+            testCase.verifyEqual(g.ActiveTab, 'Overview');
+        end
+
+        function testSwitchTab(testCase)
+            g = GroupWidget('Label', 'Analysis', 'Mode', 'tabbed');
+            g.addChild(MockDashboardWidget('Title', 'W1'), 'Overview');
+            g.addChild(MockDashboardWidget('Title', 'W2'), 'Detail');
+            testCase.verifyEqual(g.ActiveTab, 'Overview');
+            g.switchTab('Detail');
+            testCase.verifyEqual(g.ActiveTab, 'Detail');
+        end
+
+        function testTabbedModeRender(testCase)
+            g = GroupWidget('Label', 'Analysis', 'Mode', 'tabbed');
+            g.addChild(MockDashboardWidget('Title', 'W1'), 'Overview');
+            g.addChild(MockDashboardWidget('Title', 'W2'), 'Detail');
+
+            fig = figure('Visible', 'off');
+            cleanup = onCleanup(@() close(fig));
+            hp = uipanel(fig, 'Position', [0 0 1 1]);
+            g.ParentTheme = DashboardTheme('dark');
+            g.render(hp);
+
+            testCase.verifyNotEmpty(g.hTabButtons);
+            testCase.verifyLength(g.hTabButtons, 2);
+        end
+
+        function testZeroTabsRender(testCase)
+            g = GroupWidget('Label', 'Empty', 'Mode', 'tabbed');
+
+            fig = figure('Visible', 'off');
+            cleanup = onCleanup(@() close(fig));
+            hp = uipanel(fig, 'Position', [0 0 1 1]);
+            g.ParentTheme = DashboardTheme('dark');
+            g.render(hp);
+
+            testCase.verifyNotEmpty(g.hHeader);
+        end
+
         function testThemeHasGroupFields(testCase)
             presets = {'dark', 'light', 'industrial', 'scientific', 'ocean', 'default'};
             for i = 1:numel(presets)
