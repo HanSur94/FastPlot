@@ -222,7 +222,12 @@ classdef FastSenseWidget < DashboardWidget
                 switch s.source.type
                     case 'sensor'
                         if exist('SensorRegistry', 'class')
-                            obj.Sensor = SensorRegistry.get(s.source.name);
+                            try
+                                obj.Sensor = SensorRegistry.get(s.source.name);
+                            catch
+                                % Sensor not in registry; resolver will
+                                % bind it in configToWidgets if provided.
+                            end
                         end
                     case 'file'
                         obj.File = s.source.path;

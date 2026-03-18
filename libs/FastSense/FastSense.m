@@ -3249,10 +3249,39 @@ classdef FastSense < handle
             %
             %   See also FastSenseDock.
             vendorDir = fullfile(fileparts(mfilename('fullpath')), 'vendor', 'distFig');
-            if ~exist('distFig', 'file')
+            if exist(vendorDir, 'dir') && ~exist('distFig', 'file')
                 addpath(vendorDir);
             end
-            distFig(varargin{:});
+            if exist('distFig', 'file')
+                distFig(varargin{:});
+            else
+                % Built-in fallback: tile all figures in a grid
+                p = inputParser;
+                addParameter(p, 'Rows', 0);
+                addParameter(p, 'Cols', 0);
+                parse(p, varargin{:});
+                figs = sort(findobj(0, 'Type', 'figure'));
+                nFig = numel(figs);
+                if nFig == 0, return; end
+                nCols = p.Results.Cols;
+                nRows = p.Results.Rows;
+                if nCols == 0 && nRows == 0
+                    nCols = ceil(sqrt(nFig));
+                    nRows = ceil(nFig / nCols);
+                elseif nCols == 0
+                    nCols = ceil(nFig / nRows);
+                elseif nRows == 0
+                    nRows = ceil(nFig / nCols);
+                end
+                screenSz = get(0, 'ScreenSize');
+                w = screenSz(3) / nCols;
+                h = screenSz(4) / nRows;
+                for i = 1:nFig
+                    col = mod(i-1, nCols);
+                    row = floor((i-1) / nCols);
+                    set(figs(i), 'Position', [col*w, screenSz(4)-(row+1)*h, w, h]);
+                end
+            end
         end
     end
 end

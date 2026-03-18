@@ -64,9 +64,9 @@ d.addWidget('status', 'Position', [21 1 4 1], ...
     'Title', 'Manual Override', 'StaticStatus', 'ok');
 
 % --- Row 3+: FastSense widgets showing the underlying sensor data ---
-d.addWidget('fastsense', 'Position', [1  3 8 6], 'SensorObj', sTemp);
-d.addWidget('fastsense', 'Position', [9  3 8 6], 'SensorObj', sPress);
-d.addWidget('fastsense', 'Position', [17 3 8 6], 'SensorObj', sFlow);
+d.addWidget('fastsense', 'Position', [1  3 8 6], 'Sensor', sTemp);
+d.addWidget('fastsense', 'Position', [9  3 8 6], 'Sensor', sPress);
+d.addWidget('fastsense', 'Position', [17 3 8 6], 'Sensor', sFlow);
 
 %% 3. Render
 d.render();
