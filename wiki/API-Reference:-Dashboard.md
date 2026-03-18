@@ -669,3 +669,22 @@ SETLASTUPDATETIME Update the last-update label with a timestamp.
 
 #### `contentArea = getContentArea(obj)`
 
+---
+
+## `MarkdownRenderer` --- Lightweight Markdown-to-HTML converter.
+
+html = MarkdownRenderer.render(mdText)
+  html = MarkdownRenderer.render(mdText, themeName)
+
+  Converts a subset of Markdown to a self-contained HTML document.
+  Supported: headings (#-###), **bold**, *italic*, `inline code`,
+  fenced code blocks, [links](url), unordered/ordered lists,
+  horizontal rules (---), and paragraph breaks.
+
+  The optional themeName ('light', 'dark', etc.) controls the CSS
+  color scheme. Unrecognized themes default to 'light'.
+
+### Static Methods
+
+#### `MarkdownRenderer.html = render(mdText, themeName)`
+
