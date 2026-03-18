@@ -76,7 +76,7 @@ fp.addThreshold(4.5, 'Direction', 'upper', 'ShowViolations', true, ...
     'Label', 'Max Temp', 'Color', 'r');
 ```
 
-This approach draws a single shared threshold line and FastSense computes violation markers against **all lines** on the tile during rendering (see `updateViolations` in FastPlot.m).
+This approach draws a single shared threshold line and FastSense computes violation markers against **all lines** on the tile during rendering (see `updateViolations` in FastSense.m).
 
 ### 3. Event detection works per-sensor
 

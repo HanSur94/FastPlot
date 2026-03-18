@@ -19,7 +19,7 @@ demo_all;               % Interactive demo (keeps all plots open)
 |---------|--------|-------------|
 | `example_basic` | 10M | Noisy sine wave with upper/lower thresholds and warning levels. Shows basic FastSense workflow: addLine, addThreshold, render |
 | `example_multi` | 5x1M | Five sensor lines with shared thresholds. Demonstrates auto color cycling and multiple lines |
-| `example_100M` | 100M | Stress test with 100 million points (~800 MB). Proves FastPlot handles extreme datasets |
+| `example_100M` | 100M | Stress test with 100 million points (~800 MB). Proves FastSense handles extreme datasets |
 
 ## Layouts and Dashboards
 

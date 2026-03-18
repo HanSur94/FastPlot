@@ -10,8 +10,8 @@ FastPlot uses a render-once, re-downsample-on-zoom architecture. Instead of push
 FastPlot/
 ├── setup.m                        # Path setup + MEX compilation
 ├── libs/
-│   ├── FastPlot/                  # Core plotting engine
-│   │   ├── FastPlot.m             # Main class
+│   ├── FastSense/                 # Core plotting engine
+│   │   ├── FastSense.m            # Main class
 │   │   ├── FastSenseGrid.m       # Dashboard layout
 │   │   ├── FastSenseDock.m         # Tabbed container
 │   │   ├── FastSenseToolbar.m      # Interactive toolbar

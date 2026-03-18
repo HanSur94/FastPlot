@@ -89,6 +89,8 @@ d.removeWidget(3);  % remove the full-view temperature widget
 fprintf('removeWidget: removed widget 3 (full-view temperature).\n');
 
 %% 6. Load from JSON (demonstrates roundtrip)
+% Loads the original 3-widget layout saved in step 3, before the
+% removeWidget/setWidgetPosition mutations above.
 % SensorResolver maps sensor keys back to Sensor objects for the loaded config
 sensorMap = containers.Map({'T-401', 'P-201'}, {sTemp, sPress});
 d2 = DashboardEngine.load(jsonPath, 'SensorResolver', @(key) sensorMap(key));
