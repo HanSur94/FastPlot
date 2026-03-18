@@ -75,29 +75,7 @@ classdef DashboardSerializer
             widgets = cell(1, numel(config.widgets));
             for i = 1:numel(config.widgets)
                 ws = config.widgets{i};
-                switch ws.type
-                    case 'fastsense'
-                        widgets{i} = FastSenseWidget.fromStruct(ws);
-                    case 'number'
-                        widgets{i} = NumberWidget.fromStruct(ws);
-                    case 'kpi'
-                        widgets{i} = NumberWidget.fromStruct(ws);
-                    case 'status'
-                        widgets{i} = StatusWidget.fromStruct(ws);
-                    case 'text'
-                        widgets{i} = TextWidget.fromStruct(ws);
-                    case 'gauge'
-                        widgets{i} = GaugeWidget.fromStruct(ws);
-                    case 'table'
-                        widgets{i} = TableWidget.fromStruct(ws);
-                    case 'rawaxes'
-                        widgets{i} = RawAxesWidget.fromStruct(ws);
-                    case 'timeline'
-                        widgets{i} = EventTimelineWidget.fromStruct(ws);
-                    otherwise
-                        warning('DashboardSerializer:unknownType', ...
-                            'Unknown widget type: %s — skipping', ws.type);
-                end
+                widgets{i} = DashboardSerializer.createWidgetFromStruct(ws);
                 % Resolve sensor binding using resolver
                 if ~isempty(resolver) && ~isempty(widgets{i}) && ...
                         isfield(ws, 'source') && strcmp(ws.source.type, 'sensor')
@@ -111,6 +89,36 @@ classdef DashboardSerializer
             end
             % Filter out empty cells from unknown/skipped widget types
             widgets = widgets(~cellfun('isempty', widgets));
+        end
+
+        function w = createWidgetFromStruct(ws)
+            %CREATEWIDGETFROMSTRUCT Create a single widget from a struct.
+            w = [];
+            switch ws.type
+                case 'fastsense'
+                    w = FastSenseWidget.fromStruct(ws);
+                case 'number'
+                    w = NumberWidget.fromStruct(ws);
+                case 'kpi'
+                    w = NumberWidget.fromStruct(ws);
+                case 'status'
+                    w = StatusWidget.fromStruct(ws);
+                case 'text'
+                    w = TextWidget.fromStruct(ws);
+                case 'gauge'
+                    w = GaugeWidget.fromStruct(ws);
+                case 'table'
+                    w = TableWidget.fromStruct(ws);
+                case 'rawaxes'
+                    w = RawAxesWidget.fromStruct(ws);
+                case 'timeline'
+                    w = EventTimelineWidget.fromStruct(ws);
+                case 'group'
+                    w = GroupWidget.fromStruct(ws);
+                otherwise
+                    warning('DashboardSerializer:unknownType', ...
+                        'Unknown widget type: %s — skipping', ws.type);
+            end
         end
 
         function exportScript(config, filepath)
@@ -215,6 +223,12 @@ classdef DashboardSerializer
                             elseif strcmp(ws.source.type, 'static')
                                 line = [line, sprintf(', ...\n    ''StaticValue'', %g', ws.source.value)];
                             end
+                        end
+                        lines{end+1} = [line, ');'];
+                    case 'group'
+                        line = sprintf('d.addWidget(''group'', ''Label'', ''%s'', ''Position'', %s', ws.label, pos);
+                        if isfield(ws, 'mode') && ~isempty(ws.mode)
+                            line = [line, sprintf(', ...\n    ''Mode'', ''%s''', ws.mode)];
                         end
                         lines{end+1} = [line, ');'];
                     otherwise

@@ -397,6 +397,33 @@ html, body {
     to   { opacity: 0; transform: translateY(12px); }
 }
 
+/* --- Group Widget ------------------------------------------ */
+.widget-group-header {
+    padding: 6px 12px;
+    font-weight: bold;
+    font-size: 13px;
+    border-radius: 4px 4px 0 0;
+}
+.widget-group-toggle {
+    margin-right: 8px;
+}
+.widget-group-tabbar {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: 16px;
+}
+.widget-group-tab {
+    padding: 3px 12px;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    border-radius: 3px 3px 0 0;
+    opacity: 0.6;
+}
+.widget-group-tab.active {
+    opacity: 1.0;
+}
+
 /* --- Responsive -------------------------------------------- */
 @media (max-width: 900px) {
     :root { --grid-cols: 6; }

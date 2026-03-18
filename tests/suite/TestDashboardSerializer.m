@@ -79,6 +79,18 @@ classdef TestDashboardSerializer < matlab.unittest.TestCase
             testCase.verifyEqual(widgets{1}.Title, 'Temp');
         end
 
+        function testSerializerRoundTrip(testCase)
+            g = GroupWidget('Label', 'Motors', 'Mode', 'panel');
+            g.Position = [1 1 12 4];
+            g.addChild(TextWidget('Title', 'RPM'));
+
+            s = g.toStruct();
+            w = DashboardSerializer.createWidgetFromStruct(s);
+            testCase.verifyClass(w, 'GroupWidget');
+            testCase.verifyEqual(w.Label, 'Motors');
+            testCase.verifyLength(w.Children, 1);
+        end
+
         function testExportScript(testCase)
             config = struct();
             config.name = 'Export Test';
