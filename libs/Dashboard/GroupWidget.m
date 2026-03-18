@@ -172,12 +172,35 @@ classdef GroupWidget < DashboardWidget
                 'width', obj.Position(3), 'height', obj.Position(4));
         end
 
-        function collapse(obj) %#ok<MANU>
-            % Stub - will be implemented in collapsible mode task
+        function collapse(obj)
+            if ~strcmp(obj.Mode, 'collapsible')
+                return;
+            end
+            if obj.Collapsed
+                return;
+            end
+            obj.ExpandedHeight = obj.Position(4);
+            obj.Position(4) = 1;
+            obj.Collapsed = true;
+            if ~isempty(obj.hChildPanel) && ishandle(obj.hChildPanel)
+                set(obj.hChildPanel, 'Visible', 'off');
+            end
         end
 
-        function expand(obj) %#ok<MANU>
-            % Stub - will be implemented in collapsible mode task
+        function expand(obj)
+            if ~strcmp(obj.Mode, 'collapsible')
+                return;
+            end
+            if ~obj.Collapsed
+                return;
+            end
+            if ~isempty(obj.ExpandedHeight)
+                obj.Position(4) = obj.ExpandedHeight;
+            end
+            obj.Collapsed = false;
+            if ~isempty(obj.hChildPanel) && ishandle(obj.hChildPanel)
+                set(obj.hChildPanel, 'Visible', 'on');
+            end
         end
 
         function switchTab(obj, tabName) %#ok<INUSD>

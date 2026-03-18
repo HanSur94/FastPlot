@@ -63,6 +63,46 @@ classdef TestGroupWidget < matlab.unittest.TestCase
             testCase.verifyNotEmpty(g.Children{2}.hPanel);
         end
 
+        function testCollapsibleModeConstruction(testCase)
+            g = GroupWidget('Label', 'Test', 'Mode', 'collapsible');
+            testCase.verifyEqual(g.Mode, 'collapsible');
+            testCase.verifyEqual(g.Collapsed, false);
+        end
+
+        function testCollapseChangesPosition(testCase)
+            g = GroupWidget('Label', 'Test', 'Mode', 'collapsible');
+            g.Position = [1 1 12 4];
+            g.collapse();
+            testCase.verifyEqual(g.Collapsed, true);
+            testCase.verifyEqual(g.Position(4), 1);
+            testCase.verifyEqual(g.ExpandedHeight, 4);
+        end
+
+        function testExpandRestoresPosition(testCase)
+            g = GroupWidget('Label', 'Test', 'Mode', 'collapsible');
+            g.Position = [1 1 12 4];
+            g.collapse();
+            g.expand();
+            testCase.verifyEqual(g.Collapsed, false);
+            testCase.verifyEqual(g.Position(4), 4);
+        end
+
+        function testCollapseRenderHidesChildren(testCase)
+            g = GroupWidget('Label', 'Test', 'Mode', 'collapsible');
+            g.addChild(MockDashboardWidget('Title', 'W1'));
+            g.Position = [1 1 12 4];
+
+            fig = figure('Visible', 'off');
+            cleanup = onCleanup(@() close(fig));
+            hp = uipanel(fig, 'Position', [0 0 1 1]);
+            g.ParentTheme = DashboardTheme('dark');
+            g.render(hp);
+
+            testCase.verifyTrue(strcmp(get(g.hChildPanel, 'Visible'), 'on'));
+            g.collapse();
+            testCase.verifyTrue(strcmp(get(g.hChildPanel, 'Visible'), 'off'));
+        end
+
         function testThemeHasGroupFields(testCase)
             presets = {'dark', 'light', 'industrial', 'scientific', 'ocean', 'default'};
             for i = 1:numel(presets)
