@@ -11,14 +11,51 @@ permissions:
   pull-requests: write
 
 jobs:
-  benchmark:
-    name: Performance Benchmark
+  build-mex:
+    name: Build MEX
     runs-on: ubuntu-latest
+    container: gnuoctave/octave:8.4.0
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Octave and Xvfb
-        run: sudo apt-get update && sudo apt-get install -y octave octave-dev xvfb
+      - name: Cache MEX binaries
+        id: cache-mex
+        uses: actions/cache@v4
+        with:
+          path: |
+            libs/FastSense/private/*.mex
+            libs/SensorThreshold/private/*.mex
+            libs/FastSense/mksqlite.mex
+          key: mex-linux-${{ hashFiles('libs/FastSense/private/mex_src/**', 'libs/FastSense/build_mex.m') }}
+
+      - name: Compile MEX files
+        if: steps.cache-mex.outputs.cache-hit != 'true'
+        run: octave --eval "setup();"
+
+      - name: Upload MEX artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mex-linux-bench
+          path: |
+            libs/FastSense/private/*.mex
+            libs/SensorThreshold/private/*.mex
+            libs/FastSense/mksqlite.mex
+          retention-days: 1
+
+  benchmark:
+    name: Performance Benchmark
+    needs: build-mex
+    runs-on: ubuntu-latest
+    container: gnuoctave/octave:8.4.0
+    env:
+      FASTSENSE_SKIP_BUILD: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download MEX binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: mex-linux-bench
 
       - name: Run benchmark
         run: |
@@ -26,22 +63,19 @@ jobs:
             addpath(pwd); setup();
             addpath(fullfile(pwd, 'libs', 'FastSense', 'private'));
 
-            % Quick benchmark: 1M points, 10 zooms
             n = 1e6;
             x = linspace(0, 100, n);
             y = sin(x * 2*pi / 10) + 0.5 * randn(1, n);
 
-            % Measure downsampling
             tic;
             for i = 1:100
               minmax_downsample(x, y, 2000);
             end
             t_ds = toc / 100;
 
-            % Measure binary search
             tic;
             for i = 1:1000
-              binary_search(x, 20, 80);
+              binary_search(x, 20, 'left');
             end
             t_bs = toc / 1000;
 
@@ -61,7 +95,6 @@ jobs:
             t_zoom = toc / 20;
             close all force;
 
-            % Write results as JSON (customSmallerIsBetter format)
             fid = fopen('benchmark-results.json', 'w');
             fprintf(fid, '[\n');
             fprintf(fid, '  {\"name\": \"Downsample (1M pts)\", \"unit\": \"ms\", \"value\": %.2f},\n', t_ds * 1000);
@@ -75,6 +108,9 @@ jobs:
             fprintf('Binary search: %.2f us\n', t_bs * 1e6);
             fprintf('Zoom cycle:    %.2f ms\n', t_zoom * 1000);
           "
+
+      - name: Fix git ownership
+        run: git config --global --add safe.directory /__w/FastSense/FastSense
 
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1

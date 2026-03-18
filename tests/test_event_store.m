@@ -53,7 +53,7 @@ function test_event_store()
         EventViewer.fromFile('/tmp/nonexistent_event_store.mat');
     catch e
         threw = true;
-        assert(contains(e.identifier, 'fileNotFound'), 'fromFile: correct error id');
+        assert(~isempty(strfind(e.identifier, 'fileNotFound')), 'fromFile: correct error id');
     end
     assert(threw, 'fromFile: throws on missing file');
 

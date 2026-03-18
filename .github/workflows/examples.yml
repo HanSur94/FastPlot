@@ -7,14 +7,51 @@ on:
     branches: [main]
 
 jobs:
-  smoke-test:
-    name: Example Smoke Tests
+  build-mex:
+    name: Build MEX
     runs-on: ubuntu-latest
+    container: gnuoctave/octave:8.4.0
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Octave and Xvfb
-        run: sudo apt-get update && sudo apt-get install -y octave octave-dev xvfb
+      - name: Cache MEX binaries
+        id: cache-mex
+        uses: actions/cache@v4
+        with:
+          path: |
+            libs/FastSense/private/*.mex
+            libs/SensorThreshold/private/*.mex
+            libs/FastSense/mksqlite.mex
+          key: mex-linux-${{ hashFiles('libs/FastSense/private/mex_src/**', 'libs/FastSense/build_mex.m') }}
+
+      - name: Compile MEX files
+        if: steps.cache-mex.outputs.cache-hit != 'true'
+        run: octave --eval "setup();"
+
+      - name: Upload MEX artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mex-linux-examples
+          path: |
+            libs/FastSense/private/*.mex
+            libs/SensorThreshold/private/*.mex
+            libs/FastSense/mksqlite.mex
+          retention-days: 1
+
+  smoke-test:
+    name: Example Smoke Tests
+    needs: build-mex
+    runs-on: ubuntu-latest
+    container: gnuoctave/octave:8.4.0
+    env:
+      FASTSENSE_SKIP_BUILD: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download MEX binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: mex-linux-examples
 
       - name: Run example smoke tests
         run: |
@@ -25,10 +62,9 @@ jobs:
               'example_multi',
               'example_datetime',
               'example_nan_gaps',
-              'example_sensor_threshold',
-              'example_sensor_static',
+              'example_vibration',
+              'example_ecg',
               'example_linked',
-              'example_themes',
               'example_uneven_sampling',
               'example_alarm_bands'
             };

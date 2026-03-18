@@ -1,4 +1,4 @@
-classdef (Abstract) DataSource < handle
+classdef DataSource < handle
     % DataSource  Abstract interface for fetching new sensor data.
     %
     %   Subclasses must implement fetchNew() which returns a struct:
@@ -8,8 +8,10 @@ classdef (Abstract) DataSource < handle
     %     .stateY  — 1xK state values (empty if none)
     %     .changed — logical, true if new data since last call
 
-    methods (Abstract)
-        result = fetchNew(obj)
+    methods
+        function result = fetchNew(obj) %#ok<STOUT>
+            error('DataSource:abstract', 'fetchNew must be implemented by subclass');
+        end
     end
 
     methods (Static)
