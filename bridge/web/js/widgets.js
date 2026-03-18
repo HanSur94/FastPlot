@@ -17,6 +17,7 @@ var Widgets = (function () {
             case "text":     return renderText(config, bodyEl);
             case "timeline": return renderTimeline(config, bodyEl);
             case "rawaxes":  return renderRawAxes(config, bodyEl);
+            case "group":    return renderGroup(config, bodyEl);
             default:
                 bodyEl.textContent = "Unknown widget type: " + type;
         }
@@ -229,6 +230,100 @@ var Widgets = (function () {
             '</div>';
     }
 
+    /* --- Group --------------------------------------------- */
+    function renderGroup(config, container) {
+        var mode = config.mode || 'panel';
+        var label = config.label || '';
+
+        // Header
+        if (label) {
+            var header = document.createElement('div');
+            header.className = 'widget-group-header';
+            header.textContent = label;
+
+            if (mode === 'collapsible') {
+                var toggle = document.createElement('span');
+                toggle.className = 'widget-group-toggle';
+                toggle.textContent = config.collapsed ? '>' : 'v';
+                header.insertBefore(toggle, header.firstChild);
+                header.style.cursor = 'pointer';
+                header.addEventListener('click', function() {
+                    var content = container.querySelector('.widget-group-content');
+                    var isCollapsed = content.style.display === 'none';
+                    content.style.display = isCollapsed ? 'grid' : 'none';
+                    toggle.textContent = isCollapsed ? 'v' : '>';
+                });
+            }
+
+            if (mode === 'tabbed' && config.tabs && config.tabs.length > 0) {
+                var tabBar = document.createElement('div');
+                tabBar.className = 'widget-group-tabbar';
+                config.tabs.forEach(function(tab, idx) {
+                    var tabBtn = document.createElement('button');
+                    tabBtn.className = 'widget-group-tab';
+                    if (tab.name === config.activeTab) {
+                        tabBtn.classList.add('active');
+                    }
+                    tabBtn.textContent = tab.name;
+                    tabBtn.addEventListener('click', function() {
+                        var panels = container.querySelectorAll('.widget-group-tabpanel');
+                        panels.forEach(function(p) { p.style.display = 'none'; });
+                        panels[idx].style.display = 'grid';
+                        tabBar.querySelectorAll('.widget-group-tab').forEach(function(b) {
+                            b.classList.remove('active');
+                        });
+                        tabBtn.classList.add('active');
+                    });
+                    tabBar.appendChild(tabBtn);
+                });
+                header.appendChild(tabBar);
+            }
+
+            container.appendChild(header);
+        }
+
+        // Content
+        if (mode === 'tabbed' && config.tabs) {
+            config.tabs.forEach(function(tab, idx) {
+                var tabPanel = document.createElement('div');
+                tabPanel.className = 'widget-group-tabpanel widget-group-content';
+                tabPanel.style.display = (tab.name === config.activeTab) ? 'grid' : 'none';
+                tabPanel.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+                tabPanel.style.gap = '8px';
+                tabPanel.style.padding = '8px';
+
+                (tab.widgets || []).forEach(function(wCfg) {
+                    var wEl = document.createElement('div');
+                    wEl.className = 'widget';
+                    var wBody = document.createElement('div');
+                    wBody.className = 'widget-body';
+                    wEl.appendChild(wBody);
+                    render(wCfg, wBody);
+                    tabPanel.appendChild(wEl);
+                });
+                container.appendChild(tabPanel);
+            });
+        } else {
+            var content = document.createElement('div');
+            content.className = 'widget-group-content';
+            content.style.display = config.collapsed ? 'none' : 'grid';
+            content.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+            content.style.gap = '8px';
+            content.style.padding = '8px';
+
+            (config.children || []).forEach(function(childCfg) {
+                var wEl = document.createElement('div');
+                wEl.className = 'widget';
+                var wBody = document.createElement('div');
+                wBody.className = 'widget-body';
+                wEl.appendChild(wBody);
+                render(childCfg, wBody);
+                content.appendChild(wEl);
+            });
+            container.appendChild(content);
+        }
+    }
+
     /* --- helpers ------------------------------------------- */
     function formatNumber(v) {
         if (v == null) return "--";
@@ -239,5 +334,5 @@ var Widgets = (function () {
         return v.toFixed(2);
     }
 
-    return { render: render };
+    return { render: render, renderGroup: renderGroup };
 })();
