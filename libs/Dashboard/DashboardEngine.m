@@ -90,6 +90,8 @@ classdef DashboardEngine < handle
                             'Timeline widget "%s" has no data source. Bind via EventStoreObj.', ...
                             w.Title);
                     end
+                case 'group'
+                    w = GroupWidget(varargin{:});
                 otherwise
                     error('DashboardEngine:unknownType', ...
                         'Unknown widget type: %s', type);
@@ -563,6 +565,7 @@ classdef DashboardEngine < handle
                 'text',        'Static text block (TextWidget)'
                 'timeline',    'Event timeline display (EventTimelineWidget)'
                 'rawaxes',     'Raw MATLAB axes for custom plotting (RawAxesWidget)'
+                'group',       'Widget container with panel/collapsible/tabbed modes (GroupWidget)'
             };
         end
 

@@ -120,6 +120,13 @@ classdef TestDashboardEngine < matlab.unittest.TestCase
             testCase.verifyEqual(d.Widgets{1}.Sensor, s);
         end
 
+        function testEngineAddGroupWidget(testCase)
+            d = DashboardEngine('TestDash', 'Theme', 'dark');
+            d.addWidget('group', 'Label', 'Motor Health');
+            testCase.verifyLength(d.Widgets, 1);
+            testCase.verifyClass(d.Widgets{1}, 'GroupWidget');
+        end
+
         function testCloseDeletesTimer(testCase)
             d = DashboardEngine('Timer Cleanup');
             d.LiveInterval = 1;
