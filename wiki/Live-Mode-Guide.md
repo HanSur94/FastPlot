@@ -1,6 +1,8 @@
+<!-- AUTO-GENERATED from source code by scripts/generate_wiki.py — do not edit manually -->
+
 # Live Mode Guide
 
-FastPlot supports live data visualization by polling a .mat file for updates and auto-refreshing the display. Live mode works with single plots, tiled dashboards, and tabbed docks.
+FastSense supports live data visualization by polling a .mat file for updates and auto-refreshing the display. Live mode works with single plots, tiled dashboards, and tabbed docks.
 
 ---
 
@@ -110,35 +112,43 @@ fp.startLive('data.mat', @updateFcn, ...
     'MetadataVars', {'units', 'calibration'});
 ```
 
+The metadata is loaded from a separate file and attached to the specified line and tile:
+
+```matlab
+fig.MetadataFile = 'metadata.mat';
+fig.MetadataVars = {'sensor_id', 'location', 'units'};
+fig.MetadataLineIndex = 1;   % which line within the tile
+fig.MetadataTileIndex = 1;   % which tile to attach to
+```
+
 ---
 
 ## Live Event Detection
 
-Combine live mode with event detection for real-time monitoring:
+Combine live mode with event detection for real-time monitoring using the LiveEventPipeline:
 
 ```matlab
-% Create sensor and resolve
-s = Sensor('pressure', 'Name', 'Pressure');
-s.X = x; s.Y = y;
-sc = StateChannel('machine');
-sc.X = [0 30 60]; sc.Y = [0 1 2];
-s.addStateChannel(sc);
-s.addThresholdRule(struct('machine', 1), 70, 'Direction', 'upper', 'Label', 'Run HI');
-s.resolve();
+% Create sensors with thresholds
+tempSensor = Sensor('temperature', 'Name', 'Temperature');
+tempSensor.addThresholdRule(struct(), 78, 'Direction', 'upper', 'Label', 'Hi Warn');
+tempSensor.addThresholdRule(struct(), 82, 'Direction', 'upper', 'Label', 'Hi Alarm');
+tempSensor.resolve();
 
-% Configure event detection with live logging
-cfg = EventConfig();
-cfg.MinDuration = 0.5;
-cfg.OnEventStart = eventLogger();
-cfg.addSensor(s);
+sensors = containers.Map();
+sensors('temperature') = tempSensor;
 
-% Plot
-fp = FastSense('Theme', 'dark');
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
+% Configure data sources
+dsMap = DataSourceMap();
+dsMap.add('temperature', MockDataSource('BaseValue', 70, 'NoiseStd', 2));
 
-% Start live polling
-fp.startLive('pressure_data.mat', @(fp, data) updateWithDetection(fp, data, cfg));
+% Set up pipeline with event store
+pipeline = LiveEventPipeline(sensors, dsMap, ...
+    'EventFile', 'events.mat', ...
+    'Interval', 15, ...
+    'MinDuration', 0.5);
+
+% Start live event detection
+pipeline.start();
 ```
 
 ---
@@ -179,7 +189,7 @@ fig.refresh();
 
 ## Toolbar Integration
 
-The FastSenseToolbar provides a Live Mode button:
+The [[FastSenseToolbar|API Reference: FastSenseToolbar]] provides a Live Mode button:
 
 ```matlab
 tb = FastSenseToolbar(fp);
@@ -195,6 +205,22 @@ tb.refresh();
 
 ---
 
+## Console Progress Bars
+
+Use ConsoleProgressBar for visual feedback during long operations:
+
+```matlab
+pb = ConsoleProgressBar(2);   % 2-space indent
+pb.start();
+for k = 1:8
+    pb.update(k, 8, 'Tile 1');
+    pause(0.1);
+end
+pb.freeze();   % becomes permanent line
+```
+
+---
+
 ## Tips
 
 - Set `'ViewMode', 'follow'` for monitoring use cases where you always want to see the latest data
@@ -202,6 +228,7 @@ tb.refresh();
 - Keep polling interval reasonable (1-5 seconds) to avoid overwhelming the file system
 - The .mat file should be written atomically (write to temp file, then rename) to avoid partial reads
 - Live mode works with linked axes — all linked plots update together
+- Use `DeferDraw = true` to skip drawnow during batch render for better performance
 
 ---
 
@@ -210,4 +237,4 @@ tb.refresh();
 - [[API Reference: FastPlot]] — startLive(), stopLive(), updateData() methods
 - [[API Reference: Dashboard]] — Dashboard live mode
 - [[API Reference: Event Detection]] — Live event detection
-- [[Examples]] — example_event_detection_live.m
+- [[Examples]] — example_dashboard_live.m, example_live_pipeline.m

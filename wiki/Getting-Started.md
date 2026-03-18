@@ -1,12 +1,17 @@
+<!-- AUTO-GENERATED from source code by scripts/generate_wiki.py — do not edit manually -->
+
 # Getting Started
 
-A step-by-step tutorial introducing FastPlot's core features.
+A step-by-step tutorial introducing FastSense's core features for ultra-fast time series plotting.
 
 ## 1. Your First Plot
 
 ```matlab
-setup;
+% Set up the library
+projectRoot = fileparts(fileparts(mfilename('fullpath')));
+run(fullfile(projectRoot, 'install.m'));
 
+% Create a 10 million point dataset
 fp = FastSense();
 x = linspace(0, 100, 1e7);  % 10 million points
 y = sin(x) + 0.1 * randn(size(x));
@@ -14,7 +19,7 @@ fp.addLine(x, y, 'DisplayName', 'Noisy Sine');
 fp.render();
 ```
 
-Try zooming and panning — FastSense re-downsamples in real time, keeping the display responsive regardless of dataset size.
+Try zooming and panning — FastSense automatically downsamples data to screen resolution in real time, keeping the display responsive regardless of dataset size.
 
 ## 2. Themes
 
@@ -24,7 +29,7 @@ fp.addLine(x, y, 'DisplayName', 'Sensor');
 fp.render();
 ```
 
-Available presets: 'default', 'dark', 'light', 'industrial', 'scientific', 'ocean'. See [[API Reference: Themes]] for customization.
+Available presets: 'default', 'dark', 'light', 'industrial', 'scientific', 'ocean'. See [[API Reference: Themes]] for customization options.
 
 ## 3. Thresholds and Violations
 
@@ -48,26 +53,26 @@ fp.addLine(x, sin(2*x) * 0.5, 'DisplayName', 'Channel C');
 fp.render();
 ```
 
-Colors auto-cycle from the theme's palette.
+Colors auto-cycle from the theme's palette. Use `resetColorIndex()` to restart the color sequence.
 
 ## 5. Visual Annotations
 
-### Bands (horizontal alarm zones)
+### Horizontal Bands (alarm zones)
 ```matlab
 fp.addBand(0.8, 1.0, 'FaceColor', [1 0.3 0.3], 'FaceAlpha', 0.15, 'Label', 'High Alarm');
 ```
 
-### Shaded regions (between curves)
+### Shaded Regions (between curves)
 ```matlab
 fp.addShaded(x, y+0.5, y-0.5, 'FaceColor', [0.3 0.7 1], 'FaceAlpha', 0.2, 'DisplayName', 'Envelope');
 ```
 
-### Area fills
+### Area Fills
 ```matlab
 fp.addFill(x, abs(y), 'FaceColor', [0 0.5 1], 'Baseline', 0, 'DisplayName', 'Energy');
 ```
 
-### Event markers
+### Event Markers
 ```matlab
 fp.addMarker([10 30 70], [0.9 0.9 0.9], 'Marker', 'v', 'MarkerSize', 10, 'Color', [1 0 0], 'Label', 'Events');
 ```
@@ -81,15 +86,15 @@ fig.setTileSpan(1, [1 2]);  % top tile spans full width
 fp1 = fig.tile(1);
 fp1.addLine(x, sin(x)*50+50, 'DisplayName', 'Pressure');
 fp1.addBand(90, 100, 'FaceColor', [1 0 0], 'FaceAlpha', 0.12, 'Label', 'Alarm');
-fig.tileTitle(1, 'Pressure');
+fig.setTileTitle(1, 'Pressure');
 
 fp2 = fig.tile(2);
 fp2.addLine(x, cos(x)*20+60, 'DisplayName', 'Temperature');
-fig.tileTitle(2, 'Temperature');
+fig.setTileTitle(2, 'Temperature');
 
 fp3 = fig.tile(3);
 fp3.addLine(x, randn(size(x)), 'DisplayName', 'Vibration');
-fig.tileTitle(3, 'Vibration');
+fig.setTileTitle(3, 'Vibration');
 
 fig.renderAll();
 ```
@@ -129,34 +134,28 @@ fp.addLine(x, y, 'XType', 'datenum', 'DisplayName', 'Daily Cycle');
 fp.render();
 ```
 
-## 10. Sensor System
+## 10. Logarithmic Axes
 
 ```matlab
-s = Sensor('pressure', 'Name', 'Chamber Pressure');
-s.X = linspace(0, 100, 1e6);
-s.Y = randn(1, 1e6) * 10 + 50;
+% Exponential growth data
+n2 = 1e6;
+x2 = linspace(1, 1000, n2);
+y2 = exp(x2 / 200) .* (1 + 0.1 * randn(1, n2));
 
-sc = StateChannel('machine');
-sc.X = [0 30 60 80]; sc.Y = [0 1 2 1];
-s.addStateChannel(sc);
-s.addThresholdRule(struct('machine', 1), 70, 'Direction', 'upper', 'Label', 'Run HI');
-s.addThresholdRule(struct('machine', 2), 55, 'Direction', 'upper', 'Label', 'Boost HI');
-s.resolve();
-
-fp = FastSense('Theme', 'industrial');
-fp.addSensor(s, 'ShowThresholds', true);
-fp.render();
+fp2 = FastSense();
+fp2.addLine(x2, y2, 'DisplayName', 'Exponential Growth');
+fp2.setScale('YScale', 'log');
+fp2.render();
 ```
 
-## 11. Event Detection
+Use `setScale('XScale', 'log')` for logarithmic X-axis or both together.
+
+## 11. Updating Data
 
 ```matlab
-det = EventDetector('MinDuration', 0.5);
-events = detectEventsFromSensor(s, det);
-printEventSummary(events);
-
-sensorData = struct('name', 'pressure', 't', s.X, 'y', s.Y);
-viewer = EventViewer(events, sensorData);
+% Replace line data on an already-rendered plot
+newY = cos(x * 2*pi/15) + 0.4*randn(size(x));
+fp.updateData(1, x, newY);
 ```
 
 ## 12. Downsampling Methods
@@ -175,12 +174,31 @@ fp.addLine(x, y1, 'DownsampleMethod', 'minmax', 'DisplayName', 'MinMax');
 fp.addLine(x, y2, 'DownsampleMethod', 'lttb', 'DisplayName', 'LTTB');
 ```
 
+## 13. Live Mode
+
+```matlab
+% Start live mode to auto-refresh from a .mat file
+fp.startLive('data.mat', @(fp, s) fp.updateData(1, s.x, s.y), 'Interval', 1);
+```
+
+The callback is triggered whenever the file's modification date changes.
+
+## 14. Figure Distribution
+
+```matlab
+% Auto-arrange all open figures on screen
+FastSense.distFig();
+
+% Or use specific grid dimensions
+FastSense.distFig('Rows', 2, 'Cols', 3);
+```
+
 ## Next Steps
 
-- [[API Reference: FastPlot]] — full constructor options, properties, methods
-- [[API Reference: Dashboard]] — tiled and tabbed layouts
-- [[API Reference: Sensors]] — state-dependent thresholds
-- [[API Reference: Event Detection]] — event detection and viewer
+- [[FastPlot|API Reference: FastPlot]] — full constructor options, properties, methods
+- [[Dashboard|API Reference: Dashboard]] — tiled and tabbed layouts
+- [[Sensors|API Reference: Sensors]] — state-dependent thresholds
+- [[Event Detection|API Reference: Event Detection]] — event detection and viewer
 - [[Live Mode Guide]] — live data polling
 - [[Datetime Guide]] — datetime axes
 - [[Dashboard Engine Guide]] — DashboardEngine + DashboardBuilder

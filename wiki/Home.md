@@ -1,8 +1,8 @@
+<!-- AUTO-GENERATED from source code by scripts/generate_wiki.py — do not edit manually -->
+
 # FastPlot
 
-Ultra-fast time series plotting for MATLAB and GNU Octave.
-
-FastPlot enables fluid interactive visualization of massive datasets (1K to 100M+ points). It dynamically downsamples data to screen resolution on every zoom/pan interaction, rendering only ~4,000 points regardless of dataset size. This eliminates GPU memory bottlenecks and keeps the UI responsive at 200+ FPS.
+Ultra-fast time series plotting for MATLAB and GNU Octave with dynamic downsampling, sensor monitoring, and dashboard layouts.
 
 ## Key Metrics
 
@@ -13,25 +13,31 @@ FastPlot enables fluid interactive visualization of massive datasets (1K to 100M
 | GPU memory (10M pts) | 0.06 MB vs 153 MB for plot() |
 | Implementation | Pure MATLAB + optional C MEX (AVX2/NEON SIMD) |
 
+## Library Components
+
+FastPlot consists of five integrated libraries:
+
+| Library | Description |
+|---------|-------------|
+| **FastSense** | Core plotting engine with dynamic downsampling, dashboard layouts (FastSenseGrid, FastSenseDock), interactive toolbar, themes, and disk-backed storage via FastSenseDataStore |
+| **SensorThreshold** | Sensor data containers with state-dependent threshold rules, violation detection, and SensorRegistry catalog |
+| **EventDetection** | Event detection from threshold violations, EventViewer with Gantt timeline, live pipeline with notifications |
+| **Dashboard** | Widget-based dashboard engine with 8 widget types, 24-column responsive grid, edit mode, and JSON persistence |
+| **WebBridge** | TCP server for web-based visualization with NDJSON protocol |
+
 ## Features
 
 - **Smart downsampling** — per-pixel MinMax and LTTB algorithms, auto-selected per zoom level
-- **Lazy pyramid cache** — multi-resolution pre-computation for instant zoom-out on 50M+ datasets
+- **Pyramid cache** — multi-resolution pre-computation for instant zoom-out on 50M+ datasets  
 - **MEX acceleration** — optional C with SIMD (AVX2/NEON), auto-fallback to pure MATLAB
 - **Dashboard layouts** — tiled grids (FastSenseGrid) and tabbed containers (FastSenseDock)
 - **Interactive toolbar** — data cursor, crosshair, grid/legend toggle, autoscale, PNG export
-- **6 built-in themes** — default, dark, light, industrial, scientific, ocean (with colorblind palette)
+- **6 built-in themes** — default, dark, light, industrial, scientific, ocean
 - **Linked axes** — synchronized zoom/pan across subplots
-- **Datetime support** — datenum and MATLAB datetime with auto-formatting tick labels
-- **NaN gap handling** — seamless visualization of missing data regions
-- **Uneven sampling** — works with any monotonically increasing X (no uniform spacing required)
 - **Sensor system** — state-dependent thresholds with condition-based rules and violation markers
 - **Event detection** — group violations into events with statistics, Gantt viewer, click-to-plot
 - **Live mode** — file polling with auto-refresh (preserve/follow/reset view modes)
-- **Console progress bars** — hierarchical progress display during batch rendering
-- **Disk-backed storage** — SQLite-backed chunked DataStore for 100M+ point datasets that exceed memory
-- **Navigator overlay** — minimap zoom navigator for quick orientation
-- **Sensor detail view** — specialized plot with state bands and threshold context
+- **Disk-backed storage** — SQLite-backed chunked DataStore for 100M+ point datasets
 
 ## Quick Start
 
@@ -55,11 +61,11 @@ fig.setTileSpan(1, [1 2]);
 fp1 = fig.tile(1);
 fp1.addLine(x, sin(x), 'DisplayName', 'Pressure');
 fp1.addBand(0.8, 1.0, 'FaceColor', [1 0.3 0.3], 'FaceAlpha', 0.15, 'Label', 'Alarm');
-fig.tileTitle(1, 'Pressure Monitor');
+fig.setTileTitle(1, 'Pressure Monitor');
 
 fp2 = fig.tile(2);
 fp2.addLine(x, cos(x), 'DisplayName', 'Temperature');
-fig.tileTitle(2, 'Temperature');
+fig.setTileTitle(2, 'Temperature');
 
 fig.renderAll();
 ```
@@ -87,39 +93,22 @@ fp.render();
 - C compiler (optional) for MEX acceleration
 - No toolbox dependencies
 
-## Libraries
+## Getting Started
 
-FastPlot consists of five libraries:
+Start with the [[Installation]] guide to set up FastPlot and compile MEX acceleration. Then follow the [[Getting Started]] tutorial for step-by-step examples covering basic plotting, dashboards, sensors, and live mode.
 
-| Library | Path | Description |
-|---------|------|-------------|
-| FastPlot | `libs/FastPlot/` | Core plotting engine, dashboard layouts, toolbar, themes, disk-backed storage |
-| SensorThreshold | `libs/SensorThreshold/` | Sensor data containers, state channels, threshold rules |
-| EventDetection | `libs/EventDetection/` | Event detection, viewer UI, live pipeline, notifications |
-| Dashboard | `libs/Dashboard/` | Serializable dashboard engine with JSON persistence |
-| WebBridge | `libs/WebBridge/` | TCP server for web-based visualization |
+## API Reference
 
-## Wiki Navigation
-
-**Getting Started**
-- [[Installation]] — setup, MEX compilation, verification
-- [[Getting Started]] — tutorial with code examples
-
-**API Reference**
-- [[FastPlot|API Reference: FastPlot]] — core plotting class
+**Core Classes**
+- [[FastPlot|API Reference: FastPlot]] — main plotting engine with dynamic downsampling
 - [[Dashboard|API Reference: Dashboard]] — FastSenseGrid, FastSenseDock, FastSenseToolbar
+- [[Sensors|API Reference: Sensors]] — Sensor, StateChannel, ThresholdRule, SensorRegistry
+- [[Event Detection|API Reference: Event Detection]] — EventDetector, EventViewer, LiveEventPipeline
 - [[Themes|API Reference: Themes]] — theme presets, customization, color palettes
-- [[Sensors|API Reference: Sensors]] — Sensor, StateChannel, ThresholdRule, SensorRegistry (with printTable and viewer)
-- [[Event Detection|API Reference: Event Detection]] — EventDetector, Event, EventConfig, EventViewer (with Gantt hover tooltips)
 - [[Utilities|API Reference: Utilities]] — ConsoleProgressBar, FastSenseDefaults
 
-**Guides**
+**Specialized Guides**
 - [[Live Mode Guide]] — file polling, view modes, live dashboards
+- [[Dashboard Engine Guide]] — DashboardEngine with widget-based dashboards
 - [[Datetime Guide]] — working with time series data
-- [[Dashboard Engine Guide]] — DashboardEngine + DashboardBuilder usage
-
-**Internals**
-- [[Architecture]] — render pipeline, zoom callback, data flow
-- [[MEX Acceleration]] — SIMD details, build, fallback
-- [[Performance]] — benchmarks and optimization tips
-- [[Examples]] — categorized guide to 40+ runnable examples
+- [[Examples]] — 40+ categorized runnable examples
