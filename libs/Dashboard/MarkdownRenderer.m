@@ -6,8 +6,9 @@ classdef MarkdownRenderer
 %
 %   Converts a subset of Markdown to a self-contained HTML document.
 %   Supported: headings (#-###), **bold**, *italic*, `inline code`,
-%   fenced code blocks, [links](url), unordered/ordered lists,
-%   horizontal rules (---), tables (pipe-delimited), and paragraph breaks.
+%   fenced code blocks, [links](url), ![images](src), unordered/ordered
+%   lists, horizontal rules (---), tables (pipe-delimited), and paragraph
+%   breaks.
 %
 %   The optional themeName ('light', 'dark', etc.) controls the CSS
 %   color scheme. Unrecognized themes default to 'light'.
@@ -206,6 +207,8 @@ classdef MarkdownRenderer
     methods (Static, Access = private)
         function text = inlineFormat(text)
             text = MarkdownRenderer.escapeHtml(text);
+            % Images: ![alt](src) — must run before links
+            text = regexprep(text, '!\[([^\]]*)\]\(([^)]+)\)', '<img src="$2" alt="$1" style="max-width:100%%">');
             % Links: [text](url)
             text = regexprep(text, '\[([^\]]+)\]\(([^)]+)\)', '<a href="$2">$1</a>');
             % Bold: **text**

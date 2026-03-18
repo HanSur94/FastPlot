@@ -36,6 +36,19 @@ classdef TestMarkdownRenderer < matlab.unittest.TestCase
             testCase.verifyTrue(contains(html, '<a href="http://example.com">Click</a>'));
         end
 
+        function testImages(testCase)
+            html = MarkdownRenderer.render('![Photo](img/photo.png)');
+            testCase.verifyTrue(contains(html, '<img src="img/photo.png"'));
+            testCase.verifyTrue(contains(html, 'alt="Photo"'));
+        end
+
+        function testImageNotConfusedWithLink(testCase)
+            md = '![Logo](logo.png) and [Click](http://example.com)';
+            html = MarkdownRenderer.render(md);
+            testCase.verifyTrue(contains(html, '<img src="logo.png"'));
+            testCase.verifyTrue(contains(html, '<a href="http://example.com">Click</a>'));
+        end
+
         function testUnorderedList(testCase)
             md = sprintf('- Item 1\n- Item 2\n- Item 3');
             html = MarkdownRenderer.render(md);
