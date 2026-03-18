@@ -73,5 +73,6 @@ jsonPath = fullfile(tempdir, 'example_dashboard_info.json');
 d.save(jsonPath);
 fprintf('Dashboard saved to: %s\n', jsonPath);
 
-d2 = DashboardEngine.load(jsonPath);
+sensorMap = containers.Map({'T-401', 'P-201'}, {sTemp, sPress});
+d2 = DashboardEngine.load(jsonPath, 'SensorResolver', @(key) sensorMap(key));
 fprintf('Reloaded InfoFile: %s\n', d2.InfoFile);
