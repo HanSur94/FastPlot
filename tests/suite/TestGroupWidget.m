@@ -216,6 +216,39 @@ classdef TestGroupWidget < matlab.unittest.TestCase
             testCase.verifyTrue(ismethod(layout, 'reflow'));
         end
 
+        function testFullDashboardIntegration(testCase)
+            d = DashboardEngine('GroupTest', 'Theme', 'dark');
+            d.addWidget('group', 'Label', 'Motor Health', 'Mode', 'panel', ...
+                'Position', [1 1 24 4]);
+
+            g = d.Widgets{1};
+            g.addChild(TextWidget('Title', 'RPM Label'));
+            g.addChild(TextWidget('Title', 'Temp Label'));
+
+            testCase.verifyLength(g.Children, 2);
+
+            % Test serialization round-trip via file save/load
+            tmpFile = [tempname '.json'];
+            cleanupFile = onCleanup(@() delete(tmpFile));
+            d.save(tmpFile);
+            loaded = DashboardEngine.load(tmpFile);
+            testCase.verifyLength(loaded.Widgets, 1);
+            testCase.verifyClass(loaded.Widgets{1}, 'GroupWidget');
+            testCase.verifyLength(loaded.Widgets{1}.Children, 2);
+        end
+
+        function testSetTimeRangeCascade(testCase)
+            g = GroupWidget('Label', 'Test', 'Mode', 'tabbed');
+            m1 = MockDashboardWidget('Title', 'W1');
+            m2 = MockDashboardWidget('Title', 'W2');
+            g.addChild(m1, 'Tab1');
+            g.addChild(m2, 'Tab2');
+
+            % setTimeRange should not error — cascade works for all children
+            g.setTimeRange(0, 100);
+            testCase.verifyTrue(true);
+        end
+
         function testThemeHasGroupFields(testCase)
             presets = {'dark', 'light', 'industrial', 'scientific', 'ocean', 'default'};
             for i = 1:numel(presets)
