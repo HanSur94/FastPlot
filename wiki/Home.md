@@ -18,7 +18,7 @@ FastPlot enables fluid interactive visualization of massive datasets (1K to 100M
 - **Smart downsampling** — per-pixel MinMax and LTTB algorithms, auto-selected per zoom level
 - **Lazy pyramid cache** — multi-resolution pre-computation for instant zoom-out on 50M+ datasets
 - **MEX acceleration** — optional C with SIMD (AVX2/NEON), auto-fallback to pure MATLAB
-- **Dashboard layouts** — tiled grids (FastPlotFigure) and tabbed containers (FastPlotDock)
+- **Dashboard layouts** — tiled grids (FastSenseGrid) and tabbed containers (FastSenseDock)
 - **Interactive toolbar** — data cursor, crosshair, grid/legend toggle, autoscale, PNG export
 - **6 built-in themes** — default, dark, light, industrial, scientific, ocean (with colorblind palette)
 - **Linked axes** — synchronized zoom/pan across subplots
@@ -39,7 +39,7 @@ FastPlot enables fluid interactive visualization of massive datasets (1K to 100M
 setup;
 
 % Basic plot with 10M points
-fp = FastPlot('Theme', 'dark');
+fp = FastSense('Theme', 'dark');
 x = linspace(0, 100, 1e7);
 y = sin(x) + 0.1 * randn(size(x));
 fp.addLine(x, y, 'DisplayName', 'Sensor');
@@ -49,7 +49,7 @@ fp.render();
 
 ```matlab
 % Dashboard with tiled layout
-fig = FastPlotFigure(2, 2, 'Theme', 'dark');
+fig = FastSenseGrid(2, 2, 'Theme', 'dark');
 fig.setTileSpan(1, [1 2]);
 
 fp1 = fig.tile(1);
@@ -76,7 +76,7 @@ s.addStateChannel(sc);
 s.addThresholdRule(struct('machine', 1), 70, 'Direction', 'upper', 'Label', 'Run HI');
 s.resolve();
 
-fp = FastPlot('Theme', 'industrial');
+fp = FastSense('Theme', 'industrial');
 fp.addSensor(s, 'ShowThresholds', true);
 fp.render();
 ```
@@ -107,11 +107,11 @@ FastPlot consists of five libraries:
 
 **API Reference**
 - [[FastPlot|API Reference: FastPlot]] — core plotting class
-- [[Dashboard|API Reference: Dashboard]] — FastPlotFigure, FastPlotDock, FastPlotToolbar
+- [[Dashboard|API Reference: Dashboard]] — FastSenseGrid, FastSenseDock, FastSenseToolbar
 - [[Themes|API Reference: Themes]] — theme presets, customization, color palettes
 - [[Sensors|API Reference: Sensors]] — Sensor, StateChannel, ThresholdRule, SensorRegistry (with printTable and viewer)
 - [[Event Detection|API Reference: Event Detection]] — EventDetector, Event, EventConfig, EventViewer (with Gantt hover tooltips)
-- [[Utilities|API Reference: Utilities]] — ConsoleProgressBar, FastPlotDefaults
+- [[Utilities|API Reference: Utilities]] — ConsoleProgressBar, FastSenseDefaults
 
 **Guides**
 - [[Live Mode Guide]] — file polling, view modes, live dashboards

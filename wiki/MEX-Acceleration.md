@@ -77,7 +77,7 @@ Bulk SQLite writer that creates the DataStore database in a single C call, repla
 
 - **Speedup**: 2-3x (eliminates MATLAB-to-MEX overhead per chunk)
 - **SIMD**: Accelerated Y min/max computation per chunk
-- **Used by**: `FastPlotDataStore` initialization
+- **Used by**: `FastSenseDataStore` initialization
 
 ### mksqlite
 

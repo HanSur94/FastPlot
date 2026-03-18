@@ -7,19 +7,19 @@ A step-by-step tutorial introducing FastPlot's core features.
 ```matlab
 setup;
 
-fp = FastPlot();
+fp = FastSense();
 x = linspace(0, 100, 1e7);  % 10 million points
 y = sin(x) + 0.1 * randn(size(x));
 fp.addLine(x, y, 'DisplayName', 'Noisy Sine');
 fp.render();
 ```
 
-Try zooming and panning — FastPlot re-downsamples in real time, keeping the display responsive regardless of dataset size.
+Try zooming and panning — FastSense re-downsamples in real time, keeping the display responsive regardless of dataset size.
 
 ## 2. Themes
 
 ```matlab
-fp = FastPlot('Theme', 'dark');
+fp = FastSense('Theme', 'dark');
 fp.addLine(x, y, 'DisplayName', 'Sensor');
 fp.render();
 ```
@@ -29,7 +29,7 @@ Available presets: 'default', 'dark', 'light', 'industrial', 'scientific', 'ocea
 ## 3. Thresholds and Violations
 
 ```matlab
-fp = FastPlot('Theme', 'dark');
+fp = FastSense('Theme', 'dark');
 fp.addLine(x, y, 'DisplayName', 'Pressure');
 fp.addThreshold(0.8, 'Direction', 'upper', 'ShowViolations', true, 'Color', 'r', 'Label', 'High');
 fp.addThreshold(-0.8, 'Direction', 'lower', 'ShowViolations', true, 'Color', 'b', 'Label', 'Low');
@@ -41,7 +41,7 @@ Red circles appear where data exceeds the threshold.
 ## 4. Multiple Lines
 
 ```matlab
-fp = FastPlot('Theme', 'scientific');
+fp = FastSense('Theme', 'scientific');
 fp.addLine(x, sin(x), 'DisplayName', 'Channel A');
 fp.addLine(x, cos(x), 'DisplayName', 'Channel B');
 fp.addLine(x, sin(2*x) * 0.5, 'DisplayName', 'Channel C');
@@ -75,7 +75,7 @@ fp.addMarker([10 30 70], [0.9 0.9 0.9], 'Marker', 'v', 'MarkerSize', 10, 'Color'
 ## 6. Dashboard Layout
 
 ```matlab
-fig = FastPlotFigure(2, 2, 'Theme', 'dark', 'Name', 'Monitor');
+fig = FastSenseGrid(2, 2, 'Theme', 'dark', 'Name', 'Monitor');
 fig.setTileSpan(1, [1 2]);  % top tile spans full width
 
 fp1 = fig.tile(1);
@@ -97,7 +97,7 @@ fig.renderAll();
 ## 7. Toolbar
 
 ```matlab
-tb = FastPlotToolbar(fig);
+tb = FastSenseToolbar(fig);
 ```
 
 Buttons: Data Cursor, Crosshair, Grid, Legend, Autoscale Y, Export PNG, Refresh, Live Mode, Metadata, Violations.
@@ -107,12 +107,12 @@ Buttons: Data Cursor, Crosshair, Grid, Legend, Autoscale Y, Export PNG, Refresh,
 ```matlab
 fig = figure;
 ax1 = subplot(2, 1, 1);
-fp1 = FastPlot('Parent', ax1, 'LinkGroup', 'sync');
+fp1 = FastSense('Parent', ax1, 'LinkGroup', 'sync');
 fp1.addLine(x, sin(x), 'DisplayName', 'Pressure');
 fp1.render();
 
 ax2 = subplot(2, 1, 2);
-fp2 = FastPlot('Parent', ax2, 'LinkGroup', 'sync');
+fp2 = FastSense('Parent', ax2, 'LinkGroup', 'sync');
 fp2.addLine(x, cos(x), 'DisplayName', 'Temperature');
 fp2.render();
 ```
@@ -124,7 +124,7 @@ Zoom in one subplot, the other follows.
 ```matlab
 x = datenum(2024,1,1) + (0:99999)/86400;
 y = sin(2*pi*(1:100000)/86400);
-fp = FastPlot('Theme', 'dark');
+fp = FastSense('Theme', 'dark');
 fp.addLine(x, y, 'XType', 'datenum', 'DisplayName', 'Daily Cycle');
 fp.render();
 ```
@@ -143,7 +143,7 @@ s.addThresholdRule(struct('machine', 1), 70, 'Direction', 'upper', 'Label', 'Run
 s.addThresholdRule(struct('machine', 2), 55, 'Direction', 'upper', 'Label', 'Boost HI');
 s.resolve();
 
-fp = FastPlot('Theme', 'industrial');
+fp = FastSense('Theme', 'industrial');
 fp.addSensor(s, 'ShowThresholds', true);
 fp.render();
 ```
@@ -164,7 +164,7 @@ viewer = EventViewer(events, sensorData);
 MinMax (default) preserves signal envelope. LTTB preserves visual shape.
 
 ```matlab
-fp = FastPlot('DefaultDownsampleMethod', 'lttb');
+fp = FastSense('DefaultDownsampleMethod', 'lttb');
 fp.addLine(x, y, 'DisplayName', 'LTTB');
 fp.render();
 ```

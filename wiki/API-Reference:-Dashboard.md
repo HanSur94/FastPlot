@@ -173,22 +173,22 @@ Override in subclasses to report data time range.
 
 ---
 
-## `FastPlotWidget` --- Dashboard widget wrapping a FastPlot instance.
+## `FastSenseWidget` --- Dashboard widget wrapping a FastSense instance.
 
 > Inherits from: `DashboardWidget`
 
 Supports three data binding modes:
-    Sensor:    w = FastPlotWidget('Sensor', sensorObj)
-    DataStore: w = FastPlotWidget('DataStore', dsObj)
-    Inline:    w = FastPlotWidget('XData', x, 'YData', y)
-    File:      w = FastPlotWidget('File', 'path.mat', 'XVar', 'x', 'YVar', 'y')
+    Sensor:    w = FastSenseWidget('Sensor', sensorObj)
+    DataStore: w = FastSenseWidget('DataStore', dsObj)
+    Inline:    w = FastSenseWidget('XData', x, 'YData', y)
+    File:      w = FastSenseWidget('File', 'path.mat', 'XVar', 'x', 'YVar', 'y')
 
   When bound to a Sensor, ThresholdRules apply automatically.
 
 ### Constructor
 
 ```matlab
-obj = FastPlotWidget(varargin)
+obj = FastSenseWidget(varargin)
 ```
 
 ### Properties
@@ -233,7 +233,7 @@ detach this widget from global time.
 
 ### Static Methods
 
-#### `FastPlotWidget.obj = fromStruct(s)`
+#### `FastSenseWidget.obj = fromStruct(s)`
 
 ---
 

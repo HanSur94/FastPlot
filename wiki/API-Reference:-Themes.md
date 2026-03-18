@@ -4,29 +4,29 @@ FastPlot includes a configurable theme system with 6 built-in presets, 3 color p
 
 ---
 
-## FastPlotTheme
+## FastSenseTheme
 
 Function that returns a theme struct. Not a class — returns a plain struct.
 
 ### Usage
 
 ```matlab
-t = FastPlotTheme();                  % Returns 'default' preset
-t = FastPlotTheme('dark');            % Named preset
-t = FastPlotTheme('dark', 'FontSize', 14, 'LineWidth', 2.0);  % Preset with overrides
-t = FastPlotTheme(struct('Background', [0 0 0]));  % Custom struct (merged with defaults)
+t = FastSenseTheme();                  % Returns 'default' preset
+t = FastSenseTheme('dark');            % Named preset
+t = FastSenseTheme('dark', 'FontSize', 14, 'LineWidth', 2.0);  % Preset with overrides
+t = FastSenseTheme(struct('Background', [0 0 0]));  % Custom struct (merged with defaults)
 ```
 
 ### Applying Themes
 
 ```matlab
 % At construction
-fp = FastPlot('Theme', 'dark');
-fig = FastPlotFigure(2, 2, 'Theme', 'industrial');
-dock = FastPlotDock('Theme', 'scientific');
+fp = FastSense('Theme', 'dark');
+fig = FastSenseGrid(2, 2, 'Theme', 'industrial');
+dock = FastSenseDock('Theme', 'scientific');
 
 % After construction
-fp.Theme = FastPlotTheme('dark');
+fp.Theme = FastSenseTheme('dark');
 fp.reapplyTheme();
 ```
 
@@ -119,8 +119,8 @@ Wong (2011) colorblind-safe palette. 7 colors distinguishable by people with the
 
 **Usage:**
 ```matlab
-t = FastPlotTheme('dark', 'LineColorOrder', 'colorblind');
-t = FastPlotTheme('default', 'LineColorOrder', 'muted');
+t = FastSenseTheme('dark', 'LineColorOrder', 'colorblind');
+t = FastSenseTheme('default', 'LineColorOrder', 'muted');
 ```
 
 **Custom palette:**
@@ -131,7 +131,7 @@ myColors = [
     0.2 0.7 0.3;   % Green
     0.9 0.6 0.1;   % Orange
 ];
-t = FastPlotTheme('dark', 'LineColorOrder', myColors);
+t = FastSenseTheme('dark', 'LineColorOrder', myColors);
 ```
 
 ---
@@ -146,7 +146,7 @@ Element override  >  Tile theme  >  Figure theme  >  'default' preset
 
 1. **Element override** — Color/LineWidth etc. passed directly to addLine(), addThreshold()
 2. **Tile theme** — setTileTheme() overrides for specific tiles
-3. **Figure theme** — Theme from FastPlotFigure or FastPlot constructor
+3. **Figure theme** — Theme from FastSenseGrid or FastSense constructor
 4. **default preset** — Fills in any unspecified fields
 
 Each level only needs to specify the fields it wants to change. Unspecified fields cascade from the next level.
@@ -155,7 +155,7 @@ Each level only needs to specify the fields it wants to change. Unspecified fiel
 
 ```matlab
 % Figure uses dark theme
-fig = FastPlotFigure(2, 2, 'Theme', 'dark');
+fig = FastSenseGrid(2, 2, 'Theme', 'dark');
 
 % Tile 2 overrides just the background
 fig.setTileTheme(2, struct('Background', [0.1 0.1 0.2]));
@@ -167,13 +167,13 @@ fp.addLine(x, y, 'Color', [1 0.5 0]);  % Orange, overrides theme palette
 
 ---
 
-## FastPlotDefaults
+## FastSenseDefaults
 
-Global default configuration. All FastPlot instances inherit these unless overridden.
+Global default configuration. All FastSense instances inherit these unless overridden.
 
 ```matlab
 % View current defaults (edit the function to change)
-FastPlotDefaults()
+FastSenseDefaults()
 ```
 
 ### Default Fields
@@ -197,7 +197,7 @@ FastPlotDefaults()
 
 To reset cached defaults:
 ```matlab
-FastPlot.resetDefaults();
+FastSense.resetDefaults();
 ```
 
 ---
@@ -206,23 +206,23 @@ FastPlot.resetDefaults();
 
 ### Dark theme with large fonts
 ```matlab
-t = FastPlotTheme('dark', 'FontSize', 14, 'TitleFontSize', 18, 'LineWidth', 2.0);
-fp = FastPlot('Theme', t);
+t = FastSenseTheme('dark', 'FontSize', 14, 'TitleFontSize', 18, 'LineWidth', 2.0);
+fp = FastSense('Theme', t);
 ```
 
 ### Publication-ready with custom colors
 ```matlab
-t = FastPlotTheme('scientific', ...
+t = FastSenseTheme('scientific', ...
     'LineColorOrder', [0 0 0; 0.5 0.5 0.5; 0 0 0.8], ...
     'LineWidth', 1.0, ...
     'FontSize', 12);
-fp = FastPlot('Theme', t);
+fp = FastSense('Theme', t);
 ```
 
 ### Minimal industrial theme
 ```matlab
-t = FastPlotTheme('industrial', 'GridAlpha', 0.1, 'BandAlpha', 0.08);
-fig = FastPlotFigure(2, 2, 'Theme', t);
+t = FastSenseTheme('industrial', 'GridAlpha', 0.1, 'BandAlpha', 0.08);
+fig = FastSenseGrid(2, 2, 'Theme', t);
 ```
 
 ---

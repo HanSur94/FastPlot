@@ -12,7 +12,7 @@ Sensor is the central class of the SensorThreshold library.  It
   limit values).  The resolve() method evaluates all rules against
   the state channels to produce pre-computed threshold time series,
   violation indices, and state-band regions that can be rendered by
-  a plotting layer such as FastPlot.
+  a plotting layer such as FastSense.
 
 ### Constructor
 
@@ -37,7 +37,7 @@ SENSOR Construct a Sensor object.
 | X |  | 1xN double: datenum time stamps |
 | Y |  | 1xN (or MxN) double: sensor values |
 | Units |  | char: measurement unit (e.g., 'degC', 'bar', 'rpm') |
-| DataStore |  | FastPlotDataStore: disk-backed storage (set by toDisk) |
+| DataStore |  | FastSenseDataStore: disk-backed storage (set by toDisk) |
 | StateChannels |  | cell array of StateChannel objects |
 | ThresholdRules |  | cell array of ThresholdRule objects |
 | ResolvedThresholds |  | struct array: precomputed threshold step-function lines |
@@ -73,11 +73,11 @@ ADDTHRESHOLDRULE Add a dynamic threshold rule to this sensor.
 #### `toDisk(obj)`
 
 TODISK Move sensor X/Y data to disk-backed DataStore.
-  s.toDisk() creates a FastPlotDataStore from the sensor's
+  s.toDisk() creates a FastSenseDataStore from the sensor's
   X and Y arrays, then clears X and Y from memory. The data
   remains accessible via s.DataStore.getRange() and
   s.DataStore.readSlice(). Subsequent calls to resolve(),
-  addSensor(), and FastPlot rendering all work transparently.
+  addSensor(), and FastSense rendering all work transparently.
 
 #### `toMemory(obj)`
 

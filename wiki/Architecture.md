@@ -12,11 +12,11 @@ FastPlot/
 ├── libs/
 │   ├── FastPlot/                  # Core plotting engine
 │   │   ├── FastPlot.m             # Main class
-│   │   ├── FastPlotFigure.m       # Dashboard layout
-│   │   ├── FastPlotDock.m         # Tabbed container
-│   │   ├── FastPlotToolbar.m      # Interactive toolbar
-│   │   ├── FastPlotTheme.m        # Theme system
-│   │   ├── FastPlotDataStore.m    # SQLite-backed chunked storage
+│   │   ├── FastSenseGrid.m       # Dashboard layout
+│   │   ├── FastSenseDock.m         # Tabbed container
+│   │   ├── FastSenseToolbar.m      # Interactive toolbar
+│   │   ├── FastSenseTheme.m        # Theme system
+│   │   ├── FastSenseDataStore.m    # SQLite-backed chunked storage
 │   │   ├── SensorDetailPlot.m     # Sensor detail view with state bands
 │   │   ├── NavigatorOverlay.m     # Minimap zoom navigator
 │   │   ├── mksqlite.c             # SQLite3 MEX interface
@@ -42,7 +42,7 @@ FastPlot/
 │   │   ├── DashboardTheme.m
 │   │   ├── DashboardToolbar.m
 │   │   ├── DashboardWidget.m
-│   │   ├── FastPlotWidget.m
+│   │   ├── FastSenseWidget.m
 │   │   ├── GaugeWidget.m
 │   │   ├── NumberWidget.m
 │   │   ├── StatusWidget.m
@@ -143,7 +143,7 @@ Complexity: O(S x R) where S = state segments and R = rules, instead of O(N x R)
 
 ## Disk-Backed Data Storage
 
-For datasets exceeding available memory (100M+ points), `FastPlotDataStore` provides SQLite-backed chunked storage:
+For datasets exceeding available memory (100M+ points), `FastSenseDataStore` provides SQLite-backed chunked storage:
 
 1. Data is split into chunks (~10K-500K points each, auto-tuned)
 2. Each chunk stored as a pair of typed BLOBs (X and Y) with X range metadata
@@ -164,7 +164,7 @@ Each level fills in only the fields it specifies; unspecified fields cascade fro
 
 ## Dashboard Engine Architecture
 
-The `DashboardEngine` provides a serializable, widget-based dashboard system separate from `FastPlotFigure`. While `FastPlotFigure` is a tiled grid of FastPlot instances, `DashboardEngine` uses a 24-column responsive grid with heterogeneous widget types (plots, gauges, numbers, status indicators, tables, timelines, and raw axes).
+The `DashboardEngine` provides a serializable, widget-based dashboard system separate from `FastSenseGrid`. While `FastSenseGrid` is a tiled grid of FastSense instances, `DashboardEngine` uses a 24-column responsive grid with heterogeneous widget types (plots, gauges, numbers, status indicators, tables, timelines, and raw axes).
 
 ### Key Components
 
@@ -172,11 +172,11 @@ The `DashboardEngine` provides a serializable, widget-based dashboard system sep
 DashboardEngine
 ├── DashboardToolbar      — Top toolbar (Live, Edit, Save, Export, Sync)
 ├── DashboardLayout       — 24-column grid with scrollable canvas
-├── DashboardTheme        — FastPlotTheme + dashboard-specific fields
+├── DashboardTheme        — FastSenseTheme + dashboard-specific fields
 ├── DashboardBuilder      — Edit mode overlay (drag/resize, palette, properties)
 ├── DashboardSerializer   — JSON save/load and .m script export
 └── Widgets (DashboardWidget subclasses)
-    ├── FastPlotWidget         — FastPlot instance (Sensor/DataStore/inline)
+    ├── FastSenseWidget         — FastSense instance (Sensor/DataStore/inline)
     ├── GaugeWidget            — Arc/donut/bar/thermometer gauge
     ├── NumberWidget            — Big number with trend arrow
     ├── StatusWidget            — Colored dot indicator
@@ -262,7 +262,7 @@ MATLAB (DashboardEngine)
 
 ### Key Features
 
-- **Signal list:** FastPlotWidgets with Sensor or DataStore bindings are enumerated as signals with `id`, `dbPath`, and `title`
+- **Signal list:** FastSenseWidgets with Sensor or DataStore bindings are enumerated as signals with `id`, `dbPath`, and `title`
 - **Custom actions:** MATLAB callbacks registered via `registerAction(name, callback)` are exposed to the web UI and invoked over TCP
 - **Config polling:** a timer periodically hashes the dashboard config JSON and sends `config_changed` when the layout changes
 - **WAL mode:** SQLite DataStore databases are switched to WAL (Write-Ahead Logging) mode during serving for concurrent MATLAB writes and bridge reads

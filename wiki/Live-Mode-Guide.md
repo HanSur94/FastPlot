@@ -10,7 +10,7 @@ FastPlot supports live data visualization by polling a .mat file for updates and
 setup;
 
 % Create initial plot
-fp = FastPlot('Theme', 'dark');
+fp = FastSense('Theme', 'dark');
 x = linspace(0, 10, 1e5);
 y = sin(x) + 0.1 * randn(size(x));
 fp.addLine(x, y, 'DisplayName', 'Sensor');
@@ -22,7 +22,7 @@ fp.startLive('data.mat', @(fp, s) fp.updateData(1, s.x, s.y));
 ```
 
 The callback `@(fp, s) fp.updateData(1, s.x, s.y)` is called every poll cycle:
-- `fp` — the FastPlot instance
+- `fp` — the FastSense instance
 - `s` — struct loaded from the .mat file
 - `fp.updateData(lineIdx, newX, newY)` — replaces line data and re-renders
 
@@ -71,10 +71,10 @@ fp.startLive('data.mat', @updateFcn, 'Interval', 5);     % Poll every 5 seconds
 
 ## Live Dashboard
 
-FastPlotFigure supports live mode across all tiles:
+FastSenseGrid supports live mode across all tiles:
 
 ```matlab
-fig = FastPlotFigure(2, 2, 'Theme', 'dark');
+fig = FastSenseGrid(2, 2, 'Theme', 'dark');
 
 fp1 = fig.tile(1); fp1.addLine(x, y1, 'DisplayName', 'Pressure');
 fp2 = fig.tile(2); fp2.addLine(x, y2, 'DisplayName', 'Temperature');
@@ -133,7 +133,7 @@ cfg.OnEventStart = eventLogger();
 cfg.addSensor(s);
 
 % Plot
-fp = FastPlot('Theme', 'dark');
+fp = FastSense('Theme', 'dark');
 fp.addSensor(s, 'ShowThresholds', true);
 fp.render();
 
@@ -179,10 +179,10 @@ fig.refresh();
 
 ## Toolbar Integration
 
-The FastPlotToolbar provides a Live Mode button:
+The FastSenseToolbar provides a Live Mode button:
 
 ```matlab
-tb = FastPlotToolbar(fp);
+tb = FastSenseToolbar(fp);
 % Click the Live Mode button to toggle polling on/off
 % Or programmatically:
 tb.toggleLive();

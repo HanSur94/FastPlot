@@ -29,7 +29,7 @@ for i = 1:4
 end
 
 %% Plot all sensors on a single tile
-fp = FastPlot();
+fp = FastSense();
 for i = 1:numel(sensors)
     % Show threshold line only for the first sensor to avoid duplicates
     fp.addSensor(sensors{i}, 'ShowThresholds', (i == 1));
@@ -76,7 +76,7 @@ fp.addThreshold(4.5, 'Direction', 'upper', 'ShowViolations', true, ...
     'Label', 'Max Temp', 'Color', 'r');
 ```
 
-This approach draws a single shared threshold line and FastPlot computes violation markers against **all lines** on the tile during rendering (see `updateViolations` in FastPlot.m).
+This approach draws a single shared threshold line and FastSense computes violation markers against **all lines** on the tile during rendering (see `updateViolations` in FastPlot.m).
 
 ### 3. Event detection works per-sensor
 

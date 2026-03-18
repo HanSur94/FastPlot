@@ -54,7 +54,7 @@ end
 customSensor = Sensor('my_custom_ph', 'Name', 'pH Sensor', 'ID', 999);
 customSensor.Units = 'pH';
 customSensor.X = linspace(0, 60, 5000);
-customSensor.Y = 7.0 + 0.5*sin(2*pi*customSensor.X/15) + 0.1*randn(1, 5000);
+customSensor.Y = 7.0 + 0.5*sin(2*pi*customSensor.X/15) + 0.1*randn(1, numel(customSensor.X));
 customSensor.addThresholdRule(struct(), 7.8, 'Direction', 'upper', 'Label', 'High pH');
 customSensor.addThresholdRule(struct(), 6.2, 'Direction', 'lower', 'Label', 'Low pH');
 customSensor.resolve();
@@ -69,7 +69,8 @@ SensorRegistry.printTable();
 SensorRegistry.viewer();
 fprintf('SensorRegistry.viewer() opened.\n');
 
-% Cleanup: unregister the custom sensor
+% Cleanup: unregister the custom sensor to avoid polluting the global
+% registry. In a real workflow you would keep it registered.
 SensorRegistry.unregister('my_custom_ph');
 fprintf('SensorRegistry.unregister(): removed "my_custom_ph".\n');
 

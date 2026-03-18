@@ -37,7 +37,8 @@ legend(fp.hAxes, 'show');
 % Exponential growth data is best viewed with log scaling
 n2 = 1e6;
 x2 = linspace(1, 1000, n2);
-y2 = exp(x2 / 200) + 0.1 * abs(randn(1, n2)) .* exp(x2 / 200);
+base2 = exp(x2 / 200);
+y2 = base2 .* (1 + 0.1 * abs(randn(1, n2)));
 
 fp2 = FastSense();
 fp2.addLine(x2, y2, 'DisplayName', 'Exponential Growth');
@@ -45,7 +46,14 @@ fp2.addThreshold(100, 'Direction', 'upper', 'ShowViolations', true, ...
     'Label', 'Warning');
 fp2.render();
 
-% Switch Y axis to log scale (can be called before or after render)
+% Switch Y axis to log scale (can be called before or after render).
+% Try fp2.setScale('YScale', 'linear') to toggle back.
 fp2.setScale('YScale', 'log');
 title(fp2.hAxes, 'setScale — Logarithmic Y Axis');
 fprintf('setScale() demo: Y axis switched to log scale.\n');
+
+%% updateData — replace line data on an already-rendered plot
+newY = cos(x * 2*pi/15) + 0.4*randn(1, n);
+fp.updateData(1, x, newY);
+title(fp.hAxes, 'updateData — line data replaced in-place');
+fprintf('updateData() replaced 10M-point line data on the first plot.\n');

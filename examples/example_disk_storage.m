@@ -87,6 +87,12 @@ vals = ds.getColumnSlice('status', 1, 5);
 fprintf('  First 5 status values: %s\n', strjoin(vals, ', '));
 fprintf('  Available columns: %s\n', strjoin(ds.listColumns(), ', '));
 
+% findViolations — find threshold violations directly on disk-backed data.
+% Skips chunks whose y_min/y_max can't contain violations, avoiding full reads.
+tic;
+[vx, vy] = ds.findViolations(1, n_large, 1.0, true);  % upper threshold at 1.0
+fprintf('  findViolations(upper > 1.0): %d violations in %.4f s\n', numel(vx), toc);
+
 ds.cleanup();  % explicit cleanup (also happens automatically on delete)
 fprintf('  DataStore cleaned up.\n');
 

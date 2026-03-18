@@ -27,7 +27,7 @@ The key advantage is not just initial render time but interactive performance â€
 
 With 10M points per tile:
 
-| Layout | subplot() | FastPlotFigure | Speedup |
+| Layout | subplot() | FastSenseGrid | Speedup |
 |--------|-----------|---------------|---------|
 | 1x1 | 0.195 s | 0.187 s | 1.0x |
 | 2x2 | 0.451 s | 0.377 s | 1.2x |

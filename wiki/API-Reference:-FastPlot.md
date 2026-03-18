@@ -2,11 +2,11 @@
 
 # API Reference: FastPlot
 
-## `FastPlot` --- Ultra-fast time series plotting with dynamic downsampling.
+## `FastSense` --- Ultra-fast time series plotting with dynamic downsampling.
 
 > Inherits from: `handle`
 
-FastPlot renders 1K to 100M data points with fluid zoom/pan by
+FastSense renders 1K to 100M data points with fluid zoom/pan by
   dynamically downsampling data to screen resolution using MinMax or
   LTTB algorithms. A multi-level pyramid cache provides instant
   re-downsample on zoom without touching raw data.
@@ -14,14 +14,14 @@ FastPlot renders 1K to 100M data points with fluid zoom/pan by
 ### Constructor
 
 ```matlab
-obj = FastPlot(varargin)
+obj = FastSense(varargin)
 ```
 
-FASTPLOT Construct a FastPlot instance.
-  fp = FASTPLOT() creates a new FastPlot with default settings.
-  fp = FASTPLOT('Parent', ax, 'Theme', 'dark') creates a plot
+FASTSENSE Construct a FastSense instance.
+  fp = FASTSENSE() creates a new FastSense with default settings.
+  fp = FASTSENSE('Parent', ax, 'Theme', 'dark') creates a plot
   inside existing axes ax with the 'dark' theme.
-  fp = FASTPLOT('LinkGroup', 'g1', 'Verbose', true) creates a
+  fp = FASTSENSE('LinkGroup', 'g1', 'Verbose', true) creates a
   plot that shares zoom/pan with other plots in group 'g1'.
 
 ### Properties
@@ -30,7 +30,7 @@ FASTPLOT Construct a FastPlot instance.
 |----------|---------|-------------|
 | ParentAxes | `[]` | axes handle, empty = create new |
 | LinkGroup | `''` | string ID for linked zoom/pan |
-| Theme | `[]` | theme struct (from FastPlotTheme) |
+| Theme | `[]` | theme struct (from FastSenseTheme) |
 | Verbose | `false` | print diagnostics to console |
 | LiveViewMode | `''` | 'preserve' \| 'follow' \| 'reset' (empty = no view mode applied) |
 | LiveFile | `''` | path to .mat file for live mode |
@@ -215,7 +215,7 @@ ONLIVETIMERPUBLIC Public wrapper for testing live timer callback.
 SETLINEMETADATA Set metadata on a line after construction.
   fp.SETLINEMETADATA(lineIdx, meta) attaches or replaces the
   metadata struct on the specified line. Primarily used by
-  FastPlotFigure to attach metadata loaded from a separate
+  FastSenseGrid to attach metadata loaded from a separate
   file after the plot has been rendered.
 
 #### `setViolationsVisible(obj, on)`
@@ -230,12 +230,12 @@ SETVIOLATIONSVISIBLE Show or hide all violation markers.
 #### `openLoupe(obj)`
 
 OPENLOUPE Open a standalone enlarged copy of this tile.
-  fp.OPENLOUPE() creates a new FastPlot in a separate figure
+  fp.OPENLOUPE() creates a new FastSense in a separate figure
   containing deep copies of all lines, thresholds, bands,
   shadings, and markers from the current plot. The new figure
   preserves the current zoom state (XLim/YLim), is offset
   by [+30, -30] pixels from the source figure, and receives
-  its own FastPlotToolbar.
+  its own FastSenseToolbar.
 
 #### `n = lineNumPoints(obj, i)`
 
@@ -247,52 +247,52 @@ LINEXRANGE Return X endpoints for line i.
 
 ### Static Methods
 
-#### `FastPlot.resetDefaults()`
+#### `FastSense.resetDefaults()`
 
-RESETDEFAULTS Force reload of FastPlotDefaults on next use.
-  FastPlot.RESETDEFAULTS() clears the cached defaults struct
-  so the next FastPlot constructor will re-read
-  FastPlotDefaults.m. Useful after editing the defaults file
+RESETDEFAULTS Force reload of FastSenseDefaults on next use.
+  FastSense.RESETDEFAULTS() clears the cached defaults struct
+  so the next FastSense constructor will re-read
+  FastSenseDefaults.m. Useful after editing the defaults file
   in a running session.
 
-#### `FastPlot.distFig(varargin)`
+#### `FastSense.distFig(varargin)`
 
 DISTFIG Distribute figure windows across the screen.
-  FastPlot.DISTFIG() auto-arranges all open figure windows
+  FastSense.DISTFIG() auto-arranges all open figure windows
   in a grid that fills the screen. Figures are sorted by
   number and tiled left-to-right, top-to-bottom.
-  FastPlot.DISTFIG('Rows', 2, 'Cols', 3) uses a 2-by-3 grid.
+  FastSense.DISTFIG('Rows', 2, 'Cols', 3) uses a 2-by-3 grid.
 
 ---
 
-## `FastPlotFigure` --- Tiled layout manager for FastPlot dashboards.
+## `FastSenseGrid` --- Tiled layout manager for FastSense dashboards.
 
 > Inherits from: `handle`
 
-Creates a grid of FastPlot tiles in a single figure window with
+Creates a grid of FastSense tiles in a single figure window with
   configurable spacing, per-tile theme overrides, and tile spanning.
   Supports live mode that synchronizes file polling across all tiles.
 
-  fig = FastPlotFigure(rows, cols)
-  fig = FastPlotFigure(rows, cols, 'Theme', 'dark')
-  fig = FastPlotFigure(rows, cols, 'ParentFigure', hFig)
+  fig = FastSenseGrid(rows, cols)
+  fig = FastSenseGrid(rows, cols, 'Theme', 'dark')
+  fig = FastSenseGrid(rows, cols, 'ParentFigure', hFig)
 
 ### Constructor
 
 ```matlab
-obj = FastPlotFigure(rows, cols, varargin)
+obj = FastSenseGrid(rows, cols, varargin)
 ```
 
-FASTPLOTFIGURE Construct a tiled dashboard.
-  fig = FastPlotFigure(rows, cols)
-  fig = FastPlotFigure(rows, cols, 'Theme', 'dark')
+FASTSENSEGRID Construct a tiled dashboard.
+  fig = FastSenseGrid(rows, cols)
+  fig = FastSenseGrid(rows, cols, 'Theme', 'dark')
 
 ### Properties
 
 | Property | Default | Description |
 |----------|---------|-------------|
 | Grid | `[1 1]` | [rows, cols] |
-| Theme | `[]` | FastPlotTheme struct |
+| Theme | `[]` | FastSenseTheme struct |
 | hFigure | `[]` | figure handle |
 | ParentFigure | `[]` | external figure handle (skip figure creation) |
 | ContentOffset | `[0 0 1 1]` | [left bottom width height] normalized content area |
@@ -314,8 +314,8 @@ FASTPLOTFIGURE Construct a tiled dashboard.
 
 #### `fp = tile(obj, n)`
 
-TILE Get or create the FastPlot instance for tile n.
-  fp = fig.tile(n) returns the FastPlot for tile n, creating
+TILE Get or create the FastSense instance for tile n.
+  fp = fig.tile(n) returns the FastSense for tile n, creating
   it (and its axes) on first access. Tile themes are merged
   from the figure theme and any per-tile overrides.
 
@@ -323,9 +323,9 @@ TILE Get or create the FastPlot instance for tile n.
 
 AXES Get or create a raw MATLAB axes for tile n.
   ax = fig.axes(n) returns a themed MATLAB axes handle at the
-  position for tile n. Use for non-FastPlot plot types (bar,
+  position for tile n. Use for non-FastSense plot types (bar,
   scatter, histogram, stem, etc.). The axes gets theme colors
-  applied but no FastPlot optimization.
+  applied but no FastSense optimization.
 
 #### `hp = tilePanel(obj, n)`
 
@@ -435,34 +435,34 @@ COMPUTETILEPOSITION Calculate normalized [x y w h] for tile n.
 
 ---
 
-## `FastPlotDock` --- Tabbed container for multiple FastPlotFigure dashboards.
+## `FastSenseDock` --- Tabbed container for multiple FastSenseGrid dashboards.
 
 > Inherits from: `handle`
 
-Manages multiple FastPlotFigure instances as switchable tabs in a
+Manages multiple FastSenseGrid instances as switchable tabs in a
   single window. Each tab has its own panel, toolbar, close button,
   and undock button. Tabs can be dynamically added, removed, or
   popped out into standalone figures.
 
-  dock = FastPlotDock()
-  dock = FastPlotDock('Theme', 'dark')
-  dock = FastPlotDock('Theme', 'dark', 'Name', 'My Dock')
+  dock = FastSenseDock()
+  dock = FastSenseDock('Theme', 'dark')
+  dock = FastSenseDock('Theme', 'dark', 'Name', 'My Dock')
 
 ### Constructor
 
 ```matlab
-obj = FastPlotDock(varargin)
+obj = FastSenseDock(varargin)
 ```
 
-FASTPLOTDOCK Construct a tabbed dock container.
-  dock = FastPlotDock()
-  dock = FastPlotDock('Theme', 'dark', 'Name', 'My Dock')
+FASTSENSEDOCK Construct a tabbed dock container.
+  dock = FastSenseDock()
+  dock = FastSenseDock('Theme', 'dark', 'Name', 'My Dock')
 
 ### Properties
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| Theme | `[]` | FastPlotTheme struct |
+| Theme | `[]` | FastSenseTheme struct |
 | hFigure | `[]` | shared figure handle |
 | ShowProgress | `true` | show console progress bar during renderAll |
 | TabBarHeight | `0.03` | normalized height of tab bar |
@@ -472,8 +472,8 @@ FASTPLOTDOCK Construct a tabbed dock container.
 
 #### `addTab(obj, fig, name)`
 
-ADDTAB Register a FastPlotFigure as a tab.
-  dock.addTab(fig, name) adds a FastPlotFigure as a new tab
+ADDTAB Register a FastSenseGrid as a tab.
+  dock.addTab(fig, name) adds a FastSenseGrid as a new tab
   in the dock. The figure's ParentFigure and hFigure are
   redirected to the dock's shared figure. A uipanel is created
   for the tab's content, offset below the tab bar.
@@ -483,7 +483,7 @@ ADDTAB Register a FastPlotFigure as a tab.
 RENDER Render active tab, create tab bar, show first tab.
   dock.render() renders only the first tab (lazy rendering),
   creates tab bar buttons for all tabs, attaches a shared
-  FastPlotToolbar, selects tab 1, and makes the figure visible.
+  FastSenseToolbar, selects tab 1, and makes the figure visible.
   Subsequent tabs are rendered on-demand when selectTab is called.
 
 #### `renderAll(obj)`
@@ -499,7 +499,7 @@ RENDERALL Eagerly render all tabs with hierarchical progress.
 SELECTTAB Switch to tab n, rendering it lazily if needed.
   dock.selectTab(n) hides the currently active tab, renders
   tab n if it hasn't been rendered yet, rebinds the shared
-  toolbar to the new tab's FastPlotFigure, and shows tab n.
+  toolbar to the new tab's FastSenseGrid, and shows tab n.
 
 #### `removeTab(obj, n)`
 
@@ -516,7 +516,7 @@ UNDOCKTAB Pop tab n out into its own standalone figure.
   dock.undockTab(n) creates a new standalone figure, stops
   live mode, reparents all tile axes from the dock panel to
   the new figure, recomputes tile positions for standalone
-  layout, creates a fresh FastPlotToolbar, and removes the
+  layout, creates a fresh FastSenseToolbar, and removes the
   tab from the dock. The remaining dock tabs are reindexed
   and the tab bar is rebuilt.
 
@@ -535,12 +535,12 @@ RECOMPUTELAYOUT Reposition tab, undock, and close buttons on resize.
 REAPPLYTHEME Re-apply theme to dock, tab bar, panels, and all tabs.
   dock.reapplyTheme() updates the figure background, re-styles
   all tab/undock/close buttons, updates panel backgrounds, and
-  propagates the theme to every tab's FastPlotFigure (calling
+  propagates the theme to every tab's FastSenseGrid (calling
   reapplyTheme on rendered figures).
 
 ---
 
-## `FastPlotToolbar` --- Interactive toolbar for FastPlot and FastPlotFigure.
+## `FastSenseToolbar` --- Interactive toolbar for FastSense and FastSenseGrid.
 
 > Inherits from: `handle`
 
@@ -549,8 +549,8 @@ Adds a uitoolbar with data cursor, crosshair, grid/legend toggles,
   display. Integrates with MATLAB's built-in datacursormode for
   enhanced tooltips.
 
-  tb = FastPlotToolbar(fp)   — attach to a FastPlot instance
-  tb = FastPlotToolbar(fig)  — attach to a FastPlotFigure instance
+  tb = FastSenseToolbar(fp)   — attach to a FastSense instance
+  tb = FastSenseToolbar(fig)  — attach to a FastSenseGrid instance
 
   Toolbar buttons:
     Data Cursor  — click to snap to nearest data point, shows value
@@ -567,12 +567,12 @@ Adds a uitoolbar with data cursor, crosshair, grid/legend toggles,
 ### Constructor
 
 ```matlab
-obj = FastPlotToolbar(target)
+obj = FastSenseToolbar(target)
 ```
 
-FASTPLOTTOOLBAR Construct and attach a toolbar to a plot target.
-  tb = FastPlotToolbar(fp)   — FastPlot instance
-  tb = FastPlotToolbar(fig)  — FastPlotFigure instance
+FASTSENSETOOLBAR Construct and attach a toolbar to a plot target.
+  tb = FastSenseToolbar(fp)   — FastSense instance
+  tb = FastSenseToolbar(fig)  — FastSenseGrid instance
 
 ### Methods
 
@@ -624,7 +624,7 @@ SETMETADATA Enable or disable metadata display in tooltips.
 
 SETVIOLATIONSVISIBLE Toggle violation markers on all tiles.
   setViolationsVisible(obj, on) iterates over all managed
-  FastPlot instances and calls setViolationsVisible(on) on
+  FastSense instances and calls setViolationsVisible(on) on
   each, then syncs the toolbar toggle button state.
 
 #### `rebind(obj, target)`
@@ -643,24 +643,24 @@ SNAPTONEAREST Find the closest data point to a click position.
 
 ### Static Methods
 
-#### `FastPlotToolbar.icon = makeIcon(name)`
+#### `FastSenseToolbar.icon = makeIcon(name)`
 
 MAKEICON Generate a 16x16x3 RGB icon for toolbar buttons.
-  icon = FastPlotToolbar.makeIcon(name)
+  icon = FastSenseToolbar.makeIcon(name)
 
-#### `FastPlotToolbar.initIcons()`
+#### `FastSenseToolbar.initIcons()`
 
 INITICONS Pre-warm the icon cache for all toolbar buttons.
 
-#### `FastPlotToolbar.s = formatX(xVal, xType)`
+#### `FastSenseToolbar.s = formatX(xVal, xType)`
 
 FORMATX Format an X value based on XType.
-  s = FastPlotToolbar.formatX(xVal, 'datenum')
-  s = FastPlotToolbar.formatX(xVal, 'numeric')
+  s = FastSenseToolbar.formatX(xVal, 'datenum')
+  s = FastSenseToolbar.formatX(xVal, 'numeric')
 
 ---
 
-## `FastPlotDataStore` --- SQLite-backed data storage for large time series.
+## `FastSenseDataStore` --- SQLite-backed data storage for large time series.
 
 > Inherits from: `handle`
 
@@ -684,10 +684,10 @@ Stores X/Y data in a temporary SQLite database via mksqlite using
 ### Constructor
 
 ```matlab
-obj = FastPlotDataStore(x, y)
+obj = FastSenseDataStore(x, y)
 ```
 
-FASTPLOTDATASTORE Create a disk-backed store from X/Y arrays.
+FASTSENSEDATASTORE Create a disk-backed store from X/Y arrays.
 
 ### Methods
 
@@ -764,11 +764,11 @@ CLEANUP Close the database and delete temp files.
 
 ### Static Methods
 
-#### `FastPlotDataStore.c = toCategorical(s)`
+#### `FastSenseDataStore.c = toCategorical(s)`
 
 TOCATEGORICAL Convert a codes+categories struct back to categorical.
 
-#### `FastPlotDataStore.c = fromCategorical(data)`
+#### `FastSenseDataStore.c = fromCategorical(data)`
 
 FROMCATEGORICAL Convert a MATLAB categorical to codes+categories struct.
 
@@ -815,7 +815,7 @@ sdp = SensorDetailPlot(sensor)
   sdp = SensorDetailPlot(sensor, Name, Value, ...)
 
   Name-Value Options:
-    'Theme'              - FastPlot theme (default: 'default')
+    'Theme'              - FastSense theme (default: 'default')
     'NavigatorHeight'    - Fraction 0-1 for navigator (default: 0.20)
     'ShowThresholds'     - Show thresholds in main plot (default: true)
     'ShowThresholdBands' - Show threshold bands in navigator (default: true)

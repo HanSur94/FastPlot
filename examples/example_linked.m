@@ -38,8 +38,11 @@ fprintf('All 3 plots linked. Zoom one — all follow!\n');
 
 %% setViewMode — control how X-axis adjusts during live updates
 % 'preserve' keeps current zoom, 'follow' scrolls to track latest data,
-% 'reset' fits full X range.
+% 'reset' fits full X range. The mode takes effect when startLive() is
+% active; on a static plot like this it simply pre-configures the setting.
+% See example_event_detection_live.m for setViewMode in action with live data.
 fp1.setViewMode('follow');
 fp2.setViewMode('follow');
 fp3.setViewMode('follow');
-fprintf('setViewMode(''follow'') set on all 3 plots — ready for live scrolling.\n');
+fprintf('setViewMode(''follow'') set on all 3 plots — takes effect during live updates.\n');
+fprintf('  See example_event_detection_live.m for live scrolling in action.\n');

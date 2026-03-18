@@ -13,7 +13,7 @@ Pass datenum values as X data with `'XType', 'datenum'`:
 x = datenum(2024, 1, 1) + (0:99999) / 86400;  % 1-second resolution, ~1 day
 y = sin(2 * pi * (1:100000) / 86400) + 0.1 * randn(1, 100000);
 
-fp = FastPlot('Theme', 'dark');
+fp = FastSense('Theme', 'dark');
 fp.addLine(x, y, 'XType', 'datenum', 'DisplayName', 'Daily Cycle');
 fp.render();
 ```
@@ -28,7 +28,7 @@ In MATLAB (not Octave), you can pass datetime objects directly — they are auto
 dt = datetime(2024, 1, 1) + hours(0:9999);
 y = randn(1, 10000);
 
-fp = FastPlot();
+fp = FastSense();
 fp.addLine(dt, y, 'DisplayName', 'Sensor');
 fp.render();
 ```
@@ -59,7 +59,7 @@ Thresholds work the same way with datetime data:
 x = datenum(2024, 1, 1) + (0:999999) / 86400;  % ~11.5 days
 y = randn(1, 1000000) * 5 + 50;
 
-fp = FastPlot('Theme', 'industrial');
+fp = FastSense('Theme', 'industrial');
 fp.addLine(x, y, 'XType', 'datenum', 'DisplayName', 'Temperature');
 fp.addThreshold(60, 'Direction', 'upper', 'ShowViolations', true, 'Label', 'High');
 fp.addThreshold(40, 'Direction', 'lower', 'ShowViolations', true, 'Label', 'Low');
@@ -73,7 +73,7 @@ fp.render();
 ```matlab
 x = datenum(2024, 1, 1) + (0:999999) / 86400;
 
-fig = FastPlotFigure(2, 1, 'Theme', 'dark');
+fig = FastSenseGrid(2, 1, 'Theme', 'dark');
 
 fp1 = fig.tile(1);
 fp1.addLine(x, sin(2*pi*(1:1e6)/86400)*20+50, 'XType', 'datenum', 'DisplayName', 'Pressure');
@@ -96,12 +96,12 @@ Linked axes work with datetime — synchronized zoom/pan shows consistent time r
 fig = figure;
 
 ax1 = subplot(2, 1, 1);
-fp1 = FastPlot('Parent', ax1, 'LinkGroup', 'time');
+fp1 = FastSense('Parent', ax1, 'LinkGroup', 'time');
 fp1.addLine(x, pressure, 'XType', 'datenum', 'DisplayName', 'Pressure');
 fp1.render();
 
 ax2 = subplot(2, 1, 2);
-fp2 = FastPlot('Parent', ax2, 'LinkGroup', 'time');
+fp2 = FastSense('Parent', ax2, 'LinkGroup', 'time');
 fp2.addLine(x, temperature, 'XType', 'datenum', 'DisplayName', 'Temperature');
 fp2.render();
 ```
@@ -113,10 +113,10 @@ fp2.render();
 The crosshair and data cursor display datetime values in human-readable format when XType is 'datenum':
 
 ```matlab
-fp = FastPlot('Theme', 'dark');
+fp = FastSense('Theme', 'dark');
 fp.addLine(x, y, 'XType', 'datenum');
 fp.render();
-tb = FastPlotToolbar(fp);
+tb = FastSenseToolbar(fp);
 % Crosshair shows: "Jan 15, 2024 10:30:15  Y: 52.3"
 ```
 
@@ -139,7 +139,7 @@ s.addStateChannel(sc);
 s.addThresholdRule(struct('machine', 1), 70, 'Direction', 'upper', 'Label', 'Run HI');
 s.resolve();
 
-fp = FastPlot('Theme', 'dark');
+fp = FastSense('Theme', 'dark');
 fp.addSensor(s, 'ShowThresholds', true);
 fp.render();
 ```
@@ -157,7 +157,7 @@ fp.render();
 
 ## Tips
 
-- All X data in a single FastPlot must be the same type (all numeric or all datenum)
+- All X data in a single FastSense must be the same type (all numeric or all datenum)
 - For high-frequency data (kHz+), datenum precision is sufficient (double-precision days)
 - Use `datenum()` for generating time stamps: `datenum(year, month, day, hour, min, sec)`
 - Use `datestr()` for converting back: `datestr(x(1), 'yyyy-mm-dd HH:MM:SS')`
