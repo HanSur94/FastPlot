@@ -43,7 +43,7 @@ fp.addThreshold(-2.0, 'Direction', 'lower', 'ShowViolations', true, ...
 fp.render();
 ```
 
-**Local benchmarks** (Apple M4, GNU Octave 11, 10M points, MEX+NEON):
+**Local benchmarks** (MacBook Pro M1 Pro, 16 GB, GNU Octave 11, 10M points, MEX+NEON):
 
 | Operation | Time |
 |---|---|
