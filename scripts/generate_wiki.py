@@ -445,14 +445,25 @@ def generate_page_with_llm(ctx: dict) -> str:
     )
 
     # Extract text content
-    content = response.content[0].text
+    text_blocks = [b for b in response.content if b.type == "text"]
+    if not text_blocks:
+        raise ValueError(
+            f"Claude returned no text content (stop_reason={response.stop_reason!r})"
+        )
+    if response.stop_reason == "max_tokens":
+        print("  WARNING: response hit max_tokens limit, output may be truncated",
+              file=sys.stderr)
+    content = text_blocks[0].text
 
     # Strip any markdown code fence wrapper (Claude sometimes wraps output)
+    stripped_fence = False
     if content.startswith("```markdown"):
         content = content[len("```markdown"):].strip()
+        stripped_fence = True
     elif content.startswith("```"):
         content = content[3:].strip()
-    if content.endswith("```"):
+        stripped_fence = True
+    if stripped_fence and content.endswith("```"):
         content = content[:-3].strip()
 
     # Ensure trailing newline
