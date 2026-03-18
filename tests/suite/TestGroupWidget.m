@@ -170,6 +170,47 @@ classdef TestGroupWidget < matlab.unittest.TestCase
             testCase.verifyLength(outer.Children, 1);
         end
 
+        function testToStructPanel(testCase)
+            g = GroupWidget('Label', 'Motor Health', 'Mode', 'panel');
+            g.Position = [1 1 12 4];
+            g.addChild(TextWidget('Title', 'W1'));
+
+            s = g.toStruct();
+            testCase.verifyEqual(s.type, 'group');
+            testCase.verifyEqual(s.label, 'Motor Health');
+            testCase.verifyEqual(s.mode, 'panel');
+            testCase.verifyTrue(isfield(s, 'children'));
+            testCase.verifyLength(s.children, 1);
+        end
+
+        function testToStructTabbed(testCase)
+            g = GroupWidget('Label', 'Analysis', 'Mode', 'tabbed');
+            g.addChild(TextWidget('Title', 'W1'), 'Overview');
+            g.addChild(TextWidget('Title', 'W2'), 'Detail');
+
+            s = g.toStruct();
+            testCase.verifyEqual(s.type, 'group');
+            testCase.verifyEqual(s.mode, 'tabbed');
+            testCase.verifyTrue(isfield(s, 'tabs'));
+            testCase.verifyLength(s.tabs, 2);
+            testCase.verifyEqual(s.tabs{1}.name, 'Overview');
+            testCase.verifyEqual(s.activeTab, 'Overview');
+        end
+
+        function testRoundTripPanel(testCase)
+            g = GroupWidget('Label', 'Test', 'Mode', 'collapsible');
+            g.Position = [3 2 8 3];
+            g.addChild(TextWidget('Title', 'W1'));
+            g.addChild(TextWidget('Title', 'W2'));
+
+            s = g.toStruct();
+            g2 = GroupWidget.fromStruct(s);
+            testCase.verifyEqual(g2.Label, 'Test');
+            testCase.verifyEqual(g2.Mode, 'collapsible');
+            testCase.verifyEqual(g2.Position, [3 2 8 3]);
+            testCase.verifyLength(g2.Children, 2);
+        end
+
         function testLayoutReflow(testCase)
             layout = DashboardLayout();
             testCase.verifyTrue(ismethod(layout, 'reflow'));

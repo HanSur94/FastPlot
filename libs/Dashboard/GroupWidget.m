@@ -161,15 +161,43 @@ classdef GroupWidget < DashboardWidget
             end
         end
 
-        function s = toStruct(obj) %#ok<MANU>
-            % Stub - will be fully implemented in serialization task
+        function s = toStruct(obj)
             s = struct();
             s.type = 'group';
             s.title = obj.Title;
             s.label = obj.Label;
+            s.description = obj.Description;
             s.mode = obj.Mode;
             s.position = struct('col', obj.Position(1), 'row', obj.Position(2), ...
                 'width', obj.Position(3), 'height', obj.Position(4));
+            s.childAutoFlow = obj.ChildAutoFlow;
+            s.childColumns = obj.ChildColumns;
+
+            if ~isempty(fieldnames(obj.ThemeOverride))
+                s.themeOverride = obj.ThemeOverride;
+            end
+
+            if strcmp(obj.Mode, 'tabbed')
+                s.tabs = cell(1, numel(obj.Tabs));
+                for i = 1:numel(obj.Tabs)
+                    tab = struct();
+                    tab.name = obj.Tabs{i}.name;
+                    tab.widgets = cell(1, numel(obj.Tabs{i}.widgets));
+                    for j = 1:numel(obj.Tabs{i}.widgets)
+                        tab.widgets{j} = obj.Tabs{i}.widgets{j}.toStruct();
+                    end
+                    s.tabs{i} = tab;
+                end
+                s.activeTab = obj.ActiveTab;
+                s.children = {};
+            else
+                s.collapsed = obj.Collapsed;
+                s.children = cell(1, numel(obj.Children));
+                for i = 1:numel(obj.Children)
+                    s.children{i} = obj.Children{i}.toStruct();
+                end
+                s.tabs = {};
+            end
         end
 
         function collapse(obj)
@@ -409,9 +437,54 @@ classdef GroupWidget < DashboardWidget
     end
 
     methods (Static)
-        function obj = fromStruct(s) %#ok<INUSD>
+        function obj = fromStruct(s)
             obj = GroupWidget();
-            % Stub - will be implemented in serialization task
+            if isfield(s, 'title'), obj.Title = s.title; end
+            if isfield(s, 'label'), obj.Label = s.label; end
+            if isfield(s, 'description'), obj.Description = s.description; end
+            if isfield(s, 'mode'), obj.Mode = s.mode; end
+            if isfield(s, 'position')
+                obj.Position = [s.position.col, s.position.row, ...
+                                s.position.width, s.position.height];
+            end
+            if isfield(s, 'childAutoFlow'), obj.ChildAutoFlow = s.childAutoFlow; end
+            if isfield(s, 'childColumns'), obj.ChildColumns = s.childColumns; end
+            if isfield(s, 'collapsed'), obj.Collapsed = s.collapsed; end
+            if isfield(s, 'activeTab'), obj.ActiveTab = s.activeTab; end
+
+            if isfield(s, 'themeOverride')
+                obj.ThemeOverride = s.themeOverride;
+            end
+
+            % Deserialize children (panel/collapsible mode)
+            if isfield(s, 'children') && ~isempty(s.children)
+                for i = 1:numel(s.children)
+                    cs = s.children{i};
+                    child = DashboardSerializer.createWidgetFromStruct(cs);
+                    if ~isempty(child)
+                        obj.Children{end+1} = child;
+                    end
+                end
+            end
+
+            % Deserialize tabs (tabbed mode)
+            if isfield(s, 'tabs') && ~isempty(s.tabs)
+                for i = 1:numel(s.tabs)
+                    ts = s.tabs{i};
+                    tabEntry = struct('name', ts.name, 'widgets', {{}});
+                    for j = 1:numel(ts.widgets)
+                        ws = ts.widgets{j};
+                        w = DashboardSerializer.createWidgetFromStruct(ws);
+                        if ~isempty(w)
+                            tabEntry.widgets{end+1} = w;
+                        end
+                    end
+                    obj.Tabs{end+1} = tabEntry;
+                end
+                if isempty(obj.ActiveTab) && ~isempty(obj.Tabs)
+                    obj.ActiveTab = obj.Tabs{1}.name;
+                end
+            end
         end
     end
 end
