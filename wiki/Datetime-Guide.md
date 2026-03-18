@@ -2,7 +2,7 @@
 
 # Datetime Guide
 
-FastSense supports time series data with datetime X-axes. Both datenum values and MATLAB datetime objects are supported.
+FastSense supports time series data with datetime X-axes. Both datenum values and MATLAB datetime objects are supported, with automatic tick label formatting that adapts to the visible zoom level.
 
 ---
 
@@ -122,6 +122,8 @@ tb = FastSenseToolbar(fp);
 % Crosshair shows: "Jan 15, 2024 10:30:15  Y: 52.3"
 ```
 
+The toolbar's formatX method handles datetime formatting automatically.
+
 ---
 
 ## Sensor Data with Datetime
@@ -173,6 +175,27 @@ The navigator and main plot both show human-readable time labels.
 
 ---
 
+## High-Resolution Datetime Example
+
+Example with 50M points spanning ~579 days at 1-second resolution:
+
+```matlab
+n = 50000000;
+x = datenum(2024,1,1) + (0:n-1)/86400;  % ~579 days
+t = (0:n-1) / 86400;  % time in days
+y = 20 + 5*sin(t * 2*pi - pi/2) + ...  % daily cycle
+    0.3*sin(t * 2*pi*24) + ...          % hourly ripple
+    0.1*randn(1,n);                     % noise
+
+fp = FastSense('Theme', 'light');
+fp.addLine(x, y, 'DisplayName', 'Temperature', 'XType', 'datenum');
+fp.addThreshold(24, 'Direction', 'upper', 'ShowViolations', true);
+fp.render();
+tb = FastSenseToolbar(fp);
+```
+
+---
+
 ## GNU Octave Notes
 
 - Octave does not support MATLAB's `datetime` class
@@ -188,6 +211,8 @@ The navigator and main plot both show human-readable time labels.
 - For high-frequency data (kHz+), datenum precision is sufficient (double-precision days)
 - Use `datenum()` for generating time stamps: `datenum(year, month, day, hour, min, sec)`
 - Use `datestr()` for converting back: `datestr(x(1), 'yyyy-mm-dd HH:MM:SS')`
+- Datetime downsampling preserves the same visual fidelity as numeric data
+- The pyramid cache works identically for datetime X data
 
 ---
 
@@ -195,4 +220,4 @@ The navigator and main plot both show human-readable time labels.
 
 - [[API Reference: FastPlot]] — addLine() with XType parameter
 - [[API Reference: Sensors]] — Sensor X data
-- [[Examples]] — example_datetime.m
+- [[Examples]] — example_datetime.m, example_sensor_detail_datetime.m

@@ -1,3 +1,5 @@
+<!-- AUTO-GENERATED from source code by scripts/generate_wiki.py — do not edit manually -->
+
 # Examples
 
 FastPlot includes 40+ runnable examples in the `examples/` directory. Each demonstrates specific features with realistic data.
@@ -36,7 +38,7 @@ demo_all;               % Interactive demo (keeps all plots open)
 | Example | Points | Description |
 |---------|--------|-------------|
 | `example_nan_gaps` | 1M | Data with NaN dropout regions. Shows seamless gap handling |
-| `example_uneven_sampling` | 260K | Variable-rate event-driven data (sparse monitoring + dense bursts) |
+| `example_uneven_sampling` | — | Variable-rate event-driven data (sparse monitoring + dense bursts) |
 | `example_vibration` | 20M | Accelerometer data at 50 kHz with bearing fault bursts |
 | `example_ecg` | 5M | ECG signal at 1 kHz with QRS complexes, PVCs, and baseline wander |
 
@@ -46,7 +48,7 @@ demo_all;               % Interactive demo (keeps all plots open)
 |---------|-------------|
 | `example_alarm_bands` | Industrial 4-level HH/H/L/LL alarm zones with colored bands |
 | `example_lttb_vs_minmax` | Side-by-side comparison of LTTB and MinMax downsampling on same data |
-| `example_themes` | Same data rendered in all 5 theme presets |
+| `example_themes` | Same data rendered in all 6 theme presets |
 | `example_toolbar` | Interactive toolbar with data cursor, crosshair, grid toggle, autoscale, PNG export |
 | `example_datetime` | 50M points with datetime X-axis, comparing with and without toolbar |
 | `example_visual_features` | 2x2 dashboard showcasing bands, shading, fill, markers |
@@ -67,12 +69,6 @@ demo_all;               % Interactive demo (keeps all plots open)
 |---------|-------------|
 | `example_event_detection_live` | Live event detection with 3 industrial sensors (temperature, pressure, vibration). Mock data generation with random violations, EventViewer with Gantt timeline and hover tooltips, click-to-plot drill-down, console logging via `eventLogger()`, and a live FastSense dashboard with linked axes and `startLive` file-polling |
 | `example_event_viewer_from_file` | Event store demo with 6 sensors. Auto-saves events to `.mat` file with backups, opens EventViewer from file with manual/auto-refresh controls, simulates background detection process updating the store while the viewer polls it |
-
-## Stress Tests
-
-| Example | Description |
-|---------|-------------|
-| `example_stress_test` | 5-tab FastSenseDock with 26 sensors across 60M total points. Tests rendering performance at scale |
 
 ## Dashboard Engine
 
@@ -110,14 +106,11 @@ demo_all;               % Interactive demo (keeps all plots open)
 | `example_dynamic_thresholds_100M` | Dynamic thresholds on a 100M point dataset |
 | `example_live_pipeline` | Live event detection pipeline with streaming data |
 
-## Benchmarks
+## Stress Tests
 
 | Example | Description |
 |---------|-------------|
-| `benchmark` | FastPlot vs plot() across 10K to 100M points. Measures render time, zoom latency, point reduction, GPU memory |
-| `benchmark_zoom` | Per-frame zoom latency analysis. Measures actual ms per zoom/pan interaction |
-| `benchmark_features` | Overhead of visual features: bands, shading, fill, markers, themes |
-| `benchmark_resolve` | Sensor.resolve() performance: naive per-point vs optimized segment-based approach |
+| `example_stress_test` | 5-tab FastSenseDock with 26 sensors across 60M total points. Tests rendering performance at scale |
 
 ## See Also
 

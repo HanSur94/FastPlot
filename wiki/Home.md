@@ -20,9 +20,9 @@ FastPlot consists of five integrated libraries:
 | Library | Description |
 |---------|-------------|
 | **FastSense** | Core plotting engine with dynamic downsampling, dashboard layouts (FastSenseGrid, FastSenseDock), interactive toolbar, themes, and disk-backed storage via FastSenseDataStore |
+| **Dashboard** | Widget-based dashboard engine with 8 widget types, 24-column responsive grid, edit mode, and JSON persistence |
 | **SensorThreshold** | Sensor data containers with state-dependent threshold rules, violation detection, and SensorRegistry catalog |
 | **EventDetection** | Event detection from threshold violations, EventViewer with Gantt timeline, live pipeline with notifications |
-| **Dashboard** | Widget-based dashboard engine with 8 widget types, 24-column responsive grid, edit mode, and JSON persistence |
 | **WebBridge** | TCP server for web-based visualization with NDJSON protocol |
 
 ## Features
@@ -87,6 +87,18 @@ fp.addSensor(s, 'ShowThresholds', true);
 fp.render();
 ```
 
+```matlab
+% Widget-based dashboard
+d = DashboardEngine('My Dashboard', 'Theme', 'dark');
+d.addWidget('fastsense', 'Title', 'Pressure', 'Position', [1 1 12 3], ...
+    'XData', x, 'YData', sin(x) * 100 + 200);
+d.addWidget('number', 'Title', 'Current', 'Position', [13 1 6 2], ...
+    'ValueFcn', @() 42.5, 'Units', 'bar');
+d.addWidget('gauge', 'Title', 'Level', 'Position', [19 1 6 3], ...
+    'ValueFcn', @() 75, 'Range', [0 100], 'Units', '%');
+d.render();
+```
+
 ## Requirements
 
 - MATLAB R2020b+ or GNU Octave 7+
@@ -100,12 +112,12 @@ Start with the [[Installation]] guide to set up FastPlot and compile MEX acceler
 ## API Reference
 
 **Core Classes**
-- [[FastPlot|API Reference: FastPlot]] — main plotting engine with dynamic downsampling
-- [[Dashboard|API Reference: Dashboard]] — FastSenseGrid, FastSenseDock, FastSenseToolbar
-- [[Sensors|API Reference: Sensors]] — Sensor, StateChannel, ThresholdRule, SensorRegistry
-- [[Event Detection|API Reference: Event Detection]] — EventDetector, EventViewer, LiveEventPipeline
-- [[Themes|API Reference: Themes]] — theme presets, customization, color palettes
-- [[Utilities|API Reference: Utilities]] — ConsoleProgressBar, FastSenseDefaults
+- [[API Reference: FastPlot]] — main plotting engine with dynamic downsampling
+- [[API Reference: Dashboard]] — FastSenseGrid, FastSenseDock, FastSenseToolbar, DashboardEngine
+- [[API Reference: Sensors]] — Sensor, StateChannel, ThresholdRule, SensorRegistry
+- [[API Reference: Event Detection]] — EventDetector, EventViewer, LiveEventPipeline
+- [[API Reference: Themes]] — theme presets, customization, color palettes
+- [[API Reference: Utilities]] — ConsoleProgressBar, FastSenseDefaults
 
 **Specialized Guides**
 - [[Live Mode Guide]] — file polling, view modes, live dashboards

@@ -56,30 +56,20 @@ MEX kernels use SIMD instructions (AVX2/NEON) to process 4 doubles per CPU cycle
 
 ## Running Your Own Benchmarks
 
-FastSense includes several benchmark scripts to measure performance on your system:
+FastSense includes several test scripts to measure performance on your system:
 
 ```matlab
-setup;
-cd examples
+% See examples/example_100M.m for maximum-scale testing
+run('examples/example_100M.m');  % 100M points stress test
 
-% Compare FastSense vs plot() across different data sizes
-benchmark;
+% Compare downsampling methods visually  
+run('examples/example_lttb_vs_minmax.m');
 
-% Measure zoom/pan latency frame-by-frame
-benchmark_zoom;
-
-% Test specific features (downsampling, violations, etc.)
-benchmark_features;
-
-% Benchmark Sensor.resolve() with thresholds
-benchmark_resolve;
+% Multi-dashboard stress test with 86M points
+run('examples/example_stress_test.m');  % 5 tabs, 26 sensors, 104 thresholds
 ```
 
-The stress test example creates a realistic large-scale scenario:
-
-```matlab
-example_stress_test;  % 5 tabs, 26 sensors, 86M points, 104 thresholds
-```
+The stress test example creates a realistic large-scale scenario with multiple tabs, sensors, and dynamic thresholds.
 
 ## Why FastSense is Fast
 
@@ -87,9 +77,16 @@ example_stress_test;  % 5 tabs, 26 sensors, 86M points, 104 thresholds
 Only renders ~4,000 points regardless of dataset size. A 100M point dataset uses the same GPU memory as a 4K dataset once downsampled.
 
 ### 2. Binary Search for Range Queries
-Uses O(log N) binary search instead of O(N) linear scanning to find visible data ranges on zoom/pan.
+Uses O(log N) binary search instead of O(N) linear scanning to find visible data ranges on zoom/pan:
 
-### 3. Lazy Multi-Level Pyramid
+```matlab
+% Fast range lookup with binary_search
+startIdx = binary_search(x, xMin, 'left');
+endIdx = binary_search(x, xMax, 'right');
+visibleData = y(startIdx:endIdx);
+```
+
+### 3. Multi-Level Data Pyramid
 Pre-computes downsampled levels (100:1, 10000:1, etc.) so zooming out never touches raw data. Cache is built incrementally as needed.
 
 ### 4. SIMD-Optimized MEX Kernels
@@ -173,3 +170,31 @@ for k = 1:1000
 end
 pb.finish();
 ```
+
+## DeferDraw and ShowProgress Options
+
+For batch/headless workflows, FastSense provides render control options:
+
+```matlab
+fp = FastSense();
+fp.DeferDraw = true;      % skip drawnow during render (default: false)
+fp.ShowProgress = false;  % hide console progress bar (default: true)
+fp.addLine(x, y);
+fp.render();
+drawnow;  % manual drawnow needed when DeferDraw=true
+```
+
+## Compilation and MEX Setup
+
+FastSense includes an automatic MEX compiler that detects your architecture and optimizes accordingly:
+
+```matlab
+build_mex();  % compile all MEX kernels with SIMD optimization
+```
+
+The build system:
+- Detects x86_64 vs ARM64 architecture
+- Uses appropriate SIMD flags (AVX2/FMA vs NEON)  
+- Falls back to SSE2 on older x86_64 hardware
+- Includes bundled SQLite3 for [[FastSenseDataStore|API Reference: FastSenseDataStore]]
+- Works on Linux, macOS, and Windows without system dependencies
