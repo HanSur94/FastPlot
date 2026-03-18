@@ -94,9 +94,8 @@ jobs:
             PR_BODY="Wiki pages auto-updated by LLM."
           fi
 
-          PR_BODY="${PR_BODY}
-
-Triggered by: commit ${{ github.sha }}"
+          TRIGGER_LINE="Triggered by: commit ${{ github.sha }}"
+          PR_BODY=$(printf '%s\n\n%s' "$PR_BODY" "$TRIGGER_LINE")
 
           gh pr create \
             --title "docs: update wiki pages [auto-generated]" \
