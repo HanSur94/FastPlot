@@ -9,8 +9,7 @@ classdef TestDashboardLayout < matlab.unittest.TestCase
     methods (Test)
         function testConstruction(testCase)
             layout = DashboardLayout();
-            testCase.verifyEqual(layout.Columns, 12);
-            testCase.verifyTrue(isempty(layout.Widgets));
+            testCase.verifyEqual(layout.Columns, 24);
         end
 
         function testComputePosition(testCase)

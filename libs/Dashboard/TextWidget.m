@@ -99,9 +99,6 @@ classdef TextWidget < DashboardWidget
             % Static widget — nothing to refresh
         end
 
-        function configure(~)
-        end
-
         function t = getType(~)
             t = 'text';
         end

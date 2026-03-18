@@ -4,7 +4,6 @@ classdef DashboardWidget < handle
 %   Subclasses must implement:
 %     render(parentPanel) — create graphics objects inside the panel
 %     refresh()           — update data/display (called by live timer)
-%     configure()         — open properties UI for edit mode
 %     getType()           — return widget type string (e.g. 'fastsense')
 %
 %   Subclasses must also provide a static fromStruct(s) method.
@@ -99,7 +98,6 @@ classdef DashboardWidget < handle
     methods (Abstract)
         render(obj, parentPanel)
         refresh(obj)
-        configure(obj)
         t = getType(obj)
     end
 end

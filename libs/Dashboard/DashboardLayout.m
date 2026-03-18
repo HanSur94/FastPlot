@@ -18,7 +18,6 @@ classdef DashboardLayout < handle
         Padding         = [0.02 0.02 0.02 0.02]
         GapH            = 0.008
         GapV            = 0.015
-        Widgets         = {}
         RowHeight       = 0.22
         ScrollbarWidth  = 0.015
     end
@@ -170,7 +169,6 @@ classdef DashboardLayout < handle
                 prevScrollVal = get(obj.hScrollbar, 'Value');
             end
 
-            obj.Widgets = widgets;
             obj.TotalRows = obj.calculateMaxRow(widgets);
 
             % Compute RowHeight so grid cells are square in pixels
@@ -249,7 +247,7 @@ classdef DashboardLayout < handle
                 end
             else
                 obj.hScrollbar = [];
-                try set(hFigure, 'WindowScrollWheelFcn', ''); catch, end
+                try set(hFigure, 'WindowScrollWheelFcn', ''); catch , end
             end
 
             % Create widget panels on canvas

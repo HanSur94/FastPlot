@@ -119,9 +119,6 @@ classdef TableWidget < DashboardWidget
             end
         end
 
-        function configure(~)
-        end
-
         function t = getType(~)
             t = 'table';
         end

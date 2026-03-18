@@ -145,10 +145,6 @@ classdef NumberWidget < DashboardWidget
             end
         end
 
-        function configure(obj) %#ok<MANU>
-            % Placeholder for Phase 4 edit mode
-        end
-
         function t = getType(~)
             t = 'number';
         end

@@ -41,7 +41,7 @@ classdef RawAxesWidget < DashboardWidget
                 'XColor', fgColor, ...
                 'YColor', fgColor, ...
                 'Color', theme.AxesColor);
-            try disableDefaultInteractivity(obj.hAxes); catch, end
+            try disableDefaultInteractivity(obj.hAxes); catch , end
 
             if ~isempty(obj.Title)
                 title(obj.hAxes, obj.Title, ...
@@ -87,9 +87,6 @@ classdef RawAxesWidget < DashboardWidget
                 r = obj.DataRangeFcn();
                 tMin = r(1); tMax = r(2);
             end
-        end
-
-        function configure(~)
         end
 
         function t = getType(~)

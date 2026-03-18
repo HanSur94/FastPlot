@@ -165,17 +165,54 @@ classdef DashboardEngine < handle
         end
 
         function removeWidget(obj, idx)
-        %REMOVEWIDGET Remove widget at given index.
+        %REMOVEWIDGET Remove widget at given index and re-layout.
             if idx >= 1 && idx <= numel(obj.Widgets)
                 w = obj.Widgets{idx};
                 obj.Widgets(idx) = [];
                 delete(w);
+                if ~isempty(obj.hFigure) && ishandle(obj.hFigure)
+                    obj.rerenderWidgets();
+                end
             end
         end
 
         function setWidgetPosition(obj, idx, pos)
         %SETWIDGETPOSITION Set the grid position of a widget by index.
+        %   Clamps width to grid columns and resolves overlaps with other
+        %   widgets.
+            if idx < 1 || idx > numel(obj.Widgets)
+                error('DashboardEngine:invalidIndex', ...
+                    'Widget index %d out of range [1, %d].', idx, numel(obj.Widgets));
+            end
+            % Clamp to grid bounds
+            cols = obj.Layout.Columns;
+            pos(1) = max(1, min(pos(1), cols));
+            pos(3) = max(1, min(pos(3), cols - pos(1) + 1));
+            pos(2) = max(1, pos(2));
+            pos(4) = max(1, pos(4));
+            % Resolve overlaps against other widgets
+            existingPositions = cell(1, numel(obj.Widgets) - 1);
+            k = 0;
+            for i = 1:numel(obj.Widgets)
+                if i ~= idx
+                    k = k + 1;
+                    existingPositions{k} = obj.Widgets{i}.Position;
+                end
+            end
+            pos = obj.Layout.resolveOverlap(pos, existingPositions);
             obj.Widgets{idx}.Position = pos;
+        end
+
+        function w = getWidgetByTitle(obj, title)
+        %GETWIDGETBYTITLE Find a widget by its Title property.
+        %   Returns the widget object, or empty if not found.
+            w = [];
+            for i = 1:numel(obj.Widgets)
+                if strcmp(obj.Widgets{i}.Title, title)
+                    w = obj.Widgets{i};
+                    return;
+                end
+            end
         end
 
         function setContentArea(obj, contentArea)

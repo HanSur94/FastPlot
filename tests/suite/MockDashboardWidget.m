@@ -11,9 +11,6 @@ classdef MockDashboardWidget < DashboardWidget
         function refresh(obj)
         end
 
-        function configure(obj)
-        end
-
         function t = getType(obj)
             t = 'mock';
         end

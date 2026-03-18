@@ -69,7 +69,6 @@ classdef DashboardSerializer
             widgets = cell(1, numel(config.widgets));
             for i = 1:numel(config.widgets)
                 ws = config.widgets{i};
-                w = [];
                 switch ws.type
                     case 'fastsense'
                         widgets{i} = FastSenseWidget.fromStruct(ws);
@@ -78,17 +77,17 @@ classdef DashboardSerializer
                     case 'kpi'
                         widgets{i} = NumberWidget.fromStruct(ws);
                     case 'status'
-                        w = StatusWidget.fromStruct(ws);
+                        widgets{i} = StatusWidget.fromStruct(ws);
                     case 'text'
-                        w = TextWidget.fromStruct(ws);
+                        widgets{i} = TextWidget.fromStruct(ws);
                     case 'gauge'
-                        w = GaugeWidget.fromStruct(ws);
+                        widgets{i} = GaugeWidget.fromStruct(ws);
                     case 'table'
-                        w = TableWidget.fromStruct(ws);
+                        widgets{i} = TableWidget.fromStruct(ws);
                     case 'rawaxes'
-                        w = RawAxesWidget.fromStruct(ws);
+                        widgets{i} = RawAxesWidget.fromStruct(ws);
                     case 'timeline'
-                        w = EventTimelineWidget.fromStruct(ws);
+                        widgets{i} = EventTimelineWidget.fromStruct(ws);
                     otherwise
                         warning('DashboardSerializer:unknownType', ...
                             'Unknown widget type: %s — skipping', ws.type);
@@ -103,10 +102,9 @@ classdef DashboardSerializer
                             'Could not resolve sensor: %s', ws.source.name);
                     end
                 end
-                if ~isempty(w)
-                    widgets{i} = w;
-                end
             end
+            % Filter out empty cells from unknown/skipped widget types
+            widgets = widgets(~cellfun('isempty', widgets));
         end
 
         function exportScript(config, filepath)

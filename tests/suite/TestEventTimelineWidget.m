@@ -8,45 +8,116 @@ classdef TestEventTimelineWidget < matlab.unittest.TestCase
 
     methods (Test)
         function testConstruction(testCase)
-            events = struct('startTime', {0, 100}, ...
-                'endTime', {50, 200}, ...
-                'label', {'High', 'Low'});
-            w = EventTimelineWidget('Title', 'Alarms', 'Events', events);
-            testCase.verifyEqual(w.Title, 'Alarms');
-            testCase.verifyEqual(numel(w.Events), 2);
+            w = EventTimelineWidget('Title', 'Timeline');
+            testCase.verifyEqual(w.Title, 'Timeline');
+            testCase.verifyEmpty(w.Events);
+            testCase.verifyEmpty(w.EventFcn);
+            testCase.verifyEmpty(w.EventStoreObj);
+            testCase.verifyEmpty(w.FilterSensors);
+            testCase.verifyEqual(w.ColorSource, 'event');
         end
 
         function testDefaultPosition(testCase)
             w = EventTimelineWidget('Title', 'Test');
-            testCase.verifyEqual(w.Position, [1 1 24 2]);
-        end
-
-        function testGetType(testCase)
-            w = EventTimelineWidget('Title', 'Test');
-            testCase.verifyEqual(w.getType(), 'timeline');
-        end
-
-        function testToStructFromStruct(testCase)
-            w = EventTimelineWidget('Title', 'Events', ...
-                'Position', [1 1 12 2]);
-            s = w.toStruct();
-            testCase.verifyEqual(s.type, 'timeline');
-
-            w2 = EventTimelineWidget.fromStruct(s);
-            testCase.verifyEqual(w2.Title, 'Events');
+            testCase.verifyEqual(w.Position, [1 1 24 2], ...
+                'EventTimelineWidget default position should be [1 1 24 2]');
         end
 
         function testRender(testCase)
-            events = struct('startTime', {0, 100, 300}, ...
-                'endTime', {50, 200, 400}, ...
-                'label', {'High', 'Low', 'High'});
-            w = EventTimelineWidget('Title', 'Timeline', 'Events', events);
+            evts = struct('startTime', {100, 200}, ...
+                          'endTime',   {150, 250}, ...
+                          'label',     {'Alarm', 'Warning'}, ...
+                          'color',     {[1 0 0], [1 1 0]});
+            w = EventTimelineWidget('Title', 'Render Test', 'Events', evts);
             hFig = figure('Visible', 'off');
             testCase.addTeardown(@() close(hFig));
             hp = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
             w.render(hp);
-            testCase.verifyNotEmpty(w.hAxes);
-            testCase.verifyEqual(numel(w.hBars), 3);
+            testCase.verifyNotEmpty(w.hAxes, ...
+                'Axes handle should be created after render');
+        end
+
+        function testRefreshStaticEvents(testCase)
+            evts = struct('startTime', {10, 20, 30}, ...
+                          'endTime',   {15, 25, 35}, ...
+                          'label',     {'A', 'B', 'A'}, ...
+                          'color',     {[1 0 0], [0 1 0], [0 0 1]});
+            w = EventTimelineWidget('Title', 'Static', 'Events', evts);
+            hFig = figure('Visible', 'off');
+            testCase.addTeardown(@() close(hFig));
+            hp = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
+            w.render(hp);
+            testCase.verifyNotEmpty(w.hBars, ...
+                'hBars should contain bar handles after rendering events');
+            testCase.verifyEqual(numel(w.hBars), 3, ...
+                'Should have one bar per event');
+        end
+
+        function testGetTimeRange(testCase)
+            evts = struct('startTime', {100, 200, 50}, ...
+                          'endTime',   {150, 300, 80}, ...
+                          'label',     {'A', 'B', 'C'}, ...
+                          'color',     {[1 0 0], [0 1 0], [0 0 1]});
+            w = EventTimelineWidget('Title', 'Range', 'Events', evts);
+            [tMin, tMax] = w.getTimeRange();
+            testCase.verifyEqual(tMin, 50, ...
+                'tMin should be the earliest startTime');
+            testCase.verifyEqual(tMax, 300, ...
+                'tMax should be the latest endTime');
+        end
+
+        function testFilterSensors(testCase)
+            evts = struct('startTime', {10, 20, 30}, ...
+                          'endTime',   {15, 25, 35}, ...
+                          'label',     {'Pump-101', 'Valve-202', 'Pump-101'}, ...
+                          'color',     {[1 0 0], [0 1 0], [0 0 1]});
+            w = EventTimelineWidget('Title', 'Filtered', ...
+                'Events', evts, 'FilterSensors', {{'Pump-101'}});
+            % getTimeRange calls resolveEvents which applies the filter
+            [tMin, tMax] = w.getTimeRange();
+            testCase.verifyEqual(tMin, 10, ...
+                'Filtered tMin should come from Pump-101 events only');
+            testCase.verifyEqual(tMax, 35, ...
+                'Filtered tMax should come from Pump-101 events only');
+        end
+
+        function testToStruct(testCase)
+            evts = struct('startTime', {1, 2}, ...
+                          'endTime',   {3, 4}, ...
+                          'label',     {'X', 'Y'}, ...
+                          'color',     {[1 0 0], [0 1 0]});
+            w = EventTimelineWidget('Title', 'Serialise', ...
+                'Events', evts, 'Position', [1 1 24 3], ...
+                'FilterSensors', {{'Sensor-A'}}, 'ColorSource', 'theme');
+            s = w.toStruct();
+            testCase.verifyEqual(s.type, 'timeline');
+            testCase.verifyEqual(s.title, 'Serialise');
+            testCase.verifyEqual(s.filterSensors, {'Sensor-A'});
+            testCase.verifyEqual(s.colorSource, 'theme');
+            testCase.verifyEqual(s.source.type, 'static');
+            testCase.verifyEqual(s.position, ...
+                struct('col', 1, 'row', 1, 'width', 24, 'height', 3));
+        end
+
+        function testFromStruct(testCase)
+            evts = struct('startTime', {5, 10}, ...
+                          'endTime',   {8, 15}, ...
+                          'label',     {'A', 'B'}, ...
+                          'color',     {[1 0 0], [0 0 1]});
+            w = EventTimelineWidget('Title', 'Round Trip', ...
+                'Events', evts, 'Position', [2 3 20 4], ...
+                'FilterSensors', {{'S1'}}, 'ColorSource', 'theme');
+            s = w.toStruct();
+            w2 = EventTimelineWidget.fromStruct(s);
+            testCase.verifyEqual(w2.Title, 'Round Trip');
+            testCase.verifyEqual(w2.Position, [2 3 20 4]);
+            testCase.verifyEqual(w2.FilterSensors, {'S1'});
+            testCase.verifyEqual(w2.ColorSource, 'theme');
+        end
+
+        function testGetType(testCase)
+            w = EventTimelineWidget();
+            testCase.verifyEqual(w.getType(), 'timeline');
         end
     end
 end

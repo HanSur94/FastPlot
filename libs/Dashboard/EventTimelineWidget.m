@@ -157,9 +157,6 @@ classdef EventTimelineWidget < DashboardWidget
             set(obj.hAxes, 'YLim', [0.3, numel(labels) + 0.7]);
         end
 
-        function configure(~)
-        end
-
         function t = getType(~)
             t = 'timeline';
         end

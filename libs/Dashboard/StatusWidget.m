@@ -52,8 +52,8 @@ classdef StatusWidget < DashboardWidget
                 'XLim', [-1.3 1.3], 'YLim', [-1.3 1.3], ...
                 'DataAspectRatio', [1 1 1], ...
                 'HitTest', 'off');
-            try set(obj.hAxes, 'PickableParts', 'none'); catch, end
-            try disableDefaultInteractivity(obj.hAxes); catch, end
+            try set(obj.hAxes, 'PickableParts', 'none'); catch , end
+            try disableDefaultInteractivity(obj.hAxes); catch , end
             hold(obj.hAxes, 'on');
 
             theta = linspace(0, 2*pi, 60);
@@ -110,9 +110,6 @@ classdef StatusWidget < DashboardWidget
                 end
                 set(obj.hLabelText, 'String', lbl);
             end
-        end
-
-        function configure(~)
         end
 
         function t = getType(~)

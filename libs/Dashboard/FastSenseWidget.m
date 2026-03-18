@@ -100,14 +100,14 @@ classdef FastSenseWidget < DashboardWidget
 
             % Save zoom state before teardown
             savedXLim = [];
-            if ~isempty(obj.FastSenseObj) && ~isempty(obj.FastSenseObj.hAxes) ...
-                    && ishandle(obj.FastSenseObj.hAxes)
+            if ~isempty(obj.FastSenseObj) && ~isempty(obj.FastSenseObj.hAxes) && ...
+                    ishandle(obj.FastSenseObj.hAxes)
                 savedXLim = get(obj.FastSenseObj.hAxes, 'XLim');
             end
 
             % Delete old axes and FastSense, then rebuild
             if ~isempty(obj.FastSenseObj)
-                try delete(obj.FastSenseObj); catch, end
+                try delete(obj.FastSenseObj); catch , end
                 obj.FastSenseObj = [];
             end
             % Delete any leftover axes in the panel
@@ -145,10 +145,6 @@ classdef FastSenseWidget < DashboardWidget
                 addlistener(ax, 'XLim', 'PostSet', @(~,~) obj.onXLimChanged());
             catch
             end
-        end
-
-        function configure(obj) %#ok<MANU>
-            % Placeholder for edit mode properties panel
         end
 
         function setTimeRange(obj, tStart, tEnd)

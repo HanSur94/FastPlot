@@ -75,9 +75,6 @@ classdef GaugeWidget < DashboardWidget
             obj.updateDisplay();
         end
 
-        function configure(~)
-        end
-
         function t = getType(~)
             t = 'gauge';
         end
@@ -184,8 +181,8 @@ classdef GaugeWidget < DashboardWidget
                 'XLim', [-1.4 1.4], 'YLim', [-0.5 1.5], ...
                 'DataAspectRatio', [1 1 1], ...
                 'HitTest', 'off');
-            try set(obj.hAxes, 'PickableParts', 'none'); catch, end
-            try disableDefaultInteractivity(obj.hAxes); catch, end
+            try set(obj.hAxes, 'PickableParts', 'none'); catch , end
+            try disableDefaultInteractivity(obj.hAxes); catch , end
             hold(obj.hAxes, 'on');
 
             % Draw background arc (240 degrees from 210 to -30)
@@ -260,8 +257,8 @@ classdef GaugeWidget < DashboardWidget
                 'XLim', [-1.5 1.5], 'YLim', [-1.5 1.5], ...
                 'DataAspectRatio', [1 1 1], ...
                 'HitTest', 'off');
-            try set(obj.hAxes, 'PickableParts', 'none'); catch, end
-            try disableDefaultInteractivity(obj.hAxes); catch, end
+            try set(obj.hAxes, 'PickableParts', 'none'); catch , end
+            try disableDefaultInteractivity(obj.hAxes); catch , end
             hold(obj.hAxes, 'on');
 
             % Full circle background ring
@@ -310,8 +307,8 @@ classdef GaugeWidget < DashboardWidget
                 'Visible', 'off', ...
                 'XLim', [0 1], 'YLim', [0 1], ...
                 'HitTest', 'off');
-            try set(obj.hAxes, 'PickableParts', 'none'); catch, end
-            try disableDefaultInteractivity(obj.hAxes); catch, end
+            try set(obj.hAxes, 'PickableParts', 'none'); catch , end
+            try disableDefaultInteractivity(obj.hAxes); catch , end
             hold(obj.hAxes, 'on');
 
             % Background rectangle
@@ -364,8 +361,8 @@ classdef GaugeWidget < DashboardWidget
                 'XLim', [-0.5 1.5], 'YLim', [-0.3 1.3], ...
                 'DataAspectRatio', [1 2 1], ...
                 'HitTest', 'off');
-            try set(obj.hAxes, 'PickableParts', 'none'); catch, end
-            try disableDefaultInteractivity(obj.hAxes); catch, end
+            try set(obj.hAxes, 'PickableParts', 'none'); catch , end
+            try disableDefaultInteractivity(obj.hAxes); catch , end
             hold(obj.hAxes, 'on');
 
             % Vertical background rectangle
