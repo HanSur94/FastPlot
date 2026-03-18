@@ -10,18 +10,19 @@ function run_ci_benchmark()
 %     - Zoom cycle: set XLim + drawnow (interactive responsiveness)
 %     - Downsample: minmax_downsample kernel
 %
-%   Dataset sizes: 1M, 5M, 10M points
-%   Iterations: 10 per metric (5 for instantiation/render due to cost)
+%   Dataset sizes: 1M, 5M, 10M, 50M, 100M, 500M points
+%   Iterations: scaled per size to keep CI runtime reasonable
 
     addpath(fullfile(pwd, 'libs', 'FastPlot', 'private'));
 
-    sizes  = [1e6, 5e6, 10e6];
-    labels = {'1M', '5M', '10M'};
+    sizes  = [1e6, 5e6, 10e6, 50e6, 100e6, 500e6];
+    labels = {'1M', '5M', '10M', '50M', '100M', '500M'};
 
-    N_DS   = 20;   % downsample iterations
-    N_ZOOM = 20;   % zoom cycles per run
-    N_RUNS = 10;   % runs for zoom/downsample stats
-    N_INIT = 5;    % runs for instantiation/render (heavier)
+    % Scale iterations down for larger sizes to keep CI runtime reasonable
+    N_DS_base   = 20;   % downsample iterations (base for 1M)
+    N_ZOOM      = 20;   % zoom cycles per run
+    N_RUNS_base = 10;   % runs for zoom/downsample stats (base for 1M)
+    N_INIT_base = 5;    % runs for instantiation/render (base for 1M)
 
     results = {};
 
@@ -30,8 +31,22 @@ function run_ci_benchmark()
         lbl = labels{s};
         fprintf('\n========== %s points ==========\n', lbl);
 
+        % Scale iterations for larger sizes to keep total runtime manageable
+        % ~15 min budget for full suite on CI
+        if n <= 1e6
+            N_DS = N_DS_base; N_RUNS = N_RUNS_base; N_INIT = N_INIT_base;
+        elseif n <= 10e6
+            N_DS = 10; N_RUNS = 5; N_INIT = 3;
+        elseif n <= 100e6
+            N_DS = 5; N_RUNS = 3; N_INIT = 2;
+        else
+            N_DS = 2; N_RUNS = 3; N_INIT = 2;
+        end
+
+        fprintf('  Generating %s data points...\n', lbl);
         x = linspace(0, 100, n);
         y = sin(x * 2*pi / 10) + 0.5 * randn(1, n);
+        fprintf('  Data ready (%.0f MB)\n', n * 16 / 1e6);
 
         % --- Downsample benchmark ---
         t_ds = zeros(1, N_RUNS);
@@ -100,6 +115,9 @@ function run_ci_benchmark()
         close all force;
 
         results = add_result(results, sprintf('Zoom cycle mean (%s)', lbl), 'ms', t_zoom * 1000);
+
+        % Free memory before next size (critical for 100M+ datasets)
+        clear x y fp;
     end
 
     % --- Write JSON ---
