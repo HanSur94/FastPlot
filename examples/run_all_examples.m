@@ -15,7 +15,7 @@ function run_all_examples(mode)
     addpath(fileparts(mfilename('fullpath')));
 
     examples = {
-        'example_basic',            '10M pts, thresholds, setScale (log axis)'
+        'example_basic',            '10M pts, thresholds, setScale, updateData'
         'example_multi',            '5 sensors x 1M pts, resetColorIndex'
         'example_alarm_bands',      '2M pts, HH/H/L/LL bands, setViolationsVisible'
         'example_nan_gaps',         '1M pts with sensor dropout gaps'
@@ -29,13 +29,13 @@ function run_all_examples(mode)
         'example_themes',           'Themes, palettes, defaults, reapplyTheme, distFig'
         'example_toolbar',          'Toolbar, metadata lookup, openLoupe'
         'example_dashboard',        '1M pts, 4-tile dashboard, setTileTheme'
-        'example_100M',             '100M pts stress test, DeferDraw/ShowProgress'
-        'example_sensor_static',    'Sensor with static upper & lower thresholds'
-        'example_sensor_multi_state', 'Multi-state sensor, combined conditions, getThresholdsAt'
+        'example_100M',             '100M pts, DeferDraw/ShowProgress, ConsoleProgressBar'
+        'example_sensor_static',    'Sensor: static thresholds, currentStatus, countViolations'
+        'example_sensor_multi_state', 'Multi-state sensor, valueAt, getThresholdsAt'
         'example_sensor_registry',  'SensorRegistry: list, get, register, viewer, printTable'
         'example_sensor_dashboard', 'Multi-sensor 2x2 dashboard with SensorRegistry'
         'example_dock',             'Tabbed dock: 5 dashboards, undockTab'
-        'example_dashboard_engine', 'DashboardEngine: widgets, JSON save/load, exportScript'
+        'example_dashboard_engine', 'DashboardEngine: widgets, save/load, removeWidget, setWidgetPosition'
         'example_mixed_tiles',      'Mixed tile types: FastSense + bar/scatter/histogram'
     };
 

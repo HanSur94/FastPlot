@@ -25,9 +25,16 @@ s.addThresholdRule(struct(), 0.5, ...
     'Direction', 'lower', 'Label', 'Low Alarm', ...
     'Color', [0.1 0.1 0.9], 'LineStyle', '--');
 
-% --- Resolve and plot ---
+% --- Resolve and inspect ---
 s.resolve();
 
+% currentStatus — check the sensor's latest-value status
+fprintf('Sensor status: %s\n', s.currentStatus());
+
+% countViolations — total number of violation points
+fprintf('Total violations: %d\n', s.countViolations());
+
+% --- Plot ---
 fp = FastSense();
 fp.addSensor(s, 'ShowThresholds', true);
 fp.render();

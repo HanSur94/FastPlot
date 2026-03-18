@@ -43,6 +43,6 @@ legend(fp.hAxes, 'show');
 %% setViolationsVisible — toggle violation markers on/off
 fp.setViolationsVisible(false);
 fprintf('setViolationsVisible(false): violation markers hidden.\n');
-pause(1);
+drawnow;
 fp.setViolationsVisible(true);
 fprintf('setViolationsVisible(true): violation markers restored.\n');

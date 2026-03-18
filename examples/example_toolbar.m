@@ -63,7 +63,7 @@ meta = struct('datenum', [0 25 50 75], ...
 fp4.addLine(x4, y4, 'DisplayName', 'Sensor', 'Metadata', meta);
 fp4.render();
 title(fp4.hAxes, 'Metadata — lookupMetadata / setLineMetadata');
-FastSenseToolbar(fp4);
+tb4 = FastSenseToolbar(fp4);
 
 % Query metadata at different X positions
 info1 = fp4.lookupMetadata(1, 30);

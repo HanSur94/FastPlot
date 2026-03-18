@@ -67,7 +67,8 @@ fig.setTileXLabel(3, 'Time (s)');
 fig.setTileXLabel(4, 'Time (s)');
 
 %% setTileTheme — per-tile theme overrides
-% Override individual tile appearance without changing the whole grid theme
+% Override individual tile appearance without changing the whole grid theme.
+% Uses custom dark colors for tile 4 only; the other tiles keep the grid theme.
 fig.setTileTheme(4, struct('Background', [0.15 0.15 0.2], ...
     'AxesColor', [0.1 0.1 0.15], 'ForegroundColor', [0.9 0.9 0.9]));
 fig.reapplyTheme();

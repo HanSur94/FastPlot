@@ -62,6 +62,12 @@ s.addThresholdRule(struct('machine', 1, 'zone', 'B'), 60, ...
 % --- Resolve all thresholds and violations ---
 s.resolve();
 
+% --- StateChannel.valueAt — query the state at a specific time ---
+fprintf('\nStateChannel.valueAt() examples:\n');
+fprintf('  machine state at t=10: %d (idle)\n', scMachine.valueAt(10));
+fprintf('  machine state at t=35: %d (running)\n', scMachine.valueAt(35));
+fprintf('  zone at t=50: %s\n', scZone.valueAt(50));
+
 % --- Query active thresholds at specific time points ---
 fprintf('\n=== Active thresholds at specific times ===\n');
 queryTimes = [10, 35, 50, 65, 95];

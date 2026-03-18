@@ -9,16 +9,15 @@ on:
     - cron: '0 6 * * 1'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   check-links:
     name: Check Wiki Links
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Clone wiki
-        run: |
-          git clone https://github.com/HanSur94/FastSense.wiki.git wiki-check
 
       - name: Check markdown links
         uses: lycheeverse/lychee-action@v2
@@ -28,5 +27,5 @@ jobs:
             --exclude-loopback
             --exclude 'github.com/HanSur94/FastSense/wiki'
             --suggest
-            wiki-check/*.md
+            wiki/*.md
           fail: true
