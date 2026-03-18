@@ -187,5 +187,69 @@ classdef TestExternalSensorRegistry < matlab.unittest.TestCase
             dsMap = reg.getDataSourceMap();
             testCase.verifyTrue(isa(dsMap, 'DataSourceMap'), 'returns_dsmap');
         end
+
+        function testWireStateChannelSameFile(testCase)
+            % State data in same file as sensor data
+            time = [1 2 3 4 5];
+            val = [10 20 30 40 50];
+            state_time = [1 3];
+            state_val = {{'idle', 'running'}};
+            matPath = fullfile(testCase.TempDir, 'combined.mat');
+            save(matPath, 'time', 'val', 'state_time', 'state_val');
+
+            reg = ExternalSensorRegistry('TestLab');
+            reg.register('s1', Sensor('s1'));
+            reg.wireMatFile(matPath, {'s1', 'XVar', 'time', 'YVar', 'val'});
+            reg.wireStateChannel('s1', 'machine_state', matPath, ...
+                'XVar', 'state_time', 'YVar', 'state_val');
+
+            s = reg.get('s1');
+            testCase.verifyEqual(numel(s.StateChannels), 1, 'one_state_channel');
+            testCase.verifyEqual(s.StateChannels{1}.Key, 'machine_state', 'sc_key');
+
+            % For same-file case, DataSource should have StateXVar/StateYVar set
+            ds = reg.getDataSourceMap().get('s1');
+            testCase.verifyEqual(ds.StateXVar, 'state_time', 'ds_stateXVar');
+            testCase.verifyEqual(ds.StateYVar, 'state_val', 'ds_stateYVar');
+        end
+
+        function testWireStateChannelDifferentFile(testCase)
+            % Sensor data in one file, state data in another
+            time = [1 2 3 4 5]; val = [10 20 30 40 50];
+            sensorPath = fullfile(testCase.TempDir, 'sensor.mat');
+            save(sensorPath, 'time', 'val');
+
+            state_time = [1 3]; state_val = {{'idle', 'running'}};
+            statePath = fullfile(testCase.TempDir, 'states.mat');
+            save(statePath, 'state_time', 'state_val');
+
+            reg = ExternalSensorRegistry('TestLab');
+            reg.register('s1', Sensor('s1'));
+            reg.wireMatFile(sensorPath, {'s1', 'XVar', 'time', 'YVar', 'val'});
+            reg.wireStateChannel('s1', 'machine_state', statePath, ...
+                'XVar', 'state_time', 'YVar', 'state_val');
+
+            s = reg.get('s1');
+            testCase.verifyEqual(numel(s.StateChannels), 1, 'one_state_channel');
+            sc = s.StateChannels{1};
+            testCase.verifyEqual(sc.MatFile, statePath, 'sc_matfile');
+            testCase.verifyEqual(sc.KeyName, 'state_val', 'sc_keyname');
+
+            % DataSource should NOT have StateXVar set (different file)
+            ds = reg.getDataSourceMap().get('s1');
+            testCase.verifyEqual(ds.StateXVar, '', 'ds_no_stateXVar');
+        end
+
+        function testWireStateChannelUnknownSensorThrows(testCase)
+            reg = ExternalSensorRegistry('TestLab');
+            threw = false;
+            try
+                reg.wireStateChannel('nonexistent', 'state', 'file.mat', ...
+                    'XVar', 'x', 'YVar', 'y');
+            catch
+                threw = true;
+            end
+            testCase.verifyTrue(threw, 'should_throw');
+        end
     end
 end

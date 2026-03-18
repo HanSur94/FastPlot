@@ -161,6 +161,42 @@ classdef ExternalSensorRegistry < handle
             %GETDATASOURCEMAP Return the DataSourceMap for pipeline use.
             dsMap = obj.dsMap_;
         end
+
+        function wireStateChannel(obj, sensorKey, stateKey, matFilePath, varargin)
+            %WIRESTATECHANNEL Wire state channel data to a registered sensor.
+            %   reg.wireStateChannel('sensorKey', 'stateKey', 'states.mat', ...
+            %       'XVar', 'state_time', 'YVar', 'state_val')
+            if ~obj.catalog_.isKey(sensorKey)
+                error('ExternalSensorRegistry:unknownKey', ...
+                    'Cannot wire state to ''%s'': not registered in ''%s''.', ...
+                    sensorKey, obj.Name);
+            end
+
+            p = inputParser();
+            p.addParameter('XVar', 'X', @ischar);
+            p.addParameter('YVar', 'Y', @ischar);
+            p.parse(varargin{:});
+
+            % Create StateChannel
+            % Note: For different-file state channels, the caller must populate
+            % sc.X and sc.Y manually (or via MatFileDataSource with state vars),
+            % because StateChannel.load() is not yet implemented.
+            sc = StateChannel(stateKey, 'MatFile', matFilePath, ...
+                'KeyName', p.Results.YVar);
+
+            % Attach to sensor
+            s = obj.catalog_(sensorKey);
+            s.addStateChannel(sc);
+
+            % If same file as sensor data, update existing DataSource
+            if obj.dsMap_.has(sensorKey)
+                ds = obj.dsMap_.get(sensorKey);
+                if strcmp(ds.FilePath, matFilePath)
+                    ds.StateXVar = p.Results.XVar;
+                    ds.StateYVar = p.Results.YVar;
+                end
+            end
+        end
     end
 
     methods (Static, Access = private)
