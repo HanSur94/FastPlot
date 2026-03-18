@@ -13,7 +13,12 @@ function run_ci_benchmark()
 %   Dataset sizes: 1M, 5M, 10M, 50M, 100M, 500M points
 %   Iterations: scaled per size to keep CI runtime reasonable
 
-    addpath(fullfile(pwd, 'libs', 'FastPlot', 'private'));
+    % Support both FastPlot and FastSense directory names
+    if exist(fullfile(pwd, 'libs', 'FastSense', 'private'), 'dir')
+        addpath(fullfile(pwd, 'libs', 'FastSense', 'private'));
+    else
+        addpath(fullfile(pwd, 'libs', 'FastPlot', 'private'));
+    end
 
     sizes  = [1e6, 5e6, 10e6, 50e6, 100e6, 500e6];
     labels = {'1M', '5M', '10M', '50M', '100M', '500M'};
