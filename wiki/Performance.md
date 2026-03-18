@@ -56,30 +56,23 @@ MEX kernels use SIMD instructions (AVX2/NEON) to process 4 doubles per CPU cycle
 
 ## Running Your Own Benchmarks
 
-FastSense includes several benchmark scripts to measure performance on your system:
+FastSense includes several example scripts to test performance on your system:
 
 ```matlab
 install;
 cd examples
 
-% Compare FastSense vs plot() across different data sizes
-benchmark;
+% Compare MinMax vs LTTB downsampling methods
+example_lttb_vs_minmax;
 
-% Measure zoom/pan latency frame-by-frame
-benchmark_zoom;
+% Test 100M point stress case with DeferDraw option
+example_100M;
 
-% Test specific features (downsampling, violations, etc.)
-benchmark_features;
-
-% Benchmark Sensor.resolve() with thresholds
-benchmark_resolve;
+% Full stress test: 5 tabs, 26 sensors, 86M points, 104 thresholds
+example_stress_test;
 ```
 
-The stress test example creates a realistic large-scale scenario:
-
-```matlab
-example_stress_test;  % 5 tabs, 26 sensors, 86M points, 104 thresholds
-```
+The stress test example creates a realistic large-scale scenario with [[FastSenseDock]] managing multiple dashboard tabs.
 
 ## Why FastSense is Fast
 
@@ -87,7 +80,14 @@ example_stress_test;  % 5 tabs, 26 sensors, 86M points, 104 thresholds
 Only renders ~4,000 points regardless of dataset size. A 100M point dataset uses the same GPU memory as a 4K dataset once downsampled.
 
 ### 2. Binary Search for Range Queries
-Uses O(log N) binary search instead of O(N) linear scanning to find visible data ranges on zoom/pan.
+Uses O(log N) binary search instead of O(N) linear scanning to find visible data ranges on zoom/pan. The `binary_search()` function is accelerated by MEX:
+
+```matlab
+% Find visible data range for current zoom window
+idx_start = binary_search(x, xMin, 'left');
+idx_end = binary_search(x, xMax, 'right');
+visible_data = y(idx_start:idx_end);
+```
 
 ### 3. Lazy Multi-Level Pyramid
 Pre-computes downsampled levels (100:1, 10000:1, etc.) so zooming out never touches raw data. Cache is built incrementally as needed.
@@ -96,6 +96,8 @@ Pre-computes downsampled levels (100:1, 10000:1, etc.) so zooming out never touc
 C implementations use vectorized instructions to process multiple data points per CPU cycle:
 - **AVX2** on x86_64: processes 4 doubles simultaneously
 - **NEON** on ARM64: processes 2-4 elements per cycle
+
+Compile with `build_mex()` to enable acceleration.
 
 ### 5. Fused Operations
 Combines multiple operations in single passes:
@@ -162,6 +164,16 @@ fp.render();
 % [FastSense] Total render: 187.2 ms
 ```
 
+Control progress display with the `ShowProgress` property:
+
+```matlab
+fp = FastSense();
+fp.ShowProgress = false;  % hide progress bar
+fp.DeferDraw = true;      % skip drawnow during render
+fp.render();
+drawnow;                  % manual drawnow when ready
+```
+
 The [[ConsoleProgressBar]] class (used internally) is also available for your own batch operations:
 
 ```matlab
@@ -173,3 +185,29 @@ for k = 1:1000
 end
 pb.finish();
 ```
+
+## Downsampling Methods
+
+FastSense supports two downsampling algorithms optimized for different use cases:
+
+### MinMax (Default)
+Preserves extremes (peaks and valleys) by selecting minimum and maximum values in each pixel bucket. Ideal for:
+- Signal analysis where peak detection is critical
+- Quality control data with threshold violations
+- Any scenario where you can't afford to miss extreme values
+
+```matlab
+fp.addLine(x, y, 'DownsampleMethod', 'minmax');
+```
+
+### LTTB (Largest-Triangle-Three-Buckets)
+Preserves visual shape and trends by selecting points that form the largest triangular area with their neighbors. Better for:
+- Smooth signals where overall shape matters more than individual peaks
+- Presentation graphics where visual fidelity is key
+- Dense noisy data where MinMax creates jagged artifacts
+
+```matlab
+fp.addLine(x, y, 'DownsampleMethod', 'lttb');
+```
+
+Both algorithms downsample to approximately `DownsampleFactor` points per screen pixel, but with different selection criteria. Use `example_lttb_vs_minmax.m` to see the visual difference.

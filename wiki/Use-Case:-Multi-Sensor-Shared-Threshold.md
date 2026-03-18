@@ -78,7 +78,7 @@ fp.addThreshold(4.5, 'Direction', 'upper', 'ShowViolations', true, ...
     'Label', 'Max Temp', 'Color', 'r');
 ```
 
-This approach draws a single shared threshold line and FastSense computes violation markers against **all lines** on the tile during rendering (see `updateViolations` in FastSense.m).
+This approach draws a single shared threshold line and FastSense computes violation markers against **all lines** on the tile during rendering.
 
 ### 3. Event detection works per-sensor
 
@@ -181,6 +181,41 @@ end
 
 ---
 
+## Alternative: Manual Threshold Approach
+
+For complete control over the threshold line appearance, use manual `addThreshold()` and set all sensors to `ShowThresholds', false`:
+
+```matlab
+%% Create sensors without showing individual thresholds
+sensors = cell(1, 3);
+for i = 1:3
+    s = Sensor(sprintf('sensor_%d', i), 'Name', sprintf('Channel %d', i));
+    s.X = x;
+    s.Y = data{i};  % your data arrays
+    
+    % Add threshold rule for violation computation (not displayed)
+    s.addThresholdRule(struct(), 75, 'Direction', 'upper', 'Label', 'Common HH');
+    s.resolve();
+    
+    sensors{i} = s;
+end
+
+%% Plot all sensors
+fp = FastSense();
+for i = 1:numel(sensors)
+    fp.addSensor(sensors{i}, 'ShowThresholds', false);  % no individual lines
+end
+
+% Add single shared threshold line with violations
+fp.addThreshold(75, 'Direction', 'upper', 'ShowViolations', true, ...
+    'Label', 'Common HH', 'Color', [0.8 0 0], 'LineStyle', '--');
+fp.render();
+```
+
+This approach gives you one clean threshold line while FastSense automatically computes violations against all sensor data on the plot.
+
+---
+
 ## Key Points
 
 | Aspect | Behavior |
@@ -194,5 +229,5 @@ end
 ## See Also
 
 - [[Sensors|API Reference: Sensors]] — `Sensor`, `ThresholdRule`, `StateChannel`
-- [[Event Detection|API Reference: Event Detection]] — `EventDetector`, `detectEventsFromSensor`, `EventViewer`
+- [[Event Detection|API Reference: Event Detection]] — `EventDetector`, `detectEventsFromSensor`
 - [[Examples]] — `example_multi_sensor_linked`, `example_sensor_threshold`, `example_sensor_multi_state`
