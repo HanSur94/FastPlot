@@ -155,14 +155,14 @@ classdef DashboardEngine < handle
 
         function save(obj, filepath)
             config = DashboardSerializer.widgetsToConfig( ...
-                obj.Name, obj.Theme, obj.LiveInterval, obj.Widgets);
+                obj.Name, obj.Theme, obj.LiveInterval, obj.Widgets, obj.InfoFile);
             DashboardSerializer.save(config, filepath);
             obj.FilePath = filepath;
         end
 
         function exportScript(obj, filepath)
             config = DashboardSerializer.widgetsToConfig( ...
-                obj.Name, obj.Theme, obj.LiveInterval, obj.Widgets);
+                obj.Name, obj.Theme, obj.LiveInterval, obj.Widgets, obj.InfoFile);
             DashboardSerializer.exportScript(config, filepath);
         end
 
@@ -582,6 +582,9 @@ classdef DashboardEngine < handle
                 obj.LiveInterval = config.liveInterval;
             end
             obj.FilePath = filepath;
+            if isfield(config, 'infoFile')
+                obj.InfoFile = config.infoFile;
+            end
 
             widgets = DashboardSerializer.configToWidgets(config, resolver);
             for i = 1:numel(widgets)

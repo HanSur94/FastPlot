@@ -96,5 +96,61 @@ classdef TestDashboardInfo < matlab.unittest.TestCase
             testCase.addTeardown(@() d.cleanupInfoTempFile());
             testCase.verifyTrue(exist(d.InfoTempFile, 'file') == 2);
         end
+
+        function testSerializationRoundTrip(testCase)
+            d = DashboardEngine('Info Test', 'InfoFile', 'docs/info.md');
+            d.addWidget('text', 'Title', 'Note', 'Position', [1 1 4 2], ...
+                'Content', 'Hello');
+
+            filepath = fullfile(testCase.TempDir, 'info_dash.json');
+            d.save(filepath);
+
+            d2 = DashboardEngine.load(filepath);
+            testCase.verifyEqual(d2.InfoFile, 'docs/info.md');
+        end
+
+        function testSerializationWithoutInfoFile(testCase)
+            d = DashboardEngine('No Info');
+            d.addWidget('text', 'Title', 'Note', 'Position', [1 1 4 2], ...
+                'Content', 'Hello');
+
+            filepath = fullfile(testCase.TempDir, 'no_info_dash.json');
+            d.save(filepath);
+
+            content = fileread(filepath);
+            testCase.verifyFalse(contains(content, 'infoFile'));
+        end
+
+        function testWidgetsToConfigBackwardCompat(testCase)
+            w = TextWidget('Title', 'T', 'Position', [1 1 4 2], 'Content', 'x');
+            config = DashboardSerializer.widgetsToConfig('Test', 'light', 5, {w});
+            testCase.verifyEqual(config.name, 'Test');
+            testCase.verifyFalse(isfield(config, 'infoFile'));
+        end
+
+        function testExportScriptWithInfoFile(testCase)
+            d = DashboardEngine('Export Info', 'InfoFile', 'notes.md');
+            d.addWidget('text', 'Title', 'T', 'Position', [1 1 4 2], ...
+                'Content', 'x');
+
+            filepath = fullfile(testCase.TempDir, 'export_info.m');
+            d.exportScript(filepath);
+
+            content = fileread(filepath);
+            testCase.verifyTrue(contains(content, 'InfoFile'));
+            testCase.verifyTrue(contains(content, 'notes.md'));
+        end
+
+        function testExportScriptWithoutInfoFile(testCase)
+            d = DashboardEngine('Export No Info');
+            d.addWidget('text', 'Title', 'T', 'Position', [1 1 4 2], ...
+                'Content', 'x');
+
+            filepath = fullfile(testCase.TempDir, 'export_no_info.m');
+            d.exportScript(filepath);
+
+            content = fileread(filepath);
+            testCase.verifyFalse(contains(content, 'InfoFile'));
+        end
     end
 end

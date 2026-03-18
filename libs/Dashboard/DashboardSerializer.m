@@ -48,11 +48,17 @@ classdef DashboardSerializer
             end
         end
 
-        function config = widgetsToConfig(name, theme, liveInterval, widgets)
+        function config = widgetsToConfig(name, theme, liveInterval, widgets, infoFile)
             %WIDGETSTOCONFIG Build a config struct from widget objects.
+            if nargin < 5
+                infoFile = '';
+            end
             config.name = name;
             config.theme = theme;
             config.liveInterval = liveInterval;
+            if ~isempty(infoFile)
+                config.infoFile = infoFile;
+            end
             config.grid = struct('columns', 24);
             config.widgets = cell(1, numel(widgets));
             for i = 1:numel(widgets)
@@ -118,6 +124,11 @@ classdef DashboardSerializer
             lines{end+1} = sprintf('d.Theme = ''%s'';', config.theme);
             lines{end+1} = sprintf('d.LiveInterval = %g;', config.liveInterval);
             lines{end+1} = '';
+
+            if isfield(config, 'infoFile') && ~isempty(config.infoFile)
+                lines{end+1} = sprintf('d.InfoFile = ''%s'';', config.infoFile);
+                lines{end+1} = '';
+            end
 
             for i = 1:numel(config.widgets)
                 ws = config.widgets{i};
