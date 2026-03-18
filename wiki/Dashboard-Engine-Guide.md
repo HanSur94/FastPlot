@@ -1,3 +1,5 @@
+<!-- AUTO-GENERATED from source code by scripts/generate_wiki.py — do not edit manually -->
+
 # Dashboard Engine Guide
 
 Build rich, interactive dashboards with mixed widget types, sensor bindings, JSON persistence, and a visual editor.
@@ -91,6 +93,10 @@ d.addWidget('fastsense', 'Title', 'Raw', 'Position', [13 1 12 8], ...
 % From MAT file
 d.addWidget('fastsense', 'Title', 'File', 'Position', [1 9 24 6], ...
     'File', 'data.mat', 'XVar', 'x', 'YVar', 'y');
+
+% From DataStore
+d.addWidget('fastsense', 'Title', 'Store', 'Position', [1 15 24 6], ...
+    'DataStore', myDataStore);
 ```
 
 When bound to a Sensor, threshold rules apply automatically (resolved violations are shown). The widget title, X-axis label (`'Time'`), and Y-axis label (sensor Units or Name) are auto-derived.
@@ -101,6 +107,16 @@ When bound to a Sensor, threshold rules apply automatically (resolved violations
 d.addWidget('number', 'Title', 'Temperature', ...
     'Position', [1 1 6 2], ...
     'Sensor', sTemp, 'Units', 'degF', 'Format', '%.1f');
+
+% Or with static value
+d.addWidget('number', 'Title', 'Total Count', ...
+    'Position', [7 1 6 2], ...
+    'StaticValue', 1234, 'Units', 'pcs', 'Format', '%d');
+
+% Or with function callback
+d.addWidget('number', 'Title', 'CPU Load', ...
+    'Position', [13 1 6 2], ...
+    'ValueFcn', @() getCpuLoad(), 'Units', '%', 'Format', '%.0f');
 ```
 
 Shows a large number with a trend arrow (up/down/flat) computed from recent sensor data. Layout: `[Title | Value+Trend | Units]`.
@@ -111,6 +127,11 @@ Shows a large number with a trend arrow (up/down/flat) computed from recent sens
 d.addWidget('status', 'Title', 'Pump', ...
     'Position', [7 1 5 2], ...
     'Sensor', sTemp);
+
+% Legacy static status
+d.addWidget('status', 'Title', 'System', ...
+    'Position', [12 1 5 2], ...
+    'StaticStatus', 'ok');  % 'ok', 'warning', 'alarm'
 ```
 
 Shows a colored dot (green/amber/red) and the sensor's latest value. Status is derived automatically from threshold rules.
@@ -122,6 +143,12 @@ d.addWidget('gauge', 'Title', 'Flow Rate', ...
     'Position', [1 3 8 6], ...
     'Sensor', sFlow, 'Range', [0 160], 'Units', 'L/min', ...
     'Style', 'donut');
+
+% Static value
+d.addWidget('gauge', 'Title', 'Efficiency', ...
+    'Position', [9 3 8 6], ...
+    'StaticValue', 85, 'Range', [0 100], 'Units', '%', ...
+    'Style', 'arc');
 ```
 
 Styles: `'arc'` (default), `'donut'`, `'bar'`, `'thermometer'`.
@@ -133,7 +160,8 @@ When Sensor-bound, range and units are auto-derived from threshold rules and sen
 ```matlab
 d.addWidget('text', 'Title', 'Plant Overview', ...
     'Position', [1 1 6 1], ...
-    'Content', 'Line 4 - Shift A', 'FontSize', 16);
+    'Content', 'Line 4 - Shift A', 'FontSize', 16, ...
+    'Alignment', 'center');
 ```
 
 ### Table (data display)
@@ -149,6 +177,18 @@ d.addWidget('table', 'Title', 'Alarm Log', ...
 d.addWidget('table', 'Title', 'Recent Data', ...
     'Position', [1 9 12 4], ...
     'Sensor', sTemp, 'N', 15);
+
+% Dynamic data via callback
+d.addWidget('table', 'Title', 'Live Log', ...
+    'Position', [1 13 12 4], ...
+    'DataFcn', @() getRecentAlarms(), ...
+    'ColumnNames', {'Time', 'Tag', 'Value', 'Level'});
+
+% Event mode (requires EventStore)
+d.addWidget('table', 'Title', 'Events', ...
+    'Position', [1 17 12 4], ...
+    'Sensor', mySensor, 'Mode', 'events', ...
+    'EventStoreObj', myEventStore, 'N', 10);
 ```
 
 ### Raw Axes (custom plots)
@@ -158,6 +198,12 @@ d.addWidget('rawaxes', 'Title', 'Temperature Distribution', ...
     'Position', [1 5 8 4], ...
     'PlotFcn', @(ax) histogram(ax, tempData, 50, ...
         'FaceColor', [0.31 0.80 0.64], 'EdgeColor', 'none'));
+
+% Sensor-bound with time range
+d.addWidget('rawaxes', 'Title', 'Custom Analysis', ...
+    'Position', [9 5 8 4], ...
+    'Sensor', mySensor, ...
+    'PlotFcn', @(ax, sensor, tRange) plotCustom(ax, sensor, tRange));
 ```
 
 The `PlotFcn` receives MATLAB axes as the first argument. When Sensor-bound, it also receives the Sensor object and optionally a time range.
@@ -173,10 +219,16 @@ d.addWidget('timeline', 'Title', 'Machine Mode', ...
     'Position', [1 13 24 3], ...
     'Events', events);
 
-% From EventStore
+% From EventStore (recommended)
 d.addWidget('timeline', 'Title', 'Alarms', ...
     'Position', [1 16 24 3], ...
     'EventStoreObj', myEventStore);
+
+% Filtered by sensor names
+d.addWidget('timeline', 'Title', 'Temp Events', ...
+    'Position', [1 19 24 3], ...
+    'EventStoreObj', myEventStore, ...
+    'FilterSensors', {'T-401', 'T-402'});
 ```
 
 ---
@@ -188,6 +240,7 @@ The recommended way to drive dashboard widgets is through Sensor objects. Create
 ```matlab
 % Create and configure sensor
 sTemp = Sensor('T-401', 'Name', 'Temperature');
+sTemp.Units = 'degF';
 sTemp.X = t;
 sTemp.Y = temp;
 
@@ -265,6 +318,13 @@ d.render();
 
 Available presets: `'default'`, `'dark'`, `'light'`, `'industrial'`, `'scientific'`, `'ocean'`.
 
+You can also override specific theme properties:
+
+```matlab
+theme = DashboardTheme('dark', 'WidgetBackground', [0.1 0.1 0.2]);
+d.Theme = theme;
+```
+
 ---
 
 ## Live Mode
@@ -285,7 +345,7 @@ d.startLive();   % start periodic refresh
 d.stopLive();    % stop
 ```
 
-You can also toggle live mode from the toolbar's Live button.
+You can also toggle live mode from the toolbar's Live button. The toolbar shows the last update timestamp when live mode is active.
 
 ---
 
@@ -314,6 +374,26 @@ Click the **Edit** button in the toolbar to enter edit mode:
 
 The editor snaps to the 24-column grid. You can change the widget's title, position, axis labels, and data source directly in the properties panel.
 
+Widget management functions:
+- `addWidget(type)` - add a new widget of the specified type
+- `deleteWidget(idx)` - remove widget by index
+- `selectWidget(idx)` - select a widget for property editing
+- `setWidgetPosition(idx, pos)` - move/resize widget programmatically
+
+---
+
+## Info File Integration
+
+Dashboards can link to external Markdown documentation files:
+
+```matlab
+d = DashboardEngine('My Dashboard');
+d.InfoFile = 'dashboard_help.md';  % path to Markdown file
+d.render();
+```
+
+An **Info** button appears in the toolbar. Clicking it renders the Markdown file as HTML and opens it in the system browser. Supports basic Markdown syntax including headers, lists, code blocks, and tables.
+
 ---
 
 ## Complete Example
@@ -335,6 +415,7 @@ scMode.Y = [0, 1,    1,    2,     1    ];
 
 % Temperature sensor
 sTemp = Sensor('T-401', 'Name', 'Temperature');
+sTemp.Units = 'degF';
 sTemp.X = t;
 sTemp.Y = 74 + 3*sin(2*pi*t/3600) + randn(1,N)*1.2;
 sTemp.addStateChannel(scMode);
@@ -346,6 +427,7 @@ sTemp.resolve();
 
 % Pressure sensor
 sPress = Sensor('P-201', 'Name', 'Pressure');
+sPress.Units = 'psi';
 sPress.X = t;
 sPress.Y = 55 + 20*sin(2*pi*t/7200) + randn(1,N)*1.5;
 sPress.addThresholdRule(struct(), 65, 'Direction', 'upper', 'Label', 'Hi Warn');
@@ -361,9 +443,9 @@ d.LiveInterval = 5;
 d.addWidget('text', 'Title', 'Overview', 'Position', [1 1 4 2], ...
     'Content', 'Line 4 — Shift A', 'FontSize', 16);
 d.addWidget('number', 'Title', 'Temperature', 'Position', [5 1 5 2], ...
-    'Sensor', sTemp, 'Units', 'degF', 'Format', '%.1f');
+    'Sensor', sTemp, 'Format', '%.1f');
 d.addWidget('number', 'Title', 'Pressure', 'Position', [10 1 5 2], ...
-    'Sensor', sPress, 'Units', 'psi', 'Format', '%.0f');
+    'Sensor', sPress, 'Format', '%.0f');
 d.addWidget('status', 'Title', 'Temp', 'Position', [15 1 5 2], ...
     'Sensor', sTemp);
 d.addWidget('status', 'Title', 'Press', 'Position', [20 1 5 2], ...
