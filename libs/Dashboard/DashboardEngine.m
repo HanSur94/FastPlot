@@ -218,6 +218,11 @@ classdef DashboardEngine < handle
                 obj.InfoTempFile = [tempname '.html'];
             end
             fid = fopen(obj.InfoTempFile, 'w');
+            if fid == -1
+                warning('DashboardEngine:infoWriteError', ...
+                    'Cannot write temp file: %s', obj.InfoTempFile);
+                return;
+            end
             fwrite(fid, html);
             fclose(fid);
 
