@@ -1,4 +1,4 @@
-%% FastSense Basic Example — 10M points single line
+%% FastSense Basic Example — 10M Points Single Line
 % Demonstrates basic usage with a large time series dataset, plus setScale
 % for logarithmic axes.
 
