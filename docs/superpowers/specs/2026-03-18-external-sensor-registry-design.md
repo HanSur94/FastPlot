@@ -30,7 +30,9 @@ A non-singleton registry where sensors are explicitly defined in code and wired 
 
 ### Public API
 
-#### Sensor Management (based on SensorRegistry, with additions)
+#### Sensor Management
+
+Methods `get`, `getMultiple`, `register`, `unregister`, `list`, `printTable`, and `viewer` follow the same signatures as `SensorRegistry`. Methods `getAll`, `keys`, and `count` are new (no counterpart in `SensorRegistry`).
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
@@ -51,7 +53,7 @@ A non-singleton registry where sensors are explicitly defined in code and wired 
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `wireMatFile` | `wireMatFile(path, mappings)` | Wire .mat file fields to sensor keys |
-| `wireStateChannel` | `wireStateChannel(sensorKey, stateKey, matPath, NV...)` | Wire state channel data to a sensor |
+| `wireStateChannel` | `wireStateChannel(sensorKey, stateKey, matFilePath, 'XVar', xField, 'YVar', yField)` | Wire state channel data to a sensor |
 | `getDataSourceMap` | `getDataSourceMap()` → DataSourceMap | Return DataSourceMap for pipeline use |
 
 ### wireMatFile
@@ -89,7 +91,7 @@ reg.wireStateChannel(sensorKey, stateKey, matFilePath, 'XVar', xField, 'YVar', y
 1. Validates `sensorKey` exists in the catalog (error if not)
 2. Creates a `StateChannel(stateKey, 'MatFile', matFilePath, 'KeyName', yField)` (note: `stateKey` is positional)
 3. Calls `sensor.addStateChannel(sc)` on the target sensor
-4. If the state data lives in the **same** .mat file as the sensor data, updates the existing `MatFileDataSource` to include `StateXVar`/`StateYVar`
+4. If the state data lives in the **same** .mat file as the sensor data, sets `ds.StateXVar` and `ds.StateYVar` directly on the existing `MatFileDataSource` handle (retrieved via `DSMap.get(sensorKey)`). Do not replace the data source object, as that would reset its internal polling index.
 5. If the state data lives in a **different** .mat file, the `StateChannel` loads its own data via `StateChannel.MatFile` / `StateChannel.load()` — no changes to the sensor's `MatFileDataSource`
 
 ### getDataSourceMap
