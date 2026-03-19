@@ -139,12 +139,12 @@ jobs:
         run: choco install octave.portable --yes --version=9.2.0
 
       - name: Verify Octave installation
-        run: |
-          octave-cli --version || octave --version
-          echo "Octave found on PATH"
+        shell: cmd
+        run: octave-cli --version
 
       - name: Compile MEX files
-        run: octave-cli --no-window-system --eval "install(); fprintf('All MEX files compiled successfully on %s\n', computer());"
+        shell: cmd
+        run: octave-cli --no-window-system --eval "install(); fprintf('All MEX files compiled successfully on %%s\n', computer());"
 
   matlab:
     name: MATLAB Tests
