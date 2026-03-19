@@ -159,69 +159,73 @@ function [stepX, stepY] = toStepFunction(segBounds, values, dataEnd)
 %   See also mergeResolvedByLabel.
 
     nB = numel(segBounds);
-    parts = {};  % Cell array of {X_array, Y_array} pairs (one per contiguous run)
 
-    for k = 1:nB
-        % Skip inactive (NaN) segments
-        if isnan(values(k))
-            continue;
-        end
+    % Vectorized active-segment detection
+    active = ~isnan(values);
 
-        % Determine the right edge of this segment
-        segStart = segBounds(k);
-        if k < nB
-            segEnd = segBounds(k + 1);
-        else
-            segEnd = dataEnd;
-        end
-
-        % Decide whether to extend the previous contiguous part or start new
-        if ~isempty(parts) && parts{end}{1}(end) == segStart
-            % Contiguous with the previous part: append a step at the
-            % shared boundary by duplicating the boundary X coordinate.
-            parts{end}{1} = [parts{end}{1}, segStart, segEnd];
-            parts{end}{2} = [parts{end}{2}, values(k), values(k)];
-        else
-            % Start a new disconnected part (gap in active segments)
-            parts{end+1} = {[segStart, segEnd], [values(k), values(k)]};
-        end
-    end
-
-    % Handle the case where no segments are active
-    if isempty(parts)
+    if ~any(active)
         stepX = [];
         stepY = [];
         return;
     end
 
-    % Fast path: single contiguous run needs no NaN separators
-    if numel(parts) == 1
-        stepX = parts{1}{1};
-        stepY = parts{1}{2};
+    % Compute right edges for all segments at once
+    segEnds = [segBounds(2:end), dataEnd];
+
+    % Find active indices
+    activeIdx = find(active);
+    nActive = numel(activeIdx);
+
+    % Detect where contiguous runs break: a gap occurs when the previous
+    % segment's right edge does not equal the current segment's left edge,
+    % OR when the previous segment was not the immediately preceding index.
+    % For the first active segment, there is always a "break" (new run).
+    if nActive == 1
+        % Single active segment — no gaps, no NaN separators
+        stepX = [segBounds(activeIdx), segEnds(activeIdx)];
+        stepY = [values(activeIdx), values(activeIdx)];
         return;
     end
 
-    % --- Concatenate parts with NaN separators ---
-    % Pre-compute total output length: sum of part lengths + (nParts - 1) NaNs
-    totalLen = 0;
-    for p = 1:numel(parts)
-        totalLen = totalLen + numel(parts{p}{1});
-    end
-    totalLen = totalLen + numel(parts) - 1;  % NaN separators between parts
+    % Pre-allocate to maximum possible size:
+    %   Each active segment emits 2 points (start, end).
+    %   Contiguous segments add 2 more (step at shared boundary).
+    %   Gaps add 1 NaN separator.
+    % Worst case: 3*nActive + nActive = 4*nActive (generous upper bound)
+    maxLen = 4 * nActive;
+    stepX = zeros(1, maxLen);
+    stepY = zeros(1, maxLen);
 
-    stepX = zeros(1, totalLen);
-    stepY = zeros(1, totalLen);
-    idx = 1;
-    for p = 1:numel(parts)
-        % Insert NaN separator before the second and subsequent parts
-        if p > 1
-            stepX(idx) = NaN;
-            stepY(idx) = NaN;
-            idx = idx + 1;
+    % Vectorized gap detection: gap where consecutive active indices are
+    % not adjacent, OR where the previous segment's right edge differs
+    % from the current segment's left edge.
+    prevEnds = segEnds(activeIdx(1:end-1));
+    currStarts = segBounds(activeIdx(2:end));
+    isGap = (prevEnds ~= currStarts);
+
+    % Fill output in a single pass
+    pos = 0;
+
+    % First active segment
+    k = activeIdx(1);
+    pos = pos + 1; stepX(pos) = segBounds(k); stepY(pos) = values(k);
+    pos = pos + 1; stepX(pos) = segEnds(k);   stepY(pos) = values(k);
+
+    for a = 2:nActive
+        k = activeIdx(a);
+        if isGap(a - 1)
+            % Non-contiguous: insert NaN separator, then new segment
+            pos = pos + 1; stepX(pos) = NaN;           stepY(pos) = NaN;
+            pos = pos + 1; stepX(pos) = segBounds(k);  stepY(pos) = values(k);
+            pos = pos + 1; stepX(pos) = segEnds(k);    stepY(pos) = values(k);
+        else
+            % Contiguous: duplicate boundary X for vertical step
+            pos = pos + 1; stepX(pos) = segBounds(k);  stepY(pos) = values(k);
+            pos = pos + 1; stepX(pos) = segEnds(k);    stepY(pos) = values(k);
         end
-        n = numel(parts{p}{1});
-        stepX(idx:idx+n-1) = parts{p}{1};
-        stepY(idx:idx+n-1) = parts{p}{2};
-        idx = idx + n;
     end
+
+    % Trim to actual length
+    stepX = stepX(1:pos);
+    stepY = stepY(1:pos);
 end
