@@ -131,6 +131,7 @@ classdef DashboardEngine < handle
                 'Units', 'normalized', ...
                 'OuterPosition', [0.05 0.05 0.9 0.9], ...
                 'CloseRequestFcn', @(~,~) obj.onClose());
+            set(obj.hFigure, 'ResizeFcn', @(~,~) obj.onResize());
 
             obj.Toolbar = DashboardToolbar(obj, obj.hFigure, themeStruct);
 
@@ -593,6 +594,14 @@ classdef DashboardEngine < handle
         %   Called on theme change, figure resize, or other global state changes.
             for i = 1:numel(obj.Widgets)
                 obj.Widgets{i}.markDirty();
+            end
+        end
+
+        function onResize(obj)
+        %ONRESIZE Handle figure resize: mark all dirty and re-realize visible.
+            obj.markAllDirty();
+            if ~isempty(obj.Layout)
+                obj.realizeBatch(5);
             end
         end
 

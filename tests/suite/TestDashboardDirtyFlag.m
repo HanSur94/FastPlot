@@ -67,5 +67,22 @@ classdef TestDashboardDirtyFlag < matlab.unittest.TestCase
                 testCase.verifyTrue(d.Widgets{i}.Dirty);
             end
         end
+
+        function testResizeMarksDirty(testCase)
+            d = DashboardEngine('ResizeTest');
+            d.addWidget('fastsense', 'Title', 'P1', ...
+                'Position', [1 1 24 3], 'XData', 1:10, 'YData', rand(1,10));
+            d.render();
+            testCase.addTeardown(@() close(d.hFigure));
+
+            % Clear dirty flags
+            for i = 1:numel(d.Widgets)
+                d.Widgets{i}.Dirty = false;
+            end
+
+            % Trigger resize callback
+            d.onResize();
+            testCase.verifyTrue(d.Widgets{1}.Dirty);
+        end
     end
 end
