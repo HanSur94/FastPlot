@@ -101,5 +101,39 @@ classdef TestDashboardPreview < matlab.unittest.TestCase
                     sprintf('Widget type %s produced empty preview', types{k,1}));
             end
         end
+
+        function testFullDashboardPreview(testCase)
+            d = DashboardEngine('Process Monitor');
+            d.addWidget('fastsense', 'Title', 'Temperature', ...
+                'Position', [1 1 12 3], 'XData', 1:50, 'YData', sin(1:50));
+            d.addWidget('number', 'Title', 'Max Temp', ...
+                'Position', [13 1 6 1], 'StaticValue', 72.5, 'Units', 'degC');
+            d.addWidget('status', 'Title', 'Pump 1', ...
+                'Position', [19 1 6 1], 'StaticStatus', 'ok');
+            d.addWidget('gauge', 'Title', 'Pressure', ...
+                'Position', [13 2 12 2], 'StaticValue', 65, ...
+                'Range', [0 100], 'Units', 'bar');
+            d.addWidget('text', 'Title', 'Notes', 'Content', 'All systems go', ...
+                'Position', [1 4 24 1]);
+
+            output = evalc('d.preview()');
+            testCase.verifyTrue(contains(output, 'Process Monitor'));
+            testCase.verifyTrue(contains(output, 'Temperature'));
+            testCase.verifyTrue(contains(output, '72.5'));
+            testCase.verifyTrue(contains(output, 'Pump 1'));
+            testCase.verifyTrue(contains(output, 'Pressure'));
+            testCase.verifyTrue(contains(output, 'Notes'));
+            testCase.verifyTrue(contains(output, '5 widgets'));
+        end
+
+        function testPreviewDoesNotRequireRender(testCase)
+            d = DashboardEngine('Pre-Render');
+            d.addWidget('fastsense', 'Title', 'T1', 'Position', [1 1 12 2]);
+            d.addWidget('number', 'Title', 'V1', 'Position', [13 1 6 1]);
+            testCase.verifyEmpty(d.hFigure);
+            output = evalc('d.preview()');
+            testCase.verifyTrue(contains(output, 'Pre-Render'));
+            testCase.verifyEmpty(d.hFigure);
+        end
     end
 end
