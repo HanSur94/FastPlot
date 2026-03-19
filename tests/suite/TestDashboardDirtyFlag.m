@@ -25,5 +25,47 @@ classdef TestDashboardDirtyFlag < matlab.unittest.TestCase
             testCase.verifyFalse(w.Realized, ...
                 'Newly created widget should not be realized');
         end
+
+        function testLiveTickSkipsCleanWidgets(testCase)
+            d = DashboardEngine('DirtyTest');
+            d.addWidget('fastsense', 'Title', 'Plot 1', ...
+                'Position', [1 1 12 3], 'XData', 1:10, 'YData', rand(1,10));
+            d.addWidget('fastsense', 'Title', 'Plot 2', ...
+                'Position', [13 1 12 3], 'XData', 1:10, 'YData', rand(1,10));
+            d.render();
+            testCase.addTeardown(@() close(d.hFigure));
+
+            % After render, widgets are dirty (default). Clear them.
+            for i = 1:numel(d.Widgets)
+                d.Widgets{i}.Dirty = false;
+            end
+
+            % Mark only the first widget dirty
+            d.Widgets{1}.markDirty();
+
+            % After live tick, only dirty widget should be cleared
+            d.onLiveTick();
+            testCase.verifyFalse(d.Widgets{1}.Dirty, ...
+                'Refreshed widget should have Dirty cleared');
+            % Widget 2 was already clean — it stays clean
+            testCase.verifyFalse(d.Widgets{2}.Dirty);
+        end
+
+        function testMarkAllDirty(testCase)
+            d = DashboardEngine('DirtyTest');
+            d.addWidget('fastsense', 'Title', 'P1', ...
+                'Position', [1 1 12 3], 'XData', 1:10, 'YData', rand(1,10));
+            d.addWidget('fastsense', 'Title', 'P2', ...
+                'Position', [13 1 12 3], 'XData', 1:10, 'YData', rand(1,10));
+
+            for i = 1:numel(d.Widgets)
+                d.Widgets{i}.Dirty = false;
+            end
+
+            d.markAllDirty();
+            for i = 1:numel(d.Widgets)
+                testCase.verifyTrue(d.Widgets{i}.Dirty);
+            end
+        end
     end
 end

@@ -392,6 +392,50 @@ classdef DashboardEngine < handle
             obj.onTimeSlidersChanged();
         end
 
+        function onLiveTick(obj)
+            if isempty(obj.hFigure) || ~ishandle(obj.hFigure)
+                return;
+            end
+
+            % Update global time range from live data
+            obj.updateLiveTimeRange();
+
+            % Only refresh widgets with dirty flag set
+            for i = 1:numel(obj.Widgets)
+                if obj.Widgets{i}.Dirty
+                    try
+                        obj.Widgets{i}.refresh();
+                    catch ME
+                        warning('DashboardEngine:refreshError', ...
+                            'Widget "%s" refresh failed: %s', ...
+                            obj.Widgets{i}.Title, ME.message);
+                    end
+                end
+            end
+            obj.LastUpdateTime = now;
+            if ~isempty(obj.Toolbar)
+                obj.Toolbar.setLastUpdateTime(obj.LastUpdateTime);
+            end
+
+            % Re-apply current slider positions to the updated time range
+            if ~isempty(obj.hTimeSliderL) && ishandle(obj.hTimeSliderL)
+                obj.onTimeSlidersChanged();
+            end
+
+            % Clear dirty flags AFTER slider broadcast to avoid re-dirtying
+            for i = 1:numel(obj.Widgets)
+                obj.Widgets{i}.Dirty = false;
+            end
+        end
+
+        function markAllDirty(obj)
+        %MARKALLDIRTY Flag all widgets as needing refresh.
+        %   Called on theme change, figure resize, or other global state changes.
+            for i = 1:numel(obj.Widgets)
+                obj.Widgets{i}.markDirty();
+            end
+        end
+
         function delete(obj)
             obj.stopLive();
             obj.cleanupInfoTempFile();
@@ -536,33 +580,6 @@ classdef DashboardEngine < handle
             end
         end
 
-        function onLiveTick(obj)
-            if isempty(obj.hFigure) || ~ishandle(obj.hFigure)
-                return;
-            end
-
-            % Update global time range from live data
-            obj.updateLiveTimeRange();
-
-            for i = 1:numel(obj.Widgets)
-                try
-                    obj.Widgets{i}.refresh();
-                catch ME
-                    warning('DashboardEngine:refreshError', ...
-                        'Widget "%s" refresh failed: %s', ...
-                        obj.Widgets{i}.Title, ME.message);
-                end
-            end
-            obj.LastUpdateTime = now;
-            if ~isempty(obj.Toolbar)
-                obj.Toolbar.setLastUpdateTime(obj.LastUpdateTime);
-            end
-
-            % Re-apply current slider positions to the updated time range
-            if ~isempty(obj.hTimeSliderL) && ishandle(obj.hTimeSliderL)
-                obj.onTimeSlidersChanged();
-            end
-        end
     end
 
     methods (Static)
