@@ -1,9 +1,10 @@
-function sensors = loadModuleMetadata(metadataTable, sensors)
+function registry = loadModuleMetadata(registry, metadataTable)
 %LOADMODULEMETADATA Attach state channels from metadata table to sensors.
-%   sensors = loadModuleMetadata(metadataTable, sensors) reads discrete
+%   registry = loadModuleMetadata(registry, metadataTable) reads discrete
 %   state signals from a MATLAB table, compresses them from dense to
 %   sparse transitions, and attaches StateChannel objects to each sensor
-%   whose ThresholdRules reference matching state column names.
+%   in the registry whose ThresholdRules reference matching state column
+%   names.
 %
 %   metadataTable must be a MATLAB table with a 'Date' column (datetime)
 %   and one or more state columns. The Date column is converted to
@@ -18,8 +19,8 @@ function sensors = loadModuleMetadata(metadataTable, sensors)
 %   Each sensor receives its own StateChannel instance (no shared
 %   handles). Compressed data is cached so each column is processed once.
 %
-%   Repeated calls add additional StateChannels without clearing existing
-%   ones. Caller is responsible for avoiding duplicates.
+%   Returns the registry (handle) for chaining convenience. Sensors are
+%   modified in-place via handle semantics.
 %
 %   See also loadModuleData, StateChannel, ThresholdRule, Sensor.
 
@@ -28,7 +29,7 @@ function sensors = loadModuleMetadata(metadataTable, sensors)
     % --- Validate table input ---
     if ~istable(metadataTable)
         error('loadModuleMetadata:notTable', ...
-            'First argument must be a table, got %s.', class(metadataTable));
+            'Second argument must be a table, got %s.', class(metadataTable));
     end
 
     colNames = metadataTable.Properties.VariableNames;
@@ -38,8 +39,9 @@ function sensors = loadModuleMetadata(metadataTable, sensors)
             'Metadata table must contain a ''Date'' column.');
     end
 
-    % --- Early exit for empty sensors ---
-    if isempty(sensors)
+    % --- Get all sensors from registry ---
+    allKeys = registry.keys();
+    if isempty(allKeys)
         return;
     end
 
@@ -53,8 +55,8 @@ function sensors = loadModuleMetadata(metadataTable, sensors)
     cache = struct();
 
     % --- Attach state channels to each sensor ---
-    for i = 1:numel(sensors)
-        s = sensors{i};
+    for i = 1:numel(allKeys)
+        s = registry.get(allKeys{i});
 
         % Skip sensors with no threshold rules
         if isempty(s.ThresholdRules)
@@ -82,12 +84,8 @@ function sensors = loadModuleMetadata(metadataTable, sensors)
             % Compress on first access, cache for reuse
             if ~isfield(cache, key)
                 colData = metadataTable.(key);
-                % Table columns are column vectors — transpose for row
-                if isnumeric(colData)
-                    colData = reshape(colData, 1, []);
-                elseif iscell(colData)
-                    colData = reshape(colData, 1, []);
-                end
+                % Table columns are column vectors — reshape to row
+                colData = reshape(colData, 1, []);
                 cache.(key) = compressTransitions(X, colData);
             end
             cached = cache.(key);

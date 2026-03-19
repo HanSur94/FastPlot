@@ -19,164 +19,162 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
             t = table(args{:});
         end
 
-        function s = makeSensorWithRule(key, conditionStruct, value)
-            %MAKESENSORWITHRULE Create a sensor with one ThresholdRule.
+        function reg = makeRegistryWithRule(key, conditionStruct, value)
+            %MAKEREGISTRYWITHRULE Create a registry with one sensor + rule.
+            reg = ExternalSensorRegistry('Test');
             s = Sensor(key);
             s.X = linspace(datenum(2024,1,1), datenum(2024,1,2), 100);
             s.Y = randn(1, 100);
             s.addThresholdRule(conditionStruct, value, ...
                 'Direction', 'upper', 'Label', 'test');
+            reg.register(key, s);
         end
     end
 
     methods (Test)
         function testBasicNumericState(testCase)
-            % One sensor with one rule referencing 'machine' state
-            s = TestLoadModuleMetadata.makeSensorWithRule( ...
+            reg = TestLoadModuleMetadata.makeRegistryWithRule( ...
                 'temp', struct('machine', 1), 50);
 
             t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
-            % Set state: 0 for first 50 points, 1 for last 50
             t.machine(51:100) = 1;
 
-            sensors = loadModuleMetadata(t, {s});
+            out = loadModuleMetadata(reg, t);
 
-            testCase.verifyEqual(numel(sensors), 1, 'returns_sensors');
-            testCase.verifyEqual(numel(sensors{1}.StateChannels), 1, 'one_sc');
-            sc = sensors{1}.StateChannels{1};
+            testCase.verifyTrue(isa(out, 'ExternalSensorRegistry'), 'returns_reg');
+            s = reg.get('temp');
+            testCase.verifyEqual(numel(s.StateChannels), 1, 'one_sc');
+            sc = s.StateChannels{1};
             testCase.verifyEqual(sc.Key, 'machine', 'sc_key');
-            % Compressed: 2 transitions (first point=0, then change to 1)
             testCase.verifyEqual(numel(sc.X), 2, 'sparse_X');
             testCase.verifyEqual(sc.Y, [0 1], 'sparse_Y');
         end
 
         function testCellStringState(testCase)
-            % State channel with cell array of char values
-            s = TestLoadModuleMetadata.makeSensorWithRule( ...
+            reg = TestLoadModuleMetadata.makeRegistryWithRule( ...
                 'temp', struct('recipe', 'bake'), 80);
 
             Date = datetime(2024,1,1) + linspace(0, 1, 6)';
             recipe = {'idle'; 'idle'; 'bake'; 'bake'; 'bake'; 'idle'};
             t = table(Date, recipe);
 
-            sensors = loadModuleMetadata(t, {s});
+            loadModuleMetadata(reg, t);
 
-            sc = sensors{1}.StateChannels{1};
+            sc = reg.get('temp').StateChannels{1};
             testCase.verifyEqual(sc.Key, 'recipe', 'sc_key');
-            % Transitions: idle->bake->idle = 3 points
             testCase.verifyEqual(numel(sc.X), 3, 'sparse_X');
             testCase.verifyEqual(sc.Y, {'idle', 'bake', 'idle'}, 'sparse_Y');
         end
 
         function testMultipleSensorsGetIndependentHandles(testCase)
-            % Two sensors both reference 'machine' — same data, own instances
-            s1 = TestLoadModuleMetadata.makeSensorWithRule( ...
-                'temp', struct('machine', 1), 50);
-            s2 = TestLoadModuleMetadata.makeSensorWithRule( ...
-                'press', struct('machine', 1), 100);
+            reg = ExternalSensorRegistry('Test');
+            s1 = Sensor('temp'); s1.X = [1 2]; s1.Y = [3 4];
+            s1.addThresholdRule(struct('machine', 1), 50, ...
+                'Direction', 'upper', 'Label', 'test');
+            reg.register('temp', s1);
+            s2 = Sensor('press'); s2.X = [1 2]; s2.Y = [5 6];
+            s2.addThresholdRule(struct('machine', 1), 100, ...
+                'Direction', 'upper', 'Label', 'test');
+            reg.register('press', s2);
 
             t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
             t.machine(51:100) = 1;
 
-            sensors = loadModuleMetadata(t, {s1, s2});
+            loadModuleMetadata(reg, t);
 
-            sc1 = sensors{1}.StateChannels{1};
-            sc2 = sensors{2}.StateChannels{1};
-            % Both get same data
+            sc1 = reg.get('temp').StateChannels{1};
+            sc2 = reg.get('press').StateChannels{1};
             testCase.verifyEqual(sc1.X, sc2.X, 'same_X_data');
             testCase.verifyEqual(sc1.Y, sc2.Y, 'same_Y_data');
-            % But independent handles: mutating one does not affect the other
+            % Independent handles: mutating one does not affect the other
             origX = sc2.X;
             sc1.X = [];
             testCase.verifyEqual(sc2.X, origX, 'sc2_independent');
         end
 
         function testSensorWithNoRulesSkipped(testCase)
-            % Sensor without ThresholdRules gets no StateChannels
-            s = Sensor('temp');
-            s.X = [1 2 3]; s.Y = [4 5 6];
+            reg = ExternalSensorRegistry('Test');
+            s = Sensor('temp'); s.X = [1 2 3]; s.Y = [4 5 6];
+            reg.register('temp', s);
 
             t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
+            loadModuleMetadata(reg, t);
 
-            sensors = loadModuleMetadata(t, {s});
-
-            testCase.verifyTrue(isempty(sensors{1}.StateChannels), 'no_sc');
+            testCase.verifyTrue(isempty(reg.get('temp').StateChannels), 'no_sc');
         end
 
         function testRuleReferencesUnknownState(testCase)
-            % Rule references 'recipe' but table only has 'machine'
-            s = TestLoadModuleMetadata.makeSensorWithRule( ...
+            reg = TestLoadModuleMetadata.makeRegistryWithRule( ...
                 'temp', struct('recipe', 1), 50);
 
             t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
+            loadModuleMetadata(reg, t);
 
-            sensors = loadModuleMetadata(t, {s});
-
-            testCase.verifyTrue(isempty(sensors{1}.StateChannels), ...
+            testCase.verifyTrue(isempty(reg.get('temp').StateChannels), ...
                 'no_sc_for_unknown_key');
         end
 
         function testMultipleConditionFields(testCase)
-            % Rule with condition referencing two state channels
+            reg = ExternalSensorRegistry('Test');
             s = Sensor('temp');
             s.X = linspace(datenum(2024,1,1), datenum(2024,1,2), 100);
             s.Y = randn(1, 100);
             s.addThresholdRule(struct('machine', 1, 'recipe', 2), 50, ...
                 'Direction', 'upper', 'Label', 'test');
+            reg.register('temp', s);
 
             t = TestLoadModuleMetadata.makeMetadataTable( ...
                 {'machine', 'recipe'}, 100);
             t.machine(51:100) = 1;
             t.recipe(31:60) = 2;
 
-            sensors = loadModuleMetadata(t, {s});
+            loadModuleMetadata(reg, t);
 
-            testCase.verifyEqual(numel(sensors{1}.StateChannels), 2, 'two_scs');
-            keys = cellfun(@(c) c.Key, sensors{1}.StateChannels, ...
-                'UniformOutput', false);
+            scs = reg.get('temp').StateChannels;
+            testCase.verifyEqual(numel(scs), 2, 'two_scs');
+            keys = cellfun(@(c) c.Key, scs, 'UniformOutput', false);
             testCase.verifyTrue(all(ismember({'machine', 'recipe'}, keys)), ...
                 'both_keys_attached');
         end
 
         function testAllIdenticalValues(testCase)
-            % State never changes — produces single-point StateChannel
-            s = TestLoadModuleMetadata.makeSensorWithRule( ...
+            reg = TestLoadModuleMetadata.makeRegistryWithRule( ...
                 'temp', struct('machine', 0), 50);
 
             t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
+            loadModuleMetadata(reg, t);
 
-            sensors = loadModuleMetadata(t, {s});
-
-            sc = sensors{1}.StateChannels{1};
+            sc = reg.get('temp').StateChannels{1};
             testCase.verifyEqual(numel(sc.X), 1, 'single_point');
             testCase.verifyEqual(sc.Y, 0, 'single_value');
         end
 
         function testSinglePointMetadata(testCase)
-            % Table with only one row
-            s = TestLoadModuleMetadata.makeSensorWithRule( ...
+            reg = TestLoadModuleMetadata.makeRegistryWithRule( ...
                 'temp', struct('machine', 1), 50);
 
             t = table(datetime(2024,1,1), 1, ...
                 'VariableNames', {'Date', 'machine'});
+            loadModuleMetadata(reg, t);
 
-            sensors = loadModuleMetadata(t, {s});
-
-            sc = sensors{1}.StateChannels{1};
+            sc = reg.get('temp').StateChannels{1};
             testCase.verifyEqual(numel(sc.X), 1, 'single_pt_X');
             testCase.verifyEqual(sc.Y, 1, 'single_pt_Y');
         end
 
-        function testEmptySensors(testCase)
+        function testEmptyRegistry(testCase)
+            reg = ExternalSensorRegistry('Test');
             t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
-            sensors = loadModuleMetadata(t, {});
-            testCase.verifyTrue(isempty(sensors), 'empty_passthrough');
+            out = loadModuleMetadata(reg, t);
+
+            testCase.verifyTrue(isa(out, 'ExternalSensorRegistry'), 'returns_reg');
         end
 
         function testNotTableErrors(testCase)
+            reg = ExternalSensorRegistry('Test');
             threw = false;
             try
-                loadModuleMetadata(struct('x', 1), {});
+                loadModuleMetadata(reg, struct('x', 1));
             catch
                 threw = true;
             end
@@ -184,10 +182,11 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
         end
 
         function testMissingDateColumnErrors(testCase)
+            reg = ExternalSensorRegistry('Test');
             t = table([1; 2; 3], 'VariableNames', {'machine'});
             threw = false;
             try
-                loadModuleMetadata(t, {});
+                loadModuleMetadata(reg, t);
             catch
                 threw = true;
             end
@@ -195,47 +194,43 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
         end
 
         function testOutputRowOrientation(testCase)
-            % StateChannel X/Y must be row vectors (1xN)
-            s = TestLoadModuleMetadata.makeSensorWithRule( ...
+            reg = TestLoadModuleMetadata.makeRegistryWithRule( ...
                 'temp', struct('machine', 1), 50);
 
             t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
             t.machine(51:100) = 1;
+            loadModuleMetadata(reg, t);
 
-            sensors = loadModuleMetadata(t, {s});
-
-            sc = sensors{1}.StateChannels{1};
+            sc = reg.get('temp').StateChannels{1};
             testCase.verifyEqual(size(sc.X, 1), 1, 'X_is_row');
             testCase.verifyEqual(size(sc.Y, 1), 1, 'Y_is_row');
         end
 
         function testUnconditionalRuleNoStateChannel(testCase)
-            % Rule with empty condition struct() needs no state channels
-            s = Sensor('temp');
-            s.X = [1 2 3]; s.Y = [4 5 6];
+            reg = ExternalSensorRegistry('Test');
+            s = Sensor('temp'); s.X = [1 2 3]; s.Y = [4 5 6];
             s.addThresholdRule(struct(), 50, ...
                 'Direction', 'upper', 'Label', 'always');
+            reg.register('temp', s);
 
             t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
+            loadModuleMetadata(reg, t);
 
-            sensors = loadModuleMetadata(t, {s});
-
-            testCase.verifyTrue(isempty(sensors{1}.StateChannels), ...
+            testCase.verifyTrue(isempty(reg.get('temp').StateChannels), ...
                 'unconditional_no_sc');
         end
 
         function testRepeatedCallAccumulatesChannels(testCase)
-            % Calling twice adds duplicate StateChannels (by design)
-            s = TestLoadModuleMetadata.makeSensorWithRule( ...
+            reg = TestLoadModuleMetadata.makeRegistryWithRule( ...
                 'temp', struct('machine', 1), 50);
 
             t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
             t.machine(51:100) = 1;
 
-            loadModuleMetadata(t, {s});
-            loadModuleMetadata(t, {s});
+            loadModuleMetadata(reg, t);
+            loadModuleMetadata(reg, t);
 
-            testCase.verifyEqual(numel(s.StateChannels), 2, ...
+            testCase.verifyEqual(numel(reg.get('temp').StateChannels), 2, ...
                 'duplicates_accumulated');
         end
     end
