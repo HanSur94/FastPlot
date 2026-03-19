@@ -10,8 +10,9 @@ function sensors = loadModuleMetadata(metadataStruct, sensors)
 %   arrays or cell arrays of char.
 %
 %   ThresholdRules must be attached to sensors before calling this
-%   function. Sensors with no rules or rules with empty conditions are
-%   skipped. State keys not found in the metadata are skipped silently.
+%   function. Sensors with no rules are skipped. Rules with empty
+%   conditions (unconditional) contribute no state keys. State keys not
+%   found in the metadata are skipped silently.
 %
 %   Each sensor receives its own StateChannel instance (no shared
 %   handles). Compressed data is cached so each field is processed once.
@@ -101,7 +102,6 @@ function sensors = loadModuleMetadata(metadataStruct, sensors)
     end
 end
 
-
 function result = compressTransitions(X, Y_dense)
 %COMPRESSTRANSITIONS Compress dense state signal to sparse transitions.
 %   result = compressTransitions(X, Y_dense) returns struct with fields
@@ -109,15 +109,13 @@ function result = compressTransitions(X, Y_dense)
 %   Handles both numeric arrays and cell arrays of char.
 
     if iscell(Y_dense)
-        changes = [true, ~strcmp(Y_dense(1:end-1), Y_dense(2:end))];
+        cmp = ~strcmp(Y_dense(1:end-1), Y_dense(2:end));
+        changes = [true, reshape(cmp, 1, [])];
     else
         changes = [true, reshape(diff(Y_dense) ~= 0, 1, [])];
     end
 
     % Ensure row orientation (1xN) per StateChannel contract
     result.X = reshape(X(changes), 1, []);
-    result.Y = Y_dense(changes);
-    if ~iscell(result.Y)
-        result.Y = reshape(result.Y, 1, []);
-    end
+    result.Y = reshape(Y_dense(changes), 1, []);
 end
