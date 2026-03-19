@@ -107,6 +107,10 @@ ONSCROLLREALIZE Realize widgets that scroll into view.
 MARKALLDIRTY Flag all widgets as needing refresh.
   Called on theme change, figure resize, or other global state changes.
 
+#### `onResize(obj)`
+
+ONRESIZE Handle figure resize: mark all dirty and re-realize visible.
+
 ### Static Methods
 
 #### `DashboardEngine.types = widgetTypes()`
@@ -288,6 +292,8 @@ detach this widget from global time.
 
 #### `t = getType(~)`
 
+#### `lines = asciiRender(obj, width, height)`
+
 #### `s = toStruct(obj)`
 
 ### Static Methods
@@ -327,6 +333,8 @@ obj = GaugeWidget(varargin)
 #### `refresh(obj)`
 
 #### `t = getType(~)`
+
+#### `lines = asciiRender(obj, width, height)`
 
 #### `s = toStruct(obj)`
 
@@ -369,6 +377,8 @@ obj = NumberWidget(varargin)
 
 #### `t = getType(~)`
 
+#### `lines = asciiRender(obj, width, height)`
+
 #### `s = toStruct(obj)`
 
 ### Static Methods
@@ -408,6 +418,8 @@ obj = StatusWidget(varargin)
 
 #### `t = getType(~)`
 
+#### `lines = asciiRender(obj, width, height)`
+
 #### `s = toStruct(obj)`
 
 ### Static Methods
@@ -445,6 +457,8 @@ obj = TextWidget(varargin)
 Static widget — nothing to refresh
 
 #### `t = getType(~)`
+
+#### `lines = asciiRender(obj, width, height)`
 
 #### `s = toStruct(obj)`
 
