@@ -352,9 +352,18 @@ classdef Sensor < handle
             if nChannels == 0
                 segBounds = [dataXMin, dataXMax];
             else
-                allChanges = [];
+                % Pre-compute total length to avoid repeated concatenation
+                totalLen = 0;
                 for i = 1:nChannels
-                    allChanges = [allChanges, obj.StateChannels{i}.X(:)'];
+                    totalLen = totalLen + numel(obj.StateChannels{i}.X);
+                end
+                allChanges = zeros(1, totalLen);
+                pos = 0;
+                for i = 1:nChannels
+                    chX = obj.StateChannels{i}.X(:)';
+                    n = numel(chX);
+                    allChanges(pos+1:pos+n) = chX;
+                    pos = pos + n;
                 end
                 segBounds = unique(allChanges);
 

@@ -35,6 +35,7 @@ function build_mex()
 %     lttb_core_mex.c              — Largest-Triangle-Three-Buckets kernel
 %     violation_cull_mex.c         — threshold violation culling
 %     compute_violations_mex.c     — batch violation detection for resolve()
+%     to_step_function_mex.c       — SIMD step-function conversion for thresholds
 %     build_store_mex.c            — bulk SQLite writer for DataStore init
 %     mksqlite.c                   — SQLite3 MEX interface (bundled sqlite3.c)
 %
@@ -137,6 +138,7 @@ function build_mex()
         'compute_violations_mex.c',     'compute_violations_mex',     {{}},              {{}}
         'resolve_disk_mex.c',           'resolve_disk_mex',           {{sqlite3_src}},   {sqlite3_flags}
         'build_store_mex.c',            'build_store_mex',            {{sqlite3_src}},   {sqlite3_flags}
+        'to_step_function_mex.c',       'to_step_function_mex',       {{}},              {{}}
     };
 
     mksqlite_src = fullfile(rootDir, 'mksqlite.c');
@@ -228,6 +230,7 @@ function build_mex()
     copy_mex_to(outDir, sensorPrivDir, 'violation_cull_mex');
     copy_mex_to(outDir, sensorPrivDir, 'compute_violations_mex');
     copy_mex_to(outDir, sensorPrivDir, 'resolve_disk_mex');
+    copy_mex_to(outDir, sensorPrivDir, 'to_step_function_mex');
 end
 
 function compile_mex(src_file, out_name, outDir, include_flag, opt_flags, compiler, extra_srcs)
