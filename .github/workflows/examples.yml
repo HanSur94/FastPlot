@@ -58,6 +58,7 @@ jobs:
           xvfb-run octave --eval "
             addpath(pwd); install();
             examples = {
+              % --- Core ---
               'example_basic',
               'example_multi',
               'example_datetime',
@@ -66,7 +67,65 @@ jobs:
               'example_ecg',
               'example_linked',
               'example_uneven_sampling',
-              'example_alarm_bands'
+              'example_alarm_bands',
+              'example_lttb_vs_minmax',
+              'example_multi_sensor_linked',
+              'example_navigator_overlay',
+              'example_visual_features',
+              'example_themes',
+              'example_toolbar',
+              'example_mixed_tiles',
+              'example_100M',
+              % --- Dashboard ---
+              'example_dashboard',
+              'example_dashboard_9tile',
+              'example_dashboard_all_widgets',
+              'example_dashboard_engine',
+              'example_dashboard_groups',
+              'example_dashboard_info',
+              % --- Dock ---
+              'example_dock',
+              'example_dock_many_tabs',
+              % --- Storage / Disk ---
+              'example_disk_storage',
+              'example_dock_disk',
+              % --- Sensor ---
+              'example_sensor_static',
+              'example_sensor_multi_state',
+              'example_sensor_threshold',
+              'example_sensor_registry',
+              'example_sensor_dashboard',
+              'example_sensor_detail_basic',
+              'example_sensor_detail_dashboard',
+              'example_sensor_detail_datetime',
+              'example_sensor_detail_dock',
+              'example_sensor_todisk',
+              % --- Widget ---
+              'example_widget_barchart',
+              'example_widget_fastsense',
+              'example_widget_gauge',
+              'example_widget_group',
+              'example_widget_heatmap',
+              'example_widget_histogram',
+              'example_widget_image',
+              'example_widget_multistatus',
+              'example_widget_number',
+              'example_widget_rawaxes',
+              'example_widget_scatter',
+              'example_widget_status',
+              'example_widget_table',
+              'example_widget_text',
+              'example_widget_timeline',
+              % --- Heavy ---
+              'example_stress_test',
+              'example_dynamic_thresholds_100M'
+              % --- Skipped (require interaction / run indefinitely) ---
+              % 'demo_all'                    — input() call
+              % 'example_dashboard_live'      — live timer
+              % 'example_event_detection_live' — live timer
+              % 'example_event_viewer_from_file' — background timer
+              % 'example_live_pipeline'       — starts 15s timer
+              % 'example_sensor_detail'       — bare pause; calls
             };
             failed = {};
             for i = 1:numel(examples)
