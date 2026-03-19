@@ -158,6 +158,16 @@ function [stepX, stepY] = toStepFunction(segBounds, values, dataEnd)
 %
 %   See also mergeResolvedByLabel.
 
+    % MEX fast path — bypass MATLAB interpreter overhead entirely
+    persistent useMex;
+    if isempty(useMex)
+        useMex = (exist('to_step_function_mex', 'file') == 3);
+    end
+    if useMex
+        [stepX, stepY] = to_step_function_mex(segBounds, values, dataEnd);
+        return;
+    end
+
     nB = numel(segBounds);
 
     % Vectorized active-segment detection

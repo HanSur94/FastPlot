@@ -137,6 +137,7 @@ function build_mex()
         'compute_violations_mex.c',     'compute_violations_mex',     {{}},              {{}}
         'resolve_disk_mex.c',           'resolve_disk_mex',           {{sqlite3_src}},   {sqlite3_flags}
         'build_store_mex.c',            'build_store_mex',            {{sqlite3_src}},   {sqlite3_flags}
+        'to_step_function_mex.c',       'to_step_function_mex',       {{}},              {{}}
     };
 
     mksqlite_src = fullfile(rootDir, 'mksqlite.c');
@@ -228,6 +229,7 @@ function build_mex()
     copy_mex_to(outDir, sensorPrivDir, 'violation_cull_mex');
     copy_mex_to(outDir, sensorPrivDir, 'compute_violations_mex');
     copy_mex_to(outDir, sensorPrivDir, 'resolve_disk_mex');
+    copy_mex_to(outDir, sensorPrivDir, 'to_step_function_mex');
 end
 
 function compile_mex(src_file, out_name, outDir, include_flag, opt_flags, compiler, extra_srcs)
