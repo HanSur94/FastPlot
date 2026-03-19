@@ -54,6 +54,7 @@ jobs:
           name: mex-linux-examples
 
       - name: Run example smoke tests
+        shell: bash
         run: |
           # Each example runs in its own Octave subprocess so that a segfault
           # in one example (e.g. during close-all cleanup) does not kill the
