@@ -147,6 +147,30 @@ classdef FastSenseWidget < DashboardWidget
             end
         end
 
+        function update(obj)
+        %UPDATE Incrementally update sensor data without full axes rebuild.
+        %   Uses FastSenseObj.updateData() to replace data and re-downsample,
+        %   avoiding the expensive delete/recreate cycle of refresh().
+        %   Falls back to refresh() if FastSenseObj is not in a renderable state.
+            if isempty(obj.Sensor), return; end
+            if isempty(obj.hPanel) || ~ishandle(obj.hPanel)
+                return;
+            end
+
+            % Use incremental path if FastSenseObj is already rendered
+            if ~isempty(obj.FastSenseObj) && obj.FastSenseObj.IsRendered
+                try
+                    obj.FastSenseObj.updateData(1, obj.Sensor.X, obj.Sensor.Y);
+                    return;
+                catch
+                    % Fall through to full refresh on any error
+                end
+            end
+
+            % Fallback: full rebuild
+            obj.refresh();
+        end
+
         function setTimeRange(obj, tStart, tEnd)
             if ~obj.UseGlobalTime
                 return;  % widget has its own zoom, skip global time

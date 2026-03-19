@@ -404,7 +404,11 @@ classdef DashboardEngine < handle
             for i = 1:numel(obj.Widgets)
                 if obj.Widgets{i}.Dirty
                     try
-                        obj.Widgets{i}.refresh();
+                        if isa(obj.Widgets{i}, 'FastSenseWidget')
+                            obj.Widgets{i}.update();
+                        else
+                            obj.Widgets{i}.refresh();
+                        end
                     catch ME
                         warning('DashboardEngine:refreshError', ...
                             'Widget "%s" refresh failed: %s', ...
