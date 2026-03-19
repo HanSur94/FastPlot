@@ -20,6 +20,8 @@ classdef DashboardLayout < handle
         GapV            = 0.015
         RowHeight       = 0.22
         ScrollbarWidth  = 0.015
+        OnScrollCallback = []       % function handle: @(topRow, bottomRow)
+        VisibleRows      = [1 Inf]  % [topRow bottomRow] currently visible
     end
 
     properties (SetAccess = private)
@@ -282,6 +284,55 @@ classdef DashboardLayout < handle
             if cr <= 1, return; end
             offset = val * (1 - cr);
             set(obj.hCanvas, 'Position', [0, offset, 1, cr]);
+
+            obj.VisibleRows = obj.computeVisibleRows(val);
+            if ~isempty(obj.OnScrollCallback)
+                obj.OnScrollCallback(obj.VisibleRows(1), obj.VisibleRows(2));
+            end
+        end
+
+        function rows = computeVisibleRows(obj, scrollVal)
+        %COMPUTEVISIBLEROWS Derive visible row range from scroll position.
+            cr = obj.canvasRatio();
+            if cr <= 1
+                rows = [1, obj.TotalRows];
+                return;
+            end
+            canvasY = scrollVal * (1 - cr);
+            cellH = obj.RowHeight / cr;
+            gapV  = obj.GapV / cr;
+            step  = cellH + gapV;
+            if step <= 0
+                rows = [1, obj.TotalRows];
+                return;
+            end
+            padB = obj.Padding(2);
+            yBase = padB / cr;
+            % Visible region in canvas-internal [0,1] coords
+            visBot = -canvasY / cr;
+            visTop = (1 - canvasY) / cr;
+            % Row r has bottom at yBase + (TotalRows - r) * step
+            % topRow: smallest r where row top >= visBot
+            topRow  = obj.TotalRows - ...
+                      floor((visTop - yBase) / step);
+            % bottomRow: largest r where row bottom <= visTop
+            bottomRow = obj.TotalRows - ...
+                        ceil((visBot - yBase - cellH) / step);
+            topRow    = max(1, topRow);
+            bottomRow = min(obj.TotalRows, bottomRow);
+            rows = [topRow, bottomRow];
+        end
+
+        function vis = isWidgetVisible(obj, gridPos, buffer)
+        %ISWIDGETVISIBLE Check if widget rows overlap visible range + buffer.
+            if nargin < 3, buffer = 2; end
+            wRow = gridPos(2);
+            wHeight = gridPos(4);
+            wTop = wRow;
+            wBottom = wRow + wHeight - 1;
+            vTop = obj.VisibleRows(1) - buffer;
+            vBottom = obj.VisibleRows(2) + buffer;
+            vis = wBottom >= vTop && wTop <= vBottom;
         end
     end
 
