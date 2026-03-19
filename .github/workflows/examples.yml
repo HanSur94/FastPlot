@@ -55,42 +55,107 @@ jobs:
 
       - name: Run example smoke tests
         run: |
-          xvfb-run octave --eval "
-            addpath(pwd); install();
-            examples = {
-              'example_basic',
-              'example_multi',
-              'example_datetime',
-              'example_nan_gaps',
-              'example_vibration',
-              'example_ecg',
-              'example_linked',
-              'example_uneven_sampling',
-              'example_alarm_bands'
-            };
-            failed = {};
-            for i = 1:numel(examples)
-              name = examples{i};
-              fprintf('Running %s... ', name);
-              try
-                cd('examples');
-                feval(name);
-                close all force;
-                cd('..');
-                fprintf('OK\n');
-              catch e
-                cd('..');
-                fprintf('FAILED: %s\n', e.message);
-                failed{end+1} = sprintf('%s: %s', name, e.message);
-                close all force;
-              end
-            end
-            fprintf('\n=== %d/%d examples passed ===\n', numel(examples)-numel(failed), numel(examples));
-            if ~isempty(failed)
-              fprintf('\nFailed:\n');
-              for i = 1:numel(failed)
-                fprintf('  - %s\n', failed{i});
-              end
-              exit(1);
-            end
-          "
+          # Each example runs in its own Octave subprocess so that a segfault
+          # in one example (e.g. during close-all cleanup) does not kill the
+          # entire test suite.
+          EXAMPLES=(
+            # Core
+            example_basic
+            example_multi
+            example_datetime
+            example_nan_gaps
+            example_vibration
+            example_ecg
+            example_linked
+            example_uneven_sampling
+            example_alarm_bands
+            example_lttb_vs_minmax
+            example_multi_sensor_linked
+            example_navigator_overlay
+            example_visual_features
+            example_themes
+            example_toolbar
+            example_mixed_tiles
+            example_100M
+            # Dashboard
+            example_dashboard
+            example_dashboard_9tile
+            example_dashboard_all_widgets
+            example_dashboard_engine
+            example_dashboard_groups
+            example_dashboard_info
+            # Dock
+            example_dock
+            example_dock_many_tabs
+            # Storage / Disk
+            example_disk_storage
+            example_dock_disk
+            # Sensor
+            example_sensor_static
+            example_sensor_multi_state
+            example_sensor_threshold
+            example_sensor_registry
+            example_sensor_dashboard
+            example_sensor_detail_basic
+            example_sensor_detail_dashboard
+            example_sensor_detail_datetime
+            example_sensor_detail_dock
+            example_sensor_todisk
+            # Widget
+            example_widget_barchart
+            example_widget_fastsense
+            example_widget_gauge
+            example_widget_group
+            example_widget_heatmap
+            example_widget_histogram
+            example_widget_image
+            example_widget_multistatus
+            example_widget_number
+            example_widget_rawaxes
+            example_widget_scatter
+            example_widget_status
+            example_widget_table
+            example_widget_text
+            example_widget_timeline
+            # Heavy
+            example_stress_test
+            example_dynamic_thresholds_100M
+            # Skipped (require interaction / run indefinitely):
+            #   demo_all                       — input() call
+            #   example_dashboard_live         — live timer
+            #   example_event_detection_live   — live timer
+            #   example_event_viewer_from_file — background timer
+            #   example_live_pipeline          — starts 15s timer
+            #   example_sensor_detail          — bare pause; calls
+          )
+
+          PASSED=0
+          FAILED=0
+          FAIL_LIST=""
+          TOTAL=${#EXAMPLES[@]}
+
+          for name in "${EXAMPLES[@]}"; do
+            printf "Running %s... " "$name"
+            if xvfb-run octave --eval "
+              addpath(pwd); install();
+              cd('examples');
+              $name();
+              close all force;
+            " > /tmp/example_out.log 2>&1; then
+              echo "OK"
+              PASSED=$((PASSED + 1))
+            else
+              echo "FAILED (exit code $?)"
+              tail -20 /tmp/example_out.log | sed 's/^/  /'
+              FAILED=$((FAILED + 1))
+              FAIL_LIST="${FAIL_LIST}\n  - ${name}"
+            fi
+          done
+
+          echo ""
+          echo "=== ${PASSED}/${TOTAL} examples passed ==="
+          if [ "$FAILED" -gt 0 ]; then
+            echo ""
+            printf "Failed:%b\n" "$FAIL_LIST"
+            exit 1
+          fi
