@@ -151,6 +151,30 @@ classdef GroupWidget < DashboardWidget
             t = 'group';
         end
 
+        function lines = asciiRender(obj, width, height)
+            if height <= 0, lines = {}; return; end
+            blank = repmat(' ', 1, width);
+            lines = cell(1, height);
+            for i = 1:height, lines{i} = blank; end
+
+            ttl = obj.Title;
+            if isempty(ttl), ttl = obj.Label; end
+            if numel(ttl) > width, ttl = ttl(1:width); end
+            lines{1} = [ttl, repmat(' ', 1, width - numel(ttl))];
+
+            if height >= 2
+                if strcmp(obj.Mode, 'tabbed') && ~isempty(obj.Tabs)
+                    info = sprintf('[group: %d tabs]', numel(obj.Tabs));
+                elseif ~isempty(obj.Children)
+                    info = sprintf('[group: %d children]', numel(obj.Children));
+                else
+                    info = '[-- group --]';
+                end
+                if numel(info) > width, info = info(1:width); end
+                lines{2} = [info, repmat(' ', 1, width - numel(info))];
+            end
+        end
+
         function setTimeRange(obj, tStart, tEnd)
             for i = 1:numel(obj.Children)
                 obj.Children{i}.setTimeRange(tStart, tEnd);

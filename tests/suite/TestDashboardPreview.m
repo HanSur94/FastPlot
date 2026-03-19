@@ -78,5 +78,28 @@ classdef TestDashboardPreview < matlab.unittest.TestCase
             output = evalc('d.preview(''Width'', 20)');
             testCase.verifyTrue(~isempty(output));
         end
+
+        function testAllWidgetTypesAsciiRender(testCase)
+            types = {
+                'text',     {'Title', 'T'}
+                'table',    {'Title', 'T'}
+                'group',    {'Title', 'T'}
+                'timeline', {'Title', 'T'}
+                'rawaxes',  {'Title', 'T'}
+                'heatmap',  {'Title', 'T'}
+                'barchart', {'Title', 'T'}
+                'histogram',{'Title', 'T'}
+                'scatter',  {'Title', 'T'}
+                'image',    {'Title', 'T'}
+                'multistatus', {'Title', 'T'}
+            };
+            for k = 1:size(types, 1)
+                d = DashboardEngine('Test');
+                d.addWidget(types{k,1}, types{k,2}{:}, 'Position', [1 1 12 2]);
+                output = evalc('d.preview(''Width'', 72)');
+                testCase.verifyTrue(~isempty(output), ...
+                    sprintf('Widget type %s produced empty preview', types{k,1}));
+            end
+        end
     end
 end

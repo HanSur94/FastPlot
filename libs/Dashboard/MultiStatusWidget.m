@@ -89,6 +89,49 @@ classdef MultiStatusWidget < DashboardWidget
             t = 'multistatus';
         end
 
+        function lines = asciiRender(obj, width, height)
+            if height <= 0, lines = {}; return; end
+            blank = repmat(' ', 1, width);
+            lines = cell(1, height);
+            for i = 1:height, lines{i} = blank; end
+
+            ttl = obj.Title;
+            if numel(ttl) > width, ttl = ttl(1:width); end
+            lines{1} = [ttl, repmat(' ', 1, width - numel(ttl))];
+
+            if height >= 2
+                n = numel(obj.Sensors);
+                if n > 0
+                    nOk = 0;
+                    for k = 1:n
+                        s = obj.Sensors{k};
+                        if isempty(s) || isempty(s.Y) || isempty(s.ThresholdRules)
+                            nOk = nOk + 1;
+                            continue;
+                        end
+                        val = s.Y(end);
+                        violated = false;
+                        for r = 1:numel(s.ThresholdRules)
+                            rule = s.ThresholdRules{r};
+                            if (rule.IsUpper && val > rule.Value) || ...
+                                    (~rule.IsUpper && val < rule.Value)
+                                violated = true;
+                                break;
+                            end
+                        end
+                        if ~violated
+                            nOk = nOk + 1;
+                        end
+                    end
+                    info = sprintf('%d sensors: %d OK, %d alert', n, nOk, n - nOk);
+                else
+                    info = '[-- multistatus --]';
+                end
+                if numel(info) > width, info = info(1:width); end
+                lines{2} = [info, repmat(' ', 1, width - numel(info))];
+            end
+        end
+
         function s = toStruct(obj)
             % Fully override — does not use base Sensor property
             s = struct();

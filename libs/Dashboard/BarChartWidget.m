@@ -70,6 +70,23 @@ classdef BarChartWidget < DashboardWidget
             t = 'barchart';
         end
 
+        function lines = asciiRender(obj, width, height)
+            if height <= 0, lines = {}; return; end
+            blank = repmat(' ', 1, width);
+            lines = cell(1, height);
+            for i = 1:height, lines{i} = blank; end
+
+            ttl = obj.Title;
+            if numel(ttl) > width, ttl = ttl(1:width); end
+            lines{1} = [ttl, repmat(' ', 1, width - numel(ttl))];
+
+            if height >= 2
+                info = sprintf('[%s barchart]', obj.Orientation);
+                if numel(info) > width, info = info(1:width); end
+                lines{2} = [info, repmat(' ', 1, width - numel(info))];
+            end
+        end
+
         function s = toStruct(obj)
             s = toStruct@DashboardWidget(obj);
             s.orientation = obj.Orientation;
