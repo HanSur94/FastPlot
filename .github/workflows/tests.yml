@@ -138,13 +138,22 @@ jobs:
       - name: Install Octave
         run: choco install octave.portable --yes --version=9.2.0
 
-      - name: Verify Octave installation
-        shell: cmd
-        run: octave-cli --version
+      - name: Locate Octave binary
+        id: octave
+        shell: pwsh
+        run: |
+          $octDir = "C:\ProgramData\chocolatey\lib\octave.portable\tools\octave\mingw64\bin"
+          if (Test-Path "$octDir\octave-cli.exe") {
+            echo "bin=$octDir" >> $env:GITHUB_OUTPUT
+            & "$octDir\octave-cli.exe" --version
+          } else {
+            echo "::error::octave-cli.exe not found in $octDir"
+            exit 1
+          }
 
       - name: Compile MEX files
         shell: cmd
-        run: octave-cli --no-window-system --eval "install(); fprintf('All MEX files compiled successfully on %%s\n', computer());"
+        run: "${{ steps.octave.outputs.bin }}\octave-cli.exe" --no-window-system --eval "install(); fprintf('All MEX files compiled successfully on %s\n', computer());"
 
   matlab:
     name: MATLAB Tests
