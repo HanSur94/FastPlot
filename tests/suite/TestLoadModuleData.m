@@ -66,6 +66,7 @@ classdef TestLoadModuleData < matlab.unittest.TestCase
             sensors = loadModuleData(reg, ms);
 
             testCase.verifyTrue(isempty(sensors), 'empty_registry');
+            testCase.verifyEqual(size(sensors), [1 0], 'empty_registry_1x0');
         end
 
         function testSharedXValues(testCase)
@@ -161,6 +162,7 @@ classdef TestLoadModuleData < matlab.unittest.TestCase
         end
 
         function testDocDateNotCharErrors(testCase)
+            % Defensive test beyond spec scope: validates doc.date type
             reg = ExternalSensorRegistry('Test');
             ms = struct('doc', struct('date', 42), 'temp', [1 2 3]);
             threw = false;
@@ -193,8 +195,9 @@ classdef TestLoadModuleData < matlab.unittest.TestCase
             ms2 = TestLoadModuleData.makeModuleStruct({'temp'}, 100);
             sensors2 = loadModuleData(reg, ms2);
 
-            % Same handle, new data
+            % Same handle, new data — verify via both references
             testCase.verifyEqual(numel(sensors2{1}.Y), 100, 'overwritten_Y');
+            testCase.verifyEqual(numel(sensors1{1}.Y), 100, 'sensors1_also_overwritten');
             testCase.verifyTrue(sensors1{1} == sensors2{1}, 'same_handle');
         end
     end
