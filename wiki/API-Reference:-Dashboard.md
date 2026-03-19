@@ -489,6 +489,8 @@ obj = TableWidget(varargin)
 
 #### `t = getType(~)`
 
+#### `lines = asciiRender(obj, width, height)`
+
 #### `s = toStruct(obj)`
 
 ### Static Methods
@@ -531,6 +533,8 @@ obj = RawAxesWidget(varargin)
 #### `[tMin, tMax] = getTimeRange(obj)`
 
 #### `t = getType(~)`
+
+#### `lines = asciiRender(obj, width, height)`
 
 #### `s = toStruct(obj)`
 
@@ -581,6 +585,8 @@ obj = EventTimelineWidget(varargin)
 #### `refresh(obj)`
 
 #### `t = getType(~)`
+
+#### `lines = asciiRender(obj, width, height)`
 
 #### `s = toStruct(obj)`
 
@@ -679,9 +685,20 @@ FIGURETOCANVASDELTA Convert figure-normalized deltas to canvas deltas.
 
 #### `newPos = resolveOverlap(obj, pos, existingPositions)`
 
+#### `allocatePanels(obj, hFigure, widgets, theme)`
+
+ALLOCATEPANELS Create viewport, canvas, scrollbar and placeholder panels.
+  Like createPanels but does NOT call widget.render(). Instead,
+  each widget gets its hPanel assigned and a placeholder label.
+Save current scroll state before any updates
+
+#### `realizeWidget(obj, widget)`
+
+REALIZEWIDGET Render a single widget into its pre-allocated panel.
+
 #### `createPanels(obj, hFigure, widgets, theme)`
 
-Save current scroll state before any updates
+CREATEPANELS Create and render all widget panels (legacy path).
 
 #### `reflow(obj, hFigure, widgets, theme)`
 
@@ -770,6 +787,8 @@ obj = BarChartWidget(varargin)
 
 #### `t = getType(~)`
 
+#### `lines = asciiRender(obj, width, height)`
+
 #### `s = toStruct(obj)`
 
 ### Static Methods
@@ -815,6 +834,8 @@ Check nesting depth for GroupWidget children
 
 #### `t = getType(obj)`
 
+#### `lines = asciiRender(obj, width, height)`
+
 #### `setTimeRange(obj, tStart, tEnd)`
 
 #### `s = toStruct(obj)`
@@ -859,6 +880,8 @@ obj = HeatmapWidget(varargin)
 
 #### `t = getType(~)`
 
+#### `lines = asciiRender(obj, width, height)`
+
 #### `s = toStruct(obj)`
 
 ### Static Methods
@@ -894,6 +917,8 @@ obj = HistogramWidget(varargin)
 
 #### `t = getType(~)`
 
+#### `lines = asciiRender(obj, width, height)`
+
 #### `s = toStruct(obj)`
 
 ### Static Methods
@@ -928,6 +953,8 @@ obj = ImageWidget(varargin)
 #### `refresh(obj)`
 
 #### `t = getType(~)`
+
+#### `lines = asciiRender(obj, width, height)`
 
 #### `s = toStruct(obj)`
 
@@ -985,6 +1012,8 @@ obj = MultiStatusWidget(varargin)
 
 #### `t = getType(~)`
 
+#### `lines = asciiRender(obj, width, height)`
+
 #### `s = toStruct(obj)`
 
 Fully override — does not use base Sensor property
@@ -1022,6 +1051,8 @@ obj = ScatterWidget(varargin)
 #### `refresh(obj)`
 
 #### `t = getType(~)`
+
+#### `lines = asciiRender(obj, width, height)`
 
 #### `s = toStruct(obj)`
 
