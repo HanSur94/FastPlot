@@ -117,6 +117,22 @@ jobs:
       - name: Compile MEX files
         run: octave --eval "install(); fprintf('All MEX files compiled successfully on %s\n', computer());"
 
+  mex-build-windows:
+    name: MEX Build (Windows)
+    if: github.event_name != 'schedule'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Octave
+        run: choco install octave.portable --yes
+
+      - name: Compile MEX files
+        shell: bash
+        run: |
+          export PATH="/c/ProgramData/chocolatey/bin:$PATH"
+          octave-cli --eval "install(); fprintf('All MEX files compiled successfully on %s\n', computer());"
+
   matlab:
     name: MATLAB Tests
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
