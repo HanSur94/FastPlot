@@ -1,22 +1,22 @@
-function sensors = loadModuleMetadata(metadataStruct, sensors)
-%LOADMODULEMETADATA Attach state channels from metadata to sensors.
-%   sensors = loadModuleMetadata(metadataStruct, sensors) reads discrete
-%   state signals from metadataStruct, compresses them from dense to
+function sensors = loadModuleMetadata(metadataTable, sensors)
+%LOADMODULEMETADATA Attach state channels from metadata table to sensors.
+%   sensors = loadModuleMetadata(metadataTable, sensors) reads discrete
+%   state signals from a MATLAB table, compresses them from dense to
 %   sparse transitions, and attaches StateChannel objects to each sensor
-%   whose ThresholdRules reference matching state keys.
+%   whose ThresholdRules reference matching state column names.
 %
-%   metadataStruct must have the same format as module data: fields +
-%   .doc with per-field .name/.datum entries. The .datum value names the
-%   shared datenum field. State signals can be numeric arrays or cell
-%   arrays of char.
+%   metadataTable must be a MATLAB table with a 'Date' column (datetime)
+%   and one or more state columns. The Date column is converted to
+%   datenum for StateChannel timestamps. State columns can be numeric
+%   or cell arrays of char.
 %
 %   ThresholdRules must be attached to sensors before calling this
 %   function. Sensors with no rules are skipped. Rules with empty
 %   conditions (unconditional) contribute no state keys. State keys not
-%   found in the metadata are skipped silently.
+%   found in the table columns are skipped silently.
 %
 %   Each sensor receives its own StateChannel instance (no shared
-%   handles). Compressed data is cached so each field is processed once.
+%   handles). Compressed data is cached so each column is processed once.
 %
 %   Repeated calls add additional StateChannels without clearing existing
 %   ones. Caller is responsible for avoiding duplicates.
@@ -25,16 +25,29 @@ function sensors = loadModuleMetadata(metadataStruct, sensors)
 
     narginchk(2, 2);
 
-    % --- Extract datenum field name from doc metadata ---
-    datenumField = extractDatenumField(metadataStruct, 'loadModuleMetadata');
+    % --- Validate table input ---
+    if ~istable(metadataTable)
+        error('loadModuleMetadata:notTable', ...
+            'First argument must be a table, got %s.', class(metadataTable));
+    end
+
+    colNames = metadataTable.Properties.VariableNames;
+
+    if ~ismember('Date', colNames)
+        error('loadModuleMetadata:missingDate', ...
+            'Metadata table must contain a ''Date'' column.');
+    end
 
     % --- Early exit for empty sensors ---
     if isempty(sensors)
         return;
     end
 
-    % --- Extract timestamps ---
-    X = metadataStruct.(datenumField);
+    % --- Extract timestamps (datetime -> datenum) ---
+    X = datenum(metadataTable.Date);
+
+    % --- State column names (everything except Date) ---
+    stateCols = colNames(~strcmp(colNames, 'Date'));
 
     % --- Struct-based cache for compressed transitions (Octave-safe) ---
     cache = struct();
@@ -57,19 +70,25 @@ function sensors = loadModuleMetadata(metadataStruct, sensors)
         end
         neededKeys = unique(neededKeys);
 
-        % Attach StateChannels for keys found in metadata
+        % Attach StateChannels for keys found in table columns
         for k = 1:numel(neededKeys)
             key = neededKeys{k};
 
-            % Skip keys not in metadata (exclude doc and datenum)
-            if ~isfield(metadataStruct, key) || ...
-                    strcmp(key, 'doc') || strcmp(key, datenumField)
+            % Skip keys not in table
+            if ~ismember(key, stateCols)
                 continue;
             end
 
             % Compress on first access, cache for reuse
             if ~isfield(cache, key)
-                cache.(key) = compressTransitions(X, metadataStruct.(key));
+                colData = metadataTable.(key);
+                % Table columns are column vectors — transpose for row
+                if isnumeric(colData)
+                    colData = reshape(colData, 1, []);
+                elseif iscell(colData)
+                    colData = reshape(colData, 1, []);
+                end
+                cache.(key) = compressTransitions(X, colData);
             end
             cached = cache.(key);
 

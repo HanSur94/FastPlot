@@ -8,14 +8,15 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
     end
 
     methods (Static)
-        function ms = makeMetadataStruct(stateKeys, nPoints)
-            %MAKEMETADATASTRUCT Build a fake metadata struct for testing.
-            ms.time_utc = linspace(datenum(2024,1,1), datenum(2024,1,2), nPoints);
+        function t = makeMetadataTable(stateKeys, nPoints)
+            %MAKEMETADATATABLE Build a fake metadata table for testing.
+            Date = datetime(2024,1,1) + linspace(0, 1, nPoints)';
+            args = {'Date', Date};
             for i = 1:numel(stateKeys)
-                ms.(stateKeys{i}) = zeros(1, nPoints);
-                ms.doc.(stateKeys{i}).name = stateKeys{i};
-                ms.doc.(stateKeys{i}).datum = 'time_utc';
+                args{end+1} = stateKeys{i}; %#ok<AGROW>
+                args{end+1} = zeros(nPoints, 1); %#ok<AGROW>
             end
+            t = table(args{:});
         end
 
         function s = makeSensorWithRule(key, conditionStruct, value)
@@ -34,11 +35,11 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
             s = TestLoadModuleMetadata.makeSensorWithRule( ...
                 'temp', struct('machine', 1), 50);
 
-            ms = TestLoadModuleMetadata.makeMetadataStruct({'machine'}, 100);
+            t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
             % Set state: 0 for first 50 points, 1 for last 50
-            ms.machine(51:100) = 1;
+            t.machine(51:100) = 1;
 
-            sensors = loadModuleMetadata(ms, {s});
+            sensors = loadModuleMetadata(t, {s});
 
             testCase.verifyEqual(numel(sensors), 1, 'returns_sensors');
             testCase.verifyEqual(numel(sensors{1}.StateChannels), 1, 'one_sc');
@@ -54,12 +55,11 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
             s = TestLoadModuleMetadata.makeSensorWithRule( ...
                 'temp', struct('recipe', 'bake'), 80);
 
-            ms.doc.recipe.name = 'recipe';
-            ms.doc.recipe.datum = 'time_utc';
-            ms.time_utc = linspace(datenum(2024,1,1), datenum(2024,1,2), 6);
-            ms.recipe = {'idle', 'idle', 'bake', 'bake', 'bake', 'idle'};
+            Date = datetime(2024,1,1) + linspace(0, 1, 6)';
+            recipe = {'idle'; 'idle'; 'bake'; 'bake'; 'bake'; 'idle'};
+            t = table(Date, recipe);
 
-            sensors = loadModuleMetadata(ms, {s});
+            sensors = loadModuleMetadata(t, {s});
 
             sc = sensors{1}.StateChannels{1};
             testCase.verifyEqual(sc.Key, 'recipe', 'sc_key');
@@ -75,10 +75,10 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
             s2 = TestLoadModuleMetadata.makeSensorWithRule( ...
                 'press', struct('machine', 1), 100);
 
-            ms = TestLoadModuleMetadata.makeMetadataStruct({'machine'}, 100);
-            ms.machine(51:100) = 1;
+            t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
+            t.machine(51:100) = 1;
 
-            sensors = loadModuleMetadata(ms, {s1, s2});
+            sensors = loadModuleMetadata(t, {s1, s2});
 
             sc1 = sensors{1}.StateChannels{1};
             sc2 = sensors{2}.StateChannels{1};
@@ -96,21 +96,21 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
             s = Sensor('temp');
             s.X = [1 2 3]; s.Y = [4 5 6];
 
-            ms = TestLoadModuleMetadata.makeMetadataStruct({'machine'}, 100);
+            t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
 
-            sensors = loadModuleMetadata(ms, {s});
+            sensors = loadModuleMetadata(t, {s});
 
             testCase.verifyTrue(isempty(sensors{1}.StateChannels), 'no_sc');
         end
 
         function testRuleReferencesUnknownState(testCase)
-            % Rule references 'recipe' but metadata only has 'machine'
+            % Rule references 'recipe' but table only has 'machine'
             s = TestLoadModuleMetadata.makeSensorWithRule( ...
                 'temp', struct('recipe', 1), 50);
 
-            ms = TestLoadModuleMetadata.makeMetadataStruct({'machine'}, 100);
+            t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
 
-            sensors = loadModuleMetadata(ms, {s});
+            sensors = loadModuleMetadata(t, {s});
 
             testCase.verifyTrue(isempty(sensors{1}.StateChannels), ...
                 'no_sc_for_unknown_key');
@@ -124,12 +124,12 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
             s.addThresholdRule(struct('machine', 1, 'recipe', 2), 50, ...
                 'Direction', 'upper', 'Label', 'test');
 
-            ms = TestLoadModuleMetadata.makeMetadataStruct( ...
+            t = TestLoadModuleMetadata.makeMetadataTable( ...
                 {'machine', 'recipe'}, 100);
-            ms.machine(51:100) = 1;
-            ms.recipe(31:60) = 2;
+            t.machine(51:100) = 1;
+            t.recipe(31:60) = 2;
 
-            sensors = loadModuleMetadata(ms, {s});
+            sensors = loadModuleMetadata(t, {s});
 
             testCase.verifyEqual(numel(sensors{1}.StateChannels), 2, 'two_scs');
             keys = cellfun(@(c) c.Key, sensors{1}.StateChannels, ...
@@ -143,10 +143,9 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
             s = TestLoadModuleMetadata.makeSensorWithRule( ...
                 'temp', struct('machine', 0), 50);
 
-            ms = TestLoadModuleMetadata.makeMetadataStruct({'machine'}, 100);
-            % machine stays 0 everywhere (default)
+            t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
 
-            sensors = loadModuleMetadata(ms, {s});
+            sensors = loadModuleMetadata(t, {s});
 
             sc = sensors{1}.StateChannels{1};
             testCase.verifyEqual(numel(sc.X), 1, 'single_point');
@@ -154,94 +153,45 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
         end
 
         function testSinglePointMetadata(testCase)
-            % Metadata with only one time point
+            % Table with only one row
             s = TestLoadModuleMetadata.makeSensorWithRule( ...
                 'temp', struct('machine', 1), 50);
 
-            ms.doc.machine.name = 'machine';
-            ms.doc.machine.datum = 'time_utc';
-            ms.time_utc = datenum(2024,1,1);
-            ms.machine = 1;
+            t = table(datetime(2024,1,1), 1, ...
+                'VariableNames', {'Date', 'machine'});
 
-            sensors = loadModuleMetadata(ms, {s});
+            sensors = loadModuleMetadata(t, {s});
 
             sc = sensors{1}.StateChannels{1};
             testCase.verifyEqual(numel(sc.X), 1, 'single_pt_X');
             testCase.verifyEqual(sc.Y, 1, 'single_pt_Y');
         end
 
-        function testColumnVectorInputs(testCase)
-            % Column vector inputs must produce row vector StateChannel
-            s = TestLoadModuleMetadata.makeSensorWithRule( ...
-                'temp', struct('machine', 1), 50);
-
-            ms.doc.machine.name = 'machine';
-            ms.doc.machine.datum = 'time_utc';
-            ms.time_utc = linspace(datenum(2024,1,1), datenum(2024,1,2), 6)';
-            ms.machine = [0; 0; 1; 1; 0; 0];
-
-            sensors = loadModuleMetadata(ms, {s});
-
-            sc = sensors{1}.StateChannels{1};
-            testCase.verifyEqual(size(sc.X, 1), 1, 'X_is_row');
-            testCase.verifyEqual(size(sc.Y, 1), 1, 'Y_is_row');
-        end
-
         function testEmptySensors(testCase)
-            ms = TestLoadModuleMetadata.makeMetadataStruct({'machine'}, 100);
-            sensors = loadModuleMetadata(ms, {});
+            t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
+            sensors = loadModuleMetadata(t, {});
             testCase.verifyTrue(isempty(sensors), 'empty_passthrough');
         end
 
-        function testMissingDocErrors(testCase)
-            ms = struct('machine', [1 2 3]);
+        function testNotTableErrors(testCase)
             threw = false;
             try
-                loadModuleMetadata(ms, {});
+                loadModuleMetadata(struct('x', 1), {});
             catch
                 threw = true;
             end
-            testCase.verifyTrue(threw, 'missing_doc_throws');
+            testCase.verifyTrue(threw, 'not_table_throws');
         end
 
-        function testDocMissingDatumErrors(testCase)
-            % doc entry without .datum field
-            ms.doc.machine.name = 'machine';  % no .datum
-            ms.machine = [1 2 3];
+        function testMissingDateColumnErrors(testCase)
+            t = table([1; 2; 3], 'VariableNames', {'machine'});
             threw = false;
             try
-                loadModuleMetadata(ms, {});
+                loadModuleMetadata(t, {});
             catch
                 threw = true;
             end
-            testCase.verifyTrue(threw, 'missing_datum_throws');
-        end
-
-        function testDatenumFieldNotInStructErrors(testCase)
-            ms.doc.machine.name = 'machine';
-            ms.doc.machine.datum = 'nonexistent';
-            ms.machine = [1 2 3];
-            threw = false;
-            try
-                loadModuleMetadata(ms, {});
-            catch
-                threw = true;
-            end
-            testCase.verifyTrue(threw, 'bad_datenum_ref_throws');
-        end
-
-        function testDatumNotCharErrors(testCase)
-            % Defensive test: validates datum type
-            ms.doc.machine.name = 'machine';
-            ms.doc.machine.datum = 42;
-            ms.machine = [1 2 3];
-            threw = false;
-            try
-                loadModuleMetadata(ms, {});
-            catch
-                threw = true;
-            end
-            testCase.verifyTrue(threw, 'non_char_datum_throws');
+            testCase.verifyTrue(threw, 'missing_date_throws');
         end
 
         function testOutputRowOrientation(testCase)
@@ -249,10 +199,10 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
             s = TestLoadModuleMetadata.makeSensorWithRule( ...
                 'temp', struct('machine', 1), 50);
 
-            ms = TestLoadModuleMetadata.makeMetadataStruct({'machine'}, 100);
-            ms.machine(51:100) = 1;
+            t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
+            t.machine(51:100) = 1;
 
-            sensors = loadModuleMetadata(ms, {s});
+            sensors = loadModuleMetadata(t, {s});
 
             sc = sensors{1}.StateChannels{1};
             testCase.verifyEqual(size(sc.X, 1), 1, 'X_is_row');
@@ -266,9 +216,9 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
             s.addThresholdRule(struct(), 50, ...
                 'Direction', 'upper', 'Label', 'always');
 
-            ms = TestLoadModuleMetadata.makeMetadataStruct({'machine'}, 100);
+            t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
 
-            sensors = loadModuleMetadata(ms, {s});
+            sensors = loadModuleMetadata(t, {s});
 
             testCase.verifyTrue(isempty(sensors{1}.StateChannels), ...
                 'unconditional_no_sc');
@@ -279,11 +229,11 @@ classdef TestLoadModuleMetadata < matlab.unittest.TestCase
             s = TestLoadModuleMetadata.makeSensorWithRule( ...
                 'temp', struct('machine', 1), 50);
 
-            ms = TestLoadModuleMetadata.makeMetadataStruct({'machine'}, 100);
-            ms.machine(51:100) = 1;
+            t = TestLoadModuleMetadata.makeMetadataTable({'machine'}, 100);
+            t.machine(51:100) = 1;
 
-            loadModuleMetadata(ms, {s});
-            loadModuleMetadata(ms, {s});
+            loadModuleMetadata(t, {s});
+            loadModuleMetadata(t, {s});
 
             testCase.verifyEqual(numel(s.StateChannels), 2, ...
                 'duplicates_accumulated');
