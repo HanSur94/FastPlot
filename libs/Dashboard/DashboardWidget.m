@@ -16,9 +16,11 @@ classdef DashboardWidget < handle
         Description = ''           % Optional tooltip text shown via info icon hover
         Sensor      = []           % Sensor object for data binding (primary source)
         ParentTheme = []           % Theme inherited from DashboardEngine
+        Dirty       = true         % true when widget needs refresh (data changed)
+        Realized    = false        % true after render() has been called
     end
 
-    properties (SetAccess = protected)
+    properties (SetAccess = public)
         hPanel = []             % Handle to the uipanel this widget renders into
     end
 
@@ -65,6 +67,11 @@ classdef DashboardWidget < handle
             if ~isempty(obj.hPanel) && ishandle(obj.hPanel)
                 delete(obj.hPanel);
             end
+        end
+
+        function markDirty(obj)
+        %MARKDIRTY Flag this widget as needing a refresh.
+            obj.Dirty = true;
         end
     end
 
