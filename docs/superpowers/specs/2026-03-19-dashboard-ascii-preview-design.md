@@ -65,7 +65,7 @@ The preview works **before `render()` is called**. Widgets check whether data is
 | `barchart` | Category count summary | `[-- barchart --]` + title |
 | `histogram` | Data range summary | `[-- histogram --]` + title |
 | `scatter` | Point count summary | `[-- scatter --]` + title |
-| `image` | `[img: WxH]` | `[-- image --]` + title |
+| `image` | `[img: filename.ext]` | `[-- image --]` + title |
 | `timeline` | `N events` | `[-- timeline --]` + title |
 | `rawaxes` | `[custom axes]` | `[-- rawaxes --]` + title |
 | `multistatus` | `N sensors: OK/WARN` (uses cached status from existing `refresh` logic) | `[-- multistatus --]` + title |
