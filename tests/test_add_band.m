@@ -48,5 +48,23 @@ function test_add_band()
     assert(fp.Bands(1).FaceAlpha > 0, 'testBandDefaults: FaceAlpha');
     assert(numel(fp.Bands(1).FaceColor) == 3, 'testBandDefaults: FaceColor');
 
-    fprintf('    All 5 addBand tests passed.\n');
+    % testBandDefaultMatchesTheme
+    fp = FastPlot();
+    fp.addBand(0, 1);
+    assert(isequal(fp.Bands(1).FaceColor, fp.Theme.ThresholdColor), ...
+        'testBandDefaultMatchesTheme: FaceColor');
+    assert(fp.Bands(1).FaceAlpha == fp.Theme.BandAlpha, ...
+        'testBandDefaultMatchesTheme: FaceAlpha');
+
+    % testBandEdgeColorDefault
+    fp = FastPlot();
+    fp.addBand(0, 1);
+    assert(strcmp(fp.Bands(1).EdgeColor, 'none'), 'testBandEdgeColorDefault');
+
+    % testBandCustomEdgeColor
+    fp = FastPlot();
+    fp.addBand(0, 1, 'EdgeColor', [0 0 0]);
+    assert(isequal(fp.Bands(1).EdgeColor, [0 0 0]), 'testBandCustomEdgeColor');
+
+    fprintf('    All 8 addBand tests passed.\n');
 end

@@ -41,5 +41,32 @@ function test_add_marker()
     assert(threw, 'testMarkerRejectsAfterRender');
     close(fp.hFigure);
 
-    fprintf('    All 4 addMarker tests passed.\n');
+    % testMarkerColumnVectors — column vectors converted to rows
+    fp = FastPlot();
+    fp.addMarker((1:5)', (1:5)');
+    assert(isrow(fp.Markers(1).X), 'testMarkerColumnVectors: X is row');
+    assert(isrow(fp.Markers(1).Y), 'testMarkerColumnVectors: Y is row');
+
+    % testMarkerDefaultMatchesTheme
+    fp = FastPlot();
+    fp.addMarker([1], [1]);
+    assert(isequal(fp.Markers(1).Color, fp.Theme.ThresholdColor), ...
+        'testMarkerDefaultMatchesTheme: Color');
+    assert(strcmp(fp.Markers(1).Marker, 'o'), 'testMarkerDefaultMatchesTheme: shape');
+    assert(fp.Markers(1).MarkerSize == 6, 'testMarkerDefaultMatchesTheme: size');
+
+    % testMultipleMarkerGroups
+    fp = FastPlot();
+    fp.addMarker([1 2], [3 4], 'Label', 'Group A');
+    fp.addMarker([5 6], [7 8], 'Marker', 'd', 'Label', 'Group B');
+    assert(numel(fp.Markers) == 2, 'testMultipleMarkerGroups: count');
+    assert(strcmp(fp.Markers(1).Label, 'Group A'), 'testMultipleMarkerGroups: label 1');
+    assert(strcmp(fp.Markers(2).Label, 'Group B'), 'testMultipleMarkerGroups: label 2');
+
+    % testSingleMarkerPoint
+    fp = FastPlot();
+    fp.addMarker(42, 7);
+    assert(numel(fp.Markers(1).X) == 1, 'testSingleMarkerPoint: single X');
+
+    fprintf('    All 8 addMarker tests passed.\n');
 end
