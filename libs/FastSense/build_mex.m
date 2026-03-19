@@ -35,6 +35,7 @@ function build_mex()
 %     lttb_core_mex.c              — Largest-Triangle-Three-Buckets kernel
 %     violation_cull_mex.c         — threshold violation culling
 %     compute_violations_mex.c     — batch violation detection for resolve()
+%     to_step_function_mex.c       — SIMD step-function conversion for thresholds
 %     build_store_mex.c            — bulk SQLite writer for DataStore init
 %     mksqlite.c                   — SQLite3 MEX interface (bundled sqlite3.c)
 %

@@ -69,9 +69,19 @@ function yes = needs_build(root)
         return;
     end
     mex_dir = fullfile(root, 'libs', 'FastSense', 'private');
-    probe = fullfile(mex_dir, ['binary_search_mex.' mexext()]);
-    probe_oct = fullfile(mex_dir, 'binary_search_mex.mex');
-    yes = exist(probe, 'file') ~= 3 && exist(probe_oct, 'file') ~= 3;
+    sensor_dir = fullfile(root, 'libs', 'SensorThreshold', 'private');
+    % Probe a representative MEX from each library — if any are missing,
+    % trigger build_mex() which will compile only the missing ones.
+    probes = {
+        fullfile(mex_dir, ['binary_search_mex.' mexext()])
+        fullfile(mex_dir, 'binary_search_mex.mex')
+        fullfile(sensor_dir, ['to_step_function_mex.' mexext()])
+        fullfile(sensor_dir, 'to_step_function_mex.mex')
+    };
+    % Need build if either probe set is missing
+    core_ok = exist(probes{1}, 'file') == 3 || exist(probes{2}, 'file') == 3;
+    step_ok = exist(probes{3}, 'file') == 3 || exist(probes{4}, 'file') == 3;
+    yes = ~core_ok || ~step_ok;
 end
 
 function first_run(root)
