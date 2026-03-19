@@ -15,19 +15,19 @@ We need a function that:
 
 ## Key Constraints
 
-- **Speed:** Compression via `diff` + logical indexing is O(N) per field, done once per unique field
+- **Speed:** Compression via vectorized operations is O(N) per field, done once per unique field
 - **No redundant work:** If multiple sensors reference the same state channel key, compress only once (cache results)
 - **Introspection-driven:** Only attach StateChannels that are actually referenced in ThresholdRule conditions
 - **Same struct format:** Metadata struct follows the same convention as module data (fields + `doc.date` naming the datenum field)
+- **Sequencing:** ThresholdRules must be attached to sensors before calling this function. The function reads but does not modify ThresholdRules.
 
 ## Function Signature
 
 ```matlab
-sensors = loadModuleMetadata(registry, metadataStruct, sensors)
+sensors = loadModuleMetadata(metadataStruct, sensors)
 ```
 
 **Input:**
-- `registry` — `ExternalSensorRegistry` (used for consistency, not strictly required but keeps API uniform with `loadModuleData`)
 - `metadataStruct` — Scalar struct from external system, same format as module data
 - `sensors` — `1xN` cell array of Sensor objects (from `loadModuleData`) with ThresholdRules already attached
 
@@ -37,31 +37,43 @@ sensors = loadModuleMetadata(registry, metadataStruct, sensors)
 ## Algorithm
 
 1. Validate `metadataStruct.doc.date`, extract datenum field name and timestamps `X`
-2. `metaFields = fieldnames(metadataStruct)`, exclude `doc` and datenum field
-3. Build a cache (`containers.Map`) for compressed transitions: key → `struct('X', sparseX, 'Y', sparseY)`
+2. `metaFields = fieldnames(metadataStruct)`, exclude `doc` and the field named by `doc.date`
+3. Build a cache (`containers.Map('KeyType', 'char', 'ValueType', 'any')`) for compressed transitions
 4. For each sensor in `sensors`:
-   a. Collect all unique condition field names from `sensor.ThresholdRules{i}.Condition`
+   a. Collect all unique condition field names via `fieldnames(rule.Condition)` for each `rule` in `sensor.ThresholdRules`
    b. For each required state key that exists in `metaFields`:
-      - If not in cache: compress dense signal to transitions and cache
-      - Create `StateChannel(key)` with cached sparse X/Y
+      - If not in cache: compress dense signal to transitions (see below) and store in cache
+      - Create a **new** `StateChannel(key)` instance, assign `sc.X` and `sc.Y` from cached data
       - `sensor.addStateChannel(sc)`
 5. Return `sensors`
 
+**Important:** Each sensor gets its own `StateChannel` object instance. The cache stores data arrays, not handle objects. This avoids shared mutable state between sensors.
+
 ### Compression (dense → sparse transitions)
+
+Handles both numeric arrays and cell arrays of char (both types are supported by StateChannel):
 
 ```matlab
 Y_dense = metadataStruct.(key);
-changes = [true, diff(Y_dense) ~= 0];  % always keep first point
+if iscell(Y_dense)
+    % String/categorical state: compare consecutive elements
+    changes = [true, ~strcmp(Y_dense(1:end-1), Y_dense(2:end))];
+else
+    % Numeric state: use diff
+    changes = [true, diff(Y_dense) ~= 0];
+end
 sparseX = X(changes);
 sparseY = Y_dense(changes);
 ```
 
-This is O(N) vectorized, producing only the transition points.
+Ensure output is row vector orientation (`1xN`) to match StateChannel's contract.
+
+This is O(N) per field, producing only the transition points.
 
 ## Performance Design
 
 - **One-time compression:** Each metadata field is compressed at most once via the cache, even if 100 sensors reference it
-- **Vectorized diff:** `diff(Y) ~= 0` is a single MATLAB vectorized operation on the full array
+- **Vectorized operations:** `diff` / `strcmp` on full arrays — single pass
 - **Introspection is cheap:** Iterating ThresholdRules is O(R) per sensor where R is typically 1-10
 - **No disk I/O:** Function receives already-loaded struct
 
@@ -73,8 +85,9 @@ This is O(N) vectorized, producing only the transition points.
 
 - If `doc` or `doc.date` is missing: error with clear message (same as `loadModuleData`)
 - If `doc.date` names a nonexistent field: error with clear message
+- If `doc.date` is not a char: error with clear message
 - If a sensor has no ThresholdRules: skip it (no state channels needed)
 - If a ThresholdRule condition references a key not in the metadata: skip that key silently (may come from a different source)
 - If a metadata field has all identical values (no transitions): produces a single-point StateChannel (first point only)
-- If `sensors` is empty: return empty cell array unchanged
-- Repeated calls add additional StateChannels (does not clear existing ones)
+- If `sensors` is empty: return it unchanged
+- Repeated calls add additional StateChannels (does not clear existing ones — caller's responsibility to avoid duplicates)
