@@ -489,12 +489,7 @@ classdef GroupWidget < DashboardWidget
             % jsondecode converts cell arrays of structs to struct arrays;
             % normalize back to cell arrays for consistent indexing.
             if isfield(s, 'children') && ~isempty(s.children)
-                ch = s.children;
-                if isstruct(ch)
-                    tmp = ch;
-                    ch = cell(1, numel(tmp));
-                    for k = 1:numel(tmp), ch{k} = tmp(k); end
-                end
+                ch = normalizeToCell(s.children);
                 for i = 1:numel(ch)
                     cs = ch{i};
                     child = DashboardSerializer.createWidgetFromStruct(cs);
@@ -506,21 +501,11 @@ classdef GroupWidget < DashboardWidget
 
             % Deserialize tabs (tabbed mode)
             if isfield(s, 'tabs') && ~isempty(s.tabs)
-                tb = s.tabs;
-                if isstruct(tb)
-                    tmp = tb;
-                    tb = cell(1, numel(tmp));
-                    for k = 1:numel(tmp), tb{k} = tmp(k); end
-                end
+                tb = normalizeToCell(s.tabs);
                 for i = 1:numel(tb)
                     ts = tb{i};
                     tabEntry = struct('name', ts.name, 'widgets', {{}});
-                    wlist = ts.widgets;
-                    if isstruct(wlist)
-                        tmp2 = wlist;
-                        wlist = cell(1, numel(tmp2));
-                        for k = 1:numel(tmp2), wlist{k} = tmp2(k); end
-                    end
+                    wlist = normalizeToCell(ts.widgets);
                     for j = 1:numel(wlist)
                         ws = wlist{j};
                         w = DashboardSerializer.createWidgetFromStruct(ws);

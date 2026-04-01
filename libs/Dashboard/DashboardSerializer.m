@@ -152,13 +152,7 @@ classdef DashboardSerializer
             jsonStr = fread(fid, '*char')';
             fclose(fid);
             config = jsondecode(jsonStr);
-            if isstruct(config.widgets)
-                wa = config.widgets;
-                config.widgets = cell(1, numel(wa));
-                for i = 1:numel(wa)
-                    config.widgets{i} = wa(i);
-                end
-            end
+            config.widgets = normalizeToCell(config.widgets);
         end
 
         function config = widgetsToConfig(name, theme, liveInterval, widgets, infoFile)
