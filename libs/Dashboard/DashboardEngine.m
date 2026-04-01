@@ -29,6 +29,10 @@ classdef DashboardEngine < handle
     properties (SetAccess = private)
         Widgets        = {}
         Pages          = {}   % Cell array of DashboardPage (multi-page mode)
+        ActivePage     = 0    % Index into Pages; 0 = no pages defined
+        PageBarHeight  = 0.04 % Normalized height of PageBar (same as Toolbar.Height)
+        hPageBar       = []   % uipanel handle for PageBar
+        hPageButtons   = {}   % Cell array of uicontrol handles for page buttons
         hFigure        = []
         Layout         = []
         Toolbar        = []
@@ -65,14 +69,50 @@ classdef DashboardEngine < handle
         end
 
         function pg = addPage(obj, name)
-        %ADDPAGE Add a named page to the dashboard.
+        %ADDPAGE Add a named page and make it the active page for addWidget.
         %   pg = d.addPage('Overview') creates a DashboardPage and appends it to Pages.
-        %   When Pages is non-empty, addWidget routes to the last-added page.
+        %   Sets ActivePage to the last-added page index.
+        %   When Pages is non-empty, addWidget routes to the active page.
             if nargin < 2
                 name = '';
             end
             pg = DashboardPage(name);
             obj.Pages{end+1} = pg;
+            % Set ActivePage to 1 on first addPage call; subsequent pages
+            % don't change ActivePage — use switchPage() to navigate.
+            if obj.ActivePage == 0
+                obj.ActivePage = 1;
+            end
+        end
+
+        function switchPage(obj, pageIdx)
+        %SWITCHPAGE Switch the active page and re-render its widgets.
+        %   d.switchPage(2) sets ActivePage = 2 and calls rerenderWidgets().
+            if pageIdx < 1 || pageIdx > numel(obj.Pages)
+                return;
+            end
+            obj.ActivePage = pageIdx;
+            % Update button colors if PageBar exists
+            if ~isempty(obj.hPageButtons)
+                themeStruct = DashboardTheme(obj.Theme);
+                for i = 1:numel(obj.hPageButtons)
+                    if ~isempty(obj.hPageButtons{i}) && ishandle(obj.hPageButtons{i})
+                        if i == obj.ActivePage
+                            set(obj.hPageButtons{i}, ...
+                                'BackgroundColor', themeStruct.TabActiveBg, ...
+                                'ForegroundColor', themeStruct.GroupHeaderFg);
+                        else
+                            set(obj.hPageButtons{i}, ...
+                                'BackgroundColor', themeStruct.TabInactiveBg, ...
+                                'ForegroundColor', themeStruct.ToolbarFontColor);
+                        end
+                    end
+                end
+            end
+            % Re-render widgets for the newly active page
+            if ~isempty(obj.hFigure) && ishandle(obj.hFigure)
+                obj.rerenderWidgets();
+            end
         end
 
         function w = addWidget(obj, type, varargin)
@@ -128,8 +168,11 @@ classdef DashboardEngine < handle
 
             % Route to active page when in multi-page mode
             if ~isempty(obj.Pages)
-                activePg = obj.Pages{end};
-                activePg.addWidget(w);
+                if obj.ActivePage < 1
+                    error('DashboardEngine:noActivePage', ...
+                        'Pages is non-empty but ActivePage is 0. Call addPage() first.');
+                end
+                obj.Pages{obj.ActivePage}.addWidget(w);
                 return;
             end
 
@@ -177,14 +220,29 @@ classdef DashboardEngine < handle
 
             obj.Toolbar = DashboardToolbar(obj, obj.hFigure, themeStruct);
 
+            % Create PageBar for multi-page dashboards
+            toolbarH = obj.Toolbar.Height;
+            if numel(obj.Pages) > 1
+                obj.renderPageBar(themeStruct);
+                pageBarH = obj.PageBarHeight;
+            else
+                % Create hidden PageBar placeholder so hPageBar is always valid
+                obj.hPageBar = uipanel('Parent', obj.hFigure, ...
+                    'Units', 'normalized', ...
+                    'Position', [0, 1 - toolbarH - obj.PageBarHeight, 1, obj.PageBarHeight], ...
+                    'BorderType', 'none', ...
+                    'BackgroundColor', themeStruct.ToolbarBackground, ...
+                    'Visible', 'off');
+                pageBarH = 0;
+            end
+
             % Create time control panel at bottom
             obj.createTimePanel(themeStruct);
 
             % Content area between toolbar and time panel
-            toolbarH = obj.Toolbar.Height;
             obj.Layout.ContentArea = [0, obj.TimePanelHeight, ...
-                1, 1 - toolbarH - obj.TimePanelHeight];
-            obj.Layout.allocatePanels(obj.hFigure, obj.Widgets, themeStruct);
+                1, 1 - toolbarH - pageBarH - obj.TimePanelHeight];
+            obj.Layout.allocatePanels(obj.hFigure, obj.activePageWidgets(), themeStruct);
             obj.Layout.OnScrollCallback = @(r1, r2) obj.onScrollRealize(r1, r2);
             obj.realizeBatch(5);
 
@@ -488,14 +546,15 @@ classdef DashboardEngine < handle
         function rerenderWidgets(obj)
         %RERENDERWIDGETS Delete all widget panels and recreate them.
             theme = DashboardTheme(obj.Theme);
-            for i = 1:numel(obj.Widgets)
-                w = obj.Widgets{i};
+            ws = obj.activePageWidgets();
+            for i = 1:numel(ws)
+                w = ws{i};
                 w.Realized = false;
                 if ~isempty(w.hPanel) && ishandle(w.hPanel)
                     delete(w.hPanel);
                 end
             end
-            obj.Layout.createPanels(obj.hFigure, obj.Widgets, theme);
+            obj.Layout.createPanels(obj.hFigure, ws, theme);
         end
 
         function updateGlobalTimeRange(obj)
@@ -559,11 +618,12 @@ classdef DashboardEngine < handle
         function realizeBatch(obj, batchSize)
         %REALIZEBATCH Render widgets in batches with drawnow between.
             if nargin < 2, batchSize = 5; end
+            ws = obj.activePageWidgets();
             visible = [];
             offscreen = [];
-            for i = 1:numel(obj.Widgets)
-                if ~obj.Widgets{i}.Realized
-                    if obj.Layout.isWidgetVisible(obj.Widgets{i}.Position)
+            for i = 1:numel(ws)
+                if ~ws{i}.Realized
+                    if obj.Layout.isWidgetVisible(ws{i}.Position)
                         visible(end+1) = i; %#ok<AGROW>
                     else
                         offscreen(end+1) = i; %#ok<AGROW>
@@ -574,7 +634,7 @@ classdef DashboardEngine < handle
             for b = 1:batchSize:numel(order)
                 bEnd = min(b + batchSize - 1, numel(order));
                 for i = b:bEnd
-                    obj.Layout.realizeWidget(obj.Widgets{order(i)});
+                    obj.Layout.realizeWidget(ws{order(i)});
                 end
                 drawnow;
             end
@@ -582,8 +642,9 @@ classdef DashboardEngine < handle
 
         function onScrollRealize(obj, topRow, bottomRow)
         %ONSCROLLREALIZE Realize widgets that scroll into view.
-            for i = 1:numel(obj.Widgets)
-                w = obj.Widgets{i};
+            ws = obj.activePageWidgets();
+            for i = 1:numel(ws)
+                w = ws{i};
                 if ~w.Realized && obj.Layout.isWidgetVisible(w.Position)
                     obj.Layout.realizeWidget(w);
                 end
@@ -602,15 +663,16 @@ classdef DashboardEngine < handle
             % In live mode, mark sensor-bound widgets dirty because
             % PostSet listeners on Sensor.X/Y do not fire reliably in
             % Octave for indexed assignment (sTemp.X(end+1) = val).
-            for i = 1:numel(obj.Widgets)
-                if ~isempty(obj.Widgets{i}.Sensor)
-                    obj.Widgets{i}.markDirty();
+            ws = obj.activePageWidgets();
+            for i = 1:numel(ws)
+                if ~isempty(ws{i}.Sensor)
+                    ws{i}.markDirty();
                 end
             end
 
             % Only refresh widgets that are dirty, realized, and visible
-            for i = 1:numel(obj.Widgets)
-                w = obj.Widgets{i};
+            for i = 1:numel(ws)
+                w = ws{i};
                 if w.Dirty && w.Realized && obj.Layout.isWidgetVisible(w.Position)
                     try
                         if isa(w, 'FastSenseWidget')
@@ -636,8 +698,8 @@ classdef DashboardEngine < handle
             end
 
             % Clear dirty flags AFTER slider broadcast to avoid re-dirtying
-            for i = 1:numel(obj.Widgets)
-                obj.Widgets{i}.Dirty = false;
+            for i = 1:numel(ws)
+                ws{i}.Dirty = false;
             end
         end
 
@@ -664,6 +726,66 @@ classdef DashboardEngine < handle
     end
 
     methods (Access = private)
+
+        function ws = activePageWidgets(obj)
+        %ACTIVEPAGEWIDGETS Return the widget list for the currently active page.
+        %   Returns obj.Pages{obj.ActivePage}.Widgets in multi-page mode,
+        %   or obj.Widgets in single-page mode.
+            if ~isempty(obj.Pages) && obj.ActivePage >= 1
+                ws = obj.Pages{obj.ActivePage}.Widgets;
+            else
+                ws = obj.Widgets;
+            end
+        end
+
+        function ws = allPageWidgets(obj)
+        %ALLPAGEWIDGETS Return concatenation of all pages' Widgets.
+        %   Used for ReflowCallback injection. When Pages is empty, returns obj.Widgets.
+            if isempty(obj.Pages)
+                ws = obj.Widgets;
+                return;
+            end
+            ws = {};
+            for i = 1:numel(obj.Pages)
+                ws = [ws, obj.Pages{i}.Widgets]; %#ok<AGROW>
+            end
+        end
+
+        function renderPageBar(obj, themeStruct)
+        %RENDERPAGEBAR Create the PageBar uipanel with one button per page.
+        %   Called from render() when numel(Pages) > 1.
+            toolbarH = obj.Toolbar.Height;
+            hPageBar = uipanel('Parent', obj.hFigure, ...
+                'Units', 'normalized', ...
+                'Position', [0, 1 - toolbarH - obj.PageBarHeight, 1, obj.PageBarHeight], ...
+                'BorderType', 'none', ...
+                'BackgroundColor', themeStruct.ToolbarBackground, ...
+                'Visible', 'on');
+            obj.hPageButtons = {};
+            nPages = numel(obj.Pages);
+            for i = 1:nPages
+                btnW = min(0.15, 0.9 / nPages);
+                btnX = 0.05 + (i - 1) * btnW;
+                if i == obj.ActivePage
+                    bgColor = themeStruct.TabActiveBg;
+                    fgColor = themeStruct.GroupHeaderFg;
+                else
+                    bgColor = themeStruct.TabInactiveBg;
+                    fgColor = themeStruct.ToolbarFontColor;
+                end
+                hBtn = uicontrol('Parent', hPageBar, ...
+                    'Style', 'pushbutton', ...
+                    'Units', 'normalized', ...
+                    'Position', [btnX, 0.1, btnW, 0.8], ...
+                    'String', obj.Pages{i}.Name, ...
+                    'BackgroundColor', bgColor, ...
+                    'ForegroundColor', fgColor, ...
+                    'Callback', @(~,~) obj.switchPage(i));
+                obj.hPageButtons{i} = hBtn;
+            end
+            obj.hPageBar = hPageBar;
+        end
+
         function createTimePanel(obj, theme)
             tH = obj.TimePanelHeight;
 
