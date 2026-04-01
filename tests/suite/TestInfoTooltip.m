@@ -276,5 +276,30 @@ classdef TestInfoTooltip < matlab.unittest.TestCase
                 'Layout.hFigure should equal DashboardEngine.hFigure after render()');
         end
 
+        function testPopupRendersMarkdown(testCase)
+        % INFO-03: popup edit control shows Markdown-rendered content, not raw Markdown syntax.
+            desc = sprintf('## Hello\n\nThis is **bold** text.');
+            widget = testCase.makeWidget(desc);
+            theme = DashboardTheme('light');
+            testCase.Layout.openInfoPopup(widget, theme);
+            popup = testCase.Layout.hInfoPopup;
+            editCtrl = findobj(popup, 'Style', 'edit');
+            testCase.verifyNotEmpty(editCtrl, 'Edit control should exist inside popup');
+            str = get(editCtrl(1), 'String');
+            if iscell(str)
+                str = strjoin(str, ' ');
+            end
+            % Raw Markdown delimiters must NOT appear — MarkdownRenderer must have been called
+            testCase.verifyEmpty(regexp(str, '##', 'once'), ...
+                'Popup should not contain raw ## heading syntax — MarkdownRenderer must be called');
+            testCase.verifyEmpty(regexp(str, '\*\*', 'once'), ...
+                'Popup should not contain raw ** bold syntax — MarkdownRenderer must be called');
+            % Rendered plain text content MUST be present
+            testCase.verifySubstring(str, 'Hello', ...
+                'Popup should contain rendered heading text "Hello"');
+            testCase.verifySubstring(str, 'bold', ...
+                'Popup should contain rendered inline text "bold"');
+        end
+
     end
 end
