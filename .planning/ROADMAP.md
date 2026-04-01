@@ -48,7 +48,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [ ] 02-01-PLAN.md — Wire ReflowCallback into GroupWidget collapse/expand and inject via DashboardEngine (LAYOUT-01, LAYOUT-02)
-- [ ] 02-02-PLAN.md — Test ActiveTab JSON round-trip and verify/fix tab contrast in all themes (LAYOUT-07, LAYOUT-08)
+- [x] 02-02-PLAN.md — Test ActiveTab JSON round-trip and verify/fix tab contrast in all themes (LAYOUT-07, LAYOUT-08)
 
 ### Phase 3: Widget Info Tooltips
 **Goal**: Users can view a widget's written description without leaving the dashboard, via an info icon in the widget header that opens a Markdown-rendered popup

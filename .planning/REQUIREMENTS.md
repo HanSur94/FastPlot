@@ -15,8 +15,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **LAYOUT-04**: Page navigation UI — toolbar buttons or tab strip to switch between pages
 - [ ] **LAYOUT-05**: Active page persists through save/load cycle
 - [ ] **LAYOUT-06**: Only the active page's widgets are rendered; inactive pages are hidden
-- [ ] **LAYOUT-07**: Existing tabbed GroupWidget persists active tab through save/load round-trip
-- [ ] **LAYOUT-08**: Tab visual contrast is legible in both light and dark themes
+- [x] **LAYOUT-07**: Existing tabbed GroupWidget persists active tab through save/load round-trip
+- [x] **LAYOUT-08**: Tab visual contrast is legible in both light and dark themes
 
 ### Widget Info Tooltips
 
@@ -106,8 +106,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LAYOUT-04 | Phase 4 | Pending |
 | LAYOUT-05 | Phase 4 | Pending |
 | LAYOUT-06 | Phase 4 | Pending |
-| LAYOUT-07 | Phase 2 | Pending |
-| LAYOUT-08 | Phase 2 | Pending |
+| LAYOUT-07 | Phase 2 | Complete |
+| LAYOUT-08 | Phase 2 | Complete |
 | INFO-01 | Phase 3 | Pending |
 | INFO-02 | Phase 3 | Pending |
 | INFO-03 | Phase 3 | Pending |
