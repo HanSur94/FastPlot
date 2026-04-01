@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Infrastructure Hardening** - Fix timer safety, GroupWidget .m export bug, jsondecode normalization, and validate backward compatibility (completed 2026-04-01)
 - [ ] **Phase 2: Collapsible Sections** - Wire grid reflow into GroupWidget collapse/expand so collapsing reclaims screen space
-- [ ] **Phase 3: Widget Info Tooltips** - Add info icon and click-driven description popup to all widget header chrome
+- [x] **Phase 3: Widget Info Tooltips** - Add info icon and click-driven description popup to all widget header chrome (completed 2026-04-01)
 - [ ] **Phase 4: Multi-Page Navigation** - Add DashboardPage container, PageBar UI, and page-switching with active-page persistence
 - [ ] **Phase 5: Detachable Widgets** - Detach button on every widget; DetachedMirror class; live sync via shared timer
 - [ ] **Phase 6: Serialization & Persistence** - Verify and harden round-trip correctness for all new structures across JSON and .m formats
@@ -62,7 +62,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 03-01-PLAN.md — Test scaffold (TestInfoTooltip) + DashboardLayout info icon injection and popup methods (INFO-01, INFO-02, INFO-03, INFO-04, INFO-05)
-- [ ] 03-02-PLAN.md — Wire hFigure into DashboardLayout from DashboardEngine, add reflow popup guard, integration tests (INFO-01, INFO-02, INFO-03, INFO-04, INFO-05)
+- [x] 03-02-PLAN.md — Wire hFigure into DashboardLayout from DashboardEngine, add reflow popup guard, integration tests (INFO-01, INFO-02, INFO-03, INFO-04, INFO-05)
 
 ### Phase 4: Multi-Page Navigation
 **Goal**: Users can organize a dashboard into multiple named pages, navigate between them via a page bar, and have the active page survive a save/load cycle
@@ -110,7 +110,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Infrastructure Hardening | 4/4 | Complete   | 2026-04-01 |
 | 2. Collapsible Sections | 0/2 | Not started | - |
-| 3. Widget Info Tooltips | 1/2 | In Progress|  |
+| 3. Widget Info Tooltips | 2/2 | Complete   | 2026-04-01 |
 | 4. Multi-Page Navigation | 0/? | Not started | - |
 | 5. Detachable Widgets | 0/? | Not started | - |
 | 6. Serialization & Persistence | 0/? | Not started | - |
