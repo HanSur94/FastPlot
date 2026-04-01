@@ -216,5 +216,65 @@ classdef TestInfoTooltip < matlab.unittest.TestCase
                 'InfoIconButton should appear after realizeWidget with non-empty Description');
         end
 
+        function testEndToEndInfoIconAppearsViaEngine(testCase)
+        % Integration: DashboardEngine.render() injects InfoIconButton for widget with Description.
+            d = DashboardEngine('Integration Test');
+            d.addWidget('text', 'Title', 'T', 'Position', [1 1 6 2], ...
+                'Content', 'x', 'Description', '## Hello');
+            d.render();
+            set(d.hFigure, 'Visible', 'off');
+            testCase.addTeardown(@() close(d.hFigure));
+            w = d.Widgets{1};
+            btn = findobj(w.hPanel, 'Tag', 'InfoIconButton');
+            testCase.verifyNotEmpty(btn, ...
+                'InfoIconButton should appear via DashboardEngine.render() for widget with Description');
+        end
+
+        function testEndToEndNoIconWhenDescriptionEmpty(testCase)
+        % Integration: DashboardEngine.render() does NOT inject icon for widget without Description.
+            d = DashboardEngine('Integration Test No Desc');
+            d.addWidget('text', 'Title', 'T', 'Position', [1 1 6 2], 'Content', 'x');
+            d.render();
+            set(d.hFigure, 'Visible', 'off');
+            testCase.addTeardown(@() close(d.hFigure));
+            w = d.Widgets{1};
+            btn = findobj(w.hPanel, 'Tag', 'InfoIconButton');
+            testCase.verifyEmpty(btn, ...
+                'InfoIconButton should NOT appear for widget without Description');
+        end
+
+        function testReflowClosesOpenPopup(testCase)
+        % After reflow(), any open info popup should be closed.
+            d = DashboardEngine('Reflow Test');
+            d.addWidget('text', 'Title', 'T', 'Position', [1 1 6 2], ...
+                'Content', 'x', 'Description', '## Test');
+            d.render();
+            set(d.hFigure, 'Visible', 'off');
+            testCase.addTeardown(@() close(d.hFigure));
+            % Manually open the popup via layout
+            w = d.Widgets{1};
+            theme = DashboardTheme(d.Theme);
+            d.Layout.openInfoPopup(w, theme);
+            testCase.verifyNotEmpty(d.Layout.hInfoPopup, ...
+                'Popup should be open before reflow');
+            % Trigger reflow via Layout.reflow()
+            d.Layout.reflow(d.hFigure, d.Widgets, theme);
+            testCase.verifyEmpty(d.Layout.hInfoPopup, ...
+                'Popup should be dismissed after reflow()');
+        end
+
+        function testLayoutHFigureSetAfterRender(testCase)
+        % After DashboardEngine.render(), Layout.hFigure should equal d.hFigure.
+            d = DashboardEngine('HFigure Wiring Test');
+            d.addWidget('text', 'Title', 'T', 'Position', [1 1 6 2], 'Content', 'x');
+            d.render();
+            set(d.hFigure, 'Visible', 'off');
+            testCase.addTeardown(@() close(d.hFigure));
+            testCase.verifyTrue(ishandle(d.Layout.hFigure), ...
+                'Layout.hFigure should be a valid handle after render()');
+            testCase.verifyEqual(d.Layout.hFigure, d.hFigure, ...
+                'Layout.hFigure should equal DashboardEngine.hFigure after render()');
+        end
+
     end
 end
