@@ -129,20 +129,42 @@ classdef DashboardSerializer
         end
 
         function saveJSON(config, filepath)
-            %SAVEJSON Legacy: write dashboard config struct to JSON file.
-            %  Widgets may have heterogeneous fields, so encode each
-            %  widget individually and assemble the JSON array by hand.
-            parts = cell(1, numel(config.widgets));
-            for i = 1:numel(config.widgets)
-                parts{i} = jsonencode(config.widgets{i});
+            %SAVEJSON Write dashboard config struct to JSON file.
+            %  Handles both single-page (widgets field) and multi-page (pages field).
+            %  Widgets/pages may have heterogeneous fields, so encode each entry
+            %  individually and assemble the JSON array by hand.
+            if isfield(config, 'pages')
+                % Multi-page path: encode each page individually
+                pageParts = cell(1, numel(config.pages));
+                for i = 1:numel(config.pages)
+                    pg = config.pages{i};
+                    % Encode each widget within the page individually
+                    wParts = cell(1, numel(pg.widgets));
+                    for j = 1:numel(pg.widgets)
+                        wParts{j} = jsonencode(pg.widgets{j});
+                    end
+                    widgetsJson = ['[', strjoin(wParts, ','), ']'];
+                    pgNoWidgets = rmfield(pg, 'widgets');
+                    pgJson = jsonencode(pgNoWidgets);
+                    pageParts{i} = [pgJson(1:end-1), ',"widgets":', widgetsJson, '}'];
+                end
+                pagesJson = ['[', strjoin(pageParts, ','), ']'];
+                topLevel = rmfield(config, 'pages');
+                topJson = jsonencode(topLevel);
+                topJson = [topJson(1:end-1), ',"pages":', pagesJson, '}'];
+            else
+                % Single-page path: encode each widget individually
+                parts = cell(1, numel(config.widgets));
+                for i = 1:numel(config.widgets)
+                    parts{i} = jsonencode(config.widgets{i});
+                end
+                widgetsJson = ['[', strjoin(parts, ','), ']'];
+                % Build top-level JSON without the widgets field
+                topLevel = rmfield(config, 'widgets');
+                topJson = jsonencode(topLevel);
+                % Insert widgets array before the closing brace
+                topJson = [topJson(1:end-1), ',"widgets":', widgetsJson, '}'];
             end
-            widgetsJson = ['[', strjoin(parts, ','), ']'];
-
-            % Build top-level JSON without the widgets field
-            topLevel = rmfield(config, 'widgets');
-            topJson = jsonencode(topLevel);
-            % Insert widgets array before the closing brace
-            topJson = [topJson(1:end-1), ',"widgets":', widgetsJson, '}'];
 
             fid = fopen(filepath, 'w');
             if fid == -1
@@ -179,7 +201,23 @@ classdef DashboardSerializer
             jsonStr = fread(fid, '*char')';
             fclose(fid);
             config = jsondecode(jsonStr);
-            config.widgets = normalizeToCell(config.widgets);
+            if isfield(config, 'pages') && ~isempty(config.pages)
+                config.pages = normalizeToCell(config.pages);
+                for i = 1:numel(config.pages)
+                    if isfield(config.pages{i}, 'widgets') && ~isempty(config.pages{i}.widgets)
+                        config.pages{i}.widgets = normalizeToCell(config.pages{i}.widgets);
+                    else
+                        config.pages{i}.widgets = {};
+                    end
+                end
+            else
+                % Legacy single-page
+                if isfield(config, 'widgets')
+                    config.widgets = normalizeToCell(config.widgets);
+                else
+                    config.widgets = {};
+                end
+            end
         end
 
         function config = widgetsToConfig(name, theme, liveInterval, widgets, infoFile)
@@ -197,6 +235,27 @@ classdef DashboardSerializer
             config.widgets = cell(1, numel(widgets));
             for i = 1:numel(widgets)
                 config.widgets{i} = widgets{i}.toStruct();
+            end
+        end
+
+        function config = widgetsPagesToConfig(name, theme, liveInterval, pages, activePage, infoFile)
+            %WIDGETSPAGESTOCONFIG Build a multi-page config struct from page objects.
+            %   pages is a cell array of DashboardPage objects.
+            %   activePage is the Name string of the active page.
+            if nargin < 6
+                infoFile = '';
+            end
+            config.name = name;
+            config.theme = theme;
+            config.liveInterval = liveInterval;
+            if nargin >= 6 && ~isempty(infoFile)
+                config.infoFile = infoFile;
+            end
+            config.grid = struct('columns', 24);
+            config.activePage = activePage;
+            config.pages = cell(1, numel(pages));
+            for i = 1:numel(pages)
+                config.pages{i} = pages{i}.toStruct();
             end
         end
 
