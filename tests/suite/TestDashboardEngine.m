@@ -117,16 +117,18 @@ classdef TestDashboardEngine < matlab.unittest.TestCase
             d.startLive();
             testCase.verifyTrue(d.IsLive);
 
-            % Force timer to fire its ErrorFcn by stopping it and calling the
-            % ErrorFcn directly (simulates an escaped error from onLiveTick).
-            % Build a fake eventData matching MATLAB's timer error shape.
-            fakeEvent = struct('Data', struct('message', 'simulated error'));
+            % Suppress the expected warning so test output stays clean.
             warnState = warning('off', 'DashboardEngine:timerError');
             testCase.addTeardown(@() warning(warnState));
 
-            d.onLiveTimerError(d.LiveTimer, fakeEvent);
+            % Replace TimerFcn with one that always throws.
+            % MATLAB's timer infrastructure will call ErrorFcn when TimerFcn errors.
+            set(d.LiveTimer, 'TimerFcn', @(~,~) error('testError:force', 'forced test error'));
 
-            % Timer must still be running (restarted inside ErrorFcn)
+            % Wait for the timer to fire and the ErrorFcn to restart it.
+            pause(0.5);
+
+            % Timer must still be running (restarted inside ErrorFcn).
             testCase.verifyTrue(isrunning(d.LiveTimer));
         end
 
