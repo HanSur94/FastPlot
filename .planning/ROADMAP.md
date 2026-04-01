@@ -104,7 +104,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure Hardening | 3/3 | Complete   | 2026-04-01 |
+| 1. Infrastructure Hardening | 4/4 | Complete   | 2026-04-01 |
 | 2. Collapsible Sections | 0/? | Not started | - |
 | 3. Widget Info Tooltips | 0/? | Not started | - |
 | 4. Multi-Page Navigation | 0/? | Not started | - |
