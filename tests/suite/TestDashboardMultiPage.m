@@ -81,17 +81,19 @@ classdef TestDashboardMultiPage < matlab.unittest.TestCase
 
         function testSaveLoadRoundTrip(testCase)
         %TESTSAVELOUNDROUNDTRIP Multi-page engine save+load preserves pages and activePage.
-        %   Verifies LAYOUT-06: serialization round-trip for multi-page dashboards.
-        %   STUB: fails until plan 04-03 extends DashboardSerializer.
+        %   Verifies LAYOUT-05: activePage name is persisted in JSON and restored on load.
             d = DashboardEngine('RoundTrip');
             d.addPage('Alpha');
             d.addPage('Beta');
+            d.switchPage(2);
             tmpFile = [tempname, '.json'];
             cleanup = onCleanup(@() deleteFile(tmpFile));
             d.save(tmpFile);
             loaded = DashboardEngine.load(tmpFile);
             testCase.verifyEqual(numel(loaded.Pages), 2);
             testCase.verifyEqual(loaded.Pages{1}.Name, 'Alpha');
+            testCase.verifyEqual(loaded.ActivePage, 2);
+            testCase.verifyEqual(loaded.Pages{loaded.ActivePage}.Name, 'Beta');
         end
 
         function testLegacyJsonLoad(testCase)
