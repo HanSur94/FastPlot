@@ -170,7 +170,8 @@ classdef DashboardEngine < handle
             obj.IsLive = true;
             obj.LiveTimer = timer('ExecutionMode', 'fixedRate', ...
                 'Period', obj.LiveInterval, ...
-                'TimerFcn', @(~,~) obj.onLiveTick());
+                'TimerFcn', @(~,~) obj.onLiveTick(), ...
+                'ErrorFcn', @(t, e) obj.onLiveTimerError(t, e));
             start(obj.LiveTimer);
         end
 
@@ -758,6 +759,28 @@ classdef DashboardEngine < handle
                     str = sprintf('%.1f m', t / 60);
                 else
                     str = sprintf('%.1f s', t);
+                end
+            end
+        end
+
+        function onLiveTimerError(obj, ~, eventData)
+        %ONLIVETIMERROR Handle errors that escape onLiveTick.
+        %   Logs the error via warning and restarts the timer if the engine
+        %   is still live. Keeps the dashboard refreshing despite transient
+        %   widget errors.
+            msg = '';
+            if isstruct(eventData) && isfield(eventData, 'Data') && ...
+                    isfield(eventData.Data, 'message')
+                msg = eventData.Data.message;
+            end
+            warning('DashboardEngine:timerError', ...
+                '[DashboardEngine] Live timer error: %s', msg);
+            if obj.IsLive && ~isempty(obj.LiveTimer) && isvalid(obj.LiveTimer)
+                try
+                    start(obj.LiveTimer);
+                catch restartErr
+                    warning('DashboardEngine:timerRestartFailed', ...
+                        '[DashboardEngine] Timer restart failed: %s', restartErr.message);
                 end
             end
         end
