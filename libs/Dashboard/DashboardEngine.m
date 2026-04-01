@@ -28,6 +28,7 @@ classdef DashboardEngine < handle
 
     properties (SetAccess = private)
         Widgets        = {}
+        Pages          = {}   % Cell array of DashboardPage (multi-page mode)
         hFigure        = []
         Layout         = []
         Toolbar        = []
@@ -63,50 +64,73 @@ classdef DashboardEngine < handle
             obj.Layout = DashboardLayout();
         end
 
+        function pg = addPage(obj, name)
+        %ADDPAGE Add a named page to the dashboard.
+        %   pg = d.addPage('Overview') creates a DashboardPage and appends it to Pages.
+        %   When Pages is non-empty, addWidget routes to the last-added page.
+            if nargin < 2
+                name = '';
+            end
+            pg = DashboardPage(name);
+            obj.Pages{end+1} = pg;
+        end
+
         function w = addWidget(obj, type, varargin)
-            switch type
-                case 'fastsense'
-                    w = FastSenseWidget(varargin{:});
-                case 'number'
-                    w = NumberWidget(varargin{:});
-                case 'kpi'
-                    warning('DashboardEngine:deprecated', ...
-                        '''kpi'' type is deprecated, use ''number'' instead.');
-                    w = NumberWidget(varargin{:});
-                case 'status'
-                    w = StatusWidget(varargin{:});
-                case 'text'
-                    w = TextWidget(varargin{:});
-                case 'gauge'
-                    w = GaugeWidget(varargin{:});
-                case 'table'
-                    w = TableWidget(varargin{:});
-                case 'rawaxes'
-                    w = RawAxesWidget(varargin{:});
-                case 'timeline'
-                    w = EventTimelineWidget(varargin{:});
-                    if isempty(w.EventStoreObj) && isempty(w.EventFcn) && isempty(w.Events)
-                        warning('DashboardEngine:timelineNoStore', ...
-                            'Timeline widget "%s" has no data source. Bind via EventStoreObj.', ...
-                            w.Title);
-                    end
-                case 'group'
-                    w = GroupWidget(varargin{:});
-                case 'heatmap'
-                    w = HeatmapWidget(varargin{:});
-                case 'barchart'
-                    w = BarChartWidget(varargin{:});
-                case 'histogram'
-                    w = HistogramWidget(varargin{:});
-                case 'scatter'
-                    w = ScatterWidget(varargin{:});
-                case 'image'
-                    w = ImageWidget(varargin{:});
-                case 'multistatus'
-                    w = MultiStatusWidget(varargin{:});
-                otherwise
-                    error('DashboardEngine:unknownType', ...
-                        'Unknown widget type: %s', type);
+            % Accept a pre-constructed widget object directly
+            if isa(type, 'DashboardWidget')
+                w = type;
+            else
+                switch type
+                    case 'fastsense'
+                        w = FastSenseWidget(varargin{:});
+                    case 'number'
+                        w = NumberWidget(varargin{:});
+                    case 'kpi'
+                        warning('DashboardEngine:deprecated', ...
+                            '''kpi'' type is deprecated, use ''number'' instead.');
+                        w = NumberWidget(varargin{:});
+                    case 'status'
+                        w = StatusWidget(varargin{:});
+                    case 'text'
+                        w = TextWidget(varargin{:});
+                    case 'gauge'
+                        w = GaugeWidget(varargin{:});
+                    case 'table'
+                        w = TableWidget(varargin{:});
+                    case 'rawaxes'
+                        w = RawAxesWidget(varargin{:});
+                    case 'timeline'
+                        w = EventTimelineWidget(varargin{:});
+                        if isempty(w.EventStoreObj) && isempty(w.EventFcn) && isempty(w.Events)
+                            warning('DashboardEngine:timelineNoStore', ...
+                                'Timeline widget "%s" has no data source. Bind via EventStoreObj.', ...
+                                w.Title);
+                        end
+                    case 'group'
+                        w = GroupWidget(varargin{:});
+                    case 'heatmap'
+                        w = HeatmapWidget(varargin{:});
+                    case 'barchart'
+                        w = BarChartWidget(varargin{:});
+                    case 'histogram'
+                        w = HistogramWidget(varargin{:});
+                    case 'scatter'
+                        w = ScatterWidget(varargin{:});
+                    case 'image'
+                        w = ImageWidget(varargin{:});
+                    case 'multistatus'
+                        w = MultiStatusWidget(varargin{:});
+                    otherwise
+                        error('DashboardEngine:unknownType', ...
+                            'Unknown widget type: %s', type);
+                end
+            end
+
+            % Route to active page when in multi-page mode
+            if ~isempty(obj.Pages)
+                activePg = obj.Pages{end};
+                activePg.addWidget(w);
+                return;
             end
 
             existingPositions = cell(1, numel(obj.Widgets));
