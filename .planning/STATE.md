@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 02-01-PLAN.md (ReflowCallback wiring for GroupWidget)
-last_updated: "2026-04-01T20:56:54.461Z"
+status: executing
+stopped_at: Completed 03-01-PLAN.md (Info icon injection and popup for DashboardLayout)
+last_updated: "2026-04-01T21:15:30.181Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 02 — collapsible-sections
+**Current focus:** Phase 03 — widget-info-tooltips
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 03 (widget-info-tooltips) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░] 0%
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-infrastructure-hardening P01-04 | 1min | 1 tasks | 1 files |
 | Phase 02-collapsible-sections P02-02 | 5 | 2 tasks | 1 files |
 | Phase 02-collapsible-sections P02-01 | 11min | 2 tasks | 4 files |
+| Phase 03-widget-info-tooltips P01 | 6min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase 02-collapsible-sections]: All 6 DashboardTheme presets pass tab contrast checks (delta >= 0.05); no DashboardTheme.m changes needed for LAYOUT-08
 - [Phase 02-collapsible-sections]: Used EngineRef callback pattern (lambda injection) for ReflowCallback, consistent with Phase 1 LiveTimer ErrorFcn pattern
 - [Phase 02-collapsible-sections]: reflowAfterCollapse() guards on hFigure validity to avoid errors when no figure is rendered
+- [Phase 03-widget-info-tooltips]: openInfoPopup/closeInfoPopup made public for testability; hFigure/hInfoPopup as public properties for test injection and state verification
+- [Phase 03-widget-info-tooltips]: closeInfoPopup guards callback restore with wasOpen flag to prevent overwriting prior figure callbacks during guard call at start of openInfoPopup
 
 ### Pending Todos
 
@@ -86,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T20:46:12.852Z
-Stopped at: Completed 02-01-PLAN.md (ReflowCallback wiring for GroupWidget)
+Last session: 2026-04-01T21:15:30.177Z
+Stopped at: Completed 03-01-PLAN.md (Info icon injection and popup for DashboardLayout)
 Resume file: None

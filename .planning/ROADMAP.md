@@ -61,7 +61,7 @@ Plans:
   4. All 20+ existing widget types show the info icon and popup without any per-widget code changes
 **Plans**: 2 plans
 Plans:
-- [ ] 03-01-PLAN.md — Test scaffold (TestInfoTooltip) + DashboardLayout info icon injection and popup methods (INFO-01, INFO-02, INFO-03, INFO-04, INFO-05)
+- [x] 03-01-PLAN.md — Test scaffold (TestInfoTooltip) + DashboardLayout info icon injection and popup methods (INFO-01, INFO-02, INFO-03, INFO-04, INFO-05)
 - [ ] 03-02-PLAN.md — Wire hFigure into DashboardLayout from DashboardEngine, add reflow popup guard, integration tests (INFO-01, INFO-02, INFO-03, INFO-04, INFO-05)
 
 ### Phase 4: Multi-Page Navigation
@@ -110,7 +110,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Infrastructure Hardening | 4/4 | Complete   | 2026-04-01 |
 | 2. Collapsible Sections | 0/2 | Not started | - |
-| 3. Widget Info Tooltips | 0/2 | Not started | - |
+| 3. Widget Info Tooltips | 1/2 | In Progress|  |
 | 4. Multi-Page Navigation | 0/? | Not started | - |
 | 5. Detachable Widgets | 0/? | Not started | - |
 | 6. Serialization & Persistence | 0/? | Not started | - |

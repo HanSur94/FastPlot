@@ -20,11 +20,11 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Widget Info Tooltips
 
-- [ ] **INFO-01**: Every widget with a non-empty Description shows an info icon in its header
-- [ ] **INFO-02**: Clicking the info icon displays the description text in a popup panel
-- [ ] **INFO-03**: Info popup renders Description as Markdown using MarkdownRenderer
-- [ ] **INFO-04**: Info popup can be dismissed by clicking outside it or pressing Escape
-- [ ] **INFO-05**: Info icon and popup work on all 20+ existing widget types without per-widget changes
+- [x] **INFO-01**: Every widget with a non-empty Description shows an info icon in its header
+- [x] **INFO-02**: Clicking the info icon displays the description text in a popup panel
+- [x] **INFO-03**: Info popup renders Description as Markdown using MarkdownRenderer
+- [x] **INFO-04**: Info popup can be dismissed by clicking outside it or pressing Escape
+- [x] **INFO-05**: Info icon and popup work on all 20+ existing widget types without per-widget changes
 
 ### Detachable Widgets
 
@@ -108,11 +108,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LAYOUT-06 | Phase 4 | Pending |
 | LAYOUT-07 | Phase 2 | Complete |
 | LAYOUT-08 | Phase 2 | Complete |
-| INFO-01 | Phase 3 | Pending |
-| INFO-02 | Phase 3 | Pending |
-| INFO-03 | Phase 3 | Pending |
-| INFO-04 | Phase 3 | Pending |
-| INFO-05 | Phase 3 | Pending |
+| INFO-01 | Phase 3 | Complete |
+| INFO-02 | Phase 3 | Complete |
+| INFO-03 | Phase 3 | Complete |
+| INFO-04 | Phase 3 | Complete |
+| INFO-05 | Phase 3 | Complete |
 | DETACH-01 | Phase 5 | Pending |
 | DETACH-02 | Phase 5 | Pending |
 | DETACH-03 | Phase 5 | Pending |
