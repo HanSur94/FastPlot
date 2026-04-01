@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Previously saved JSON and .m dashboards load without errors or data loss
 **Plans**: 3 plans
 Plans:
-- [ ] 01-01-PLAN.md — Add ErrorFcn to DashboardEngine.LiveTimer (INFRA-01)
+- [x] 01-01-PLAN.md — Add ErrorFcn to DashboardEngine.LiveTimer (INFRA-01)
 - [ ] 01-02-PLAN.md — Extract normalizeToCell shared helper and refactor call sites (INFRA-03)
 - [ ] 01-03-PLAN.md — Fix GroupWidget .m export children + full suite backward compatibility gate (INFRA-02, COMPAT-01..04)
 
@@ -104,7 +104,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure Hardening | 0/3 | Not started | - |
+| 1. Infrastructure Hardening | 1/3 | In Progress|  |
 | 2. Collapsible Sections | 0/? | Not started | - |
 | 3. Widget Info Tooltips | 0/? | Not started | - |
 | 4. Multi-Page Navigation | 0/? | Not started | - |
