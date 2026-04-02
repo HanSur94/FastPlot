@@ -18,6 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Multi-Page Navigation** - Add DashboardPage container, PageBar UI, and page-switching with active-page persistence (completed 2026-04-01)
 - [x] **Phase 5: Detachable Widgets** - Detach button on every widget; DetachedMirror class; live sync via shared timer (completed 2026-04-02)
 - [x] **Phase 6: Serialization & Persistence** - Verify and harden round-trip correctness for all new structures across JSON and .m formats (completed 2026-04-02)
+- [ ] **Phase 7: Tech Debt Cleanup** - Fix multi-page time panel scoping and test comment mislabeling
 
 ## Phase Details
 
@@ -110,10 +111,21 @@ Plans:
 - [x] 06-01-PLAN.md — Multi-page JSON round-trip + detached exclusion + legacy backward compat tests (SERIAL-01, SERIAL-04, SERIAL-05)
 - [x] 06-02-PLAN.md — Multi-page .m export/import round-trip + collapsed state persistence tests (SERIAL-02, SERIAL-03)
 
+### Phase 7: Tech Debt Cleanup
+**Goal**: Fix multi-page time panel methods to scope to active page widgets, and correct test comment mislabeling from Phase 4
+**Depends on**: Phase 4
+**Requirements**: (none — tech debt closure, no new requirements)
+**Gap Closure:** Closes tech debt from v1.0 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. updateGlobalTimeRange(), updateLiveTimeRange(), broadcastTimeRange(), resetGlobalTime() iterate activePageWidgets() instead of obj.Widgets
+  2. Time panel functions correctly in multi-page dashboards
+  3. testSwitchPage comment references LAYOUT-06, testSaveLoadRoundTrip references LAYOUT-05
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -123,3 +135,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Multi-Page Navigation | 3/3 | Complete   | 2026-04-01 |
 | 5. Detachable Widgets | 3/3 | Complete   | 2026-04-02 |
 | 6. Serialization & Persistence | 2/2 | Complete   | 2026-04-02 |
+| 7. Tech Debt Cleanup | 0/? | Not started | - |
