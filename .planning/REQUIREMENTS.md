@@ -28,13 +28,13 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Detachable Widgets
 
-- [ ] **DETACH-01**: Every widget shows a detach button in its header chrome
-- [ ] **DETACH-02**: Clicking detach opens the widget as a standalone figure window
-- [ ] **DETACH-03**: Detached widget receives live data updates from DashboardEngine timer
-- [ ] **DETACH-04**: Closing a detached figure window cleanly removes it from the mirror registry
-- [ ] **DETACH-05**: Detached FastSenseWidget gets independent time axis zoom/pan (UseGlobalTime = false)
-- [ ] **DETACH-06**: Multiple widgets can be detached simultaneously without degrading dashboard refresh rate
-- [ ] **DETACH-07**: Detached widgets are read-only live mirrors (no edits syncing back)
+- [x] **DETACH-01**: Every widget shows a detach button in its header chrome
+- [x] **DETACH-02**: Clicking detach opens the widget as a standalone figure window
+- [x] **DETACH-03**: Detached widget receives live data updates from DashboardEngine timer
+- [x] **DETACH-04**: Closing a detached figure window cleanly removes it from the mirror registry
+- [x] **DETACH-05**: Detached FastSenseWidget gets independent time axis zoom/pan (UseGlobalTime = false)
+- [x] **DETACH-06**: Multiple widgets can be detached simultaneously without degrading dashboard refresh rate
+- [x] **DETACH-07**: Detached widgets are read-only live mirrors (no edits syncing back)
 
 ### Infrastructure Hardening
 
@@ -113,13 +113,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFO-03 | Phase 3 | Complete |
 | INFO-04 | Phase 3 | Complete |
 | INFO-05 | Phase 3 | Complete |
-| DETACH-01 | Phase 5 | Pending |
-| DETACH-02 | Phase 5 | Pending |
-| DETACH-03 | Phase 5 | Pending |
-| DETACH-04 | Phase 5 | Pending |
-| DETACH-05 | Phase 5 | Pending |
-| DETACH-06 | Phase 5 | Pending |
-| DETACH-07 | Phase 5 | Pending |
+| DETACH-01 | Phase 5 | Complete |
+| DETACH-02 | Phase 5 | Complete |
+| DETACH-03 | Phase 5 | Complete |
+| DETACH-04 | Phase 5 | Complete |
+| DETACH-05 | Phase 5 | Complete |
+| DETACH-06 | Phase 5 | Complete |
+| DETACH-07 | Phase 5 | Complete |
 | INFRA-01 | Phase 1 | Complete |
 | INFRA-02 | Phase 1 | Complete |
 | INFRA-03 | Phase 1 | Complete |

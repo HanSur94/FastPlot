@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 04-04-PLAN.md (LAYOUT-05 gap closure — ActivePage assertion in testSaveLoadRoundTrip)
-last_updated: "2026-04-02T05:35:25.282Z"
+status: executing
+stopped_at: Completed 05-01-PLAN.md (DetachedMirror + TestDashboardDetach scaffold)
+last_updated: "2026-04-02T06:00:35.987Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 16
+  completed_plans: 14
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 04 — multi-page-navigation
+**Current focus:** Phase 05 — detachable-widgets
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 05 (detachable-widgets) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-02
 
 Progress: [░░░░░░░░░░] 0%
@@ -65,6 +65,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 04 P02 | 20min | 2 tasks | 1 files |
 | Phase 04-multi-page-navigation P04-03 | 6min | 2 tasks | 2 files |
 | Phase 04-multi-page-navigation P04-04 | 2 | 1 tasks | 1 files |
+| Phase 05-detachable-widgets P05-01 | 8min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,8 @@ Recent decisions affecting current work:
 - [Phase 04-multi-page-navigation]: save() uses file extension (.json vs .m) to route to saveJSON() or DashboardSerializer.save(); multi-page uses exportScriptPages() for .m
 - [Phase 04-multi-page-navigation]: widgetsPagesToConfig() is a parallel path to widgetsToConfig() — not calling widgetsToConfig internally for clean separation
 - [Phase 04-multi-page-navigation]: Added switchPage(2) before save() in testSaveLoadRoundTrip to establish non-default active page before asserting loaded.ActivePage == 2
+- [Phase 05-detachable-widgets]: DetachedMirror is NOT a DashboardWidget subclass - wraps one to avoid grid layout entanglement
+- [Phase 05-detachable-widgets]: cloneWidget() uses explicit 15-type dispatch switch in DetachedMirror for self-containment
 
 ### Pending Todos
 
@@ -103,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-02T05:34:51.948Z
-Stopped at: Completed 04-04-PLAN.md (LAYOUT-05 gap closure — ActivePage assertion in testSaveLoadRoundTrip)
+Last session: 2026-04-02T06:00:35.980Z
+Stopped at: Completed 05-01-PLAN.md (DetachedMirror + TestDashboardDetach scaffold)
 Resume file: None
