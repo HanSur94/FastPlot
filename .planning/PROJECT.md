@@ -36,6 +36,7 @@ Users can organize complex dashboards into navigable sections and pop out any wi
 - ✓ DividerWidget for visual dashboard section separation — v1.0 Phase 8
 - ✓ addCollapsible convenience method on DashboardEngine — v1.0 Phase 8
 - ✓ Configurable Y-axis limits (YLimits) on FastSenseWidget — v1.0 Phase 8
+- ✓ Threshold mini-labels (ShowThresholdLabels) on FastSense and FastSenseWidget — v1.0 Phase 9
 
 ### Active
 
