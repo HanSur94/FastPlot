@@ -169,6 +169,11 @@ classdef DashboardEngine < handle
                 end
             end
 
+            % Inject ReflowCallback into collapsible GroupWidgets (before page routing)
+            if isa(w, 'GroupWidget') && strcmp(w.Mode, 'collapsible')
+                w.ReflowCallback = @() obj.reflowAfterCollapse();
+            end
+
             % Route to active page when in multi-page mode
             if ~isempty(obj.Pages)
                 if obj.ActivePage < 1
@@ -186,11 +191,6 @@ classdef DashboardEngine < handle
             w.Position = obj.Layout.resolveOverlap(w.Position, existingPositions);
 
             obj.Widgets{end+1} = w;
-
-            % Inject ReflowCallback into collapsible GroupWidgets
-            if isa(w, 'GroupWidget') && strcmp(w.Mode, 'collapsible')
-                w.ReflowCallback = @() obj.reflowAfterCollapse();
-            end
 
             % Wire sensor data-change listener to mark widget dirty
             if ~isempty(w.Sensor) && isprop(w.Sensor, 'X')
