@@ -33,6 +33,9 @@ Users can organize complex dashboards into navigable sections and pop out any wi
 - ✓ Multi-page JSON and .m round-trip serialization — v1.0
 - ✓ Collapsed state persistence — v1.0
 - ✓ Legacy JSON backward compatibility — v1.0
+- ✓ DividerWidget for visual dashboard section separation — v1.0 Phase 8
+- ✓ addCollapsible convenience method on DashboardEngine — v1.0 Phase 8
+- ✓ Configurable Y-axis limits (YLimits) on FastSenseWidget — v1.0 Phase 8
 
 ### Active
 
