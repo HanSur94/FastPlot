@@ -275,13 +275,21 @@ jsonPath = fullfile(tempdir, 'advanced_dashboard_demo.json');
 d.save(jsonPath);
 fprintf('\nSaved to: %s\n', jsonPath);
 
+% Register sensors so fromStruct can resolve them during load
+SensorRegistry.register('T-401', sTemp);
+SensorRegistry.register('P-201', sPress);
+SensorRegistry.register('F-301', sFlow);
+
 % Load back — multi-page layout, InfoFile, and widget properties all preserved
 d2 = DashboardEngine.load(jsonPath);
 fprintf('Reloaded: %d widget(s), %d page(s), InfoFile="%s"\n', ...
     numel(d2.Widgets), numel(d2.Pages), d2.InfoFile);
 assert(numel(d2.Pages) == 2, 'Expected 2 pages after reload');
 
-% Clean up temp file
+% Clean up
+SensorRegistry.unregister('T-401');
+SensorRegistry.unregister('P-201');
+SensorRegistry.unregister('F-301');
 delete(jsonPath);
 fprintf('Temp file cleaned up.\n');
 

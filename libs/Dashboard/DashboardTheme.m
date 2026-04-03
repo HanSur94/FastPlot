@@ -117,6 +117,11 @@ function d = getDashboardDefaults(preset)
             d.GridLineColor       = [0.82 0.82 0.82];
     end
 
+    % Axis label/tick color — derive from toolbar font (readable on widget bg)
+    if ~isfield(d, 'AxisColor')
+        d.AxisColor = d.ToolbarFontColor;
+    end
+
     % Shared defaults across all presets
     d.WidgetBorderWidth    = 1;
     d.HeaderFontSize       = 14;
