@@ -34,6 +34,9 @@ classdef HistogramWidget < DashboardWidget
             if isempty(obj.hAxes) || ~ishandle(obj.hAxes)
                 return;
             end
+            if ~obj.Dirty
+                return;
+            end
 
             data = [];
             if ~isempty(obj.Sensor)
@@ -67,6 +70,7 @@ classdef HistogramWidget < DashboardWidget
                 plot(obj.hAxes, xFit, yFit, 'r-', 'LineWidth', 1.5);
                 hold(obj.hAxes, 'off');
             end
+            obj.Dirty = false;
         end
 
         function t = getType(~)

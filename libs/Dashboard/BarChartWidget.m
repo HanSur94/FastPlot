@@ -51,11 +51,30 @@ classdef BarChartWidget < DashboardWidget
             end
             if isempty(data), return; end
 
-            cla(obj.hAxes);
-            if strcmp(obj.Orientation, 'horizontal')
-                obj.hBars = barh(obj.hAxes, data);
+            if ~isempty(obj.hBars) && all(ishandle(obj.hBars))
+                try
+                    if numel(get(obj.hBars(1), 'YData')) == numel(data)
+                        for bi = 1:numel(obj.hBars)
+                            set(obj.hBars(bi), 'YData', data);
+                        end
+                    else
+                        error('size:mismatch', 'fall through');
+                    end
+                catch
+                    cla(obj.hAxes);
+                    if strcmp(obj.Orientation, 'horizontal')
+                        obj.hBars = barh(obj.hAxes, data);
+                    else
+                        obj.hBars = bar(obj.hAxes, data);
+                    end
+                end
             else
-                obj.hBars = bar(obj.hAxes, data);
+                cla(obj.hAxes);
+                if strcmp(obj.Orientation, 'horizontal')
+                    obj.hBars = barh(obj.hAxes, data);
+                else
+                    obj.hBars = bar(obj.hAxes, data);
+                end
             end
             if ~isempty(cats)
                 if strcmp(obj.Orientation, 'horizontal')

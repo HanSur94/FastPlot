@@ -55,10 +55,14 @@ classdef HeatmapWidget < DashboardWidget
                 data = data(:)';
             end
 
-            obj.hImage = imagesc(obj.hAxes, data);
-            colormap(obj.hAxes, obj.Colormap);
-            if obj.ShowColorbar
-                obj.hColorbar = colorbar(obj.hAxes);
+            if ~isempty(obj.hImage) && ishandle(obj.hImage)
+                set(obj.hImage, 'CData', data);
+            else
+                obj.hImage = imagesc(obj.hAxes, data);
+                colormap(obj.hAxes, obj.Colormap);
+                if obj.ShowColorbar
+                    obj.hColorbar = colorbar(obj.hAxes);
+                end
             end
             if ~isempty(obj.XLabels)
                 set(obj.hAxes, 'XTick', 1:numel(obj.XLabels), ...
