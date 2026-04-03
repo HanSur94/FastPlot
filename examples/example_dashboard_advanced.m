@@ -167,7 +167,7 @@ end
 infoPath = fullfile(fileparts(mfilename('fullpath')), 'example_dashboard_info.md');
 
 %% ========== Create DashboardEngine with InfoFile (Feature 9) ==========
-d = DashboardEngine('Advanced Dashboard Demo', 'Theme', 'dark', 'InfoFile', infoPath);
+d = DashboardEngine('Advanced Dashboard Demo', 'Theme', 'light', 'InfoFile', infoPath);
 
 %% ========== Feature 1: Multi-page navigation — Page 1 "Overview" ==========
 d.addPage('Overview');   % Page 1 — ActivePage is now 1

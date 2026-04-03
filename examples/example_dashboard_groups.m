@@ -45,7 +45,7 @@ s_pres.X = t;
 s_pres.Y = 2.5 + 0.3*randn(1, N);
 
 %% Build dashboard
-d = DashboardEngine('GroupWidget Demo', 'Theme', 'dark');
+d = DashboardEngine('GroupWidget Demo', 'Theme', 'light');
 
 % 1. Panel group — always visible
 d.addWidget('group', 'Label', 'Motor Overview', 'Mode', 'panel', ...
