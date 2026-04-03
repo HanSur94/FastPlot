@@ -2493,6 +2493,7 @@ classdef FastSense < handle
             obj.updateLines();
             obj.updateShadings();
             obj.updateViolations();
+            obj.updateThresholdLabels();
 
             % Update datetime tick labels for new zoom level
             if strcmp(obj.XType, 'datenum')
@@ -2540,6 +2541,7 @@ classdef FastSense < handle
                     obj.updateLines();
                     obj.updateShadings();
                     obj.updateViolations();
+                    obj.updateThresholdLabels();
                 catch
                 end
                 obj.IsPropagating = false;
@@ -2956,6 +2958,39 @@ classdef FastSense < handle
                         ishandle(obj.Thresholds(t).hLine)
                     set(obj.Thresholds(t).hLine, 'XData', [xmin, xmax]);
                 end
+            end
+            obj.updateThresholdLabels();
+        end
+
+        function updateThresholdLabels(obj)
+            %UPDATETHRESHOLDLABELS Reposition threshold text labels to right edge.
+            %   Moves each threshold's hText handle to the current right edge of
+            %   the visible axes (xlim(2)), with Y value matching the threshold
+            %   value at that X position. Called from extendThresholdLines,
+            %   onXLimChanged, and onXLimModeChanged.
+            if ~obj.ShowThresholdLabels || ~obj.IsRendered || isempty(obj.hAxes) || ~ishandle(obj.hAxes)
+                return;
+            end
+            xl = get(obj.hAxes, 'XLim');
+            xRight = xl(2);
+            for t = 1:numel(obj.Thresholds)
+                if isempty(obj.Thresholds(t).hText) || ~ishandle(obj.Thresholds(t).hText)
+                    continue;
+                end
+                if isempty(obj.Thresholds(t).X)
+                    yVal = obj.Thresholds(t).Value;
+                else
+                    % Time-varying: find Y value at current right edge
+                    thX = obj.Thresholds(t).X;
+                    thY = obj.Thresholds(t).Y;
+                    idx = find(thX <= xRight, 1, 'last');
+                    if isempty(idx)
+                        yVal = thY(1);
+                    else
+                        yVal = thY(idx);
+                    end
+                end
+                set(obj.Thresholds(t).hText, 'Position', [xRight, yVal, 0]);
             end
         end
 
