@@ -206,6 +206,16 @@ classdef DashboardEngine < handle
             end
         end
 
+        function w = addCollapsible(obj, label, children, varargin)
+        %ADDCOLLAPSIBLE Convenience: add a GroupWidget with Mode='collapsible'.
+        %   w = d.addCollapsible('Sensors', {w1, w2})
+        %   w = d.addCollapsible('Sensors', {w1, w2}, 'Collapsed', true)
+            w = obj.addWidget('group', 'Label', label, 'Mode', 'collapsible', varargin{:});
+            for i = 1:numel(children)
+                w.addChild(children{i});
+            end
+        end
+
         function render(obj)
             if ~isempty(obj.hFigure) && ishandle(obj.hFigure)
                 return;
