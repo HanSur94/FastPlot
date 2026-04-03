@@ -38,16 +38,14 @@ created: 2026-04-03
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 01-01-01 | 01 | 1 | removeWidget multi-page | unit | grep + test suite | ✅ | ⬜ pending |
-| 01-01-02 | 01 | 1 | GroupWidget refresh guard | unit | grep + test suite | ✅ | ⬜ pending |
-| 01-01-03 | 01 | 1 | onResize reflow | unit | grep for rerenderWidgets | ✅ | ⬜ pending |
-| 01-01-04 | 01 | 1 | sensor listeners page-routed | unit | grep for wireListeners | ✅ | ⬜ pending |
-| 01-02-01 | 02 | 2 | GroupWidget getTimeRange | unit | grep for getTimeRange | ✅ | ⬜ pending |
-| 01-02-02 | 02 | 2 | loadJSON fopen check | unit | grep for fid == -1 | ✅ | ⬜ pending |
-| 01-02-03 | 02 | 2 | exportScriptPages fidelity | unit | grep for emit logic | ✅ | ⬜ pending |
-| 01-03-01 | 03 | 3 | dead code removal | grep | grep -c for removed functions | ✅ | ⬜ pending |
-| 01-03-02 | 03 | 3 | Realized SetAccess | grep | grep for SetAccess | ✅ | ⬜ pending |
-| 01-03-03 | 03 | 3 | theme docs | grep | grep for ForegroundColor doc | ✅ | ⬜ pending |
+| 01-01-T1 | 01 | 1 | FIX-01,03,04,10 tests | unit | runtests TestDashboardBugFixes | ✅ | ⬜ pending |
+| 01-01-T2 | 01 | 1 | FIX-01,03,04,10 fixes | unit | runtests TestDashboardBugFixes | ✅ | ⬜ pending |
+| 01-02-T1 | 02 | 1 | FIX-02,05 tests | unit | runtests TestDashboardBugFixes | ✅ | ⬜ pending |
+| 01-02-T2 | 02 | 1 | FIX-02,05 fixes | unit | runtests TestDashboardBugFixes | ✅ | ⬜ pending |
+| 01-03-T1 | 03 | 1 | FIX-06,07,08 tests | unit | runtests TestDashboardBugFixes | ✅ | ⬜ pending |
+| 01-03-T2 | 03 | 1 | FIX-06,07,08 fixes | unit | runtests TestDashboardBugFixes | ✅ | ⬜ pending |
+| 01-04-T1 | 04 | 2 | FIX-11,12,13,14 | grep+test | grep + runtests TestDashboardBugFixes | ✅ | ⬜ pending |
+| 01-04-T2 | 04 | 2 | FIX-09 | grep+test | grep + runtests TestDashboardBugFixes | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
