@@ -19,6 +19,7 @@ classdef FastSenseWidget < DashboardWidget
         Thresholds   = 'auto'
         XLabel       = ''    % X-axis label (auto-set from Sensor if empty)
         YLabel       = ''    % Y-axis label (auto-set from Sensor if empty)
+        YLimits      = []    % Fixed Y-axis range [min max]; empty = auto-scale
     end
 
     properties (SetAccess = private)
@@ -85,6 +86,11 @@ classdef FastSenseWidget < DashboardWidget
 
             fp.render();
 
+            % Apply fixed Y-axis limits if configured
+            if ~isempty(obj.YLimits) && numel(obj.YLimits) == 2
+                ylim(ax, obj.YLimits);
+            end
+
             % Listen for manual zoom/pan to disable global time for this widget
             try
                 addlistener(ax, 'XLim', 'PostSet', @(~,~) obj.onXLimChanged());
@@ -133,6 +139,11 @@ classdef FastSenseWidget < DashboardWidget
             end
 
             fp.render();
+
+            % Apply fixed Y-axis limits if configured
+            if ~isempty(obj.YLimits) && numel(obj.YLimits) == 2
+                ylim(ax, obj.YLimits);
+            end
 
             % Restore zoom state
             if ~isempty(savedXLim)
@@ -260,6 +271,7 @@ classdef FastSenseWidget < DashboardWidget
             s = toStruct@DashboardWidget(obj);
             if ~isempty(obj.XLabel), s.xLabel = obj.XLabel; end
             if ~isempty(obj.YLabel), s.yLabel = obj.YLabel; end
+            if ~isempty(obj.YLimits), s.yLimits = obj.YLimits; end
 
             if ~isempty(obj.Sensor)
                 % base class handles sensor source
@@ -313,6 +325,9 @@ classdef FastSenseWidget < DashboardWidget
             end
             if isfield(s, 'yLabel')
                 obj.YLabel = s.yLabel;
+            end
+            if isfield(s, 'yLimits')
+                obj.YLimits = s.yLimits;
             end
         end
     end

@@ -109,5 +109,56 @@ classdef TestFastSenseWidget < matlab.unittest.TestCase
             testCase.verifyEqual(w.Position, [1 1 12 3]);
             testCase.verifyLength(w.XData, 10);
         end
+
+        function testYLimitsDefault(testCase)
+            w = FastSenseWidget();
+            testCase.verifyEmpty(w.YLimits);
+        end
+
+        function testYLimitsToStructOmittedWhenEmpty(testCase)
+            w = FastSenseWidget('Title', 'Test');
+            s = w.toStruct();
+            testCase.verifyFalse(isfield(s, 'yLimits'));
+        end
+
+        function testYLimitsToStructPresent(testCase)
+            w = FastSenseWidget('Title', 'Test', 'YLimits', [0 100]);
+            s = w.toStruct();
+            testCase.verifyEqual(s.yLimits, [0 100]);
+        end
+
+        function testYLimitsFromStruct(testCase)
+            w = FastSenseWidget('Title', 'Test', 'YLimits', [0 100]);
+            s = w.toStruct();
+            w2 = FastSenseWidget.fromStruct(s);
+            testCase.verifyEqual(w2.YLimits, [0 100]);
+        end
+
+        function testYLimitsFromStructMissing(testCase)
+            w = FastSenseWidget('Title', 'Test');
+            s = w.toStruct();
+            w2 = FastSenseWidget.fromStruct(s);
+            testCase.verifyEmpty(w2.YLimits);
+        end
+
+        function testYLimitsAppliedAfterRender(testCase)
+            %TESTYLIMITSAPPLIEDAFTERRENDER Verify ylim() returns expected range after render.
+            % This test requires a display. Skip gracefully in headless environments.
+            try
+                fig = figure('Visible', 'off');
+            catch
+                testCase.assumeTrue(false, 'No display available — skipping render test');
+                return;
+            end
+            testCase.addTeardown(@() close(fig));
+            hp = uipanel(fig, 'Units', 'normalized', 'Position', [0 0 1 1]);
+            w = FastSenseWidget('Title', 'YLimTest', 'XData', 1:10, 'YData', rand(1,10)*50, 'YLimits', [0 100]);
+            w.render(hp);
+            % Find axes created by render
+            ax = findobj(hp, 'Type', 'axes');
+            testCase.assumeNotEmpty(ax, 'No axes found after render — skipping');
+            actualYLim = ylim(ax(1));
+            testCase.verifyEqual(actualYLim, [0 100], 'AbsTol', 1e-10);
+        end
     end
 end
