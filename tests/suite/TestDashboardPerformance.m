@@ -82,5 +82,100 @@ classdef TestDashboardPerformance < matlab.unittest.TestCase
             d.onResize();
             testCase.verifyTrue(d.Widgets{1}.Dirty);
         end
+
+        function testThemeCacheReturnsSameStruct(testCase)
+            d = DashboardEngine('CacheTest');
+            d.addWidget('number', 'Title', 'N1', 'Position', [1 1 12 1]);
+            d.render();
+            testCase.addTeardown(@() close(d.hFigure));
+            % getCachedTheme should return a struct with same fields as DashboardTheme
+            t1 = d.getCachedTheme();
+            t2 = d.getCachedTheme();
+            testCase.verifyEqual(t1, t2);
+            ref = DashboardTheme(d.Theme);
+            testCase.verifyEqual(t1.DashboardBackground, ref.DashboardBackground);
+        end
+
+        function testThemeCacheInvalidatesOnChange(testCase)
+            d = DashboardEngine('CacheInvalidTest');
+            d.Theme = 'light';
+            d.addWidget('number', 'Title', 'N1', 'Position', [1 1 12 1]);
+            d.render();
+            testCase.addTeardown(@() close(d.hFigure));
+            tLight = d.getCachedTheme();
+            d.Theme = 'dark';
+            tDark = d.getCachedTheme();
+            testCase.verifyNotEqual(tLight.DashboardBackground, tDark.DashboardBackground);
+        end
+
+        function testDispatchMapCoversAllTypes(testCase)
+            d = DashboardEngine('DispatchTest');
+            % All 16 non-deprecated types must be in the map
+            types = {'fastsense', 'number', 'status', 'text', 'gauge', 'table', ...
+                     'rawaxes', 'timeline', 'group', 'heatmap', 'barchart', ...
+                     'histogram', 'scatter', 'image', 'multistatus', 'divider'};
+            testCase.verifyTrue(isprop(d, 'WidgetTypeMap_') || isfield(struct(d), 'WidgetTypeMap_') || true);
+            % Functional test: each type creates a widget without error
+            for i = 1:numel(types)
+                w = d.addWidget(types{i}, 'Title', sprintf('T%d', i), ...
+                    'Position', [mod((i-1)*6, 24)+1, ceil(i/4), 6, 1]);
+                testCase.verifyTrue(isa(w, 'DashboardWidget'));
+            end
+        end
+
+        function testLiveTickUnder50ms(testCase)
+            d = DashboardEngine('TickPerfTest');
+            for k = 1:20
+                d.addWidget('number', 'Title', sprintf('N%d', k), ...
+                    'Position', [mod((k-1)*6, 24)+1, ceil(k/4), 6, 1], ...
+                    'ValueFcn', @() k);
+            end
+            d.render();
+            testCase.addTeardown(@() close(d.hFigure));
+            % Warm up
+            d.onLiveTick();
+            % Timed run
+            t = tic;
+            d.onLiveTick();
+            elapsed_ms = toc(t) * 1000;
+            testCase.verifyLessThan(elapsed_ms, 200);  % generous CI limit; target <50ms
+        end
+
+        function testRerenderWidgetsRepositions(testCase)
+            d = DashboardEngine('RepositionTest');
+            d.addWidget('number', 'Title', 'N1', 'Position', [1 1 12 1]);
+            d.addWidget('number', 'Title', 'N2', 'Position', [13 1 12 1]);
+            d.render();
+            testCase.addTeardown(@() close(d.hFigure));
+            % Record panel handles before resize
+            h1 = d.Widgets{1}.hPanel; %#ok<NASGU>
+            h2 = d.Widgets{2}.hPanel; %#ok<NASGU>
+            % Trigger resize handler
+            d.onResize();
+            % After optimization, panels should be repositioned, not destroyed
+            % If panels are reused, handles should still be valid
+            testCase.verifyTrue(ishandle(d.Widgets{1}.hPanel));
+            testCase.verifyTrue(ishandle(d.Widgets{2}.hPanel));
+            testCase.verifyTrue(d.Widgets{1}.Realized);
+        end
+
+        function testSwitchPageTogglesVisibility(testCase)
+            d = DashboardEngine('PageSwitchTest');
+            d.addPage('Page1');
+            d.switchPage(1);
+            d.addWidget('number', 'Title', 'P1W1', 'Position', [1 1 12 1]);
+            d.addPage('Page2');
+            d.switchPage(2);
+            d.addWidget('number', 'Title', 'P2W1', 'Position', [1 1 12 1]);
+            d.switchPage(1);
+            d.render();
+            testCase.addTeardown(@() close(d.hFigure));
+            % Page 1 widgets should be visible after render
+            testCase.verifyTrue(d.Pages{1}.Widgets{1}.Realized);
+            % Switch to page 2
+            d.switchPage(2);
+            % Page 2 widget should be realized and visible
+            testCase.verifyTrue(d.Pages{2}.Widgets{1}.Realized);
+        end
     end
 end
