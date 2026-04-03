@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 7 * * 1'   # Weekly Monday 07:00 UTC — MATLAB examples
+  workflow_dispatch:
 
 jobs:
   build-mex:
@@ -150,3 +153,79 @@ jobs:
             printf "Failed:%b\n" "$FAIL_LIST"
             exit 1
           fi
+
+  matlab-examples:
+    name: MATLAB Example Smoke Tests
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup MATLAB
+        uses: matlab-actions/setup-matlab@v2
+
+      - name: Run MATLAB-only examples
+        uses: matlab-actions/run-command@v2
+        with:
+          command: |
+            install();
+            cd('examples');
+
+            examples = {
+                % DashboardEngine examples (require abstract classdef — MATLAB only)
+                'example_dashboard_engine'
+                'example_dashboard_all_widgets'
+                'example_dashboard_groups'
+                'example_dashboard_info'
+                'example_dashboard_advanced'
+                % Individual widget examples
+                'example_widget_fastsense'
+                'example_widget_number'
+                'example_widget_status'
+                'example_widget_text'
+                'example_widget_gauge'
+                'example_widget_table'
+                'example_widget_rawaxes'
+                'example_widget_timeline'
+                'example_widget_group'
+                'example_widget_barchart'
+                'example_widget_heatmap'
+                'example_widget_histogram'
+                'example_widget_scatter'
+                'example_widget_image'
+                'example_widget_multistatus'
+                % Other MATLAB-only examples
+                'example_themes'
+                'example_mixed_tiles'
+                'example_dock'
+                'example_dock_many_tabs'
+                'example_sensor_detail_basic'
+                'example_sensor_detail_dashboard'
+            };
+
+            passed = 0;
+            failed = 0;
+            failList = {};
+            for i = 1:numel(examples)
+                name = examples{i};
+                fprintf('Running %s... ', name);
+                try
+                    feval(name);
+                    close all force;
+                    fprintf('OK\n');
+                    passed = passed + 1;
+                catch e
+                    fprintf('FAILED\n  %s\n', e.message);
+                    failed = failed + 1;
+                    failList{end+1} = name;
+                end
+            end
+
+            fprintf('\n=== %d/%d examples passed ===\n', passed, numel(examples));
+            if failed > 0
+                fprintf('\nFailed:\n');
+                for i = 1:numel(failList)
+                    fprintf('  - %s\n', failList{i});
+                end
+                error('ExampleSmokeTests:failed', '%d example(s) failed', failed);
+            end
