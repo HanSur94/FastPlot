@@ -1,5 +1,17 @@
 # Milestones
 
+## v1.0 Dashboard Engine Code Review Fixes (Shipped: 2026-04-03)
+
+**Phases completed:** 1 phases, 4 plans, 2 tasks
+
+**Key accomplishments:**
+
+- Four correctness bugs patched in DashboardEngine: multi-page removeWidget, resize reflow, sensor listener parity, and dead removeDetached parameter removed
+- One-liner:
+- One-liner:
+
+---
+
 ## v1.0 FastSense Advanced Dashboard (Shipped: 2026-04-03)
 
 **Phases completed:** 9 phases, 24 plans, 21 tasks

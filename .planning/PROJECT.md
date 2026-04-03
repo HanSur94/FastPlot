@@ -56,10 +56,11 @@ Users can organize complex dashboards into navigable sections and pop out any wi
 - FastSense is a MATLAB library for high-performance time series visualization with sensor/threshold modeling
 - Dashboard engine (`libs/Dashboard/`) has DashboardEngine, DashboardWidget (20+ types), DashboardLayout (24-col grid), DashboardSerializer, DashboardTheme, DashboardBuilder, DashboardPage, DetachedMirror, MarkdownRenderer
 - v1.0 shipped: 9 phases, 24 plans, 44 requirements, 2948 lines added across 24 files
+- v1.0 code review shipped: 1 phase, 4 plans, 14 bug fixes across DashboardEngine, GroupWidget, DashboardSerializer, DashboardLayout, DashboardWidget, DashboardTheme, HeatmapWidget, BarChartWidget, HistogramWidget
 - New classes added: DashboardPage.m, DetachedMirror.m, DividerWidget.m
-- Key patterns established: central injection via realizeWidget(), ReflowCallback for layout updates, DetachCallback for widget pop-out, normalizeToCell for jsondecode safety
+- Key patterns established: central injection via realizeWidget(), ReflowCallback for layout updates, DetachCallback for widget pop-out, normalizeToCell for jsondecode safety, markRealized/markUnrealized for lifecycle encapsulation, linesForWidget for shared serialization dispatch
 - 24,473 LOC MATLAB across libs/ (as of v1.0 completion)
-- Known tech debt: 5 items (INFO-03 Markdown downgrade, missing serialization tests, single-page save edge case)
+- Known tech debt: 5 items (INFO-03 Markdown downgrade, missing serialization tests, single-page save edge case) — code review tech debt resolved
 
 ## Constraints
 
@@ -85,6 +86,9 @@ Users can organize complex dashboards into navigable sections and pop out any wi
 | YLimits=[] for auto, [min max] for fixed | Consistent with MATLAB ylim() convention | ✓ Good |
 | ShowThresholdLabels opt-in (default false) | Backward compatible; labels only when explicitly requested | ✓ Good |
 | Threshold label at right edge, repositions on zoom/pan | Always visible in view, doesn't move with data | ✓ Good |
+| Realized property SetAccess=private with markRealized/markUnrealized | Enforces lifecycle contract, prevents external bypass | ✓ Good |
+| linesForWidget shared static helper in DashboardSerializer | Eliminates exportScript/exportScriptPages drift | ✓ Good |
+| wireListeners private helper in DashboardEngine | Single listener-wiring call for both page-routed and single-page paths | ✓ Good |
 
 ## Evolution
 
@@ -104,4 +108,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-03 after v1.0 milestone complete (9 phases, 24 plans shipped)*
+*Last updated: 2026-04-03 after v1.0 code review milestone (14 bug fixes shipped)*
