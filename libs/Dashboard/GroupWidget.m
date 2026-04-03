@@ -72,10 +72,13 @@ classdef GroupWidget < DashboardWidget
             obj.hPanel = parentPanel;
             theme = obj.getTheme();
 
-            headerFrac = 0.12;
-            if isempty(obj.Label) && ~strcmp(obj.Mode, 'tabbed')
+            if obj.Collapsed
+                headerFrac = 1.0;
+            elseif isempty(obj.Label) && ~strcmp(obj.Mode, 'tabbed')
                 % Tabbed mode always needs a header for tab buttons
                 headerFrac = 0;
+            else
+                headerFrac = 0.12;
             end
 
             headerBg = obj.getThemeField(theme, ...
