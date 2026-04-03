@@ -2,7 +2,7 @@
 phase: 08
 slug: widget-improvements-dividerwidget-collapsiblewidget-y-axis-limits
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-04-03
 ---
@@ -38,23 +38,23 @@ created: 2026-04-03
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 08-01-01 | 01 | 1 | DividerWidget | unit | `octave --eval "install(); run('tests/suite/TestDashboardEngine.m')"` | ❌ W0 | ⬜ pending |
-| 08-01-02 | 01 | 1 | DividerWidget serialization | integration | `octave --eval "install(); run('tests/suite/TestDashboardSerializerRoundTrip.m')"` | ❌ W0 | ⬜ pending |
-| 08-02-01 | 02 | 1 | addCollapsible | unit | `octave --eval "install(); run('tests/suite/TestDashboardEngine.m')"` | ❌ W0 | ⬜ pending |
-| 08-03-01 | 03 | 1 | YLimits render | unit | `octave --eval "install(); run('tests/suite/TestDashboardEngine.m')"` | ❌ W0 | ⬜ pending |
-| 08-03-02 | 03 | 1 | YLimits serialization | integration | `octave --eval "install(); run('tests/suite/TestDashboardSerializerRoundTrip.m')"` | ❌ W0 | ⬜ pending |
+| 08-01-01 | 01 | 1 | DividerWidget class | unit | `octave --eval "install(); run('tests/suite/TestDividerWidget.m')"` | W0 (TestDividerWidget.m created in this task) | pending |
+| 08-01-02 | 01 | 1 | DividerWidget wiring + serializer round-trip | integration | `octave --eval "install(); run('tests/suite/TestDividerWidget.m'); run('tests/suite/TestDashboardSerializerRoundTrip.m')"` | YES (TestDashboardSerializerRoundTrip.m exists, extended in this task) | pending |
+| 08-02-01 | 02 | 1 | addCollapsible | unit | `octave --eval "install(); run('tests/suite/TestDashboardEngine.m')"` | YES (TestDashboardEngine.m exists, extended in this task) | pending |
+| 08-03-01 | 03 | 1 | YLimits property + render/serialization | unit | `octave --eval "install(); run('tests/suite/TestFastSenseWidget.m')"` | YES (TestFastSenseWidget.m exists, extended in this task) | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] Tests for DividerWidget in TestDashboardEngine or new TestDividerWidget
-- [ ] Tests for addCollapsible convenience method
-- [ ] Tests for YLimits property on FastSenseWidget
+- [ ] `tests/suite/TestDividerWidget.m` -- NEW file created by Plan 01 Task 1
 
-*Existing infrastructure covers test framework — only new test methods needed.*
+*Existing test files that are EXTENDED (not created):*
+- `tests/suite/TestDashboardSerializerRoundTrip.m` -- exists, extended by Plan 01 Task 2 with DividerWidget round-trip case
+- `tests/suite/TestDashboardEngine.m` -- exists, extended by Plan 02 Task 1 with addCollapsible tests
+- `tests/suite/TestFastSenseWidget.m` -- exists, extended by Plan 03 Task 1 with YLimits tests
 
 ---
 
@@ -64,17 +64,17 @@ created: 2026-04-03
 |----------|-------------|------------|-------------------|
 | DividerWidget visual appearance | DividerWidget | Requires visual inspection of rendered line | Create dashboard with DividerWidget, verify line renders with correct theme color |
 | Collapsible collapse/expand visual | CollapsibleWidget | Requires GUI interaction | Create collapsible via addCollapsible, verify collapse/expand toggle works visually |
-| YLimits visual axis range | YLimits | Requires visual confirmation of axis bounds | Create FastSenseWidget with YLimits=[0 100], verify Y-axis shows 0-100 range |
+| YLimits visual axis range | YLimits | Confirms axis bounds visually (automated test covers ylim() value but visual confirmation is complementary) | Create FastSenseWidget with YLimits=[0 100], verify Y-axis shows 0-100 range |
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
