@@ -189,5 +189,27 @@ classdef TestDashboardEngine < matlab.unittest.TestCase
             testCase.verifyTrue(~isempty(w2.hPanel) && ishandle(w2.hPanel));
             testCase.verifyTrue(g.Collapsed);
         end
+
+        function testAddCollapsible(testCase)
+            d = DashboardEngine('Name', 'Test');
+            w = d.addCollapsible('Sensors', {});
+            testCase.verifyEqual(w.Mode, 'collapsible');
+            testCase.verifyEqual(w.Label, 'Sensors');
+            testCase.verifyTrue(isa(w, 'GroupWidget'));
+        end
+
+        function testAddCollapsibleWithChildren(testCase)
+            d = DashboardEngine('Name', 'Test');
+            c1 = TextWidget('Title', 'A');
+            c2 = TextWidget('Title', 'B');
+            w = d.addCollapsible('Group', {c1, c2});
+            testCase.verifyEqual(numel(w.Children), 2);
+        end
+
+        function testAddCollapsibleForwardsOptions(testCase)
+            d = DashboardEngine('Name', 'Test');
+            w = d.addCollapsible('G', {}, 'Collapsed', true);
+            testCase.verifyTrue(w.Collapsed);
+        end
     end
 end
