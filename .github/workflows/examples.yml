@@ -87,6 +87,27 @@ jobs:
             example_sensor_dashboard
             # Heavy
             example_dynamic_thresholds_100M
+            # DashboardEngine (classdef — Octave 8+ should handle these)
+            example_dashboard_engine
+            example_dashboard_all_widgets
+            example_dashboard_groups
+            example_dashboard_info
+            example_dashboard_advanced
+            example_widget_fastsense
+            example_widget_number
+            example_widget_status
+            example_widget_text
+            example_widget_gauge
+            example_widget_table
+            example_widget_rawaxes
+            example_widget_timeline
+            example_widget_group
+            example_widget_barchart
+            example_widget_heatmap
+            example_widget_histogram
+            example_widget_scatter
+            example_widget_image
+            example_widget_multistatus
             # -----------------------------------------------------------------
             # Skipped — Octave-incompatible (MATLAB-only features):
             #   example_themes                 — segfault in Octave figure cleanup
@@ -97,12 +118,7 @@ jobs:
             #   example_disk_storage           — MATLAB-only API
             #   example_sensor_detail_*        — 'disableDefaultInteractivity' / datetime
             #   example_sensor_todisk          — MATLAB-only API
-            #   example_dashboard_all_widgets  — DashboardWidget needs @-folder (MATLAB)
-            #   example_dashboard_engine       — DashboardWidget needs @-folder
-            #   example_dashboard_groups       — DashboardWidget needs @-folder
-            #   example_dashboard_info         — DashboardWidget needs @-folder
-            #   example_widget_*               — DashboardWidget needs @-folder
-            #   example_stress_test            — DashboardWidget needs @-folder
+            #   example_stress_test            — interactive / long-running
             # Skipped — requires interaction / runs indefinitely:
             #   demo_all                       — input() call
             #   example_dashboard_live         — live timer
