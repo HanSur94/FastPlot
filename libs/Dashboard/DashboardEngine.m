@@ -161,6 +161,8 @@ classdef DashboardEngine < handle
                         w = ImageWidget(varargin{:});
                     case 'multistatus'
                         w = MultiStatusWidget(varargin{:});
+                    case 'divider'
+                        w = DividerWidget(varargin{:});
                     otherwise
                         error('DashboardEngine:unknownType', ...
                             'Unknown widget type: %s', type);
@@ -1100,6 +1102,7 @@ classdef DashboardEngine < handle
                 'scatter',     'X vs Y scatter plot (ScatterWidget)'
                 'image',       'Static image display (ImageWidget)'
                 'multistatus', 'Multi-sensor status grid (MultiStatusWidget)'
+                'divider',     'Horizontal divider line (DividerWidget)'
             };
         end
 

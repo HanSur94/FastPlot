@@ -112,6 +112,8 @@ classdef DashboardSerializer
                                 lines{end+1} = sprintf('    %s.addChild(%s);', groupVarName, childVar);
                             end
                         end
+                    case 'divider'
+                        lines{end+1} = sprintf('    d.addWidget(''divider'', ''Position'', %s);', pos);
                     otherwise
                         lines{end+1} = sprintf('    d.addWidget(''%s'', ''Title'', ''%s'', ''Position'', %s);', ws.type, ws.title, pos);
                 end
@@ -320,6 +322,8 @@ classdef DashboardSerializer
                     w = ImageWidget.fromStruct(ws);
                 case 'multistatus'
                     w = MultiStatusWidget.fromStruct(ws);
+                case 'divider'
+                    w = DividerWidget.fromStruct(ws);
                 case 'mock'
                     % MockDashboardWidget used in tests — load via fromStruct if available
                     try
@@ -459,6 +463,8 @@ classdef DashboardSerializer
                         lines{end+1} = [line, ');'];
                     case 'multistatus'
                         lines{end+1} = sprintf('d.addWidget(''multistatus'', ''Title'', ''%s'', ''Position'', %s);', ws.title, pos);
+                    case 'divider'
+                        lines{end+1} = sprintf('d.addWidget(''divider'', ''Position'', %s);', pos);
                     otherwise
                         lines{end+1} = sprintf('d.addWidget(''%s'', ''Title'', ''%s'', ''Position'', %s);', ws.type, ws.title, pos);
                 end
@@ -529,6 +535,8 @@ classdef DashboardSerializer
                             lines{end+1} = sprintf('    d.addWidget(''status'', ''Title'', ''%s'', ''Position'', %s);', ws.title, pos);
                         case 'text'
                             lines{end+1} = sprintf('    d.addWidget(''text'', ''Title'', ''%s'', ''Position'', %s);', ws.title, pos);
+                        case 'divider'
+                            lines{end+1} = sprintf('    d.addWidget(''divider'', ''Position'', %s);', pos);
                         otherwise
                             if isfield(ws, 'title')
                                 lines{end+1} = sprintf('    d.addWidget(''%s'', ''Title'', ''%s'', ''Position'', %s);', ws.type, ws.title, pos);
@@ -612,6 +620,10 @@ classdef DashboardSerializer
                     groupCount = groupCount + 1;
                     childLines{end+1} = sprintf('    %s = MultiStatusWidget(''Title'', ''%s'', ''Position'', %s);', ...
                         varName, ctitle, cpos);
+                case 'divider'
+                    varName = sprintf('c%d', groupCount);
+                    groupCount = groupCount + 1;
+                    childLines{end+1} = sprintf('    %s = DividerWidget(''Position'', %s);', varName, cpos);
                 case 'group'
                     % Nested GroupWidget (max depth 2 per codebase constraint)
                     varName = sprintf('g%d', groupCount);

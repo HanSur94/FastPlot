@@ -21,7 +21,7 @@ classdef TestDashboardSerializerRoundTrip < matlab.unittest.TestCase
     methods (Access = private)
         function widgets = createAllWidgets(~)
             %CREATEALLWIDGETS Build one widget of each type with minimal config.
-            widgets = cell(1, 8);
+            widgets = cell(1, 9);
             widgets{1} = FastSenseWidget('Title', 'FSW', 'Position', [1 1 12 3], ...
                 'XData', 1:5, 'YData', [1 2 3 4 5]);
             widgets{2} = NumberWidget('Title', 'NW', 'Position', [1 4 6 1], ...
@@ -38,6 +38,7 @@ classdef TestDashboardSerializerRoundTrip < matlab.unittest.TestCase
             widgets{8} = EventTimelineWidget('Title', 'ETW', 'Position', [1 9 24 2], ...
                 'Events', struct('startTime', {0, 10}, 'endTime', {5, 20}, ...
                 'label', {'A', 'B'}));
+            widgets{9} = DividerWidget('Title', 'DIV', 'Position', [1 8 24 1], 'Thickness', 2);
         end
     end
 
@@ -57,16 +58,16 @@ classdef TestDashboardSerializerRoundTrip < matlab.unittest.TestCase
             loaded = DashboardSerializer.loadJSON(filepath);
             rebuilt = DashboardSerializer.configToWidgets(loaded);
 
-            testCase.verifyEqual(numel(rebuilt), 8, ...
-                'All 8 widget types should survive the round-trip');
+            testCase.verifyEqual(numel(rebuilt), 9, ...
+                'All 9 widget types should survive the round-trip');
 
             expectedTypes  = {'fastsense','number','status','gauge', ...
-                              'text','table','rawaxes','timeline'};
-            expectedTitles = {'FSW','NW','SW','GW','TW','TBW','RAW','ETW'};
+                              'text','table','rawaxes','timeline','divider'};
+            expectedTitles = {'FSW','NW','SW','GW','TW','TBW','RAW','ETW','DIV'};
             expectedPos    = {[1 1 12 3],[1 4 6 1],[7 4 4 1],[1 5 6 4], ...
-                              [7 5 6 1],[13 1 12 3],[13 4 12 4],[1 9 24 2]};
+                              [7 5 6 1],[13 1 12 3],[13 4 12 4],[1 9 24 2],[1 8 24 1]};
 
-            for i = 1:8
+            for i = 1:9
                 testCase.verifyEqual(rebuilt{i}.Type, expectedTypes{i}, ...
                     sprintf('Widget %d type mismatch', i));
                 testCase.verifyEqual(rebuilt{i}.Title, expectedTitles{i}, ...
@@ -94,7 +95,7 @@ classdef TestDashboardSerializerRoundTrip < matlab.unittest.TestCase
                 'Script should reference DashboardEngine');
 
             expectedTypes = {'fastsense','number','status','gauge', ...
-                             'text','table','rawaxes','timeline'};
+                             'text','table','rawaxes','timeline','divider'};
             for i = 1:numel(expectedTypes)
                 testCase.verifyTrue( ...
                     contains(content, sprintf('''%s''', expectedTypes{i})), ...

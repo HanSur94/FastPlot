@@ -169,6 +169,8 @@ classdef DetachedMirror < handle
                     w = ImageWidget.fromStruct(s);
                 case 'multistatus'
                     w = MultiStatusWidget.fromStruct(s);
+                case 'divider'
+                    w = DividerWidget.fromStruct(s);
                 otherwise
                     error('DetachedMirror:unknownType', ...
                         'Unknown widget type: %s', s.type);
