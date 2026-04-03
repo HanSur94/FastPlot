@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Serialization & Persistence** - Verify and harden round-trip correctness for all new structures across JSON and .m formats (completed 2026-04-02)
 - [x] **Phase 7: Tech Debt Cleanup** - Fix multi-page time panel scoping and test comment mislabeling (completed 2026-04-03)
 - [x] **Phase 8: Widget Improvements** - DividerWidget, addCollapsible API, Y-axis limits on FastSenseWidget (completed 2026-04-03)
-- [ ] **Phase 9: Threshold Mini-Labels in FastSense Plots** - Optional inline labels within plot axes showing threshold names
+- [x] **Phase 9: Threshold Mini-Labels in FastSense Plots** - Optional inline labels within plot axes showing threshold names (completed 2026-04-03)
 
 ## Phase Details
 
@@ -152,11 +152,11 @@ Plans:
   4. FastSenseWidget.ShowThresholdLabels propagates to the underlying FastSense instance
   5. ShowThresholdLabels survives toStruct/fromStruct JSON round-trip (omitted when false)
   6. All existing tests continue to pass
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 09-01-PLAN.md — ShowThresholdLabels property + hText struct field + label creation in render() + updateThresholdLabels() method + call sites (LABEL-01, LABEL-02, LABEL-03)
-- [ ] 09-02-PLAN.md — FastSenseWidget ShowThresholdLabels wiring + toStruct/fromStruct + TestThresholdLabels test suite (LABEL-04, LABEL-05, LABEL-06)
+- [x] 09-02-PLAN.md — FastSenseWidget ShowThresholdLabels wiring + toStruct/fromStruct + TestThresholdLabels test suite (LABEL-04, LABEL-05, LABEL-06)
 
 ## Progress
 
@@ -173,4 +173,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Serialization & Persistence | 2/2 | Complete   | 2026-04-02 |
 | 7. Tech Debt Cleanup | 1/1 | Complete   | 2026-04-03 |
 | 8. Widget Improvements | 3/3 | Complete   | 2026-04-03 |
-| 9. Threshold Mini-Labels | 1/2 | In Progress|  |
+| 9. Threshold Mini-Labels | 2/2 | Complete   | 2026-04-03 |

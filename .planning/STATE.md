@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 09-01-PLAN.md (threshold mini labels)
-last_updated: "2026-04-03T17:30:35.329Z"
+status: verifying
+stopped_at: Completed 09-02-PLAN.md (FastSenseWidget ShowThresholdLabels + TestThresholdLabels)
+last_updated: "2026-04-03T17:34:20.348Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 24
-  completed_plans: 23
+  completed_plans: 24
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 Phase: 09 (threshold-mini-labels-in-fastsense-plots) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-03
 
 Progress: [░░░░░░░░░░] 0%
@@ -75,6 +75,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 08-widget-improvements-dividerwidget-collapsiblewidget-y-axis-limits P08-01 | 5 | 2 tasks | 6 files |
 | Phase 08-widget-improvements-dividerwidget-collapsiblewidget-y-axis-limits P08-02 | 4min | 1 tasks | 2 files |
 | Phase 09-threshold-mini-labels-in-fastsense-plots P01 | 2min | 2 tasks | 1 files |
+| Phase 09-threshold-mini-labels-in-fastsense-plots P02 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,7 @@ Recent decisions affecting current work:
 - [Phase 08-widget-improvements]: DividerWidget uses uipanel with BackgroundColor for the divider line; save()/exportScript() emit without Title since divider widgets are purely decorative
 - [Phase 08-widget-improvements-dividerwidget-collapsiblewidget-y-axis-limits]: addCollapsible delegates to addWidget('group') so multi-page routing is automatic; varargin forwarding allows Collapsed, Position, and other GroupWidget properties
 - [Phase 09-threshold-mini-labels-in-fastsense-plots]: ShowThresholdLabels=false default makes label feature zero-cost and fully backward compatible; Octave fallback via try/catch for BackgroundColor/Margin/EdgeColor
+- [Phase 09-threshold-mini-labels-in-fastsense-plots]: ShowThresholdLabels wired before render() call in both render() and refresh(); showThresholdLabels omitted from JSON when false for backward compat
 
 ### Roadmap Evolution
 
@@ -139,6 +141,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-03T17:30:35.325Z
-Stopped at: Completed 09-01-PLAN.md (threshold mini labels)
+Last session: 2026-04-03T17:34:20.344Z
+Stopped at: Completed 09-02-PLAN.md (FastSenseWidget ShowThresholdLabels + TestThresholdLabels)
 Resume file: None
