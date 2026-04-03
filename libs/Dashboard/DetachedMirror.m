@@ -176,25 +176,79 @@ classdef DetachedMirror < handle
                         'Unknown widget type: %s', s.type);
             end
 
-            % Restore live Sensor reference for FastSenseWidget.
-            % toStruct serializes the sensor by key; fromStruct calls SensorRegistry.get()
-            % which may return the same live Sensor — but we copy the reference directly
-            % to guarantee binding even on a registry miss.
-            if isa(w, 'FastSenseWidget') && ~isempty(original.Sensor)
-                w.Sensor = original.Sensor;
-                % Force independent time axis zoom/pan (DETACH-05)
-                w.UseGlobalTime = false;
-            end
+            % Restore live references lost during serialization round-trip
+            DetachedMirror.restoreLiveRefs(w, original);
 
-            % Restore function handle references for RawAxesWidget.
-            % func2str/str2func loses closure-captured variables; copy directly
-            % (safe here because this is an in-memory clone, not a disk round-trip).
-            if isa(w, 'RawAxesWidget') && ~isempty(original.PlotFcn)
-                w.PlotFcn = original.PlotFcn;
-                w.DataRangeFcn = original.DataRangeFcn;
+            % GroupWidget: restore live refs on each child/tab widget
+            if isa(w, 'GroupWidget')
+                origChildren = original.Children;
+                for i = 1:min(numel(w.Children), numel(origChildren))
+                    DetachedMirror.restoreLiveRefs(w.Children{i}, origChildren{i});
+                end
+                for ti = 1:min(numel(w.Tabs), numel(original.Tabs))
+                    origTab = original.Tabs{ti};
+                    clonedTab = w.Tabs{ti};
+                    for j = 1:min(numel(clonedTab.widgets), numel(origTab.widgets))
+                        DetachedMirror.restoreLiveRefs(clonedTab.widgets{j}, origTab.widgets{j});
+                    end
+                end
             end
         end
 
+        function restoreLiveRefs(cloned, original)
+        %RESTORELIVEREFS Copy non-serializable live references from original to cloned widget.
+            % Sensor reference (FastSenseWidget, NumberWidget, StatusWidget, GaugeWidget, etc.)
+            if isprop(cloned, 'Sensor') && ~isempty(original.Sensor)
+                cloned.Sensor = original.Sensor;
+            end
+            if isa(cloned, 'FastSenseWidget') && ~isempty(original.Sensor)
+                cloned.UseGlobalTime = false;
+            end
+            % Function handles (RawAxesWidget, HeatmapWidget, BarChartWidget, ImageWidget, TableWidget)
+            if isprop(cloned, 'PlotFcn') && ~isempty(original.PlotFcn)
+                cloned.PlotFcn = original.PlotFcn;
+            end
+            if isprop(cloned, 'DataRangeFcn') && ~isempty(original.DataRangeFcn)
+                cloned.DataRangeFcn = original.DataRangeFcn;
+            end
+            if isprop(cloned, 'DataFcn') && ~isempty(original.DataFcn)
+                cloned.DataFcn = original.DataFcn;
+            end
+            if isprop(cloned, 'ImageFcn') && ~isempty(original.ImageFcn)
+                cloned.ImageFcn = original.ImageFcn;
+            end
+            if isprop(cloned, 'StatusFcn') && ~isempty(original.StatusFcn)
+                cloned.StatusFcn = original.StatusFcn;
+            end
+            if isprop(cloned, 'ValueFcn') && ~isempty(original.ValueFcn)
+                cloned.ValueFcn = original.ValueFcn;
+            end
+            % Static data (TableWidget Data, EventTimelineWidget Events)
+            if isprop(cloned, 'Data') && ~isempty(original.Data)
+                cloned.Data = original.Data;
+            end
+            if isprop(cloned, 'Events') && ~isempty(original.Events)
+                cloned.Events = original.Events;
+            end
+            % Scatter sensor pairs
+            if isprop(cloned, 'SensorX') && ~isempty(original.SensorX)
+                cloned.SensorX = original.SensorX;
+            end
+            if isprop(cloned, 'SensorY') && ~isempty(original.SensorY)
+                cloned.SensorY = original.SensorY;
+            end
+            if isprop(cloned, 'SensorColor') && ~isempty(original.SensorColor)
+                cloned.SensorColor = original.SensorColor;
+            end
+            % MultiStatus sensors
+            if isprop(cloned, 'Sensors') && ~isempty(original.Sensors)
+                cloned.Sensors = original.Sensors;
+            end
+            % Histogram sensor
+            if isprop(cloned, 'EventStoreObj') && ~isempty(original.EventStoreObj)
+                cloned.EventStoreObj = original.EventStoreObj;
+            end
+        end
     end
 
 end
