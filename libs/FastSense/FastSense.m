@@ -85,6 +85,7 @@ classdef FastSense < handle
         XScale = 'linear'             % 'linear' or 'log' — X axis scale
         YScale = 'linear'             % 'linear' or 'log' — Y axis scale
         ViolationsVisible = true      % global toggle for violation markers
+        ShowThresholdLabels = false  % show inline name labels on threshold lines
     end
 
     % ====================== INTERNAL DATA STORAGE ========================
@@ -98,7 +99,7 @@ classdef FastSense < handle
                             'Direction', {}, ...
                             'ShowViolations', {}, 'Color', {}, ...
                             'LineStyle', {}, 'Label', {}, ...
-                            'hLine', {}, 'hMarkers', {})
+                            'hLine', {}, 'hMarkers', {}, 'hText', {})
         Bands      = struct('YLow', {}, 'YHigh', {}, 'FaceColor', {}, ...
                             'FaceAlpha', {}, 'EdgeColor', {}, 'Label', {}, ...
                             'hPatch', {})
@@ -676,6 +677,7 @@ classdef FastSense < handle
             t.Label          = parsed.Label;
             t.hLine          = [];
             t.hMarkers       = [];
+            t.hText          = [];
 
             if isempty(obj.Thresholds)
                 obj.Thresholds = t;
@@ -1200,6 +1202,41 @@ classdef FastSense < handle
                 set(hT, 'UserData', udT);
                 obj.Thresholds(t).hLine = hT;
 
+                % Threshold label (inline text at right edge)
+                if obj.ShowThresholdLabels
+                    labelStr = T.Label;
+                    if isempty(labelStr)
+                        labelStr = sprintf('Threshold %d', t);
+                    end
+                    xl = get(obj.hAxes, 'XLim');
+                    if isempty(T.X)
+                        yVal = T.Value;
+                    else
+                        yVal = T.Y(end);
+                    end
+                    hTxtArgs = {'Parent', obj.hAxes, ...
+                        'FontSize', 8, ...
+                        'FontName', obj.Theme.FontName, ...
+                        'Color', T.Color, ...
+                        'FontWeight', 'normal', ...
+                        'HorizontalAlignment', 'right', ...
+                        'VerticalAlignment', 'middle', ...
+                        'HandleVisibility', 'off', ...
+                        'Clipping', 'on'};
+                    try
+                        hTxt = text(xl(2), yVal, labelStr, hTxtArgs{:}, ...
+                            'BackgroundColor', obj.Theme.AxesColor, ...
+                            'Margin', 2, ...
+                            'EdgeColor', 'none');
+                    catch
+                        % Octave fallback: BackgroundColor/Margin/EdgeColor may not be supported
+                        hTxt = text(xl(2), yVal, labelStr, hTxtArgs{:});
+                    end
+                    obj.Thresholds(t).hText = hTxt;
+                else
+                    obj.Thresholds(t).hText = [];
+                end
+
                 % Violation markers (fused: detect + cull in one pass).
                 % violation_cull finds threshold crossings and culls
                 % overlapping markers to one per pixel for performance.
@@ -1327,6 +1364,7 @@ classdef FastSense < handle
             obj.FullXLim = [xmin, xmax];
             obj.FullYLim = [yLimLow, yLimHigh];
             obj.CachedXLim = get(obj.hAxes, 'XLim');
+            obj.updateThresholdLabels();
 
             % Auto-format datetime axis
             if strcmp(obj.XType, 'datenum')
