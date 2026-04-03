@@ -23,7 +23,27 @@ obj = DashboardEngine(name, varargin)
 
 ### Methods
 
+#### `pg = addPage(obj, name)`
+
+ADDPAGE Add a named page and make it the active page for addWidget.
+  pg = d.addPage('Overview') creates a DashboardPage and appends it to Pages.
+  Sets ActivePage to the last-added page index.
+  When Pages is non-empty, addWidget routes to the active page.
+
+#### `switchPage(obj, pageIdx)`
+
+SWITCHPAGE Switch the active page and re-render its widgets.
+  d.switchPage(2) sets ActivePage = 2 and calls rerenderWidgets().
+
 #### `w = addWidget(obj, type, varargin)`
+
+Accept a pre-constructed widget object directly
+
+#### `w = addCollapsible(obj, label, children, varargin)`
+
+ADDCOLLAPSIBLE Convenience: add a GroupWidget with Mode='collapsible'.
+  w = d.addCollapsible('Sensors', {w1, w2})
+  w = d.addCollapsible('Sensors', {w1, w2}, 'Collapsed', true)
 
 #### `render(obj)`
 
@@ -63,6 +83,14 @@ SETWIDGETPOSITION Set the grid position of a widget by index.
 
 GETWIDGETBYTITLE Find a widget by its Title property.
   Returns the widget object, or empty if not found.
+
+#### `detachWidget(obj, widget)`
+
+DETACHWIDGET Pop a widget out as a standalone figure window.
+
+#### `removeDetached(obj, widget)`
+
+REMOVEDETACHED Remove mirrors by original widget handle or stale state.
 
 #### `setContentArea(obj, contentArea)`
 
@@ -264,6 +292,7 @@ obj = FastSenseWidget(varargin)
 | Thresholds | `'auto'` |  |
 | XLabel | `''` | X-axis label (auto-set from Sensor if empty) |
 | YLabel | `''` | Y-axis label (auto-set from Sensor if empty) |
+| YLimits | `[]` | Fixed Y-axis range [min max]; empty = auto-scale |
 
 ### Methods
 
@@ -621,9 +650,10 @@ SAVE Write dashboard config as a MATLAB function file.
 
 #### `DashboardSerializer.saveJSON(config, filepath)`
 
-SAVEJSON Legacy: write dashboard config struct to JSON file.
- Widgets may have heterogeneous fields, so encode each
- widget individually and assemble the JSON array by hand.
+SAVEJSON Write dashboard config struct to JSON file.
+ Handles both single-page (widgets field) and multi-page (pages field).
+ Widgets/pages may have heterogeneous fields, so encode each entry
+ individually and assemble the JSON array by hand.
 
 #### `DashboardSerializer.result = load(filepath)`
 
@@ -639,6 +669,12 @@ LOADJSON Legacy: read dashboard config from JSON file.
 
 WIDGETSTOCONFIG Build a config struct from widget objects.
 
+#### `DashboardSerializer.config = widgetsPagesToConfig(name, theme, liveInterval, pages, activePage, infoFile)`
+
+WIDGETSPAGESTOCONFIG Build a multi-page config struct from page objects.
+  pages is a cell array of DashboardPage objects.
+  activePage is the Name string of the active page.
+
 #### `DashboardSerializer.widgets = configToWidgets(config, resolver)`
 
 CONFIGTOWIDGETS Create widget objects from config struct.
@@ -653,6 +689,22 @@ CREATEWIDGETFROMSTRUCT Create a single widget from a struct.
 #### `DashboardSerializer.exportScript(config, filepath)`
 
 EXPORTSCRIPT Generate a readable .m script from config.
+
+#### `DashboardSerializer.exportScriptPages(config, filepath)`
+
+EXPORTSCRIPTPAGES Generate a MATLAB function file from a multi-page config.
+  The output is a function returning a DashboardEngine so that
+  DashboardEngine.load() can use feval(funcname) to reconstruct it.
+  Emits d.addPage('Name') + d.switchPage(N) before each page's widget block
+  so that addWidget routes to the correct page.
+
+#### `DashboardSerializer.[childLines, varName, groupCount] = emitChildWidget(cw, groupCount)`
+
+EMITCHILDWIDGET Emit .m constructor lines for a child widget.
+  Used by DashboardSerializer.save() to emit child code for GroupWidget
+  children. Children are created by constructor, not d.addWidget().
+  Returns the generated code lines, the variable name assigned, and the
+  updated groupCount (in case the child is itself a GroupWidget).
 
 ---
 
@@ -683,7 +735,10 @@ obj = DashboardLayout(varargin)
 | RowHeight | `0.22` |  |
 | ScrollbarWidth | `0.015` |  |
 | OnScrollCallback | `[]` | function handle: @(topRow, bottomRow) |
+| DetachCallback | `[]` | function handle: @(widget) — set by DashboardEngine |
 | VisibleRows | `[1 Inf]` | [topRow bottomRow] currently visible |
+| hFigure | `[]` | Figure handle for popup dismiss callbacks |
+| hInfoPopup | `[]` | Handle to active info popup uipanel (at most one) |
 
 ### Methods
 
@@ -715,7 +770,6 @@ FIGURETOCANVASDELTA Convert figure-normalized deltas to canvas deltas.
 ALLOCATEPANELS Create viewport, canvas, scrollbar and placeholder panels.
   Like createPanels but does NOT call widget.render(). Instead,
   each widget gets its hPanel assigned and a placeholder label.
-Save current scroll state before any updates
 
 #### `realizeWidget(obj, widget)`
 
@@ -742,6 +796,22 @@ COMPUTEVISIBLEROWS Derive visible row range from scroll position.
 #### `vis = isWidgetVisible(obj, gridPos, buffer)`
 
 ISWIDGETVISIBLE Check if widget rows overlap visible range + buffer.
+
+#### `openInfoPopup(obj, widget, theme)`
+
+OPENINFOPOPUP Open an info popup panel on widget.hPanel showing Description.
+
+#### `closeInfoPopup(obj)`
+
+CLOSEINFOPOPUP Close and delete the active info popup panel.
+
+#### `onFigureClickForDismiss(obj)`
+
+ONFIGURECLICKFORDISMISS Dismiss popup if click was outside the popup panel.
+
+#### `onKeyPressForDismiss(obj, eventData)`
+
+ONKEYPRESSFORDISMISS Dismiss popup when Escape is pressed.
 
 ---
 
@@ -822,6 +892,147 @@ obj = BarChartWidget(varargin)
 
 ---
 
+## `DashboardPage` --- Named page container within a multi-page dashboard.
+
+> Inherits from: `handle`
+
+Each DashboardPage holds a list of widgets to be rendered when the
+  page is active. DashboardEngine maintains a Pages cell array of
+  DashboardPage objects and routes addWidget() to the active page.
+
+### Constructor
+
+```matlab
+obj = DashboardPage(name)
+```
+
+DASHBOARDPAGE Construct a named page container.
+  pg = DashboardPage()        creates page with Name = ''
+  pg = DashboardPage('Name')  creates page with given Name
+
+### Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| Name | `''` |  |
+| Widgets | `{}` |  |
+
+### Methods
+
+#### `w = addWidget(obj, w)`
+
+ADDWIDGET Append widget w to the Widgets list.
+  pg.addWidget(w) appends w to obj.Widgets.
+
+#### `s = toStruct(obj)`
+
+TOSTRUCT Serialize the page to a struct with name and widgets fields.
+  s = pg.toStruct() returns s.name (char) and s.widgets (cell).
+
+---
+
+## `DetachedMirror` --- Standalone live-mirrored widget window for DashboardEngine.
+
+> Inherits from: `handle`
+
+DetachedMirror wraps a cloned DashboardWidget in a standalone MATLAB
+  figure window. The clone is produced via toStruct/fromStruct with post-
+  clone live-reference restoration for FastSenseWidget and RawAxesWidget.
+
+  The mirror is NOT a DashboardWidget subclass — it wraps one. It belongs
+  to DashboardEngine.DetachedMirrors and is ticked by the engine's existing
+  LiveTimer via the engine's onLiveTick() loop.
+
+  Usage (called internally by DashboardEngine.detachWidget()):
+    theme = DashboardTheme(obj.Theme);
+    cb    = @() obj.removeDetached(mirror);
+    mirror = DetachedMirror(originalWidget, theme, cb);
+
+  Properties (SetAccess = private):
+    hFigure        — standalone MATLAB figure window handle
+    hPanel         — full-figure uipanel that hosts the cloned widget
+    Widget         — cloned DashboardWidget instance
+    RemoveCallback — @() called by onFigureClose() before delete(hFigure)
+
+### Constructor
+
+```matlab
+obj = DetachedMirror(originalWidget, themeStruct, removeCallback)
+```
+
+DETACHEDMIRROR Create a detached live-mirror window for originalWidget.
+
+### Methods
+
+#### `tick(obj)`
+
+TICK Refresh the cloned widget; no-op if figure is stale.
+
+#### `result = isStale(obj)`
+
+ISSTALE Return true when the mirror's figure has been closed or destroyed.
+
+---
+
+## `DividerWidget` --- Horizontal divider line for visual section separation.
+
+> Inherits from: `DashboardWidget`
+
+DividerWidget renders a horizontal colored line using the theme's
+  WidgetBorderColor (or a custom Color override). It is a static widget
+  with no data binding.
+
+### Constructor
+
+```matlab
+obj = DividerWidget(varargin)
+```
+
+DIVIDERWIDGET Construct a DividerWidget.
+  obj = DividerWidget() creates with defaults.
+  obj = DividerWidget('Thickness', 2, 'Color', [1 0 0]) sets props.
+
+### Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| Thickness | `1` | Relative line thickness (1=thin, 2=medium, 3=thick) |
+| Color | `[]` | RGB override; empty = use theme WidgetBorderColor |
+
+### Methods
+
+#### `render(obj, parentPanel)`
+
+RENDER Create the divider line inside parentPanel.
+  render(obj, parentPanel) creates a uipanel that acts as a
+  horizontal colored line centered vertically in the panel.
+
+#### `refresh(~)`
+
+REFRESH No-op for static widget.
+
+#### `t = getType(~)`
+
+GETTYPE Return widget type string.
+
+#### `lines = asciiRender(obj, width, height)`
+
+ASCIIRENDER Return ASCII representation of the divider.
+  First line is a row of dashes; remaining lines are blank.
+
+#### `s = toStruct(obj)`
+
+TOSTRUCT Serialize to struct.
+  Omits 'thickness' at default (1) and 'color' when empty.
+
+### Static Methods
+
+#### `DividerWidget.obj = fromStruct(s)`
+
+FROMSTRUCT Reconstruct DividerWidget from serialized struct.
+
+---
+
 ## `GroupWidget`
 
 > Inherits from: `DashboardWidget`
@@ -844,6 +1055,7 @@ obj = GroupWidget(varargin)
 | ActiveTab | `''` | Current tab name (tabbed mode) |
 | ChildColumns | `24` | Sub-grid column count |
 | ChildAutoFlow | `true` | Auto-arrange children |
+| ReflowCallback | `[]` | Callback invoked after collapse/expand (injected by DashboardEngine) |
 
 ### Methods
 
