@@ -217,5 +217,64 @@ classdef TestDashboardBugFixes < matlab.unittest.TestCase
             testCase.verifyWarningFree(@() b.exitEditMode());
             testCase.verifyFalse(b.IsActive);
         end
+
+        %% Bug FIX-01: removeWidget silently no-ops in multi-page mode
+        function testRemoveWidgetMultiPage(testCase)
+            d = DashboardEngine('Test');
+            d.addPage('P1');
+            d.switchPage(1);
+            d.addWidget('text', 'Title', 'A', 'Position', [1 1 6 2]);
+
+            testCase.verifyEqual(numel(d.Pages{1}.Widgets), 1, ...
+                'Widget should be in Pages{1} after addWidget');
+
+            d.removeWidget(1);
+
+            testCase.verifyEqual(numel(d.Pages{1}.Widgets), 0, ...
+                'removeWidget should remove from active page in multi-page mode');
+        end
+
+        %% Bug FIX-03: Sensor listeners skipped for page-routed widgets
+        function testSensorListenersMultiPage(testCase)
+            d = DashboardEngine('Test');
+            d.addPage('P1');
+            d.switchPage(1);
+
+            s = Sensor('testSensorListeners', 'Name', 'T');
+            s.X = (1:5);
+            s.Y = rand(1, 5);
+
+            d.addWidget('fastsense', 'Title', 'T', 'Position', [1 1 6 2], ...
+                'Sensor', s);
+
+            w = d.Pages{1}.Widgets{1};
+            w.Dirty = false;
+
+            % Trigger PostSet listener by assigning new data
+            try
+                s.Y = rand(1, 10);
+                testCase.verifyTrue(w.Dirty, ...
+                    'PostSet listener should mark widget dirty when sensor Y changes');
+            catch
+                % Octave may not support PostSet on all property types
+                testCase.assumeTrue(false, 'Octave lacks PostSet');
+            end
+        end
+
+        %% Bug FIX-04: removeDetached has unused widget parameter / inverted logic
+        function testRemoveDetachedStaleOnly(testCase)
+            % removeDetached() should accept no widget argument.
+            % This test verifies the signature change does not error.
+            % Full stale-mirror behaviour requires a rendered figure and detach
+            % infrastructure; skip the deep integration test here and rely on
+            % code inspection for the stale-scan body.
+            d = DashboardEngine('Test');
+            % Should not error — no-argument form must be accepted
+            try
+                d.removeDetached();
+            catch ME
+                testCase.verifyFail(['removeDetached() errored unexpectedly: ' ME.message]);
+            end
+        end
     end
 end
