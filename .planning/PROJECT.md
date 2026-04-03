@@ -54,8 +54,8 @@ Users can organize complex dashboards into navigable sections and pop out any wi
 
 - FastSense is a MATLAB library for high-performance time series visualization with sensor/threshold modeling
 - Dashboard engine (`libs/Dashboard/`) has DashboardEngine, DashboardWidget (20+ types), DashboardLayout (24-col grid), DashboardSerializer, DashboardTheme, DashboardBuilder, DashboardPage, DetachedMirror, MarkdownRenderer
-- v1.0 shipped: 7 phases, 19 plans, 32 requirements — all satisfied
-- New classes added: DashboardPage.m, DetachedMirror.m
+- v1.0 shipped: 8 phases, 22 plans, all requirements satisfied
+- New classes added: DashboardPage.m, DetachedMirror.m, DividerWidget.m
 - Key patterns established: central injection via realizeWidget(), ReflowCallback for layout updates, DetachCallback for widget pop-out, normalizeToCell for jsondecode safety
 
 ## Constraints
@@ -77,6 +77,9 @@ Users can organize complex dashboards into navigable sections and pop out any wi
 | Clone via toStruct/fromStruct round-trip | Works for all widget types without per-type dispatch | ✓ Good |
 | containers.Map for CloseRequestFcn reference | Solves closure-over-cell-array mutation limitation | ✓ Good |
 | Plain text popup (HTML stripped) over javacomponent | Cross-platform safe (Octave compatible) | ✓ Good |
+| DividerWidget via uipanel not axes | Simpler, no zoom/pan interaction, cheaper render | ✓ Good |
+| addCollapsible on DashboardEngine (not DashboardBuilder) | DashboardEngine owns programmatic API | ✓ Good |
+| YLimits=[] for auto, [min max] for fixed | Consistent with MATLAB ylim() convention | ✓ Good |
 
 ## Evolution
 
@@ -96,4 +99,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-03 after v1.0 milestone*
+*Last updated: 2026-04-03 after v1.0 Advanced Dashboard milestone complete*
