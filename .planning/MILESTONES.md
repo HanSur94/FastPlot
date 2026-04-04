@@ -1,5 +1,16 @@
 # Milestones
 
+## v1.0 Dashboard Performance Optimization (Shipped: 2026-04-04)
+
+**Phases completed:** 1 phases, 3 plans, 2 tasks
+
+**Key accomplishments:**
+
+- One-liner:
+- Task 1: Consolidated onLiveTick with updateLiveTimeRangeFrom
+
+---
+
 ## v1.0 Dashboard Engine Code Review Fixes (Shipped: 2026-04-03)
 
 **Phases completed:** 1 phases, 4 plans, 2 tasks

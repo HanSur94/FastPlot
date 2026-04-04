@@ -40,7 +40,7 @@ Users can organize complex dashboards into navigable sections and pop out any wi
 
 ### Active
 
-(None — next milestone not yet defined)
+- ✓ Dashboard performance optimization: theme caching, O(1) widget dispatch, single-pass live tick, in-place resize, visibility page switch — v1.0 Performance
 
 ### Out of Scope
 
@@ -57,8 +57,9 @@ Users can organize complex dashboards into navigable sections and pop out any wi
 - Dashboard engine (`libs/Dashboard/`) has DashboardEngine, DashboardWidget (20+ types), DashboardLayout (24-col grid), DashboardSerializer, DashboardTheme, DashboardBuilder, DashboardPage, DetachedMirror, MarkdownRenderer
 - v1.0 shipped: 9 phases, 24 plans, 44 requirements, 2948 lines added across 24 files
 - v1.0 code review shipped: 1 phase, 4 plans, 14 bug fixes across DashboardEngine, GroupWidget, DashboardSerializer, DashboardLayout, DashboardWidget, DashboardTheme, HeatmapWidget, BarChartWidget, HistogramWidget
+- v1.0 performance shipped: 1 phase, 3 plans — theme caching (getCachedTheme), containers.Map dispatch, single-pass onLiveTick, repositionPanels for resize, visibility toggle for page switch
 - New classes added: DashboardPage.m, DetachedMirror.m, DividerWidget.m
-- Key patterns established: central injection via realizeWidget(), ReflowCallback for layout updates, DetachCallback for widget pop-out, normalizeToCell for jsondecode safety, markRealized/markUnrealized for lifecycle encapsulation, linesForWidget for shared serialization dispatch
+- Key patterns established: central injection via realizeWidget(), ReflowCallback for layout updates, DetachCallback for widget pop-out, normalizeToCell for jsondecode safety, markRealized/markUnrealized for lifecycle encapsulation, linesForWidget for shared serialization dispatch, getCachedTheme for theme struct caching, WidgetTypeMap_ for O(1) widget dispatch
 - 24,473 LOC MATLAB across libs/ (as of v1.0 completion)
 - Known tech debt: 5 items (INFO-03 Markdown downgrade, missing serialization tests, single-page save edge case) — code review tech debt resolved
 
@@ -89,6 +90,11 @@ Users can organize complex dashboards into navigable sections and pop out any wi
 | Realized property SetAccess=private with markRealized/markUnrealized | Enforces lifecycle contract, prevents external bypass | ✓ Good |
 | linesForWidget shared static helper in DashboardSerializer | Eliminates exportScript/exportScriptPages drift | ✓ Good |
 | wireListeners private helper in DashboardEngine | Single listener-wiring call for both page-routed and single-page paths | ✓ Good |
+| getCachedTheme with preset invalidation | Eliminates 4 redundant DashboardTheme() calls per render/switch/tick | ✓ Good |
+| containers.Map widget dispatch (WidgetTypeMap_) | O(1) type lookup replacing 17-case switch; kpi alias preserved | ✓ Good |
+| repositionPanels for onResize | In-place panel repositioning vs destroy+recreate; fallback to rerenderWidgets on missing handles | ✓ Good |
+| switchPage visibility toggle | Hide/show panels instead of full rerender; pre-allocate all page panels at render() | ✓ Good |
+| Single-pass onLiveTick with updateLiveTimeRangeFrom | One activePageWidgets() call, merged mark-dirty+refresh loop | ✓ Good |
 
 ## Evolution
 
@@ -108,4 +114,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-03 after v1.0 code review milestone (14 bug fixes shipped)*
+*Last updated: 2026-04-04 after v1.0 performance optimization milestone*
