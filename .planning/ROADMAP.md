@@ -36,7 +36,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-9 | v1.0 Advanced Dashboard | 24/24 | Complete | 2026-04-03 |
-| 01. Dashboard Engine Code Review Fixes | v1.0 Code Review | 4/4 | Complete | 2026-04-03 |
+| 01. Dashboard Engine Code Review Fixes | v1.0 Code Review | 3/3 | Complete   | 2026-04-04 |
 
 ### Phase 1: Dashboard Performance Optimization
 
@@ -47,5 +47,5 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 Plans:
 - [x] 01-01-PLAN.md — Benchmark script and test scaffolding
-- [ ] 01-02-PLAN.md — Theme caching and containers.Map widget dispatch
-- [ ] 01-03-PLAN.md — onLiveTick consolidation, panel repositioning, and page switch visibility toggle
+- [x] 01-02-PLAN.md — Theme caching and containers.Map widget dispatch
+- [x] 01-03-PLAN.md — onLiveTick consolidation, panel repositioning, and page switch visibility toggle
