@@ -147,7 +147,8 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Install Octave
-        run: choco install octave.portable --yes --version=9.2.0
+        run: choco install octave.portable --yes --version=9.2.0 --no-progress
+        timeout-minutes: 10
 
       - name: Compile MEX files
         shell: pwsh

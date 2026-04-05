@@ -596,6 +596,5 @@ classdef DashboardLayout < handle
             set(btn, 'Position', [x y btnW btnH]);
         end
 
-
     end
 end
