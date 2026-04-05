@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 999.1-04-PLAN.md (wired iconcard/chipbar/sparkline into Engine/Serializer/DetachedMirror/Builder)
-last_updated: "2026-04-05T12:20:22.802Z"
+stopped_at: Completed 999.3-01-PLAN.md
+last_updated: "2026-04-05T16:39:59.839Z"
 last_activity: 2026-04-05
 progress:
-  total_phases: 1
+  total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 9
+  completed_plans: 5
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 01 — dashboard-performance-optimization
+**Current focus:** Phase 999.3 — graph-data-export-mat-csv
 
 ## Current Position
 
-Phase: 999.1
-Plan: Not started
+Phase: 999.3 (graph-data-export-mat-csv) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-04-05 - Completed quick task 260405-plc: Change Edit button to open source MATLAB file
+Last activity: 2026-04-05
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -82,6 +82,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-dashboard-performance-optimization P01 | 3 | 2 tasks | 2 files |
 | Phase 01-dashboard-performance-optimization P03 | 10min | 2 tasks | 1 files |
 | Phase 999.1-mushroom-cards-for-dashboard-engine P04 | 5min | 2 tasks | 8 files |
+| Phase 999.3 P01 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -138,6 +139,8 @@ Recent decisions affecting current work:
 - [Phase 01-dashboard-performance-optimization]: repositionPanels() falls back to rerenderWidgets() if any panel handle is missing — safe degradation at first render
 - [Phase 01-dashboard-performance-optimization]: render() pre-allocates all page panels at startup with non-active pages hidden so switchPage is pure visibility toggle
 - [Phase 999.1-mushroom-cards-for-dashboard-engine]: Wave 1 widget files copied from main repo to worktree for plan 04; DetachedMirror restoreLiveRefs handles ValueFcn generically via isprop so no per-type clone code needed beyond fromStruct dispatch
+- [Phase 999.3]: No render() required before exportData() — buildExportStruct_ accesses raw Lines/Thresholds directly
+- [Phase 999.3]: testExportCSVDatetime guarded with ~exist('OCTAVE_VERSION') since datetime is MATLAB-only
 
 ### Roadmap Evolution
 
@@ -167,6 +170,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T16:10:00.000Z
-Stopped at: Completed quick task 260405-plc (Edit button opens source file via MATLAB editor)
+Last session: 2026-04-05T16:39:59.835Z
+Stopped at: Completed 999.3-01-PLAN.md
 Resume file: None
