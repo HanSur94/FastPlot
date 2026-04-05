@@ -62,3 +62,12 @@ Plans:
 - [ ] 999.1-02-PLAN.md — ChipBarWidget implementation
 - [ ] 999.1-03-PLAN.md — SparklineCardWidget implementation
 - [x] 999.1-04-PLAN.md — Infrastructure wiring (Engine, Serializer, DetachedMirror, Builder)
+
+### Phase 999.2: Dashboard Image Export Button (BACKLOG)
+
+**Goal:** Add an image export button to the dashboard toolbar that captures the entire dashboard layout as a single image (PNG/JPEG), enabling users to share or document their dashboard state with one click.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
