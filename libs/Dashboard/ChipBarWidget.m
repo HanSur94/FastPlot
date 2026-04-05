@@ -223,16 +223,20 @@ classdef ChipBarWidget < DashboardWidget
                 end
             elseif isfield(chip, 'sensor') && ~isempty(chip.sensor)
                 sensor = chip.sensor;
-                if ~isempty(sensor.Y) && ~isempty(sensor.ThresholdRules)
+                if ~isempty(sensor.Y) && ~isempty(sensor.Thresholds)
                     latestY = sensor.Y(end);
                     state = 'ok';
-                    for k = 1:numel(sensor.ThresholdRules)
-                        rule = sensor.ThresholdRules{k};
-                        if (rule.IsUpper && latestY > rule.Value) || ...
-                                (~rule.IsUpper && latestY < rule.Value)
-                            state = 'alarm';
-                            break;
+                    for k = 1:numel(sensor.Thresholds)
+                        t = sensor.Thresholds{k};
+                        tVals = t.allValues();
+                        for v = 1:numel(tVals)
+                            if (t.IsUpper && latestY > tVals(v)) || ...
+                                    (~t.IsUpper && latestY < tVals(v))
+                                state = 'alarm';
+                                break;
+                            end
                         end
+                        if strcmp(state, 'alarm'), break; end
                     end
                 else
                     state = 'ok';

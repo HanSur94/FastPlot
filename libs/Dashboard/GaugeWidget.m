@@ -168,10 +168,17 @@ classdef GaugeWidget < DashboardWidget
 
     methods (Access = private)
         function rng = deriveRange(obj)
-            if ~isempty(obj.Sensor.ThresholdRules)
-                vals = cellfun(@(r) r.Value, obj.Sensor.ThresholdRules);
-                rng = [min(vals), max(vals)];
-            elseif ~isempty(obj.Sensor.Y)
+            if ~isempty(obj.Sensor.Thresholds)
+                allVals = [];
+                for i = 1:numel(obj.Sensor.Thresholds)
+                    allVals = [allVals, obj.Sensor.Thresholds{i}.allValues()]; %#ok<AGROW>
+                end
+                if ~isempty(allVals)
+                    rng = [min(allVals), max(allVals)];
+                    return;
+                end
+            end
+            if ~isempty(obj.Sensor.Y)
                 rng = [min(obj.Sensor.Y), max(obj.Sensor.Y)];
             else
                 rng = [0 100];
@@ -179,24 +186,27 @@ classdef GaugeWidget < DashboardWidget
         end
 
         function color = getValueColor(obj, frac, theme)
-            if ~isempty(obj.Sensor) && ~isempty(obj.Sensor.ThresholdRules)
+            if ~isempty(obj.Sensor) && ~isempty(obj.Sensor.Thresholds)
                 val = obj.CurrentValue;
                 color = theme.StatusOkColor;
                 worstDist = -inf;
-                for i = 1:numel(obj.Sensor.ThresholdRules)
-                    rule = obj.Sensor.ThresholdRules{i};
-                    violated = (rule.IsUpper && val > rule.Value) || ...
-                               (~rule.IsUpper && val < rule.Value);
-                    if violated
-                        dist = abs(val - rule.Value);
-                        if dist > worstDist
-                            worstDist = dist;
-                            if ~isempty(rule.Color)
-                                color = rule.Color;
-                            elseif rule.IsUpper
-                                color = theme.StatusAlarmColor;
-                            else
-                                color = theme.StatusWarnColor;
+                for i = 1:numel(obj.Sensor.Thresholds)
+                    t = obj.Sensor.Thresholds{i};
+                    tVals = t.allValues();
+                    for v = 1:numel(tVals)
+                        violated = (t.IsUpper && val > tVals(v)) || ...
+                                   (~t.IsUpper && val < tVals(v));
+                        if violated
+                            dist = abs(val - tVals(v));
+                            if dist > worstDist
+                                worstDist = dist;
+                                if ~isempty(t.Color)
+                                    color = t.Color;
+                                elseif t.IsUpper
+                                    color = theme.StatusAlarmColor;
+                                else
+                                    color = theme.StatusWarnColor;
+                                end
                             end
                         end
                     end

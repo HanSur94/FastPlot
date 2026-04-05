@@ -126,15 +126,19 @@ classdef StatusWidget < DashboardWidget
             status = obj.StaticStatus;
             if isempty(status) && ~isempty(obj.Sensor) && ~isempty(obj.Sensor.Y)
                 status = 'ok';
-                if ~isempty(obj.Sensor.ThresholdRules)
+                if ~isempty(obj.Sensor.Thresholds)
                     val = obj.Sensor.Y(end);
-                    for k = 1:numel(obj.Sensor.ThresholdRules)
-                        rule = obj.Sensor.ThresholdRules{k};
-                        if (rule.IsUpper && val > rule.Value) || ...
-                                (~rule.IsUpper && val < rule.Value)
-                            status = 'violation';
-                            break;
+                    for k = 1:numel(obj.Sensor.Thresholds)
+                        t = obj.Sensor.Thresholds{k};
+                        tVals = t.allValues();
+                        for v = 1:numel(tVals)
+                            if (t.IsUpper && val > tVals(v)) || ...
+                                    (~t.IsUpper && val < tVals(v))
+                                status = 'violation';
+                                break;
+                            end
                         end
+                        if strcmp(status, 'violation'), break; end
                     end
                 end
             end
@@ -198,33 +202,36 @@ classdef StatusWidget < DashboardWidget
 
             if isempty(obj.Sensor.Y), return; end
 
-            if isempty(obj.Sensor.ThresholdRules)
+            if isempty(obj.Sensor.Thresholds)
                 return;
             end
 
             latestY = obj.Sensor.Y(end);
             worstDist = -inf;
 
-            for i = 1:numel(obj.Sensor.ThresholdRules)
-                rule = obj.Sensor.ThresholdRules{i};
-                isViolated = false;
-                if rule.IsUpper && latestY > rule.Value
-                    isViolated = true;
-                elseif ~rule.IsUpper && latestY < rule.Value
-                    isViolated = true;
-                end
+            for i = 1:numel(obj.Sensor.Thresholds)
+                t = obj.Sensor.Thresholds{i};
+                tVals = t.allValues();
+                for v = 1:numel(tVals)
+                    isViolated = false;
+                    if t.IsUpper && latestY > tVals(v)
+                        isViolated = true;
+                    elseif ~t.IsUpper && latestY < tVals(v)
+                        isViolated = true;
+                    end
 
-                if isViolated
-                    dist = abs(latestY - rule.Value);
-                    if dist > worstDist
-                        worstDist = dist;
-                        status = 'violation';
-                        if ~isempty(rule.Color)
-                            color = rule.Color;
-                        elseif rule.IsUpper
-                            color = theme.StatusAlarmColor;
-                        else
-                            color = theme.StatusWarnColor;
+                    if isViolated
+                        dist = abs(latestY - tVals(v));
+                        if dist > worstDist
+                            worstDist = dist;
+                            status = 'violation';
+                            if ~isempty(t.Color)
+                                color = t.Color;
+                            elseif t.IsUpper
+                                color = theme.StatusAlarmColor;
+                            else
+                                color = theme.StatusWarnColor;
+                            end
                         end
                     end
                 end

@@ -118,19 +118,23 @@ classdef MultiStatusWidget < DashboardWidget
                     nOk = 0;
                     for k = 1:n
                         s = obj.Sensors{k};
-                        if isempty(s) || isempty(s.Y) || isempty(s.ThresholdRules)
+                        if isempty(s) || isempty(s.Y) || isempty(s.Thresholds)
                             nOk = nOk + 1;
                             continue;
                         end
                         val = s.Y(end);
                         violated = false;
-                        for r = 1:numel(s.ThresholdRules)
-                            rule = s.ThresholdRules{r};
-                            if (rule.IsUpper && val > rule.Value) || ...
-                                    (~rule.IsUpper && val < rule.Value)
-                                violated = true;
-                                break;
+                        for r = 1:numel(s.Thresholds)
+                            t = s.Thresholds{r};
+                            tVals = t.allValues();
+                            for v = 1:numel(tVals)
+                                if (t.IsUpper && val > tVals(v)) || ...
+                                        (~t.IsUpper && val < tVals(v))
+                                    violated = true;
+                                    break;
+                                end
                             end
+                            if violated, break; end
                         end
                         if ~violated
                             nOk = nOk + 1;
@@ -175,16 +179,19 @@ classdef MultiStatusWidget < DashboardWidget
                 return;
             end
             val = sensor.Y(end);
-            if isempty(sensor.ThresholdRules)
+            if isempty(sensor.Thresholds)
                 return;
             end
-            for k = 1:numel(sensor.ThresholdRules)
-                rule = sensor.ThresholdRules{k};
-                if isempty(rule.Color), continue; end
-                if rule.IsUpper && val >= rule.Value
-                    color = rule.Color;
-                elseif ~rule.IsUpper && val <= rule.Value
-                    color = rule.Color;
+            for k = 1:numel(sensor.Thresholds)
+                t = sensor.Thresholds{k};
+                if isempty(t.Color), continue; end
+                tVals = t.allValues();
+                for v = 1:numel(tVals)
+                    if t.IsUpper && val >= tVals(v)
+                        color = t.Color;
+                    elseif ~t.IsUpper && val <= tVals(v)
+                        color = t.Color;
+                    end
                 end
             end
         end
