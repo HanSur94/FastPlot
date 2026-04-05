@@ -51,6 +51,14 @@ classdef MultiStatusWidget < DashboardWidget
             warnColor = theme.StatusWarnColor;
             alarmColor = theme.StatusAlarmColor;
 
+            % Compute aspect ratio correction for circles
+            oldUnits = get(obj.hPanel, 'Units');
+            set(obj.hPanel, 'Units', 'pixels');
+            pxPos = get(obj.hPanel, 'Position');
+            set(obj.hPanel, 'Units', oldUnits);
+            pxW = pxPos(3);
+            pxH = pxPos(4);
+
             for i = 1:n
                 col = mod(i-1, cols);
                 row = floor((i-1) / cols);
@@ -61,14 +69,19 @@ classdef MultiStatusWidget < DashboardWidget
                 sensor = obj.Sensors{i};
                 color = obj.deriveColor(sensor, okColor);
 
-                % Draw indicator
-                r = 0.3 / max(cols, rows);
+                % Draw indicator — aspect-ratio-corrected so circles stay round
+                ry = 0.3 / max(cols, rows);
+                if pxW > 0 && pxH > 0
+                    rx = ry * (pxH / pxW);
+                else
+                    rx = ry;
+                end
                 if strcmp(obj.IconStyle, 'square')
-                    rectangle(obj.hAxes, 'Position', [cx-r cy-r 2*r 2*r], ...
+                    rectangle(obj.hAxes, 'Position', [cx-rx cy-ry 2*rx 2*ry], ...
                         'FaceColor', color, 'EdgeColor', 'none');
                 else
                     theta = linspace(0, 2*pi, 30);
-                    fill(obj.hAxes, cx + r*cos(theta), cy + r*sin(theta), ...
+                    fill(obj.hAxes, cx + rx*cos(theta), cy + ry*sin(theta), ...
                         color, 'EdgeColor', 'none');
                 end
 
@@ -76,7 +89,7 @@ classdef MultiStatusWidget < DashboardWidget
                 if obj.ShowLabels && ~isempty(sensor)
                     name = sensor.Name;
                     if isempty(name), name = sensor.Key; end
-                    text(obj.hAxes, cx, cy - r - 0.02, name, ...
+                    text(obj.hAxes, cx, cy - ry - 0.02, name, ...
                         'HorizontalAlignment', 'center', ...
                         'FontSize', 8, ...
                         'Color', theme.AxisColor);
