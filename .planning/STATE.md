@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 1002-01-PLAN.md
-last_updated: "2026-04-05T22:33:53.247Z"
+status: verifying
+stopped_at: Completed 1002-02-PLAN.md (IconCardWidget, MultiStatusWidget, ChipBarWidget threshold binding)
+last_updated: "2026-04-05T22:37:02.430Z"
 last_activity: 2026-04-05
 progress:
-  total_phases: 7
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 16
+  total_phases: 4
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 1002 — direct-widget-threshold-binding
+**Current focus:** Phase 1000 — dashboard-engine-performance-optimization-phase-2
 
 ## Current Position
 
-Phase: 1002 (direct-widget-threshold-binding) — EXECUTING
-Plan: 2 of 2
-Status: Ready to execute
+Phase: 1000
+Plan: Not started
+Status: Phase complete — ready for verification
 Last activity: 2026-04-05
 
 Progress: [░░░░░░░░░░] 0%
@@ -90,13 +90,7 @@ Progress: [░░░░░░░░░░] 0%
 =======
 | Phase 1000 P03 | 5min | 2 tasks | 2 files |
 >>>>>>> worktree-agent-a9506b74
-| Phase 1001 P01 | 5min | 2 tasks | 6 files |
-| Phase 1001 P02 | 6min | 2 tasks | 8 files |
-| Phase 1001 P04 | 4min | 2 tasks | 9 files |
-| Phase 1001 P03 | 10min | 2 tasks | 13 files |
-| Phase 1001 P05 | 10min | 2 tasks | 10 files |
-| Phase 1001 P06 | 8min | 2 tasks | 5 files |
-| Phase 1002 P01 | 8min | 2 tasks | 5 files |
+| Phase 1002 P02 | 25 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -154,6 +148,8 @@ Recent decisions affecting current work:
 - [Phase 01-dashboard-performance-optimization]: render() pre-allocates all page panels at startup with non-active pages hidden so switchPage is pure visibility toggle
 - [Phase 999.1-mushroom-cards-for-dashboard-engine]: Wave 1 widget files copied from main repo to worktree for plan 04; DetachedMirror restoreLiveRefs handles ValueFcn generically via isprop so no per-type clone code needed beyond fromStruct dispatch
 
+<<<<<<< HEAD
+
 - [Phase 999.3]: No render() required before exportData() — buildExportStruct_ accesses raw Lines/Thresholds directly
 - [Phase 999.3]: testExportCSVDatetime guarded with ~exist('OCTAVE_VERSION') since datetime is MATLAB-only
 - [Phase 999.3]: exportData dual-API mirrors exportPNG: no-arg opens dialog, with-arg saves directly (extension determines format)
@@ -162,29 +158,22 @@ Recent decisions affecting current work:
 - [Phase 1000-02]: repositionPanels no longer calls markDirty — position change alone does not require data refresh
 - [Phase 1000]: Sensor identity comparison uses MATLAB handle == operator; on sensor swap LastSensorRef mismatch triggers full teardown
 - [Phase 1000]: CachedXMax always set to x(n) on each tick; CachedXMin only initialised once when inf to avoid overwriting on incremental append
+
+=======
+
 - [Phase 1000-03]: allocatePanels for non-active pages so Realized stays false at startup; realizeBatch(5) in switchPage reuses batch infrastructure
-- [Phase 1001]: Label dependent property on Threshold returns Name for buildThresholdEntry backward compatibility
-- [Phase 1001]: ThresholdRegistry catalog starts EMPTY per D-09 — no predefined entries, users populate at runtime
-- [Phase 1001]: Handle identity verified via mutation semantics not == operator for Octave compatibility
-- [Phase 1001]: allRules flattening in Sensor.resolve() iterates Thresholds->conditions_ enabling zero MEX changes
-- [Phase 1001]: addThreshold dual-input accepts Threshold object or char registry key via ThresholdRegistry.get()
-- [Phase 1001]: EventViewer stores Threshold handles in sd.thresholds for direct addThreshold reuse in buildSensor; IncrementalEventDetector.escalate uses t.allValues() for multi-condition threshold support
-- [Phase 1001]: Threshold violation checks iterate allValues() for each Threshold (no single .Value property — all condition values checked)
-- [Phase 1001]: loadModuleMetadata uses getConditionFields() on each Threshold for state channel discovery
-- [Phase 1001]: Threshold key derived from lowercased label with spaces replaced by underscores; no-label calls use upper_N key format
-- [Phase 1001]: All 5 EventDetection test files migrated: 34 addThresholdRule calls replaced with Threshold+addCondition+addThreshold pattern
-- [Phase 1002]: Threshold path checked before Sensor path in refresh() — precedence by property primacy; mutual exclusivity enforced in constructor
-- [Phase 1002]: GaugeWidget uses existing StaticValue/ValueFcn as value source for Threshold path — no separate Value property added
-- [Phase 1002]: ThresholdRegistry.clear() added as Rule 2 deviation to support test isolation
+
+>>>>>>> worktree-agent-a9506b74
+
+- [Phase 1002]: IconCardWidget Threshold resolver in own varargin constructor; mutual exclusivity post-loop
+- [Phase 1002]: MultiStatusWidget toStruct emits s.items typed array for mixed Sensor/threshold entries
+- [Phase 1002]: ChipBarWidget threshold block before statusFcn in resolveChipColor so threshold takes priority
 
 ### Roadmap Evolution
 
 - Phase 8 added: Widget improvements — DividerWidget, CollapsibleWidget, Y-axis limits
 - Phase 1 added: Dashboard Performance Optimization — faster creation, instantiation, and interactivity
 - Phase 1000 added: Dashboard Engine Performance Optimization Phase 2 — 6 bottlenecks: incremental FastSenseWidget refresh, debounced slider broadcast, lazy page realization, cached time ranges, batched page switch, debounced resize
-- Phase 1001 added: First-Class Threshold Entities — make thresholds independent reusable entities (like sensors) with ThresholdRegistry, TrendMiner-style shared thresholds across multiple sensors
-- Phase 1002 added: Direct Widget-Threshold Binding — widgets reference Thresholds directly without Sensor
-- Phase 1003 added: Composite Thresholds — hierarchical status aggregation via CompositeThreshold class
 
 ### Pending Todos
 
@@ -205,12 +194,14 @@ None yet.
 | 260405-oqu | Create 4 dedicated widget example scripts (iconcard, chipbar, sparkline, divider) | 2026-04-05 | 1f53bca | [260405-oqu-create-5-dedicated-widget-example-script](./quick/260405-oqu-create-5-dedicated-widget-example-script/) |
 | 260405-ovf | Update README based on research of 12 highly-starred open-source projects | 2026-04-05 | 144fbb2 | [260405-ovf-update-project-readme-based-on-research-](./quick/260405-ovf-update-project-readme-based-on-research-/) |
 | 260405-plc | Change DashboardToolbar Edit button to open source file in MATLAB editor | 2026-04-05 | 5188b04 | [260405-plc-change-the-edit-button-of-dashboardengin](./quick/260405-plc-change-the-edit-button-of-dashboardengin/) |
-| 260405-qa7 | Add dashboard performance benchmarks to CI | 2026-04-05 | 298984d | [260405-qa7-add-dashboard-performance-benchmarks-to-](./quick/260405-qa7-add-dashboard-performance-benchmarks-to-/) |
-| 260405-tff | Integrate new Threshold system into all example scripts | 2026-04-05 | dec46eb | [260405-tff-integrate-new-threshold-system-into-all-](./quick/260405-tff-integrate-new-threshold-system-into-all-/) |
-| 260405-wol | Migrate remaining addThresholdRule calls in install.m, benchmarks, docs, ThresholdRule.m | 2026-04-05 | 9736ef9 | [260405-wol-migrate-remaining-addthresholdrule-calls](./quick/260405-wol-migrate-remaining-addthresholdrule-calls/) |
 
 ## Session Continuity
 
-Last session: 2026-04-05T22:33:53.242Z
-Stopped at: Completed 1002-01-PLAN.md
+<<<<<<< HEAD
+Last session: 2026-04-05T22:37:02.426Z
+Stopped at: Completed 1002-02-PLAN.md (IconCardWidget, MultiStatusWidget, ChipBarWidget threshold binding)
+=======
+Last session: 2026-04-05T16:49:34.597Z
+Stopped at: Completed 1000-03-PLAN.md (lazy page realization + batched switchPage)
+>>>>>>> worktree-agent-a9506b74
 Resume file: None
