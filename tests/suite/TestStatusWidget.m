@@ -225,5 +225,176 @@ classdef TestStatusWidget < matlab.unittest.TestCase
             testCase.verifyEqual(w.Type, 'status', ...
                 'Dependent Type property should also return status');
         end
+
+        % --- NEW TESTS FOR THRESHOLD BINDING ---
+
+        function testConstructorThresholdBinding(testCase)
+            %% StatusWidget stores Threshold and Value when passed via constructor
+            t = Threshold('test_hi', 'Name', 'Hi', 'Direction', 'upper');
+            t.addCondition(struct(), 80);
+            w = StatusWidget('Title', 'T', 'Threshold', t, 'Value', 42);
+            testCase.verifyEqual(w.Threshold, t, ...
+                'Threshold property should store the Threshold object');
+            testCase.verifyEqual(w.Value, 42, ...
+                'Value property should store the scalar value');
+        end
+
+        function testThresholdKeyResolution(testCase)
+            %% Threshold string key is resolved via ThresholdRegistry
+            ThresholdRegistry.clear();
+            t = Threshold('temp_hh', 'Name', 'Hi Hi', 'Direction', 'upper');
+            t.addCondition(struct(), 100);
+            ThresholdRegistry.register('temp_hh', t);
+            testCase.addTeardown(@() ThresholdRegistry.clear());
+
+            w = StatusWidget('Title', 'T', 'Threshold', 'temp_hh', 'Value', 50);
+            testCase.verifyEqual(w.Threshold, t, ...
+                'String key should resolve to registered Threshold object');
+        end
+
+        function testMutualExclusivity(testCase)
+            %% Setting Threshold clears Sensor; widget with both has Threshold, Sensor cleared
+            s = Sensor('T-401', 'Name', 'Temperature');
+            s.X = [1]; s.Y = [70];
+            t = Threshold('temp_hi', 'Name', 'Hi', 'Direction', 'upper');
+            t.addCondition(struct(), 80);
+
+            w = StatusWidget('Sensor', s, 'Threshold', t, 'Value', 85);
+            testCase.verifyEmpty(w.Sensor, ...
+                'Sensor should be cleared when Threshold is set');
+            testCase.verifyEqual(w.Threshold, t, ...
+                'Threshold should be set');
+        end
+
+        function testDeriveStatusFromThreshold(testCase)
+            %% Value above upper threshold -> violation + alarm color; below -> ok
+            theme = DashboardTheme();
+            t = Threshold('test_hi', 'Name', 'Hi Alarm', 'Direction', 'upper');
+            t.addCondition(struct(), 80);
+
+            % Violation: value 85 > threshold 80
+            w = StatusWidget('Title', 'T', 'Threshold', t, 'Value', 85);
+            hFig = figure('Visible', 'off');
+            testCase.addTeardown(@() close(hFig));
+            hp = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
+            w.render(hp);
+            testCase.verifyEqual(w.CurrentStatus, 'violation', ...
+                'Value above upper threshold should give violation status');
+            testCase.verifyEqual(w.CurrentColor, theme.StatusAlarmColor, ...
+                'Upper violation without Color should give StatusAlarmColor');
+
+            % OK: value 70 < threshold 80
+            w2 = StatusWidget('Title', 'T', 'Threshold', t, 'Value', 70);
+            hp2 = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
+            w2.render(hp2);
+            testCase.verifyEqual(w2.CurrentStatus, 'ok', ...
+                'Value below upper threshold should give ok status');
+            testCase.verifyEqual(w2.CurrentColor, theme.StatusOkColor, ...
+                'OK status should give StatusOkColor');
+        end
+
+        function testThresholdPathPriority(testCase)
+            %% When both Threshold and StatusFcn are set, Threshold path wins
+            t = Threshold('test_hi', 'Name', 'Hi', 'Direction', 'upper');
+            t.addCondition(struct(), 80);
+
+            w = StatusWidget('Title', 'T', ...
+                'Threshold', t, 'Value', 85, ...
+                'StatusFcn', @() 'ok');
+            hFig = figure('Visible', 'off');
+            testCase.addTeardown(@() close(hFig));
+            hp = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
+            w.render(hp);
+            testCase.verifyEqual(w.CurrentStatus, 'violation', ...
+                'Threshold path should take priority over StatusFcn');
+        end
+
+        function testValueFcnLiveTick(testCase)
+            %% ValueFcn is called on each refresh() and CurrentStatus updates
+            t = Threshold('test_hi', 'Name', 'Hi', 'Direction', 'upper');
+            t.addCondition(struct(), 80);
+
+            val = containers.Map('KeyType', 'char', 'ValueType', 'double');
+            val('v') = 70;
+
+            w = StatusWidget('Title', 'T', ...
+                'Threshold', t, 'ValueFcn', @() val('v'));
+            hFig = figure('Visible', 'off');
+            testCase.addTeardown(@() close(hFig));
+            hp = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
+            w.render(hp);
+            testCase.verifyEqual(w.CurrentStatus, 'ok', ...
+                'Initial value 70 < 80 should be ok');
+
+            % Simulate value going above threshold
+            val('v') = 90;
+            w.refresh();
+            testCase.verifyEqual(w.CurrentStatus, 'violation', ...
+                'After refresh with value 90 > 80 should be violation');
+        end
+
+        function testSerializeThresholdRoundTrip(testCase)
+            %% toStruct produces source.type='threshold' + source.key; fromStruct restores
+            ThresholdRegistry.clear();
+            t = Threshold('press_hi', 'Name', 'Hi', 'Direction', 'upper');
+            t.addCondition(struct(), 90);
+            ThresholdRegistry.register('press_hi', t);
+            testCase.addTeardown(@() ThresholdRegistry.clear());
+
+            w = StatusWidget('Title', 'Pressure', ...
+                'Threshold', t, 'Value', 75);
+            st = w.toStruct();
+
+            testCase.verifyTrue(isfield(st, 'source'), ...
+                'toStruct should include source field');
+            testCase.verifyEqual(st.source.type, 'threshold', ...
+                'source.type should be ''threshold''');
+            testCase.verifyEqual(st.source.key, 'press_hi', ...
+                'source.key should match threshold key');
+
+            % Round-trip via fromStruct
+            w2 = StatusWidget.fromStruct(st);
+            testCase.verifyEqual(w2.Threshold, t, ...
+                'fromStruct should restore Threshold from registry');
+            testCase.verifyEqual(w2.Value, 75, ...
+                'fromStruct should restore Value');
+        end
+
+        function testThresholdValueLabel(testCase)
+            %% Label shows "Title: value" format when Threshold path is active
+            t = Threshold('test_hi', 'Name', 'Hi', 'Direction', 'upper');
+            t.addCondition(struct(), 80);
+
+            w = StatusWidget('Title', 'Temp', 'Threshold', t, 'Value', 72.5);
+            hFig = figure('Visible', 'off');
+            testCase.addTeardown(@() close(hFig));
+            hp = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
+            w.render(hp);
+
+            % Check that the label text includes the value
+            labelStr = get(w.hLabelText, 'String');
+            testCase.verifyTrue(~isempty(labelStr), ...
+                'Label should not be empty');
+            testCase.verifyTrue(~isempty(strfind(labelStr, '72.5')) || ...
+                ~isempty(strfind(labelStr, '72')), ...
+                'Label should contain numeric value');
+        end
+
+        function testLowerThresholdViolation(testCase)
+            %% Value below lower threshold -> violation + warn color
+            theme = DashboardTheme();
+            t = Threshold('test_lo', 'Name', 'Lo Warn', 'Direction', 'lower');
+            t.addCondition(struct(), 10);
+
+            w = StatusWidget('Title', 'T', 'Threshold', t, 'Value', 5);
+            hFig = figure('Visible', 'off');
+            testCase.addTeardown(@() close(hFig));
+            hp = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
+            w.render(hp);
+            testCase.verifyEqual(w.CurrentStatus, 'violation', ...
+                'Value below lower threshold should give violation');
+            testCase.verifyEqual(w.CurrentColor, theme.StatusWarnColor, ...
+                'Lower violation without Color should use StatusWarnColor');
+        end
     end
 end

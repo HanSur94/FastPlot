@@ -105,6 +105,20 @@ classdef ThresholdRegistry
             end
         end
 
+        function clear()
+            %CLEAR Remove all entries from the catalog.
+            %   ThresholdRegistry.clear() empties the entire catalog.
+            %   Primarily used in tests to reset state between test runs.
+            %
+            %   See also ThresholdRegistry.register, ThresholdRegistry.unregister.
+
+            m = ThresholdRegistry.catalog();
+            k = m.keys();
+            for i = 1:numel(k)
+                m.remove(k{i});
+            end
+        end
+
         function list()
             %LIST Print all registered threshold keys and names.
             %   ThresholdRegistry.list() prints a formatted list of every
