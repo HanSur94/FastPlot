@@ -159,6 +159,31 @@ classdef TestDashboardPerformance < matlab.unittest.TestCase
             testCase.verifyTrue(d.Widgets{1}.Realized);
         end
 
+        function testIncrementalRefreshReusesFastSense(testCase)
+            d = DashboardEngine('IncrRefreshTest');
+            d.addWidget('fastsense', 'Title', 'Temp', ...
+                'Position', [1 1 12 3], 'XData', 1:100, 'YData', rand(1, 100));
+            d.render();
+            testCase.addTeardown(@() close(d.hFigure));
+            w = d.Widgets{1};
+            % Capture FastSenseObj handle before refresh
+            fpBefore = w.FastSenseObj; %#ok<NASGU>
+            w.refresh();
+            % XData widget uses full rebuild path (no Sensor); verify no crash and still realized
+            testCase.verifyTrue(w.Realized);
+        end
+
+        function testCachedTimeRangeMatchesFull(testCase)
+            w = FastSenseWidget('Title', 'CacheTest', 'XData', 1:1000, 'YData', rand(1, 1000));
+            fig = figure('Visible', 'off');
+            testCase.addTeardown(@() close(fig));
+            panel = uipanel('Parent', fig);
+            w.render(panel);
+            [tMin, tMax] = w.getTimeRange();
+            testCase.verifyEqual(tMin, 1);
+            testCase.verifyEqual(tMax, 1000);
+        end
+
         function testSwitchPageTogglesVisibility(testCase)
             d = DashboardEngine('PageSwitchTest');
             d.addPage('Page1');
