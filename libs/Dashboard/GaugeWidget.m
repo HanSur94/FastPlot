@@ -4,6 +4,7 @@ classdef GaugeWidget < DashboardWidget
 %   w = GaugeWidget('Title', 'Pressure', 'ValueFcn', @() getPressure(), ...
 %                   'Range', [0 100], 'Units', 'bar');
 %   w = GaugeWidget('Sensor', mySensor, 'Style', 'donut');
+%   w = GaugeWidget('Threshold', t, 'StaticValue', 50);
 
     properties (Access = public)
         ValueFcn    = []
@@ -11,6 +12,7 @@ classdef GaugeWidget < DashboardWidget
         Units       = ''
         StaticValue = []
         Style       = 'arc'      % 'arc', 'donut', 'bar', 'thermometer'
+        Threshold   = []         % Threshold object or registry key string (per D-01)
     end
 
     properties (SetAccess = private)
@@ -31,6 +33,20 @@ classdef GaugeWidget < DashboardWidget
             if isequal(obj.Position, [1 1 6 2])
                 obj.Position = [1 1 6 4];
             end
+            % Resolve Threshold key string to object (per D-07)
+            if ischar(obj.Threshold) || isstring(obj.Threshold)
+                try
+                    obj.Threshold = ThresholdRegistry.get(obj.Threshold);
+                catch
+                    warning('GaugeWidget:thresholdNotFound', ...
+                        'ThresholdRegistry key ''%s'' not found.', obj.Threshold);
+                    obj.Threshold = [];
+                end
+            end
+            % Mutual exclusivity: Threshold wins (per D-08)
+            if ~isempty(obj.Threshold) && ~isempty(obj.Sensor)
+                obj.Sensor = [];
+            end
             % Derive from Sensor
             if ~isempty(obj.Sensor)
                 if isempty(obj.Units) && ~isempty(obj.Sensor.Units)
@@ -38,6 +54,13 @@ classdef GaugeWidget < DashboardWidget
                 end
                 if isempty(obj.Range)
                     obj.Range = obj.deriveRange();
+                end
+            end
+            % Threshold-based range derivation (per Pattern 4 from RESEARCH)
+            if isempty(obj.Range) && ~isempty(obj.Threshold)
+                tVals = obj.Threshold.allValues();
+                if ~isempty(tVals)
+                    obj.Range = [min(tVals), max(tVals)];
                 end
             end
             if isempty(obj.Range)
@@ -59,7 +82,15 @@ classdef GaugeWidget < DashboardWidget
         end
 
         function refresh(obj)
-            if ~isempty(obj.Sensor)
+            if ~isempty(obj.Threshold)
+                if ~isempty(obj.ValueFcn)
+                    obj.CurrentValue = obj.ValueFcn();
+                elseif ~isempty(obj.StaticValue)
+                    obj.CurrentValue = obj.StaticValue;
+                else
+                    return;
+                end
+            elseif ~isempty(obj.Sensor)
                 if isempty(obj.Sensor.Y), return; end
                 obj.CurrentValue = obj.Sensor.Y(end);
                 if isempty(obj.Units) && ~isempty(obj.Sensor.Units)
@@ -90,6 +121,14 @@ classdef GaugeWidget < DashboardWidget
             lines{1} = [ttl, repmat(' ', 1, width - numel(ttl))];
 
             val = obj.StaticValue;
+            if isempty(val) && ~isempty(obj.Threshold)
+                if ~isempty(obj.ValueFcn)
+                    try
+                        val = obj.ValueFcn();
+                    catch
+                    end
+                end
+            end
             if isempty(val) && ~isempty(obj.Sensor) && ~isempty(obj.Sensor.Y)
                 val = obj.Sensor.Y(end);
             end
@@ -130,7 +169,9 @@ classdef GaugeWidget < DashboardWidget
             s.range = obj.Range;
             s.units = obj.Units;
             s.style = obj.Style;
-            if isempty(obj.Sensor)
+            if ~isempty(obj.Threshold) && ~isempty(obj.Threshold.Key)
+                s.source = struct('type', 'threshold', 'key', obj.Threshold.Key);
+            elseif isempty(obj.Sensor)
                 if ~isempty(obj.ValueFcn)
                     s.source = struct('type', 'callback', ...
                         'function', func2str(obj.ValueFcn));
@@ -156,6 +197,15 @@ classdef GaugeWidget < DashboardWidget
                     case 'sensor'
                         if exist('SensorRegistry', 'class')
                             obj.Sensor = SensorRegistry.get(s.source.name);
+                        end
+                    case 'threshold'
+                        if exist('ThresholdRegistry', 'class')
+                            try
+                                obj.Threshold = ThresholdRegistry.get(s.source.key);
+                            catch
+                                warning('GaugeWidget:thresholdNotFound', ...
+                                    'Could not resolve threshold key ''%s'' on load.', s.source.key);
+                            end
                         end
                     case 'callback'
                         obj.ValueFcn = str2func(s.source.function);
@@ -186,7 +236,30 @@ classdef GaugeWidget < DashboardWidget
         end
 
         function color = getValueColor(obj, frac, theme)
-            if ~isempty(obj.Sensor) && ~isempty(obj.Sensor.Thresholds)
+            if ~isempty(obj.Threshold)
+                val = obj.CurrentValue;
+                color = theme.StatusOkColor;
+                t = obj.Threshold;
+                tVals = t.allValues();
+                worstDist = -inf;
+                for v = 1:numel(tVals)
+                    violated = (t.IsUpper && val > tVals(v)) || ...
+                               (~t.IsUpper && val < tVals(v));
+                    if violated
+                        dist = abs(val - tVals(v));
+                        if dist > worstDist
+                            worstDist = dist;
+                            if ~isempty(t.Color)
+                                color = t.Color;
+                            elseif t.IsUpper
+                                color = theme.StatusAlarmColor;
+                            else
+                                color = theme.StatusWarnColor;
+                            end
+                        end
+                    end
+                end
+            elseif ~isempty(obj.Sensor) && ~isempty(obj.Sensor.Thresholds)
                 val = obj.CurrentValue;
                 color = theme.StatusOkColor;
                 worstDist = -inf;
