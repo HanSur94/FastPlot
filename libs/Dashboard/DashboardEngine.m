@@ -55,6 +55,7 @@ classdef DashboardEngine < handle
         hTimeSliderR    = []       % Right (end) slider
         hTimeStart      = []
         hTimeEnd        = []
+        SliderDebounceTimer = []   % MATLAB timer for coalescing rapid slider events
     end
 
     methods (Access = public)
@@ -306,6 +307,11 @@ classdef DashboardEngine < handle
                 stop(obj.LiveTimer);
                 delete(obj.LiveTimer);
                 obj.LiveTimer = [];
+            end
+            if ~isempty(obj.SliderDebounceTimer)
+                try stop(obj.SliderDebounceTimer); catch, end
+                try delete(obj.SliderDebounceTimer); catch, end
+                obj.SliderDebounceTimer = [];
             end
             obj.IsLive = false;
         end
@@ -852,8 +858,15 @@ classdef DashboardEngine < handle
             end
 
             % Re-apply current slider positions to the updated time range
+            % Use direct broadcastTimeRange (not debounced) since live tick is already rate-limited
             if ~isempty(obj.hTimeSliderL) && ishandle(obj.hTimeSliderL)
-                obj.onTimeSlidersChanged();
+                valL = get(obj.hTimeSliderL, 'Value');
+                valR = get(obj.hTimeSliderR, 'Value');
+                tr = obj.DataTimeRange;
+                span = tr(2) - tr(1);
+                tStart = tr(1) + valL * span;
+                tEnd   = tr(1) + valR * span;
+                obj.broadcastTimeRange(tStart, tEnd);
             end
 
             % Clear dirty flags AFTER slider broadcast to avoid re-dirtying
@@ -878,6 +891,11 @@ classdef DashboardEngine < handle
         end
 
         function delete(obj)
+            if ~isempty(obj.SliderDebounceTimer)
+                try stop(obj.SliderDebounceTimer); catch, end
+                try delete(obj.SliderDebounceTimer); catch, end
+                obj.SliderDebounceTimer = [];
+            end
             obj.stopLive();
             obj.cleanupInfoTempFile();
         end
@@ -901,12 +919,11 @@ classdef DashboardEngine < handle
             if ~isempty(obj.Layout.hViewport) && ishandle(obj.Layout.hViewport)
                 set(obj.Layout.hViewport, 'Position', obj.Layout.ContentArea);
             end
-            % Reposition each panel and mark dirty so widgets re-render at new size
+            % Reposition each panel — no dirty marking needed since position change does not require data refresh
             for i = 1:numel(ws)
                 w = ws{i};
                 newPos = obj.Layout.computePosition(w.Position);
                 set(w.hPanel, 'Position', newPos);
-                w.markDirty();
             end
         end
 
@@ -1106,8 +1123,19 @@ classdef DashboardEngine < handle
             tStart = tr(1) + valL * span;
             tEnd   = tr(1) + valR * span;
 
-            obj.broadcastTimeRange(tStart, tEnd);
+            % Update labels immediately for visual feedback
             obj.updateTimeLabels(tStart, tEnd);
+
+            % Debounce the expensive broadcastTimeRange — coalesce rapid slider events
+            if ~isempty(obj.SliderDebounceTimer)
+                try stop(obj.SliderDebounceTimer); catch, end
+                try delete(obj.SliderDebounceTimer); catch, end
+                obj.SliderDebounceTimer = [];
+            end
+            obj.SliderDebounceTimer = timer('ExecutionMode', 'singleShot', ...
+                'StartDelay', 0.1, ...
+                'TimerFcn', @(~,~) obj.broadcastTimeRange(tStart, tEnd));
+            start(obj.SliderDebounceTimer);
         end
 
         function updateTimeLabels(obj, tStart, tEnd)
