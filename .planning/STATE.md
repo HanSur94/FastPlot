@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 1001 context gathered
-last_updated: "2026-04-05T17:22:55.617Z"
+status: executing
+stopped_at: Completed 1001-01-PLAN.md
+last_updated: "2026-04-05T18:04:47.937Z"
 last_activity: 2026-04-05
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 13
+  completed_plans: 10
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 1000 — dashboard-engine-performance-optimization-phase-2
+**Current focus:** Phase 1001 — first-class-threshold-entities
 
 ## Current Position
 
-Phase: 1000
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 1001 (first-class-threshold-entities) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-04-05
 
 Progress: [░░░░░░░░░░] 0%
@@ -90,6 +90,7 @@ Progress: [░░░░░░░░░░] 0%
 =======
 | Phase 1000 P03 | 5min | 2 tasks | 2 files |
 >>>>>>> worktree-agent-a9506b74
+| Phase 1001 P01 | 5min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -156,6 +157,9 @@ Recent decisions affecting current work:
 - [Phase 1000]: Sensor identity comparison uses MATLAB handle == operator; on sensor swap LastSensorRef mismatch triggers full teardown
 - [Phase 1000]: CachedXMax always set to x(n) on each tick; CachedXMin only initialised once when inf to avoid overwriting on incremental append
 - [Phase 1000-03]: allocatePanels for non-active pages so Realized stays false at startup; realizeBatch(5) in switchPage reuses batch infrastructure
+- [Phase 1001]: Label dependent property on Threshold returns Name for buildThresholdEntry backward compatibility
+- [Phase 1001]: ThresholdRegistry catalog starts EMPTY per D-09 — no predefined entries, users populate at runtime
+- [Phase 1001]: Handle identity verified via mutation semantics not == operator for Octave compatibility
 
 ### Roadmap Evolution
 
@@ -187,6 +191,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T17:22:55.611Z
-Stopped at: Phase 1001 context gathered
-Resume file: .planning/phases/1001-first-class-threshold-entities/1001-CONTEXT.md
+Last session: 2026-04-05T18:04:47.932Z
+Stopped at: Completed 1001-01-PLAN.md
+Resume file: None
