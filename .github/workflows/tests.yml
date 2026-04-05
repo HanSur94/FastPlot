@@ -147,11 +147,14 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Install Octave
+        shell: pwsh
         run: |
-          choco install octave.portable --yes --version=9.2.0 --no-progress 2>&1 || (
-            echo "::warning::Chocolatey Octave 9.2.0 failed (likely ftp.gnu.org outage). Trying latest version..."
-            choco install octave.portable --yes --no-progress
-          )
+          choco install octave.portable --yes --version=9.2.0 --no-progress
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::Chocolatey Octave 9.2.0 failed (likely ftp.gnu.org outage). Trying latest version..."
+            choco install octave.portable --yes --no-progress --force
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
         timeout-minutes: 15
 
       - name: Compile MEX files
