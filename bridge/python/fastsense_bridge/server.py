@@ -272,10 +272,16 @@ def create_app(state: AppState) -> FastAPI:
         sig = next((s for s in state.signals if s["id"] == signal_id), None)
         if not sig:
             raise HTTPException(404, f"Signal '{signal_id}' not found")
+        params = []
+        if xMin > -1e29:
+            params.append(f"xMin={xMin}")
+        if xMax < 1e29:
+            params.append(f"xMax={xMax}")
+        query = ("?" + "&".join(params)) if params else ""
         return {
             "ok": True,
             "mode": "script",
-            "scriptUrl": f"/api/export/script/{signal_id}?xMin={xMin}&xMax={xMax}",
+            "scriptUrl": f"/api/export/script/{signal_id}{query}",
         }
 
     @app.get("/api/export/script/{signal_id}")
