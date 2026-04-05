@@ -159,7 +159,7 @@ jobs:
           }
           # Fallback: direct download from mirror
           Write-Host "::warning::Chocolatey install failed (ftp.gnu.org may be down). Downloading from ftpmirror..."
-          $url = "https://ftpmirror.gnu.org/octave/windows/octave-9.2.0-w64.zip"
+          $url = "https://mirrors.kernel.org/gnu/octave/windows/octave-9.2.0-w64.zip"
           $zip = "$env:TEMP\octave.zip"
           $dest = "C:\octave"
           Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
