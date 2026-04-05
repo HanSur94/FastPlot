@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 1000-03-PLAN.md (lazy page realization + batched switchPage)
-last_updated: "2026-04-05T16:49:34.600Z"
+status: verifying
+stopped_at: Completed 1002-02-PLAN.md (IconCardWidget, MultiStatusWidget, ChipBarWidget threshold binding)
+last_updated: "2026-04-05T22:37:02.430Z"
 last_activity: 2026-04-05
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
   percent: 0
 ---
 
@@ -90,6 +90,7 @@ Progress: [░░░░░░░░░░] 0%
 =======
 | Phase 1000 P03 | 5min | 2 tasks | 2 files |
 >>>>>>> worktree-agent-a9506b74
+| Phase 1002 P02 | 25 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -146,7 +147,9 @@ Recent decisions affecting current work:
 - [Phase 01-dashboard-performance-optimization]: repositionPanels() falls back to rerenderWidgets() if any panel handle is missing — safe degradation at first render
 - [Phase 01-dashboard-performance-optimization]: render() pre-allocates all page panels at startup with non-active pages hidden so switchPage is pure visibility toggle
 - [Phase 999.1-mushroom-cards-for-dashboard-engine]: Wave 1 widget files copied from main repo to worktree for plan 04; DetachedMirror restoreLiveRefs handles ValueFcn generically via isprop so no per-type clone code needed beyond fromStruct dispatch
+
 <<<<<<< HEAD
+
 - [Phase 999.3]: No render() required before exportData() — buildExportStruct_ accesses raw Lines/Thresholds directly
 - [Phase 999.3]: testExportCSVDatetime guarded with ~exist('OCTAVE_VERSION') since datetime is MATLAB-only
 - [Phase 999.3]: exportData dual-API mirrors exportPNG: no-arg opens dialog, with-arg saves directly (extension determines format)
@@ -155,9 +158,16 @@ Recent decisions affecting current work:
 - [Phase 1000-02]: repositionPanels no longer calls markDirty — position change alone does not require data refresh
 - [Phase 1000]: Sensor identity comparison uses MATLAB handle == operator; on sensor swap LastSensorRef mismatch triggers full teardown
 - [Phase 1000]: CachedXMax always set to x(n) on each tick; CachedXMin only initialised once when inf to avoid overwriting on incremental append
+
 =======
+
 - [Phase 1000-03]: allocatePanels for non-active pages so Realized stays false at startup; realizeBatch(5) in switchPage reuses batch infrastructure
+
 >>>>>>> worktree-agent-a9506b74
+
+- [Phase 1002]: IconCardWidget Threshold resolver in own varargin constructor; mutual exclusivity post-loop
+- [Phase 1002]: MultiStatusWidget toStruct emits s.items typed array for mixed Sensor/threshold entries
+- [Phase 1002]: ChipBarWidget threshold block before statusFcn in resolveChipColor so threshold takes priority
 
 ### Roadmap Evolution
 
@@ -188,8 +198,8 @@ None yet.
 ## Session Continuity
 
 <<<<<<< HEAD
-Last session: 2026-04-05T16:45:41.557Z
-Stopped at: Completed 1000-01-PLAN.md
+Last session: 2026-04-05T22:37:02.426Z
+Stopped at: Completed 1002-02-PLAN.md (IconCardWidget, MultiStatusWidget, ChipBarWidget threshold binding)
 =======
 Last session: 2026-04-05T16:49:34.597Z
 Stopped at: Completed 1000-03-PLAN.md (lazy page realization + batched switchPage)
