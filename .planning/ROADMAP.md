@@ -48,3 +48,14 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 | 1-9 | v1.0 Advanced Dashboard | 24/24 | Complete | 2026-04-03 |
 | 01. Code Review Fixes | v1.0 Code Review | 4/4 | Complete | 2026-04-03 |
 | 01. Performance Optimization | v1.0 Performance | 3/3 | Complete | 2026-04-04 |
+
+## Backlog
+
+### Phase 999.1: Mushroom Cards for Dashboard Engine (BACKLOG)
+
+**Goal:** Add Home Assistant-style Mushroom Card widgets to the dashboard engine — minimal, icon-driven cards with clean visual design for sensor status, controls, and quick glance data. Inspired by the Mushroom Cards ecosystem in Home Assistant.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
