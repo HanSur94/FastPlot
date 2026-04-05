@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 1000-01-PLAN.md
-last_updated: "2026-04-05T16:53:26.097Z"
+stopped_at: Completed quick-260405-qa7 (dashboard benchmark section in run_ci_benchmark.m)
+last_updated: "2026-04-05T16:59:00.490Z"
 last_activity: 2026-04-05
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 3
   total_plans: 9
   completed_plans: 9
@@ -147,7 +147,6 @@ Recent decisions affecting current work:
 - [Phase 01-dashboard-performance-optimization]: render() pre-allocates all page panels at startup with non-active pages hidden so switchPage is pure visibility toggle
 - [Phase 999.1-mushroom-cards-for-dashboard-engine]: Wave 1 widget files copied from main repo to worktree for plan 04; DetachedMirror restoreLiveRefs handles ValueFcn generically via isprop so no per-type clone code needed beyond fromStruct dispatch
 
-
 - [Phase 999.3]: No render() required before exportData() — buildExportStruct_ accesses raw Lines/Thresholds directly
 - [Phase 999.3]: testExportCSVDatetime guarded with ~exist('OCTAVE_VERSION') since datetime is MATLAB-only
 - [Phase 999.3]: exportData dual-API mirrors exportPNG: no-arg opens dialog, with-arg saves directly (extension determines format)
@@ -163,6 +162,7 @@ Recent decisions affecting current work:
 - Phase 8 added: Widget improvements — DividerWidget, CollapsibleWidget, Y-axis limits
 - Phase 1 added: Dashboard Performance Optimization — faster creation, instantiation, and interactivity
 - Phase 1000 added: Dashboard Engine Performance Optimization Phase 2 — 6 bottlenecks: incremental FastSenseWidget refresh, debounced slider broadcast, lazy page realization, cached time ranges, batched page switch, debounced resize
+- Phase 1001 added: First-Class Threshold Entities — make thresholds independent reusable entities (like sensors) with ThresholdRegistry, TrendMiner-style shared thresholds across multiple sensors
 
 ### Pending Todos
 
@@ -187,8 +187,8 @@ None yet.
 ## Session Continuity
 
 <<<<<<< HEAD
-Last session: 2026-04-05T16:45:41.557Z
-Stopped at: Completed 1000-01-PLAN.md
+Last session: 2026-04-05T16:59:00.484Z
+Stopped at: Completed quick-260405-qa7 (dashboard benchmark section in run_ci_benchmark.m)
 =======
 Last session: 2026-04-05T16:49:34.597Z
 Stopped at: Completed 1000-03-PLAN.md (lazy page realization + batched switchPage)
