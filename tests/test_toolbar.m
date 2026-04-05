@@ -165,5 +165,96 @@ function test_toolbar()
     assert(strcmp(get(hM, 'Visible'), 'on'), 'testViolationsToggle: markers back');
     close(fp.hFigure);
 
-    fprintf('    All 14 toolbar tests passed.\n');
+    % testExportCSV
+    fp = FastSense();
+    fp.addLine([1 2 3 4 5], [10 20 30 40 50], 'DisplayName', 'Temp');
+    fp.render();
+    tmpFile = [tempname, '.csv'];
+    fp.exportData(tmpFile, 'csv');
+    assert(exist(tmpFile, 'file') == 2, 'testExportCSV: file should exist');
+    fid = fopen(tmpFile, 'r');
+    header = fgetl(fid);
+    fclose(fid);
+    assert(~isempty(strfind(header, 'time')), 'testExportCSV: header has time');
+    assert(~isempty(strfind(header, 'Temp')), 'testExportCSV: header has DisplayName');
+    delete(tmpFile);
+    close(fp.hFigure);
+
+    % testExportMAT
+    fp = FastSense();
+    fp.addLine([1 2 3], [10 20 30], 'DisplayName', 'Pressure');
+    fp.addThreshold(25, 'Direction', 'upper', 'Label', 'High');
+    fp.render();
+    tmpFile = [tempname, '.mat'];
+    fp.exportData(tmpFile, 'mat');
+    assert(exist(tmpFile, 'file') == 2, 'testExportMAT: file should exist');
+    S = load(tmpFile);
+    assert(isfield(S, 'lines'), 'testExportMAT: has lines');
+    assert(isfield(S, 'thresholds'), 'testExportMAT: has thresholds');
+    assert(numel(S.lines) == 1, 'testExportMAT: one line');
+    assert(strcmp(S.lines(1).Name, 'Pressure'), 'testExportMAT: line name');
+    assert(S.thresholds(1).Value == 25, 'testExportMAT: threshold value');
+    assert(strcmp(S.thresholds(1).Direction, 'upper'), 'testExportMAT: threshold dir');
+    delete(tmpFile);
+    close(fp.hFigure);
+
+    % testExportCSVMismatchedX
+    fp = FastSense();
+    fp.addLine([1 2 3], [10 20 30], 'DisplayName', 'A');
+    fp.addLine([2 3 4], [40 50 60], 'DisplayName', 'B');
+    fp.render();
+    tmpFile = [tempname, '.csv'];
+    fp.exportData(tmpFile, 'csv');
+    fid = fopen(tmpFile, 'r');
+    header = fgetl(fid);
+    lines = {};
+    while true
+        L = fgetl(fid);
+        if isequal(L, -1); break; end
+        if L(1) == '#'; continue; end
+        lines{end+1} = L;
+    end
+    fclose(fid);
+    % Should have 4 rows: x=1,2,3,4 (union)
+    assert(numel(lines) == 4, sprintf('testExportCSVMismatchedX: expected 4 rows, got %d', numel(lines)));
+    % First row (x=1): A has value, B should be NaN
+    vals1 = strsplit(lines{1}, ',');
+    assert(strcmp(vals1{3}, 'NaN'), 'testExportCSVMismatchedX: B is NaN at x=1');
+    % Last row (x=4): A should be NaN, B has value
+    vals4 = strsplit(lines{4}, ',');
+    assert(strcmp(vals4{2}, 'NaN'), 'testExportCSVMismatchedX: A is NaN at x=4');
+    delete(tmpFile);
+    close(fp.hFigure);
+
+    % testExportCSVDatetime (MATLAB only — datetime not in Octave base)
+    if ~exist('OCTAVE_VERSION', 'builtin')
+        fp = FastSense();
+        t = datetime(2024, 1, 1) + hours(0:2);
+        fp.addLine(t, [1 2 3], 'DisplayName', 'Sensor');
+        fp.render();
+        tmpFile = [tempname, '.csv'];
+        fp.exportData(tmpFile, 'csv');
+        fid = fopen(tmpFile, 'r');
+        header = fgetl(fid);
+        fclose(fid);
+        assert(~isempty(strfind(header, 'time_datenum')), 'testExportCSVDatetime: has time_datenum');
+        assert(~isempty(strfind(header, 'time_iso8601')), 'testExportCSVDatetime: has time_iso8601');
+        delete(tmpFile);
+        close(fp.hFigure);
+    end
+
+    % testExportNoLines
+    fp = FastSense();
+    tmpFile = [tempname, '.csv'];
+    threw = false;
+    try
+        fp.exportData(tmpFile, 'csv');
+    catch e
+        threw = true;
+        assert(strcmp(e.identifier, 'FastSense:exportData:noLines'), ...
+            sprintf('testExportNoLines: wrong ID: %s', e.identifier));
+    end
+    assert(threw, 'testExportNoLines: should have thrown');
+
+    fprintf('    All 19 toolbar tests passed.\n');
 end
