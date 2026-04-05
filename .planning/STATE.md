@@ -161,9 +161,10 @@ None yet.
 | 260404-gaj | CI MEX build matrix: macOS ARM64, Windows 10+11, Linux Ubuntu | 2026-04-04 | pending | [260404-gaj-implement-github-actions-ci-workflow-tha](./quick/260404-gaj-implement-github-actions-ci-workflow-tha/) |
 | 260405-l0t | Add example_mushroom_cards.m showcasing IconCardWidget, ChipBarWidget, SparklineCardWidget | 2026-04-05 | c32b2aa | [260405-l0t-add-example-script-showcasing-mushroom-c](./quick/260405-l0t-add-example-script-showcasing-mushroom-c/) |
 | 260405-oqu | Create 4 dedicated widget example scripts (iconcard, chipbar, sparkline, divider) | 2026-04-05 | 1f53bca | [260405-oqu-create-5-dedicated-widget-example-script](./quick/260405-oqu-create-5-dedicated-widget-example-script/) |
+| 260405-ovf | Rewrite README based on research of 11 highly-starred open-source projects | 2026-04-05 | 2aa55c6 | [260405-ovf-update-project-readme-based-on-research-](./quick/260405-ovf-update-project-readme-based-on-research-/) |
 
 ## Session Continuity
 
-Last session: 2026-04-05T12:20:22.000Z
-Stopped at: Completed quick task 260405-l0t (add example_mushroom_cards.m)
+Last session: 2026-04-05T15:59:00.000Z
+Stopped at: Completed quick task 260405-ovf (README research and rewrite)
 Resume file: None
