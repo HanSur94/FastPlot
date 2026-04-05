@@ -171,6 +171,30 @@ classdef DashboardBuilder < handle
             end
         end
 
+        function w = addIconCard(obj, varargin)
+            %ADDICONCARD Add an IconCardWidget via the builder.
+            obj.addWidget('iconcard');
+            if nargout > 0
+                w = obj.Engine.Widgets{end};
+            end
+        end
+
+        function w = addChipBar(obj, varargin)
+            %ADDCHIPBAR Add a ChipBarWidget via the builder.
+            obj.addWidget('chipbar');
+            if nargout > 0
+                w = obj.Engine.Widgets{end};
+            end
+        end
+
+        function w = addSparkline(obj, varargin)
+            %ADDSPARKLINE Add a SparklineCardWidget via the builder.
+            obj.addWidget('sparkline');
+            if nargout > 0
+                w = obj.Engine.Widgets{end};
+            end
+        end
+
         function addWidget(obj, type)
             eng = obj.Engine;
             pos = obj.findNextSlot(type);
