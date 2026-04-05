@@ -2132,6 +2132,39 @@ classdef FastSense < handle
             set(fp.hFigure, 'Visible', 'on');
             drawnow;
         end
+
+        function exportData(obj, filepath, format)
+            %EXPORTDATA Export raw line and threshold data as CSV or MAT.
+            %   EXPORTDATA(obj, filepath, format) writes all raw line and
+            %   threshold data from the plot to the file at filepath.
+            %
+            %   Inputs:
+            %     filepath — full path to the output file (string)
+            %     format   — 'csv' or 'mat'
+            %
+            %   The CSV format writes a time column plus one Y column per line,
+            %   using the line DisplayName as the column header. Mismatched X
+            %   arrays are resolved by union with NaN-fill. If IsDatetime is
+            %   true, two time columns are written: time_datenum and time_iso8601.
+            %   Thresholds are appended as comment lines (# prefix).
+            %
+            %   The MAT format writes a .mat file with variables:
+            %     lines(i).X, lines(i).Y, lines(i).Name
+            %     thresholds(i).Value, thresholds(i).Direction, thresholds(i).Label
+            %     exported_datetime (logical, only if IsDatetime is true)
+            %
+            %   See also exportPNG.
+            if ~ismember(format, {'csv', 'mat'})
+                error('FastSense:exportData:unknownFormat', ...
+                    'Format must be ''csv'' or ''mat'', got ''%s''', format);
+            end
+            S = obj.buildExportStruct_();
+            if strcmp(format, 'csv')
+                obj.writeExportCSV_(filepath, S);
+            else
+                obj.writeExportMAT_(filepath, S);
+            end
+        end
     end
 
     % ======================== HIDDEN PUBLIC METHODS =======================
@@ -2159,6 +2192,113 @@ classdef FastSense < handle
     % Internal helpers: timer callbacks, view mode, theme, listeners,
     % downsampling pipeline, pyramid management, and link propagation.
     methods (Access = private)
+        function S = buildExportStruct_(obj)
+            %BUILDEXPORTSTRUCT_ Build the export data structure from Lines and Thresholds.
+            %   S = BUILDEXPORTSTRUCT_(obj) returns a struct with fields:
+            %     S.lines      — struct array with X, Y, Name for each line
+            %     S.thresholds — struct array with Value, Direction, Label for each threshold
+            %     S.isDatetime — logical, true if X data was originally datetime
+            %
+            %   Errors with FastSense:exportData:noLines if no lines have been added.
+            if isempty(obj.Lines)
+                error('FastSense:exportData:noLines', 'No lines to export.');
+            end
+            S.lines = struct('X', {}, 'Y', {}, 'Name', {});
+            for i = 1:numel(obj.Lines)
+                L = obj.Lines(i);
+                if isfield(L.Options, 'DisplayName') && ~isempty(L.Options.DisplayName)
+                    name = L.Options.DisplayName;
+                else
+                    name = sprintf('line%d', i);
+                end
+                S.lines(i).X = L.X;
+                S.lines(i).Y = L.Y;
+                S.lines(i).Name = name;
+            end
+            S.thresholds = struct('Value', {}, 'Direction', {}, 'Label', {});
+            for j = 1:numel(obj.Thresholds)
+                T = obj.Thresholds(j);
+                S.thresholds(j).Value     = T.Value;
+                S.thresholds(j).Direction = T.Direction;
+                S.thresholds(j).Label     = T.Label;
+            end
+            S.isDatetime = obj.IsDatetime;
+        end
+
+        function writeExportCSV_(obj, filepath, S) %#ok<INUSL>
+            %WRITEEXPORTCSV_ Write export struct to a CSV file using fopen/fprintf.
+            %   WRITEEXPORTCSV_(obj, filepath, S) writes S.lines data to a CSV
+            %   file with a time column and one Y column per line. Mismatched X
+            %   arrays are resolved by union with NaN-fill. If S.isDatetime is
+            %   true, two time columns are written (time_datenum, time_iso8601).
+            %   Thresholds are appended as comment lines (# threshold,...).
+            xAll = S.lines(1).X(:)';
+            for i = 2:numel(S.lines)
+                xAll = union(xAll, S.lines(i).X(:)');
+            end
+            nRows = numel(xAll);
+            nLines = numel(S.lines);
+            yMat = NaN(nRows, nLines);
+            for i = 1:nLines
+                [~, loc] = ismember(S.lines(i).X(:)', xAll);
+                yMat(loc, i) = S.lines(i).Y(:)';
+            end
+            names = cell(1, nLines);
+            for i = 1:nLines
+                names{i} = S.lines(i).Name;
+            end
+            fid = fopen(filepath, 'w');
+            if fid == -1
+                error('FastSense:exportData:fileOpen', 'Cannot open %s', filepath);
+            end
+            if S.isDatetime
+                fprintf(fid, 'time_datenum,time_iso8601');
+                for i = 1:nLines
+                    fprintf(fid, ',%s', names{i});
+                end
+                fprintf(fid, '\n');
+                for r = 1:nRows
+                    fprintf(fid, '%.17g,%s', xAll(r), datestr(xAll(r), 'yyyy-mm-ddTHH:MM:SS'));
+                    for i = 1:nLines
+                        fprintf(fid, ',%.17g', yMat(r, i));
+                    end
+                    fprintf(fid, '\n');
+                end
+            else
+                fprintf(fid, 'time');
+                for i = 1:nLines
+                    fprintf(fid, ',%s', names{i});
+                end
+                fprintf(fid, '\n');
+                for r = 1:nRows
+                    fprintf(fid, '%.17g', xAll(r));
+                    for i = 1:nLines
+                        fprintf(fid, ',%.17g', yMat(r, i));
+                    end
+                    fprintf(fid, '\n');
+                end
+            end
+            for j = 1:numel(S.thresholds)
+                fprintf(fid, '# threshold,%s,%s,%.17g\n', ...
+                    S.thresholds(j).Label, S.thresholds(j).Direction, S.thresholds(j).Value);
+            end
+            fclose(fid);
+        end
+
+        function writeExportMAT_(obj, filepath, S) %#ok<INUSL>
+            %WRITEEXPORTMAT_ Write export struct to a MAT file using save().
+            %   WRITEEXPORTMAT_(obj, filepath, S) saves S.lines and S.thresholds
+            %   to a .mat file. If S.isDatetime is true, also saves exported_datetime=true.
+            lines = S.lines; %#ok<NASGU>
+            thresholds = S.thresholds; %#ok<NASGU>
+            if S.isDatetime
+                exported_datetime = true; %#ok<NASGU>
+                save(filepath, 'lines', 'thresholds', 'exported_datetime');
+            else
+                save(filepath, 'lines', 'thresholds');
+            end
+        end
+
         function [color, style] = resolveThresholdStyle(obj, color, style)
             %RESOLVETHRESHOLDSTYLE Apply theme defaults for empty color/style.
             %   [color, style] = RESOLVETHRESHOLDSTYLE(obj, color, style)
