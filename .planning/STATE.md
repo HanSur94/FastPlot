@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 999.3-02-PLAN.md
-last_updated: "2026-04-05T16:43:41.456Z"
+status: verifying
+stopped_at: Completed 1000-01-PLAN.md
+last_updated: "2026-04-05T16:45:41.561Z"
 last_activity: 2026-04-05
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 9
-  completed_plans: 6
+  completed_plans: 8
   percent: 0
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 ## Current Position
 
 Phase: 1000 (dashboard-engine-performance-optimization-phase-2) — EXECUTING
-Plan: 2 of 3
-Status: Ready to execute
+Plan: 3 of 3
+Status: Phase complete — ready for verification
 Last activity: 2026-04-05
 
 Progress: [░░░░░░░░░░] 0%
@@ -84,6 +84,8 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 999.1-mushroom-cards-for-dashboard-engine P04 | 5min | 2 tasks | 8 files |
 | Phase 999.3 P01 | 3min | 2 tasks | 2 files |
 | Phase 999.3-graph-data-export-mat-csv P02 | 2min | 2 tasks | 2 files |
+| Phase 1000 P01 | 4min | 2 tasks | 2 files |
+| Phase 1000 P02 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -144,6 +146,10 @@ Recent decisions affecting current work:
 - [Phase 999.3]: testExportCSVDatetime guarded with ~exist('OCTAVE_VERSION') since datetime is MATLAB-only
 - [Phase 999.3]: exportData dual-API mirrors exportPNG: no-arg opens dialog, with-arg saves directly (extension determines format)
 - [Phase 999.3]: Used regexp for Octave-safe extension guard in onExportData instead of endsWith()
+- [Phase 1000-02]: Debounce timer uses ExecutionMode singleShot with 0.1s StartDelay — each slider event cancels/replaces previous timer
+- [Phase 1000-02]: repositionPanels no longer calls markDirty — position change alone does not require data refresh
+- [Phase 1000]: Sensor identity comparison uses MATLAB handle == operator; on sensor swap LastSensorRef mismatch triggers full teardown
+- [Phase 1000]: CachedXMax always set to x(n) on each tick; CachedXMin only initialised once when inf to avoid overwriting on incremental append
 
 ### Roadmap Evolution
 
@@ -173,6 +179,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T16:43:41.452Z
-Stopped at: Completed 999.3-02-PLAN.md
+Last session: 2026-04-05T16:45:41.557Z
+Stopped at: Completed 1000-01-PLAN.md
 Resume file: None
