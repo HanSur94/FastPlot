@@ -18,7 +18,7 @@ function test_composite_threshold()
     c2.addChild(t, 'Value', 50);
     ch = c2.getChildren();
     assert(numel(ch) == 1, 'test2: child count is 1 after addChild');
-    assert(ch{1}.threshold == t, 'test2: child threshold matches');
+    assert(isequal(ch{1}.threshold, t), 'test2: child threshold matches');
     assert(ch{1}.value == 50, 'test2: child value is 50');
 
     ThresholdRegistry.clear();
@@ -106,7 +106,37 @@ function test_composite_threshold()
 
     ThresholdRegistry.clear();
 
-    fprintf('    All 9 composite threshold tests passed.\n');
+    % Test 10: toStruct basic fields
+    c10 = CompositeThreshold('ser_parent', 'AggregateMode', 'or');
+    c10.Name = 'System Ser';
+    s10 = c10.toStruct();
+    assert(strcmp(s10.type, 'composite'), 'test10: type is composite');
+    assert(strcmp(s10.key, 'ser_parent'), 'test10: key preserved');
+    assert(strcmp(s10.aggregateMode, 'or'), 'test10: aggregateMode preserved');
+
+    % Test 11: toStruct children
+    tk11 = Threshold('ser_child11');
+    tk11.addCondition(struct(), 50);
+    c11 = CompositeThreshold('ser_p11');
+    c11.addChild(tk11, 'Value', 30);
+    s11 = c11.toStruct();
+    assert(numel(s11.children) == 1, 'test11: one child in struct');
+    assert(strcmp(s11.children{1}.key, 'ser_child11'), 'test11: child key correct');
+
+    % Test 12: fromStruct round-trip
+    tk12 = Threshold('rt12_child');
+    tk12.addCondition(struct(), 50);
+    ThresholdRegistry.register('rt12_child', tk12);
+    c12 = CompositeThreshold('rt12_parent', 'AggregateMode', 'or');
+    c12.addChild(tk12, 'Value', 30);
+    s12 = c12.toStruct();
+    c12b = CompositeThreshold.fromStruct(s12);
+    assert(strcmp(c12b.AggregateMode, 'or'), 'test12: AggregateMode round-trip');
+    assert(numel(c12b.getChildren()) == 1, 'test12: child count round-trip');
+
+    ThresholdRegistry.clear();
+
+    fprintf('    All 12 composite threshold tests passed.\n');
 end
 
 function add_threshold_path()
