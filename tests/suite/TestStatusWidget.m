@@ -94,7 +94,6 @@ classdef TestStatusWidget < matlab.unittest.TestCase
             s = Sensor('T-401', 'Name', 'Temperature', 'Units', 'degC');
             s.X = [1 2 3];
             s.Y = [70 71 72];
-            s.ThresholdRules = {};
 
             w = StatusWidget('Sensor', s);
             testCase.verifyEqual(w.Title, 'Temperature', ...
@@ -119,11 +118,10 @@ classdef TestStatusWidget < matlab.unittest.TestCase
             s = Sensor('T-401', 'Name', 'Temperature', 'Units', 'degC');
             s.X = [1 2 3];
             s.Y = [70 71 85];
-            rule = ThresholdRule(struct(), 80, ...
-                'Direction', 'upper', ...
-                'Label', 'Hi Alarm', ...
-                'Color', [0.9 0.2 0.2]);
-            s.ThresholdRules = {rule};
+            t1 = Threshold('T401_hi', 'Name', 'Hi Alarm', ...
+                'Direction', 'upper', 'Color', [0.9 0.2 0.2]);
+            t1.addCondition(struct(), 80);
+            s.addThreshold(t1);
 
             w = StatusWidget('Sensor', s);
             hp = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
@@ -132,15 +130,15 @@ classdef TestStatusWidget < matlab.unittest.TestCase
             testCase.verifyEqual(w.CurrentStatus, 'violation', ...
                 'Status should be violation when threshold is exceeded');
             testCase.verifyEqual(w.CurrentColor, [0.9 0.2 0.2], ...
-                'Color should come from the ThresholdRule.Color');
+                'Color should come from the Threshold.Color');
 
             % Upper threshold NOT violated: latest Y (75) < limit (80)
             s2 = Sensor('T-402', 'Name', 'Temp Safe');
             s2.X = [1 2 3];
             s2.Y = [70 71 75];
-            rule2 = ThresholdRule(struct(), 80, ...
-                'Direction', 'upper', 'Label', 'Hi');
-            s2.ThresholdRules = {rule2};
+            t2 = Threshold('T402_hi', 'Name', 'Hi', 'Direction', 'upper');
+            t2.addCondition(struct(), 80);
+            s2.addThreshold(t2);
 
             w2 = StatusWidget('Sensor', s2);
             hp2 = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
@@ -155,9 +153,9 @@ classdef TestStatusWidget < matlab.unittest.TestCase
             s3 = Sensor('P-100', 'Name', 'Pressure');
             s3.X = [1 2 3];
             s3.Y = [20 15 5];
-            ruleLo = ThresholdRule(struct(), 10, ...
-                'Direction', 'lower', 'Label', 'Lo Warn');
-            s3.ThresholdRules = {ruleLo};
+            t3 = Threshold('P100_lo', 'Name', 'Lo Warn', 'Direction', 'lower');
+            t3.addCondition(struct(), 10);
+            s3.addThreshold(t3);
 
             w3 = StatusWidget('Sensor', s3);
             hp3 = uipanel('Parent', hFig, 'Position', [0 0 1 1]);
@@ -165,7 +163,7 @@ classdef TestStatusWidget < matlab.unittest.TestCase
 
             testCase.verifyEqual(w3.CurrentStatus, 'violation', ...
                 'Lower threshold violation should also be detected');
-            % No Color on rule + IsUpper=false => StatusWarnColor
+            % No Color on threshold + IsUpper=false => StatusWarnColor
             testCase.verifyEqual(w3.CurrentColor, theme.StatusWarnColor, ...
                 'Lower violation without Color should use StatusWarnColor');
         end

@@ -137,14 +137,17 @@ classdef TestGaugeWidget < matlab.unittest.TestCase
             s = Sensor('P-201', 'Name', 'Pressure');
             s.X = [1 2 3];
             s.Y = [40 50 60];
-            rule1 = ThresholdRule(struct(), 30, ...
-                'Direction', 'lower', 'Label', 'Lo', 'Color', [1 0.6 0]);
-            rule2 = ThresholdRule(struct(), 80, ...
-                'Direction', 'upper', 'Label', 'Hi', 'Color', [1 0 0]);
-            s.ThresholdRules = {rule1, rule2};
+            t1 = Threshold('P201_lo', 'Name', 'Lo', ...
+                'Direction', 'lower', 'Color', [1 0.6 0]);
+            t1.addCondition(struct(), 30);
+            s.addThreshold(t1);
+            t2 = Threshold('P201_hi', 'Name', 'Hi', ...
+                'Direction', 'upper', 'Color', [1 0 0]);
+            t2.addCondition(struct(), 80);
+            s.addThreshold(t2);
             w = GaugeWidget('Sensor', s);
             testCase.verifyEqual(w.Range, [30 80], ...
-                'Range should auto-derive from ThresholdRule values');
+                'Range should auto-derive from Threshold values');
         end
 
         function testUnitsDeriveFromSensor(testCase)
