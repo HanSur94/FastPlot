@@ -34,7 +34,9 @@ classdef MultiStatusWidget < DashboardWidget
                 return;
             end
 
-            n = numel(obj.Sensors);
+            % Expand CompositeThreshold items into child dots + summary row (per D-08)
+            expandedItems = obj.expandSensors_();
+            n = numel(expandedItems);
             if n == 0, return; end
 
             cols = obj.Columns;
@@ -66,7 +68,7 @@ classdef MultiStatusWidget < DashboardWidget
                 cx = (col + 0.5) / cols;
                 cy = 1 - (row + 0.5) / rows;
 
-                item = obj.Sensors{i};
+                item = expandedItems{i};
 
                 % Draw indicator — aspect-ratio-corrected so circles stay round
                 ry = 0.3 / max(cols, rows);
@@ -213,6 +215,47 @@ classdef MultiStatusWidget < DashboardWidget
     end
 
     methods (Access = private)
+        function expandedItems = expandSensors_(obj)
+        %EXPANDSENSORS_ Expand CompositeThreshold items into child + summary entries.
+        %   Non-composite items pass through unchanged.
+            expandedItems = {};
+            for i = 1:numel(obj.Sensors)
+                item = obj.Sensors{i};
+                if isstruct(item) && isfield(item, 'threshold') && ...
+                        isa(item.threshold, 'CompositeThreshold')
+                    ct = item.threshold;
+                    children = ct.getChildren();
+                    for c = 1:numel(children)
+                        entry = children{c};
+                        childItem = struct('threshold', entry.threshold, ...
+                            'valueFcn', entry.valueFcn, 'value', entry.value);
+                        % Derive child label from Name or Key
+                        if isprop(entry.threshold, 'Name') && ~isempty(entry.threshold.Name)
+                            childItem.label = entry.threshold.Name;
+                        else
+                            childItem.label = entry.threshold.Key;
+                        end
+                        expandedItems{end+1} = childItem; %#ok<AGROW>
+                    end
+                    % Add summary row for the composite itself
+                    summaryLabel = '';
+                    if isfield(item, 'label') && ~isempty(item.label)
+                        summaryLabel = item.label;
+                    elseif isprop(ct, 'Name') && ~isempty(ct.Name)
+                        summaryLabel = ct.Name;
+                    else
+                        summaryLabel = ct.Key;
+                    end
+                    summaryItem = struct('threshold', ct, ...
+                        'valueFcn', [], 'value', [], 'label', summaryLabel, ...
+                        'isCompositeSummary', true);
+                    expandedItems{end+1} = summaryItem; %#ok<AGROW>
+                else
+                    expandedItems{end+1} = item; %#ok<AGROW>
+                end
+            end
+        end
+
         function color = deriveColorFromThreshold(~, item, defaultColor, theme)
         %DERIVECOLORFROMTHRESHOLD Derive color from a threshold-binding struct item.
             color = defaultColor;
@@ -225,6 +268,16 @@ classdef MultiStatusWidget < DashboardWidget
                 catch
                     return;
                 end
+            end
+            % CompositeThreshold: derive color from computeStatus (per D-04)
+            if isa(t, 'CompositeThreshold')
+                cStatus = t.computeStatus();
+                switch cStatus
+                    case 'ok',    color = defaultColor;
+                    case 'alarm', color = theme.StatusAlarmColor;
+                    otherwise,    color = theme.StatusWarnColor;
+                end
+                return;
             end
             % Get value
             val = [];
