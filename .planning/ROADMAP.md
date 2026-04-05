@@ -129,5 +129,5 @@ Plans:
 
 Plans:
 - [x] 1003-01-PLAN.md — CompositeThreshold class + TDD test suite (AND/OR/MAJORITY, addChild, computeStatus, nesting)
-- [x] 1003-02-PLAN.md — Widget isa-guards (StatusWidget, GaugeWidget, IconCardWidget) + MultiStatusWidget composite expansion
-- [ ] 1003-03-PLAN.md — CompositeThreshold toStruct/fromStruct serialization + round-trip tests
+- [ ] 1003-02-PLAN.md — Widget isa-guards (StatusWidget, GaugeWidget, IconCardWidget) + MultiStatusWidget composite expansion
+- [x] 1003-03-PLAN.md — CompositeThreshold toStruct/fromStruct serialization + round-trip tests

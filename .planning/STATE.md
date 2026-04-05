@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 1003-02-PLAN.md (CompositeThreshold widget integration)
-last_updated: "2026-04-05T23:20:31.133Z"
+stopped_at: Completed 1003-03-PLAN.md (CompositeThreshold toStruct/fromStruct serialization)
+last_updated: "2026-04-05T23:24:05.514Z"
 last_activity: 2026-04-05
 progress:
   total_phases: 7
@@ -92,7 +92,7 @@ Progress: [░░░░░░░░░░] 0%
 >>>>>>> worktree-agent-a9506b74
 | Phase 1002 P02 | 25 | 2 tasks | 6 files |
 | Phase 1003 P01 | 3min | 1 tasks | 3 files |
-| Phase 1003 P02 | 3min | 2 tasks | 5 files |
+| Phase 1003 P03 | 10min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -171,8 +171,7 @@ Recent decisions affecting current work:
 - [Phase 1002]: MultiStatusWidget toStruct emits s.items typed array for mixed Sensor/threshold entries
 - [Phase 1002]: ChipBarWidget threshold block before statusFcn in resolveChipColor so threshold takes priority
 - [Phase 1003]: CompositeThreshold extends Threshold directly so isa check works; AND/OR/MAJORITY via AggregateMode property; evaluateLeaf_ uses IsUpper; addChild uses warning not error for unknown key
-- [Phase 1003-02]: isa-guard uses isa(t,'CompositeThreshold') before allValues() path so leaf Threshold behavior is fully unchanged
-- [Phase 1003-02]: expandSensors_() returns expanded items without mutating obj.Sensors; CompositeThreshold items expand to N children + 1 summary row
+- [Phase 1003]: toStruct children as cell of structs with key+optional value; fromStruct resolves via ThresholdRegistry with warn-and-skip for missing keys; isequal() for Octave-safe handle identity
 
 ### Roadmap Evolution
 
@@ -203,8 +202,8 @@ None yet.
 ## Session Continuity
 
 <<<<<<< HEAD
-Last session: 2026-04-05T23:20:31.129Z
-Stopped at: Completed 1003-02-PLAN.md (CompositeThreshold widget integration)
+Last session: 2026-04-05T23:24:05.510Z
+Stopped at: Completed 1003-03-PLAN.md (CompositeThreshold toStruct/fromStruct serialization)
 =======
 Last session: 2026-04-05T16:49:34.597Z
 Stopped at: Completed 1000-03-PLAN.md (lazy page realization + batched switchPage)

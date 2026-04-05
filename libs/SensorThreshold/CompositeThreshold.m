@@ -20,6 +20,15 @@ classdef CompositeThreshold < Threshold
     %     computeStatus      — Evaluate aggregate status: 'ok' or 'alarm'
     %     getChildren        — Return internal children cell array (read-only)
     %     allValues          — Returns [] (composites have no direct conditions)
+    %     toStruct           — Serialize to struct for JSON persistence
+    %     fromStruct         — (Static) Reconstruct from struct via ThresholdRegistry
+    %
+    %   Serialization ordering requirement:
+    %     When deserializing a hierarchy, register all leaf Threshold objects
+    %     and inner CompositeThreshold objects in ThresholdRegistry BEFORE
+    %     calling fromStruct on the parent composite.  fromStruct resolves
+    %     child keys via ThresholdRegistry.get(key), so any key that is not
+    %     yet registered will be skipped with a warning.
     %
     %   Aggregate modes:
     %     'and'      — all children must be 'ok'; one alarm -> 'alarm'
@@ -142,8 +151,8 @@ classdef CompositeThreshold < Threshold
                 t = thresholdOrKey;
             end
 
-            % Self-reference guard
-            if t == obj
+            % Self-reference guard (isequal is used for Octave handle-identity safety)
+            if isequal(t, obj)
                 error('CompositeThreshold:selfReference', ...
                     'A CompositeThreshold cannot be added as its own child.');
             end
@@ -223,6 +232,105 @@ classdef CompositeThreshold < Threshold
             %   Output:
             %     vals — [] (always empty)
             vals = [];
+        end
+
+        function s = toStruct(obj)
+            %TOSTRUCT Serialize this CompositeThreshold to a plain struct.
+            %   s = c.toStruct() returns a struct suitable for JSON encoding.
+            %   Fields: type ('composite'), key, name, aggregateMode, children.
+            %   Each entry in children has: key, and optionally value (when a
+            %   static scalar value was registered via addChild(...,'Value',v)).
+            %   Nested CompositeThreshold children additionally carry type='composite'.
+            %
+            %   Output:
+            %     s — scalar struct
+            %
+            %   See also CompositeThreshold.fromStruct.
+            s = struct();
+            s.type = 'composite';
+            s.key  = obj.Key;
+            s.name = obj.Name;
+            s.aggregateMode = obj.AggregateMode;
+
+            children = cell(1, numel(obj.children_));
+            for i = 1:numel(obj.children_)
+                entry = obj.children_{i};
+                t     = entry.threshold;
+                c     = struct('key', t.Key);
+                if ~isempty(entry.value)
+                    c.value = entry.value;
+                end
+                % Mark nested composites so deserialization can look them up
+                if isa(t, 'CompositeThreshold')
+                    c.type = 'composite';
+                end
+                children{i} = c;
+            end
+            s.children = children;
+        end
+
+    end
+
+    methods (Static)
+
+        function obj = fromStruct(s)
+            %FROMSTRUCT Reconstruct a CompositeThreshold from a plain struct.
+            %   obj = CompositeThreshold.fromStruct(s) creates a new
+            %   CompositeThreshold using fields in s and resolves children
+            %   via ThresholdRegistry.get(key).  Any child key that is not
+            %   found in the registry is skipped with a warning.
+            %
+            %   Prerequisites:
+            %     All child Threshold (and inner CompositeThreshold) objects
+            %     must be registered in ThresholdRegistry before calling this
+            %     method.  Register leaf children first, then inner composites,
+            %     then the outermost composite.
+            %
+            %   Input:
+            %     s — struct with fields: key, [name], [aggregateMode], [children]
+            %
+            %   Output:
+            %     obj — CompositeThreshold object
+            %
+            %   See also CompositeThreshold.toStruct, ThresholdRegistry.
+            obj = CompositeThreshold(s.key);
+            if isfield(s, 'name') && ~isempty(s.name)
+                obj.Name = s.name;
+            end
+            if isfield(s, 'aggregateMode') && ~isempty(s.aggregateMode)
+                obj.AggregateMode = s.aggregateMode;
+            end
+
+            if ~isfield(s, 'children') || isempty(s.children)
+                return;
+            end
+
+            % Normalise children: struct-array vs cell array of structs
+            rawChildren = s.children;
+            if isstruct(rawChildren)
+                tmp = cell(1, numel(rawChildren));
+                for i = 1:numel(rawChildren)
+                    tmp{i} = rawChildren(i);
+                end
+                rawChildren = tmp;
+            end
+
+            for i = 1:numel(rawChildren)
+                c = rawChildren{i};
+                if ~isfield(c, 'key')
+                    continue;
+                end
+                childArgs = {};
+                if isfield(c, 'value') && ~isempty(c.value)
+                    childArgs = {'Value', c.value};
+                end
+                try
+                    obj.addChild(c.key, childArgs{:});
+                catch me
+                    warning('CompositeThreshold:loadChildFailed', ...
+                        'Could not resolve child key ''%s'': %s', c.key, me.message);
+                end
+            end
         end
 
     end
