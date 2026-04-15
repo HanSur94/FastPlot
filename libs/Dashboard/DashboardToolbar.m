@@ -1,7 +1,7 @@
 classdef DashboardToolbar < handle
 %DASHBOARDTOOLBAR Global toolbar for dashboard controls.
 %
-%   Provides buttons for: Live mode toggle, Edit mode, Save, Export.
+%   Provides buttons for: Live mode toggle, Edit mode, Save, Image, Export.
 %   Sits at the top of the dashboard figure.
 
     properties (Access = public)
@@ -14,6 +14,7 @@ classdef DashboardToolbar < handle
         hEditBtn     = []
         hSaveBtn     = []
         hExportBtn   = []
+        hImageBtn    = []
         hSyncBtn     = []
         hTitleText   = []
         hLastUpdate  = []
@@ -69,6 +70,15 @@ classdef DashboardToolbar < handle
                 'Position', [rightEdge btnY btnW btnH], ...
                 'String', 'Export', ...
                 'Callback', @(~,~) obj.onExport());
+
+            rightEdge = rightEdge - btnW - 0.005;
+            obj.hImageBtn = uicontrol('Parent', obj.hPanel, ...
+                'Style', 'pushbutton', ...
+                'Units', 'normalized', ...
+                'Position', [rightEdge btnY btnW btnH], ...
+                'String', 'Image', ...
+                'TooltipString', 'Save dashboard as image (PNG/JPEG)', ...
+                'Callback', @(~,~) obj.onImage());
 
             rightEdge = rightEdge - btnW - 0.005;
             obj.hSaveBtn = uicontrol('Parent', obj.hPanel, ...
