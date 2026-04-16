@@ -42,7 +42,7 @@ classdef TestDashboardBuilder < matlab.unittest.TestCase
             testCase.verifyEqual(numel(d.Widgets), 0);
             b.addWidget('kpi');
             testCase.verifyEqual(numel(d.Widgets), 1);
-            testCase.verifyEqual(d.Widgets{1}.Type, 'kpi');
+            testCase.verifyEqual(d.Widgets{1}.Type, 'number');
         end
 
         function testDeleteWidget(testCase)
@@ -115,20 +115,32 @@ classdef TestDashboardBuilder < matlab.unittest.TestCase
             testCase.verifyEqual(numel(b.Overlays), 4);
         end
 
-        function testToolbarEditToggle(testCase)
+        function testToolbarEditButton(testCase)
+            % onEdit() now opens the source file in MATLAB editor rather than
+            % toggling between 'Edit' and 'Done' (changed in quick task 260405-plc).
+            % Verify: button label is 'Edit' and stays 'Edit' after calling onEdit().
             d = DashboardEngine('Test');
             d.addWidget('kpi', 'Title', 'M', 'Position', [1 1 3 1]);
             d.render();
             set(d.hFigure, 'Visible', 'off');
             testCase.addTeardown(@() close(d.hFigure));
 
-            % Simulate clicking Edit button
             toolbar = d.Toolbar;
-            toolbar.onEdit();
-            testCase.verifyEqual(get(toolbar.hEditBtn, 'String'), 'Done');
+            testCase.verifyEqual(get(toolbar.hEditBtn, 'String'), 'Edit', ...
+                'Edit button should be labeled Edit before any interaction');
 
+            % With no FilePath set, onEdit shows a warning dialog.
+            % Button label must remain 'Edit' — there is no toggle anymore.
+            preDialogFigs = findobj(0, 'Type', 'figure');
             toolbar.onEdit();
-            testCase.verifyEqual(get(toolbar.hEditBtn, 'String'), 'Edit');
+            testCase.verifyEqual(get(toolbar.hEditBtn, 'String'), 'Edit', ...
+                'Edit button label should not change — onEdit opens file, not a toggle');
+            % Close any warning dialogs created by the test to avoid leftover figures
+            postDialogFigs = findobj(0, 'Type', 'figure');
+            newFigs = setdiff(postDialogFigs, preDialogFigs);
+            for i = 1:numel(newFigs)
+                try close(newFigs(i)); catch, end
+            end
         end
 
         function testGridOverlayInEditMode(testCase)

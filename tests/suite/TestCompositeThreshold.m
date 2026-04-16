@@ -301,7 +301,7 @@ classdef TestCompositeThreshold < matlab.unittest.TestCase
             child.key = 'totally_missing_key_xyz999';
             s.children = {child};
             c = [];
-            testCase.verifyWarning(@() assignIfWarn(), 'CompositeThreshold:loadChildFailed');
+            testCase.verifyWarning(@() assignIfWarn(), 'CompositeThreshold:unknownChildKey');
             function assignIfWarn()
                 c = CompositeThreshold.fromStruct(s); %#ok<NASGU>
             end
