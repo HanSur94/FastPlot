@@ -240,7 +240,7 @@ Plans:
 | 1005. SensorTag + StateTag | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1006. MonitorTag (lazy, in-memory) | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1007. MonitorTag streaming + persistence | v2.0 | 3/3 | Complete    | 2026-04-16 |
-| 1008. CompositeTag | v2.0 | 3/3 | Complete   | 2026-04-16 |
+| 1008. CompositeTag | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1009. Consumer migration | v2.0 | 0/? | Not started | — |
 | 1010. Event ↔ Tag binding + overlay | v2.0 | 0/? | Not started | — |
 | 1011. Cleanup + delete legacy | v2.0 | 0/? | Not started | — |
