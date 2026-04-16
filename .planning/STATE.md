@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.0
-milestone_name: tag-based-domain-model
-status: roadmap-complete
-stopped_at: Roadmap for v2.0 complete (Phases 1004-1011) — ready for /gsd:plan-phase 1004
-last_updated: "2026-04-16T00:00:00.000Z"
+milestone_name: Tag-Based Domain Model
+status: executing
+stopped_at: Completed 1004-01-PLAN.md — Tag abstract base class shipped; Pitfall 1 gate (exactly 6 stubs) verified; MockTag scaffold ready for Plan 02 TagRegistry
+last_updated: "2026-04-16T13:18:51.969Z"
 last_activity: 2026-04-16
 progress:
-  total_phases: 8
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 15
+  completed_phases: 6
+  total_plans: 23
+  completed_plans: 21
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Milestone v2.0 — Tag-Based Domain Model (Phases 1004-1011 mapped; ready to plan Phase 1004)
+**Current focus:** Phase 1004 — Tag Foundation + Golden Test
 
 ## Current Position
 
-Phase: 1004 — Tag Foundation + Golden Test (next to plan)
-Plan: —
-Status: Roadmap complete; awaiting `/gsd:plan-phase 1004`
-Last activity: 2026-04-16 — ROADMAP.md filled with 8 phases (1004-1011), 45/45 REQ coverage, strangler-fig sequencing locked
+Phase: 1004 (Tag Foundation + Golden Test) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-16
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 
@@ -90,6 +90,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1002 P02 | 25 | 2 tasks | 6 files |
 | Phase 1003 P01 | 3min | 1 tasks | 3 files |
 | Phase 1003 P03 | 10min | 1 tasks | 3 files |
+| Phase 1004-tag-foundation-golden-test P01 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -159,6 +160,7 @@ Recent decisions affecting current work:
 - [Phase 1002]: MultiStatusWidget toStruct emits s.items typed array for mixed Sensor/threshold entries
 - [Phase 1002]: ChipBarWidget threshold block before statusFcn in resolveChipColor so threshold takes priority
 - [Phase 1003]: CompositeThreshold extends Threshold directly so isa check works; AND/OR/MAJORITY via AggregateMode property; toStruct children as cell of structs with key+optional value; fromStruct resolves via ThresholdRegistry with warn-and-skip for missing keys; isequal() for Octave-safe handle identity
+- [Phase 1004]: Tag base uses throw-from-base (error 'Tag:notImplemented') rather than methods (Abstract); exactly 6 stubs enforced by runtime grep test; test abstract stubs by instantiating Tag('k') directly (portable MATLAB+Octave); Criticality setter validates ischar before strcmp; Name defaults to Key in constructor; MockTag.toStruct wraps Labels to survive struct() cellstr collapse
 
 ### Roadmap Evolution
 
@@ -192,6 +194,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-16T00:00:00.000Z
-Stopped at: ROADMAP.md complete for v2.0 (Phases 1004-1011); 45/45 REQ coverage; STATE.md and REQUIREMENTS.md traceability updated. Ready for `/gsd:plan-phase 1004`.
-Resume file: `.planning/ROADMAP.md` (Phase 1004 detail section)
+Last session: 2026-04-16T13:18:51.964Z
+Stopped at: Completed 1004-01-PLAN.md — Tag abstract base class shipped; Pitfall 1 gate (exactly 6 stubs) verified; MockTag scaffold ready for Plan 02 TagRegistry
+Resume file: None

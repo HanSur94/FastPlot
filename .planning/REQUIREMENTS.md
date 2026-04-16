@@ -26,8 +26,8 @@
 
 ### TAG — Tag Foundation
 
-- [ ] **TAG-01**: Define `Tag` abstract base class (`< handle`) with throw-from-base contract for `getXY()`, `valueAt(t)`, `getTimeRange()`, `getKind()`, `toStruct()`, and static `fromStruct(s)` — proven Octave-safe pattern from `DashboardWidget`/`DataSource`. Maximum 6 abstract methods (Pitfall 1 budget).
-- [ ] **TAG-02**: Tag root exposes universal properties: `Key` (unique string), `Name` (display), `Units`, `Description`, `Labels` (cell of strings), `Metadata` (open struct), `Criticality` (`low|medium|high|safety` enum), `SourceRef` (optional provenance string).
+- [x] **TAG-01**: Define `Tag` abstract base class (`< handle`) with throw-from-base contract for `getXY()`, `valueAt(t)`, `getTimeRange()`, `getKind()`, `toStruct()`, and static `fromStruct(s)` — proven Octave-safe pattern from `DashboardWidget`/`DataSource`. Maximum 6 abstract methods (Pitfall 1 budget).
+- [x] **TAG-02**: Tag root exposes universal properties: `Key` (unique string), `Name` (display), `Units`, `Description`, `Labels` (cell of strings), `Metadata` (open struct), `Criticality` (`low|medium|high|safety` enum), `SourceRef` (optional provenance string).
 - [ ] **TAG-03**: `TagRegistry` singleton with `register(key, tag)`, `get(key)`, `unregister(key)`, `clear()`. Throws `TagRegistry:duplicateKey` on collision (hard error, matches existing ThresholdRegistry behavior).
 - [ ] **TAG-04**: `TagRegistry` query API: `find(predicate)`, `findByLabel(label)`, `findByKind(kind)` — enables label-driven dashboards and tag-discovery widgets.
 - [ ] **TAG-05**: `TagRegistry` introspection: `list()`, `printTable()`, `viewer()` (Octave-safe uitable). Carry-forward from existing `SensorRegistry`/`ThresholdRegistry`.
@@ -62,10 +62,10 @@
 
 ### META — Tag Metadata + Search
 
-- [ ] **META-01**: `Tag.Labels` (cell of strings) — flat cross-cutting classification (`{'pressure', 'pump-3', 'critical'}`). Renamed from existing `Threshold.Tags` to avoid name collision with the Tag class itself.
+- [x] **META-01**: `Tag.Labels` (cell of strings) — flat cross-cutting classification (`{'pressure', 'pump-3', 'critical'}`). Renamed from existing `Threshold.Tags` to avoid name collision with the Tag class itself.
 - [ ] **META-02**: `TagRegistry.findByLabel(label)` returns all tags carrying the given label. Direct port of existing `ThresholdRegistry.findByTag` pattern.
-- [ ] **META-03**: `Tag.Metadata` (struct) — open key-value bag for asset id, source file, vendor, etc. Future-proofs for the deferred Asset hierarchy milestone (D); usable today via stringly-typed `Metadata.asset = 'pump-3'`.
-- [ ] **META-04**: `Tag.Criticality` enum (`'low'|'medium'|'high'|'safety'`) drives default colors in StatusWidget/IconCardWidget/MultiStatusWidget and event-marker color in FastSense (severity → theme color).
+- [x] **META-03**: `Tag.Metadata` (struct) — open key-value bag for asset id, source file, vendor, etc. Future-proofs for the deferred Asset hierarchy milestone (D); usable today via stringly-typed `Metadata.asset = 'pump-3'`.
+- [x] **META-04**: `Tag.Criticality` enum (`'low'|'medium'|'high'|'safety'`) drives default colors in StatusWidget/IconCardWidget/MultiStatusWidget and event-marker color in FastSense (severity → theme color).
 
 ### EVENT — Events on Tag
 
