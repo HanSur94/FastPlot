@@ -970,6 +970,9 @@ classdef FastSense < handle
                     obj.addLine(x, y, 'DisplayName', tag.Name, varargin{:});
                 case 'state'
                     obj.addStateTagAsStaircase_(tag, varargin{:});
+                case 'monitor'
+                    [x, y] = tag.getXY();
+                    obj.addLine(x, y, 'DisplayName', tag.Name, varargin{:});
                 otherwise
                     error('FastSense:unsupportedTagKind', ...
                         'Unsupported tag kind ''%s''.', tag.getKind());
