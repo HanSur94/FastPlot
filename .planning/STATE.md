@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: Completed 1003-03-PLAN.md (CompositeThreshold toStruct/fromStruct serialization)
-last_updated: "2026-04-05T23:28:31.517Z"
-last_activity: 2026-04-05
+milestone: v2.0
+milestone_name: tag-based-domain-model
+status: defining-requirements
+stopped_at: Milestone v2.0 initialized — defining requirements
+last_updated: "2026-04-16T00:00:00.000Z"
+last_activity: 2026-04-16
 progress:
-  total_phases: 7
-  completed_phases: 6
-  total_plans: 20
-  completed_plans: 20
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
   percent: 0
 ---
 
@@ -18,17 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-01)
+See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 1003 — composite-thresholds
+**Current focus:** Milestone v2.0 — Tag-Based Domain Model (defining requirements)
 
 ## Current Position
 
-Phase: 1003
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-05
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-16 — Milestone v2.0 started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -82,14 +82,11 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-dashboard-performance-optimization P01 | 3 | 2 tasks | 2 files |
 | Phase 01-dashboard-performance-optimization P03 | 10min | 2 tasks | 1 files |
 | Phase 999.1-mushroom-cards-for-dashboard-engine P04 | 5min | 2 tasks | 8 files |
-<<<<<<< HEAD
 | Phase 999.3 P01 | 3min | 2 tasks | 2 files |
 | Phase 999.3-graph-data-export-mat-csv P02 | 2min | 2 tasks | 2 files |
 | Phase 1000 P01 | 4min | 2 tasks | 2 files |
 | Phase 1000 P02 | 2 | 2 tasks | 2 files |
-=======
 | Phase 1000 P03 | 5min | 2 tasks | 2 files |
->>>>>>> worktree-agent-a9506b74
 | Phase 1002 P02 | 25 | 2 tasks | 6 files |
 | Phase 1003 P01 | 3min | 1 tasks | 3 files |
 | Phase 1003 P03 | 10min | 1 tasks | 3 files |
@@ -149,9 +146,6 @@ Recent decisions affecting current work:
 - [Phase 01-dashboard-performance-optimization]: repositionPanels() falls back to rerenderWidgets() if any panel handle is missing — safe degradation at first render
 - [Phase 01-dashboard-performance-optimization]: render() pre-allocates all page panels at startup with non-active pages hidden so switchPage is pure visibility toggle
 - [Phase 999.1-mushroom-cards-for-dashboard-engine]: Wave 1 widget files copied from main repo to worktree for plan 04; DetachedMirror restoreLiveRefs handles ValueFcn generically via isprop so no per-type clone code needed beyond fromStruct dispatch
-
-<<<<<<< HEAD
-
 - [Phase 999.3]: No render() required before exportData() — buildExportStruct_ accesses raw Lines/Thresholds directly
 - [Phase 999.3]: testExportCSVDatetime guarded with ~exist('OCTAVE_VERSION') since datetime is MATLAB-only
 - [Phase 999.3]: exportData dual-API mirrors exportPNG: no-arg opens dialog, with-arg saves directly (extension determines format)
@@ -160,13 +154,7 @@ Recent decisions affecting current work:
 - [Phase 1000-02]: repositionPanels no longer calls markDirty — position change alone does not require data refresh
 - [Phase 1000]: Sensor identity comparison uses MATLAB handle == operator; on sensor swap LastSensorRef mismatch triggers full teardown
 - [Phase 1000]: CachedXMax always set to x(n) on each tick; CachedXMin only initialised once when inf to avoid overwriting on incremental append
-
-=======
-
 - [Phase 1000-03]: allocatePanels for non-active pages so Realized stays false at startup; realizeBatch(5) in switchPage reuses batch infrastructure
-
->>>>>>> worktree-agent-a9506b74
-
 - [Phase 1002]: IconCardWidget Threshold resolver in own varargin constructor; mutual exclusivity post-loop
 - [Phase 1002]: MultiStatusWidget toStruct emits s.items typed array for mixed Sensor/threshold entries
 - [Phase 1002]: ChipBarWidget threshold block before statusFcn in resolveChipColor so threshold takes priority
@@ -178,6 +166,7 @@ Recent decisions affecting current work:
 - Phase 8 added: Widget improvements — DividerWidget, CollapsibleWidget, Y-axis limits
 - Phase 1 added: Dashboard Performance Optimization — faster creation, instantiation, and interactivity
 - Phase 1000 added: Dashboard Engine Performance Optimization Phase 2 — 6 bottlenecks: incremental FastSenseWidget refresh, debounced slider broadcast, lazy page realization, cached time ranges, batched page switch, debounced resize
+- Milestone v2.0 added: Tag-Based Domain Model (Ambitious tier — A+B+C+E) — full SensorThreshold reboot under unified `Tag` root + MonitorTag time-series + CompositeTag aggregation + events attached to tags
 
 ### Pending Todos
 
@@ -201,11 +190,6 @@ None yet.
 
 ## Session Continuity
 
-<<<<<<< HEAD
-Last session: 2026-04-05T23:24:05.510Z
-Stopped at: Completed 1003-03-PLAN.md (CompositeThreshold toStruct/fromStruct serialization)
-=======
-Last session: 2026-04-05T16:49:34.597Z
-Stopped at: Completed 1000-03-PLAN.md (lazy page realization + batched switchPage)
->>>>>>> worktree-agent-a9506b74
+Last session: 2026-04-16T00:00:00.000Z
+Stopped at: Milestone v2.0 (Tag-Based Domain Model) initialized — defining requirements
 Resume file: None
