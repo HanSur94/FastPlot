@@ -1,8 +1,27 @@
 classdef LiveEventPipeline < handle
     % LiveEventPipeline  Orchestrates live event detection.
+    %
+    %   Supports two kinds of live targets:
+    %     Sensors        — legacy containers.Map of key -> Sensor; processed
+    %                      via IncrementalEventDetector.process (full recompute).
+    %     MonitorTargets — NEW v2.0 containers.Map of key -> MonitorTag;
+    %                      processed via MonitorTag.appendData (Phase 1007
+    %                      MONITOR-08 streaming tail extension). Realizes
+    %                      Phase 1007 Success Criterion #4 end-to-end.
+    %
+    %   Ordering invariant (Pitfall Y) — enforced by processMonitorTag_:
+    %     monitor.Parent.updateData(newX, newY)  ← called FIRST
+    %     monitor.appendData(newX, newY)         ← THEN
+    %   The reverse order causes cache incoherence: MonitorTag.appendData's
+    %   cold path recomputes against a stale parent grid.  See the docstring
+    %   at libs/SensorThreshold/MonitorTag.m lines 330-334 for the contract.
+    %
+    %   Legacy Sensor path preserved byte-for-byte — tests/test_live_pipeline.m
+    %   is the regression gate.
 
     properties
-        Sensors              % containers.Map: key -> Sensor
+        Sensors              % containers.Map: key -> Sensor (LEGACY, unchanged)
+        MonitorTargets       % containers.Map: key -> MonitorTag (NEW v2.0)
         DataSourceMap        % DataSourceMap
         EventStore           % EventStore
         NotificationService  % NotificationService
@@ -29,6 +48,7 @@ classdef LiveEventPipeline < handle
             defaults.MaxBackups        = 5;
             defaults.MaxCallsPerEvent  = 1;
             defaults.OnEventStart      = [];
+            defaults.Monitors          = [];   % NEW — optional MonitorTag map
             opts = parseOpts(defaults, varargin);
 
             obj.Sensors       = sensors;
@@ -38,6 +58,16 @@ classdef LiveEventPipeline < handle
             obj.EscalateSeverity = opts.EscalateSeverity;
             obj.MaxCallsPerEvent = opts.MaxCallsPerEvent;
             obj.OnEventStart     = opts.OnEventStart;
+
+            % Initialize MonitorTargets — empty map when no 'Monitors' NV
+            % pair is provided.  This preserves the legacy constructor
+            % call shape (sensors, dsMap, varargin) for existing callers.
+            if isa(opts.Monitors, 'containers.Map')
+                obj.MonitorTargets = opts.Monitors;
+            else
+                obj.MonitorTargets = containers.Map( ...
+                    'KeyType', 'char', 'ValueType', 'any');
+            end
 
             if ~isempty(opts.EventFile)
                 obj.EventStore = EventStore(opts.EventFile, ...
@@ -88,6 +118,7 @@ classdef LiveEventPipeline < handle
             allNewEvents = [];
             hasNewData = false;
 
+            % --- Legacy Sensor path (UNCHANGED) ---------------------------
             sensorKeys = obj.Sensors.keys();
             for i = 1:numel(sensorKeys)
                 key = sensorKeys{i};
@@ -103,6 +134,31 @@ classdef LiveEventPipeline < handle
                     end
                 catch ex
                     fprintf('[PIPELINE WARNING] Sensor "%s" failed: %s\n', key, ex.message);
+                end
+            end
+
+            % --- MonitorTag path (NEW v2.0 — Phase 1007 SC#4 realization) -
+            monitorKeys = obj.MonitorTargets.keys();
+            for i = 1:numel(monitorKeys)
+                key = monitorKeys{i};
+                % Collision rule: if a key appears in BOTH maps, Sensors
+                % wins (legacy preservation).  Skip the monitor branch.
+                if obj.Sensors.isKey(key)
+                    continue;
+                end
+                try
+                    [newEvents, gotData] = obj.processMonitorTag_(key);
+                    hasNewData = hasNewData || gotData;
+                    if ~isempty(newEvents)
+                        if isempty(allNewEvents)
+                            allNewEvents = newEvents;
+                        else
+                            allNewEvents = [allNewEvents, newEvents];
+                        end
+                    end
+                catch ex
+                    fprintf('[PIPELINE WARNING] MonitorTag "%s" failed: %s\n', ...
+                        key, ex.message);
                 end
             end
 
@@ -167,9 +223,105 @@ classdef LiveEventPipeline < handle
                 result.X, result.Y, result.stateX, result.stateY);
         end
 
+        function [newEvents, gotData] = processMonitorTag_(obj, key)
+            %PROCESSMONITORTAG_ Tag-first live-tick path (SC#4 realization).
+            %
+            %   Phase 1007 MONITOR-08 contract: MonitorTag.appendData
+            %   expects the monitor's Parent to already carry the new
+            %   (newX, newY) tail samples before the call — so we call
+            %   parent.updateData FIRST with the accumulated full grid,
+            %   then appendData with the NEW tail.  Wrong order causes
+            %   cache incoherence (appendData cold-path recomputes
+            %   against stale parent data).  This is the Pitfall Y
+            %   invariant, guarded by
+            %   test_live_event_pipeline_tag -> test_append_data_order_with_parent.
+            %
+            %   SensorTag.updateData REPLACES the parent's X/Y (it is not
+            %   an appender — that's a Phase 1005 design choice) so we
+            %   first snapshot the parent's current grid via getXY(),
+            %   then pass the concatenated (old + new) grid to
+            %   updateData().  This keeps MonitorTag.appendData's fast
+            %   path available once the cache warms up — the cascade
+            %   invalidation from updateData marks the monitor dirty,
+            %   but the very next appendData call refills the cache
+            %   against the full grid.
+            %
+            %   Events are harvested as the delta of the monitor's bound
+            %   EventStore size before and after appendData
+            %   (MonitorTag.fireEventsOnRisingEdges_ /
+            %   MonitorTag.fireEventsInTail_ write events directly — see
+            %   libs/SensorThreshold/MonitorTag.m).
+            newEvents = [];
+            gotData   = false;
+            if ~obj.DataSourceMap.has(key)
+                return;
+            end
+            ds     = obj.DataSourceMap.get(key);
+            result = ds.fetchNew();
+            if ~result.changed
+                return;
+            end
+            gotData = true;
+            monitor = obj.MonitorTargets(key);
+
+            % Snapshot the monitor's bound EventStore BEFORE appendData so
+            % we can harvest only the events emitted on this tick.
+            preStore = monitor.EventStore;
+            preCount = 0;
+            if ~isempty(preStore)
+                preCount = preStore.numEvents();
+            end
+
+            % Snapshot the parent's current grid so we can hand it the
+            % accumulated (old + new) grid.  SensorTag.updateData replaces
+            % X/Y; without this concatenation the parent would lose its
+            % history on each tick and MonitorTag.appendData's cold path
+            % would recompute over just the tail.
+            if ismethod(monitor.Parent, 'getXY')
+                [oldX, oldY] = monitor.Parent.getXY();
+            else
+                oldX = [];
+                oldY = [];
+            end
+            newX = result.X;
+            newY = result.Y;
+            fullX = [oldX(:).', newX(:).'];
+            fullY = [oldY(:).', newY(:).'];
+
+            % CRITICAL ORDERING (Pitfall Y): parent.updateData BEFORE
+            % monitor.appendData.  See MonitorTag.m:330-334 docstring.
+            if ismethod(monitor.Parent, 'updateData')
+                monitor.Parent.updateData(fullX, fullY);
+            else
+                error('LiveEventPipeline:parentNoUpdateData', ...
+                    ['MonitorTag parent "%s" does not support updateData — ' ...
+                     'cannot drive live tick.'], monitor.Parent.Key);
+            end
+            monitor.appendData(newX, newY);
+
+            % Harvest delta from the monitor's bound EventStore (if any).
+            if ~isempty(preStore)
+                allEvts = preStore.getEvents();
+                postCount = numel(allEvts);
+                if postCount > preCount
+                    newEvents = allEvts((preCount+1):postCount);
+                end
+            end
+        end
+
         function sd = buildSensorData(obj, sensorKey)
-            % Build sensorData struct for snapshot generation
+            % Build sensorData struct for snapshot generation.
+            %
+            % Tag-originated events (from MonitorTag via MONITOR-05 carrier)
+            % set SensorName = parent.Key — that key may not exist in
+            % obj.Sensors (legacy map).  Emit a minimal struct in that
+            % case to keep notifications flowing without crashing.
             st = obj.detector_.getSensorState(sensorKey);
+            if ~obj.Sensors.isKey(sensorKey)
+                sd = struct('X', [], 'Y', [], ...
+                    'thresholdValue', NaN, 'thresholdDirection', 'upper');
+                return;
+            end
             sensor = obj.Sensors(sensorKey);
 
             thVal = NaN;
@@ -187,7 +339,12 @@ classdef LiveEventPipeline < handle
         end
 
         function updateStoreSensorData(obj)
-            % Build sensorData struct array from detector state for EventViewer
+            % Build sensorData struct array from detector state for EventViewer.
+            %
+            % Iterates only obj.Sensors.keys() (legacy path) — Tag-backed
+            % MonitorTag targets are NOT surfaced into store.SensorData in
+            % Phase 1009.  Phase 1010 revisits SensorData semantics for
+            % Tag-originated events (EVENT-01 Tag-keyed sensor data).
             sensorKeys = obj.Sensors.keys();
             sd = struct('name', {}, 't', {}, 'y', {}, 'thresholds', {});
             for i = 1:numel(sensorKeys)
