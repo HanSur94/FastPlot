@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
-status: verifying
-stopped_at: Completed 1006-03-PLAN.md — Phase 1006 DONE
-last_updated: "2026-04-16T17:59:31.643Z"
+status: executing
+stopped_at: Completed 1007-01-PLAN.md
+last_updated: "2026-04-16T18:39:18.629Z"
 last_activity: 2026-04-16
 progress:
   total_phases: 15
   completed_phases: 9
-  total_plans: 29
-  completed_plans: 29
+  total_plans: 32
+  completed_plans: 30
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 1006 — MonitorTag (lazy, in-memory)
+**Current focus:** Phase 1007 — MonitorTag streaming + persistence
 
 ## Current Position
 
-Phase: 1007
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 1007 (MonitorTag streaming + persistence) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-16
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
@@ -99,6 +99,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1006 P01 | 8min | 2 tasks | 5 files |
 | Phase 1006-monitortag-lazy-in-memory P02 | 4min | 2 tasks | 3 files |
 | Phase 1006 P03 | 7m | 3 tasks | 5 files |
+| Phase 1007 P01 | 9m 24s | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -191,6 +192,9 @@ Recent decisions affecting current work:
 - [Phase 1006]: FastSense.addTag 'monitor' case mirrors 'sensor' verbatim — 0/1 binary renders as flat flipping line; avoids adding a new private helper
 - [Phase 1006]: File count landed at exactly 12 (at Pitfall 5 cap); all round-trip tests shipped rather than deferred to Phase 1009
 - [Phase 1006]: Pitfall 9 PASS with -69.7% overhead — MonitorTag 3.3x faster than legacy Sensor.resolve (event emission short-circuit + no violation pipeline)
+- [Phase 1007]: Chose cache_ struct for 3 state fields (lastStateFlag_, lastHystState_, ongoingRunStart_) — single source of truth vs duplicate properties-block
+- [Phase 1007]: Prior-state snapshot before mutation in appendData — reads boundary state into local vars BEFORE fireEventsInTail_ to prevent ordering bugs
+- [Phase 1007]: Scenario 2 double-event contract documented — Plan 02 recompute_ closes open-at-end runs; Plan 03 appendData emits continuation event when falling edge arrives in tail
 
 ### Roadmap Evolution
 
@@ -224,6 +228,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-16T17:54:34.582Z
-Stopped at: Completed 1006-03-PLAN.md — Phase 1006 DONE
+Last session: 2026-04-16T18:39:18.624Z
+Stopped at: Completed 1007-01-PLAN.md
 Resume file: None

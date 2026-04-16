@@ -148,7 +148,12 @@ Plans:
   - **Pitfall 2:** `Persist = false` is the documented default; `storeMonitor` only invoked when `Persist == true`
   - **Pitfall 5:** Phase touches ≤8 files (mostly `MonitorTag.m`, `FastSenseDataStore.m`, plus tests)
   - **Pitfall 9:** `appendData` benchmark vs. full recompute shows >5x speedup for 100k-sample tail append
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [x] 1007-01-PLAN.md — MonitorTag.appendData streaming + boundary-state continuity (MONITOR-08)
+- [ ] 1007-02-PLAN.md — MonitorTag Persist opt-in + FastSenseDataStore storeMonitor/loadMonitor/clearMonitor + quad-signature staleness (MONITOR-09)
+- [ ] 1007-03-PLAN.md — Pitfall 9 bench_monitortag_append + phase-exit audit + LEP-deferral SUMMARY (Success Criterion #4 -> Phase 1009)
 
 ### Phase 1008: CompositeTag
 **Goal**: Aggregate one or more MonitorTags / CompositeTags into a single derived signal via merge-sort streaming, supporting AND / OR / MAJORITY / COUNT / WORST / SEVERITY / USER_FN — replacing the legacy `CompositeThreshold` for time-series aggregation.
@@ -229,7 +234,7 @@ Plans:
 | 1004. Tag Foundation + Golden Test | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1005. SensorTag + StateTag | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1006. MonitorTag (lazy, in-memory) | v2.0 | 3/3 | Complete    | 2026-04-16 |
-| 1007. MonitorTag streaming + persistence | v2.0 | 0/? | Not started | — |
+| 1007. MonitorTag streaming + persistence | v2.0 | 1/3 | In Progress|  |
 | 1008. CompositeTag | v2.0 | 0/? | Not started | — |
 | 1009. Consumer migration | v2.0 | 0/? | Not started | — |
 | 1010. Event ↔ Tag binding + overlay | v2.0 | 0/? | Not started | — |
@@ -241,7 +246,7 @@ Plans:
 
 **Goal:** Add Home Assistant-style Mushroom Card widgets to the dashboard engine — minimal, icon-driven cards with clean visual design for sensor status, controls, and quick glance data. Three new widget classes: IconCardWidget, ChipBarWidget, SparklineCardWidget, plus theme additions and full serializer/builder/detach integration.
 **Requirements:** [MUSH-01: DashboardTheme InfoColor, MUSH-02: IconCardWidget, MUSH-03: ChipBarWidget, MUSH-04: SparklineCardWidget, MUSH-05: DashboardEngine type registration, MUSH-06: DashboardSerializer integration, MUSH-07: DetachedMirror + DashboardBuilder integration]
-**Plans:** 3/3 plans complete
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 999.1-01-PLAN.md — DashboardTheme InfoColor + IconCardWidget implementation
