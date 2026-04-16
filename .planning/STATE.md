@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
-status: verifying
-stopped_at: Completed 1008-03-PLAN.md — Phase 1008 COMPLETE
-last_updated: "2026-04-16T20:28:39.575Z"
+status: executing
+stopped_at: Completed 1009-01-PLAN.md
+last_updated: "2026-04-16T21:15:40.256Z"
 last_activity: 2026-04-16
 progress:
   total_phases: 15
   completed_phases: 11
-  total_plans: 35
-  completed_plans: 35
+  total_plans: 39
+  completed_plans: 36
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 1008 — CompositeTag
+**Current focus:** Phase 1009 — Consumer migration
 
 ## Current Position
 
-Phase: 1009
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 1009 (Consumer migration) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-04-16
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
@@ -105,6 +105,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1008-compositetag P01 | 5min | 2 tasks | 3 files |
 | Phase 1008 P02 | 9min | 2 tasks | 5 files |
 | Phase 1008 P03 | 12min | 2 tasks | 6 files |
+| Phase 1009-consumer-migration P01 | 8min | 4 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -209,6 +210,7 @@ Recent decisions affecting current work:
 - [Phase 1008]: Plan 03: Rule 1 perf fix in Plan 02 mergeStream_ — replaced scalar per-emit aggregate_ dispatch (4.98s on Octave, 25x over 200ms gate) with vectorized cummax-forward-fill + one-shot aggregateMatrix_ (53ms, 94x speedup). Byte-for-byte semantic parity verified by 13 align + 30 composite tests.
 - [Phase 1008]: Plan 03: Pitfall 1 preserved via testPitfall1NoIsaInFastSenseAddTag — regex-based grep over FastSense.m asserts zero  branches. Permanent regression safeguard that carries into Phase 1009 consumer migration.
 - [Phase 1008]: Plan 03: File-touch landed at exactly 8/8 cap; legacy zero-churn 0 lines across all 8 pre-existing SensorThreshold classes. Pre-existing test_to_step_function::testAllNaN failure (unrelated to Phase 1008) deferred via deferred-items.md — MIGRATE-02 strangler-fig discipline prohibits Phase 1008 from touching unrelated files.
+- [Phase 1009-consumer-migration]: Plan 01: Tag precedence over Sensor; thresholds on Tag-bound SensorDetailPlot deferred to Phase 1010; shared fixture factory at tests/suite/makePhase1009Fixtures.m reused by Plans 02/03
 
 ### Roadmap Evolution
 
@@ -242,6 +244,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-16T20:23:05.091Z
-Stopped at: Completed 1008-03-PLAN.md — Phase 1008 COMPLETE
+Last session: 2026-04-16T21:15:34.843Z
+Stopped at: Completed 1009-01-PLAN.md
 Resume file: None
