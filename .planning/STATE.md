@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
-status: executing
-stopped_at: Completed 1006-02-PLAN.md — MonitorTag debounce + hysteresis + event emission (MONITOR-05/06/07); 3 files; 12 MATLAB tests + 10 Octave assertions; 10 regression suites still GREEN; carrier pattern via SensorName+ThresholdLabel preserved for Phase 1010 migration
-last_updated: "2026-04-16T17:42:55.649Z"
+status: verifying
+stopped_at: Completed 1006-03-PLAN.md — Phase 1006 DONE
+last_updated: "2026-04-16T17:54:34.586Z"
 last_activity: 2026-04-16
 progress:
   total_phases: 15
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 29
-  completed_plans: 28
+  completed_plans: 29
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 
 Phase: 1006 (MonitorTag (lazy, in-memory)) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-16
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
@@ -98,6 +98,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1005-sensortag-statetag-data-carriers P03 | 9min | 3 tasks | 7 files |
 | Phase 1006 P01 | 8min | 2 tasks | 5 files |
 | Phase 1006-monitortag-lazy-in-memory P02 | 4min | 2 tasks | 3 files |
+| Phase 1006 P03 | 7m | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -187,6 +188,9 @@ Recent decisions affecting current work:
 - [Phase 1006-monitortag-lazy-in-memory]: Inline port of groupViolations.m run-finding into MonitorTag as shared findRuns_ helper — serves both applyDebounce_ and fireEventsOnRisingEdges_; preserves legacy-untouched invariant since across-library private/ is not callable
 - [Phase 1006-monitortag-lazy-in-memory]: MonitorTag.m docstrings reference Phase 1010 migration target in abstract terms (per-Tag keys field, keys array) rather than literal Event.TagKeys — satisfies Pitfall 5 strict literal grep gate while preserving carrier-contract documentation
 - [Phase 1006-monitortag-lazy-in-memory]: Event emission short-circuits when EventStore + OnEventStart + OnEventEnd are all empty — consumers who want only the binary signal pay zero event-emission cost
+- [Phase 1006]: FastSense.addTag 'monitor' case mirrors 'sensor' verbatim — 0/1 binary renders as flat flipping line; avoids adding a new private helper
+- [Phase 1006]: File count landed at exactly 12 (at Pitfall 5 cap); all round-trip tests shipped rather than deferred to Phase 1009
+- [Phase 1006]: Pitfall 9 PASS with -69.7% overhead — MonitorTag 3.3x faster than legacy Sensor.resolve (event emission short-circuit + no violation pipeline)
 
 ### Roadmap Evolution
 
@@ -220,6 +224,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-16T17:42:55.644Z
-Stopped at: Completed 1006-02-PLAN.md — MonitorTag debounce + hysteresis + event emission (MONITOR-05/06/07); 3 files; 12 MATLAB tests + 10 Octave assertions; 10 regression suites still GREEN; carrier pattern via SensorName+ThresholdLabel preserved for Phase 1010 migration
+Last session: 2026-04-16T17:54:34.582Z
+Stopped at: Completed 1006-03-PLAN.md — Phase 1006 DONE
 Resume file: None
