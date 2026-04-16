@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
 status: executing
-stopped_at: Completed 1006-01-PLAN.md — MonitorTag core + SensorTag/StateTag additive listener hook; 5 files; 9 Octave suites GREEN; legacy byte-for-byte unchanged; observer pattern first introduced in repo with recursive cascade proven
-last_updated: "2026-04-16T17:34:04.488Z"
+stopped_at: Completed 1006-02-PLAN.md — MonitorTag debounce + hysteresis + event emission (MONITOR-05/06/07); 3 files; 12 MATLAB tests + 10 Octave assertions; 10 regression suites still GREEN; carrier pattern via SensorName+ThresholdLabel preserved for Phase 1010 migration
+last_updated: "2026-04-16T17:42:55.649Z"
 last_activity: 2026-04-16
 progress:
   total_phases: 15
   completed_phases: 8
   total_plans: 29
-  completed_plans: 27
+  completed_plans: 28
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 ## Current Position
 
 Phase: 1006 (MonitorTag (lazy, in-memory)) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-16
 
@@ -97,6 +97,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1005 P02 | 8min | 2 tasks | 3 files |
 | Phase 1005-sensortag-statetag-data-carriers P03 | 9min | 3 tasks | 7 files |
 | Phase 1006 P01 | 8min | 2 tasks | 5 files |
+| Phase 1006-monitortag-lazy-in-memory P02 | 4min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -183,6 +184,9 @@ Recent decisions affecting current work:
 - [Phase 1006]: MonitorTag.invalidate() cascades to its own listeners — required for recursive MonitorTag chains (m2 wraps m1 wraps SensorTag). Plan's canonical skeleton had invalidate as a leaf op; extended with notifyListeners_ call.
 - [Phase 1006]: recomputeCount_ exposed as SetAccess=private (not fully private) — Octave enforces private strictly and blocks test probes; SetAccess keeps it read-only externally while allowing assertions.
 - [Phase 1006]: Tests use m.Parent.Key for handle identity (not isequal) — Octave isequal recurses through listener cycle causing SIGILL; Key equality + listener-wiring observation is equivalent and Octave-safe.
+- [Phase 1006-monitortag-lazy-in-memory]: Inline port of groupViolations.m run-finding into MonitorTag as shared findRuns_ helper — serves both applyDebounce_ and fireEventsOnRisingEdges_; preserves legacy-untouched invariant since across-library private/ is not callable
+- [Phase 1006-monitortag-lazy-in-memory]: MonitorTag.m docstrings reference Phase 1010 migration target in abstract terms (per-Tag keys field, keys array) rather than literal Event.TagKeys — satisfies Pitfall 5 strict literal grep gate while preserving carrier-contract documentation
+- [Phase 1006-monitortag-lazy-in-memory]: Event emission short-circuits when EventStore + OnEventStart + OnEventEnd are all empty — consumers who want only the binary signal pay zero event-emission cost
 
 ### Roadmap Evolution
 
@@ -216,6 +220,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-16T17:34:04.483Z
-Stopped at: Completed 1006-01-PLAN.md — MonitorTag core + SensorTag/StateTag additive listener hook; 5 files; 9 Octave suites GREEN; legacy byte-for-byte unchanged; observer pattern first introduced in repo with recursive cascade proven
+Last session: 2026-04-16T17:42:55.644Z
+Stopped at: Completed 1006-02-PLAN.md — MonitorTag debounce + hysteresis + event emission (MONITOR-05/06/07); 3 files; 12 MATLAB tests + 10 Octave assertions; 10 regression suites still GREEN; carrier pattern via SensorName+ThresholdLabel preserved for Phase 1010 migration
 Resume file: None
