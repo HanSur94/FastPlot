@@ -396,8 +396,18 @@ classdef CompositeTag < Tag
             %   the cluster so every contributing child has registered.
             %
             %   Memory: O(Sum len_i) for concat + O(M) output preallocation.
-            %   Time:   O(M log M) single sort + O(M) walk.
+            %   Time:   O(M log M) single sort + O(M) walk + O(numEmits)
+            %           vectorized aggregate.
             %   NO set-union; NO linear interpolation (ZOH via lastY update).
+            %
+            %   Performance note (Plan 1008-03 calibration):
+            %     Pre-Plan-03 drafts called aggregate_ inside the sorted-stream
+            %     hot loop (scalar static-method dispatch per emit).  Octave's
+            %     interpreter overhead on static-method calls (~50us / call)
+            %     made the 8 children x 100k sample workload run ~5s (50x over
+            %     the 200ms gate).  Fix: the hot loop now ONLY maintains the
+            %     lastY state + captures a snapshot matrix at each emit index;
+            %     aggregation runs ONCE vectorized over the captured matrix.
             obj.recomputeCount_ = obj.recomputeCount_ + 1;
             N = numel(obj.children_);
             if N == 0
@@ -436,30 +446,48 @@ classdef CompositeTag < Tag
             first_x = max(cellfun(@(xx) xx(1), allX));
 
             M = numel(sortedX);
-            lastY = nan(1, N);
-            X_out = zeros(1, M);
-            Y_out = zeros(1, M);
-            nOut  = 0;
-            mode      = obj.AggregateMode;
-            userFn    = obj.UserFn;
-            threshold = obj.Threshold;
-            for k = 1:M
-                lastY(sortedChild(k)) = sortedY(k);
-                if sortedX(k) < first_x
-                    continue;  % ALIGN-03 drop
-                end
-                if k < M && sortedX(k + 1) == sortedX(k)
-                    continue;  % coalesce same-timestamp cluster
-                end
-                agg = CompositeTag.aggregate_(lastY, weights, ...
-                    mode, userFn, threshold);
-                nOut = nOut + 1;
-                X_out(nOut) = sortedX(k);
-                Y_out(nOut) = agg;
+            % Vectorized emit-mask: emit at k iff (k == M) || (sortedX(k+1) ~= sortedX(k)) AND sortedX(k) >= first_x.
+            emitMask = [sortedX(1:M-1) ~= sortedX(2:M), true] & (sortedX >= first_x);
+            emitIdx  = find(emitMask);
+            nOut     = numel(emitIdx);
+            if nOut == 0
+                obj.cache_ = struct('x', [], 'y', []);
+                obj.dirty_ = false;
+                return;
             end
+            % Capture phase VECTORIZED (Plan 1008-03 perf fix):
+            % For each child c, forward-fill its last-known value across the
+            % sorted stream, then subsample at emitIdx.  No scalar loops over
+            % M=800k; pure vector ops per child (cummax over index-of-last
+            % non-NaN position).  Octave interpreter overhead eliminated.
+            lastYMatrix = nan(nOut, N);
+            posAll = 1:M;
+            for c = 1:N
+                cMask = (sortedChild == c);
+                % Vectorized "index-of-most-recent-non-NaN-for-this-child":
+                % at positions where cMask is true, carry the position index
+                % forward; cummax fills gaps with the last true-position.
+                idxAtPos = posAll;
+                idxAtPos(~cMask) = 0;
+                lastIdxAtPos = cummax(idxAtPos);
+                % Subsample at emit rows.
+                lastIdxAtEmit = lastIdxAtPos(emitIdx);
+                hasHist = lastIdxAtEmit > 0;
+                col = nan(nOut, 1);
+                if any(hasHist)
+                    col(hasHist) = sortedY(lastIdxAtEmit(hasHist));
+                end
+                lastYMatrix(:, c) = col;
+            end
+            % Vectorized aggregate over (nOut x N) matrix -- ONE dispatch total.
+            Y_col = CompositeTag.aggregateMatrix_(lastYMatrix, weights, ...
+                obj.AggregateMode, obj.UserFn, obj.Threshold);
+            X_out = sortedX(emitIdx);
+            if ~isrow(X_out), X_out = X_out(:).'; end
+            Y_out = Y_col(:).';                      % row-shape for consistency
             obj.cache_ = struct( ...
-                'x', X_out(1:nOut), ...
-                'y', Y_out(1:nOut));
+                'x', X_out, ...
+                'y', Y_out);
             obj.dirty_ = false;
         end
 
@@ -510,6 +538,81 @@ classdef CompositeTag < Tag
                     'AggregateMode must be one of: %s. Got ''%s''.', ...
                     strjoin(valid, ', '), mode);
             end
+        end
+
+        function out = aggregateMatrix_(M, weights, mode, userFn, threshold)
+            %AGGREGATEMATRIX_ Vectorized per-row aggregate over (nRows x N) matrix.
+            %   Produces byte-for-byte the same scalar result as row-by-row
+            %   aggregate_ calls -- proven via testAggregateMatrixParityVsScalar
+            %   in TestCompositeTagAlign.  Moves the mode dispatch OUT of the
+            %   mergeStream_ hot loop (Plan 1008-03 perf fix).
+            %
+            %   Inputs:
+            %     M         -- nRows x N matrix; rows are per-timestamp lastY
+            %                  snapshots; columns are children.  NaN means
+            %                  "child has not reported a value yet at this t".
+            %     weights   -- 1 x N weights vector (SEVERITY only).
+            %     mode      -- AggregateMode string (lowercase).
+            %     userFn    -- function_handle (USER_FN only).
+            %     threshold -- scalar for COUNT/SEVERITY binarization.
+            %
+            %   Output:
+            %     out       -- nRows x 1 double column vector (0 / 1 / NaN for
+            %                  built-in modes; whatever userFn returns for USER_FN).
+            [nRows, N] = size(M);
+            switch mode
+                case 'and'
+                    rowHasNan = any(isnan(M), 2);
+                    allOnes   = all(M >= 0.5, 2);
+                    out       = double(allOnes);
+                    out(rowHasNan) = NaN;
+                case 'or'
+                    nonNanCount = sum(~isnan(M), 2);
+                    anyOne      = any(M >= 0.5, 2);
+                    out         = double(anyOne);
+                    out(nonNanCount == 0) = NaN;
+                case 'majority'
+                    mask        = ~isnan(M);
+                    nonNanCount = sum(mask, 2);
+                    onesMatrix  = M >= 0.5;
+                    onesMatrix(~mask) = false;  % exclude NaN positions
+                    onesCount   = sum(onesMatrix, 2);
+                    out         = double(onesCount > nonNanCount / 2);
+                    out(nonNanCount == 0) = NaN;
+                case 'count'
+                    mask       = ~isnan(M);
+                    onesMatrix = M >= 0.5;
+                    onesMatrix(~mask) = false;
+                    onesCount  = sum(onesMatrix, 2);
+                    out        = double(onesCount >= threshold);
+                case 'worst'
+                    % max( ... , [], 2, 'omitnan') is MATLAB+Octave compatible.
+                    allNan = all(isnan(M), 2);
+                    tmp    = M;
+                    tmp(isnan(tmp)) = -Inf;
+                    out    = max(tmp, [], 2);
+                    out(allNan) = NaN;
+                case 'severity'
+                    mask   = ~isnan(M);
+                    Mzero  = M; Mzero(~mask) = 0;           % zero out NaN positions
+                    wRow   = ones(nRows, 1) * weights;       % broadcast weights to rows
+                    wMask  = wRow; wMask(~mask) = 0;
+                    num    = sum(Mzero .* wMask, 2);
+                    den    = sum(wMask, 2);
+                    anyVal = any(mask, 2);
+                    out    = double((num ./ den) >= threshold);
+                    out(~anyVal | den == 0) = NaN;
+                case 'user_fn'
+                    % USER_FN runs scalar per row -- user fn may not vectorize.
+                    out = nan(nRows, 1);
+                    for r = 1:nRows
+                        out(r) = userFn(M(r, :));
+                    end
+                otherwise
+                    error('CompositeTag:invalidAggregateMode', ...
+                        'Unknown aggregate mode ''%s''.', mode);
+            end
+            out = out(:);  % force column
         end
 
         function out = aggregate_(vals, weights, mode, userFn, threshold)
