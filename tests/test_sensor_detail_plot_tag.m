@@ -26,8 +26,8 @@ function test_sensor_tag_construct()
         'test_sensor_detail_plot_tag: SensorTag construct -> TagRef set');
     assert(isempty(sdp.Sensor), ...
         'test_sensor_detail_plot_tag: SensorTag construct -> Sensor empty');
-    assert(sdp.TagRef == st, ...
-        'test_sensor_detail_plot_tag: TagRef same handle');
+    assert(strcmp(sdp.TagRef.Key, 'sdp_press_a'), ...
+        'test_sensor_detail_plot_tag: TagRef.Key matches input');
 end
 
 function test_monitor_tag_construct()

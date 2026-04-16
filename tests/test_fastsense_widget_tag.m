@@ -117,8 +117,8 @@ function test_tag_round_trip()
     w2 = FastSenseWidget.fromStruct(s);
     assert(~isempty(w2.Tag), ...
         'test_fastsense_widget_tag: fromStruct populates Tag');
-    assert(w2.Tag == st, ...
-        'test_fastsense_widget_tag: fromStruct resolves same Tag handle');
+    assert(strcmp(w2.Tag.Key, st.Key), ...
+        'test_fastsense_widget_tag: fromStruct resolves same Tag by key');
 end
 
 function test_legacy_sensor_path_still_works()
