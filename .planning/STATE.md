@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
-status: verifying
-stopped_at: Completed 1007-03-PLAN.md (Phase 1007 ready for verification)
-last_updated: "2026-04-16T19:16:26.831Z"
+status: executing
+stopped_at: Completed 1008-01-PLAN.md (CompositeTag class core)
+last_updated: "2026-04-16T19:53:04.836Z"
 last_activity: 2026-04-16
 progress:
   total_phases: 15
   completed_phases: 10
-  total_plans: 32
-  completed_plans: 32
+  total_plans: 35
+  completed_plans: 33
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 1007 — MonitorTag streaming + persistence
+**Current focus:** Phase 1008 — CompositeTag
 
 ## Current Position
 
-Phase: 1008
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 1008 (CompositeTag) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-16
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
@@ -102,6 +102,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1007 P01 | 9m 24s | 2 tasks | 3 files |
 | Phase 1007-monitortag-streaming-persistence P02 | 13m 5s | 2 tasks | 9 files |
 | Phase 1007-monitortag-streaming-persistence P03 | 6m 1s | 2 tasks | 2 files |
+| Phase 1008-compositetag P01 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -199,6 +200,8 @@ Recent decisions affecting current work:
 - [Phase 1007]: Scenario 2 double-event contract documented — Plan 02 recompute_ closes open-at-end runs; Plan 03 appendData emits continuation event when falling edge arrives in tail
 - [Phase 1007-monitortag-streaming-persistence]: Plan 02 (MONITOR-09): constructor-time Persist+DataStore pairing validation with MonitorTag:persistDataStoreRequired; quad-signature staleness with eps(x)*10 tolerance; persistIfEnabled_ single call site routed from getXY wrapper and appendData tail (not recompute_); defensive ensureMonitorsTable_ helper for pre-Phase-1007 DataStores
 - [Phase 1007-monitortag-streaming-persistence]: Success Criterion #4 (LiveEventPipeline uses appendData) DEFERRED to Phase 1009 per RESEARCH §4 — Phase 1007 ships appendData as proven READY API (7-scenario tests + Pitfall 9 bench 10.9-12.6x); LEP rewire belongs to Phase 1009 consumer migration
+- [Phase 1008-compositetag]: CompositeTag cycle DFS uses strcmp(Key) — never isequal/== on handles (Octave SIGILL avoidance per RESEARCH §7)
+- [Phase 1008-compositetag]: Test-probe API: public read-only getters (getChildCount/Keys/Weights/isDirty) + static aggregateForTesting wrapper, no direct children_ exposure
 
 ### Roadmap Evolution
 
@@ -232,6 +235,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-16T19:08:36.447Z
-Stopped at: Completed 1007-03-PLAN.md (Phase 1007 ready for verification)
+Last session: 2026-04-16T19:53:04.830Z
+Stopped at: Completed 1008-01-PLAN.md (CompositeTag class core)
 Resume file: None
