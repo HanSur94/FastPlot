@@ -23,7 +23,8 @@ classdef SensorTag < Tag
     %   See also Tag, TagRegistry, Sensor, StateTag.
 
     properties (Access = private)
-        Sensor_   % handle to legacy Sensor instance (composition delegate)
+        Sensor_           % handle to legacy Sensor instance (composition delegate)
+        listeners_ = {}   % cell of handles implementing invalidate(); strong refs
     end
 
     properties (Dependent)
@@ -162,6 +163,42 @@ classdef SensorTag < Tag
         function tf = isOnDisk(obj)
             %ISONDISK Delegate to inner Sensor.isOnDisk.
             tf = obj.Sensor_.isOnDisk();
+        end
+
+        % ---- Observer hook (Phase 1006 additive) ----
+
+        function addListener(obj, m)
+            %ADDLISTENER Register a listener notified on underlying data change.
+            %   Listener must implement an invalidate() method. Strong
+            %   reference — caller manages lifecycle. Idempotency is the
+            %   caller's responsibility (duplicates permitted because
+            %   invalidate() is cheap and idempotent).
+            %
+            %   Errors: SensorTag:invalidListener if ~ismethod(m, 'invalidate').
+            if ~ismethod(m, 'invalidate')
+                error('SensorTag:invalidListener', ...
+                    'Listener must implement invalidate(); got %s.', class(m));
+            end
+            obj.listeners_{end+1} = m;
+        end
+
+        function updateData(obj, X, Y)
+            %UPDATEDATA Replace inner Sensor X/Y and fire listeners (MONITOR-04).
+            %   Additive API — does NOT touch load/toDisk/toMemory paths.
+            %   Any registered MonitorTag or other listener receives an
+            %   invalidate() call after the new data is installed.
+            obj.Sensor_.X = X;
+            obj.Sensor_.Y = Y;
+            obj.notifyListeners_();
+        end
+    end
+
+    methods (Access = private)
+        function notifyListeners_(obj)
+            %NOTIFYLISTENERS_ Iterate listeners_ and call invalidate() on each.
+            for i = 1:numel(obj.listeners_)
+                obj.listeners_{i}.invalidate();
+            end
         end
     end
 

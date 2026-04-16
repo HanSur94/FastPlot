@@ -52,7 +52,11 @@ classdef TestMonitorTag < matlab.unittest.TestCase
             st = SensorTag('stg', 'X', 1:10, 'Y', 1:10);
             m  = MonitorTag('m', st, @(x, y) y > 0);
             testCase.verifyEqual(m.Key, 'm');
-            testCase.verifyTrue(m.Parent == st, 'Parent handle identity preserved');
+            % Octave-safe handle identity probe: compare Keys + observe
+            % listener wiring (isequal on handles recurses into listener
+            % cell causing SIGILL in Octave).
+            testCase.verifyEqual(m.Parent.Key, st.Key, ...
+                'Parent identity preserved (key equality)');
             testCase.verifyEqual(m.getKind(), 'monitor');
             testCase.verifyTrue(isa(m, 'Tag'));
             testCase.verifyTrue(isa(m, 'handle'));
@@ -262,8 +266,15 @@ classdef TestMonitorTag < matlab.unittest.TestCase
             m2 = MonitorTag.fromStruct(s);
             map = containers.Map({st.Key}, {st});
             m2.resolveRefs(map);
-            testCase.verifyTrue(m2.Parent == st, ...
-                'resolveRefs must wire the real parent by key lookup');
+            testCase.verifyEqual(m2.Parent.Key, st.Key, ...
+                'resolveRefs must wire the real parent (Key equality)');
+            % Observe listener wiring: mutating real parent must invalidate m2.
+            [~, ~] = m2.getXY();
+            rc_before = m2.recomputeCount_;
+            st.updateData([1 2 3], [10 20 30]);
+            [~, ~] = m2.getXY();
+            testCase.verifyGreaterThan(m2.recomputeCount_, rc_before, ...
+                'resolveRefs must register listener on real parent');
         end
 
         function testResolveRefsMissingParent(testCase)

@@ -26,7 +26,9 @@ function test_monitortag()
     assert(isa(m, 'Tag'),            'test_monitortag: isa(Tag)');
     assert(isa(m, 'handle'),         'test_monitortag: isa(handle)');
     assert(strcmp(m.getKind(), 'monitor'), 'test_monitortag: getKind');
-    assert(m.Parent == st,           'test_monitortag: Parent handle identity');
+    % Handle identity: direct handle comparison via getfield probe.
+    % (Octave isequal recurses into listener cell causing SIGILL; compare Keys.)
+    assert(strcmp(m.Parent.Key, st.Key), 'test_monitortag: Parent key identity');
     assert(m.MinDuration == 0,       'test_monitortag: MinDuration default');
     assert(isempty(m.AlarmOffConditionFn), 'test_monitortag: AlarmOffConditionFn default');
     assert(isempty(m.EventStore),    'test_monitortag: EventStore default');
@@ -174,7 +176,14 @@ function test_monitortag()
     m2 = MonitorTag.fromStruct(s);
     map = containers.Map({st.Key}, {st});
     m2.resolveRefs(map);
-    assert(m2.Parent == st, 'test_monitortag: resolveRefs wires real parent');
+    assert(strcmp(m2.Parent.Key, st.Key), 'test_monitortag: resolveRefs wires real parent (key)');
+    % Mutate real parent and observe m2 invalidates — proves handle identity.
+    [~, ~] = m2.getXY();
+    rc_before = m2.recomputeCount_;
+    st.updateData([1 2 3], [10 20 30]);
+    [~, ~] = m2.getXY();
+    assert(m2.recomputeCount_ > rc_before, ...
+        'test_monitortag: resolveRefs must register as listener on real parent');
     TagRegistry.clear();
 
     % --- StateTag parent path ---
