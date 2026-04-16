@@ -3,7 +3,7 @@
 **Milestone:** v2.0 — Tag-Based Domain Model
 **Defined:** 2026-04-16
 **Source:** PROJECT.md (Ambitious tier scope), research/SUMMARY.md, user scoping decisions
-**Strategy:** Strangler-fig sequencing (Tag introduced as parallel hierarchy in Phase 1; legacy classes deleted only in Phase 7)
+**Strategy:** Strangler-fig sequencing (Tag introduced as parallel hierarchy in Phase 1004; legacy classes deleted only in Phase 1011)
 
 ## Scope Summary
 
@@ -153,9 +153,66 @@ These will NOT be implemented in v2.0 OR deferred milestones:
 
 | REQ-ID | Phase | Notes |
 |--------|-------|-------|
-| (filled by gsd-roadmapper) | | |
+| TAG-01 | 1004 | Tag abstract base — ≤6 abstract methods budget (Pitfall 1) |
+| TAG-02 | 1004 | Universal Tag root properties (Key, Name, Units, Description, Labels, Metadata, Criticality, SourceRef) |
+| TAG-03 | 1004 | TagRegistry singleton CRUD with hard-error duplicate-key (Pitfall 7) |
+| TAG-04 | 1004 | TagRegistry query API (find, findByLabel, findByKind) |
+| TAG-05 | 1004 | TagRegistry introspection (list, printTable, viewer) |
+| TAG-06 | 1004 | Two-phase loadFromStructs deserializer (Pitfall 8) |
+| TAG-07 | 1004 | toStruct/fromStruct round-trip for any composition depth |
+| TAG-08 | 1005 | SensorTag — port of Sensor raw-data role |
+| TAG-09 | 1005 | StateTag — port of StateChannel ZOH lookup |
+| TAG-10 | 1005 | FastSense.addTag polymorphic dispatch by getKind() |
+| MONITOR-01 | 1006 | MonitorTag(key, parent, conditionFn) → binary 0/1 series |
+| MONITOR-02 | 1006 | MonitorTag IS-A Tag; recursively composable |
+| MONITOR-03 | 1006 | Lazy memoized recompute; eager forbidden (Pitfall 2) |
+| MONITOR-04 | 1006 | Parent-driven invalidation (parent.updateData → monitor.invalidate) |
+| MONITOR-05 | 1006 | Event auto-emit on 0→1 transitions; consumer wiring fully realized in 1009 |
+| MONITOR-06 | 1006 | MinDuration debounce — ISA-18.2 alarm suppression |
+| MONITOR-07 | 1006 | Hysteresis / deadband — separate alarm-on/alarm-off thresholds |
+| MONITOR-08 | 1007 | appendData incremental tail computation for live tick |
+| MONITOR-09 | 1007 | Opt-in Persist=true via FastSenseDataStore.storeMonitor/loadMonitor |
+| MONITOR-10 | 1006 | No per-sample side-effect callbacks; event-level only |
+| COMPOSITE-01 | 1008 | CompositeTag extends Tag; recursively composable |
+| COMPOSITE-02 | 1008 | AND/OR/MAJORITY/COUNT/WORST/SEVERITY/USER_FN aggregation modes |
+| COMPOSITE-03 | 1008 | addChild accepts handle or key; optional Weight for SEVERITY |
+| COMPOSITE-04 | 1008 | Cycle detection on addChild via DFS (Pitfall 8) |
+| COMPOSITE-05 | 1008 | Merge-sort streaming aggregation; no N×M materialization (Pitfall 3) |
+| COMPOSITE-06 | 1008 | valueAt(t) fast path for current-state widgets |
+| COMPOSITE-07 | 1008 | Children must be MonitorTag or CompositeTag (no SensorTag/StateTag) |
+| META-01 | 1004 | Tag.Labels (cell of strings) on Tag root |
+| META-02 | 1004 | TagRegistry.findByLabel — port of ThresholdRegistry.findByTag |
+| META-03 | 1004 | Tag.Metadata open struct on Tag root |
+| META-04 | 1004 | Tag.Criticality enum drives default widget colors |
+| EVENT-01 | 1010 | Event.TagKeys cell replaces SensorName/ThresholdLabel |
+| EVENT-02 | 1010 | Separate EventBinding registry; no bidirectional handles (Pitfall 4) |
+| EVENT-03 | 1010 | EventStore.eventsForTag(key) query |
+| EVENT-04 | 1010 | Event.Severity → theme color (StatusOk/Warn/Alarm) |
+| EVENT-05 | 1010 | Event.Category drives FastSense overlay style + EventTimelineWidget filter |
+| EVENT-06 | 1010 | tag.addManualEvent — manual annotation API (foundation for milestone F) |
+| EVENT-07 | 1010 | FastSense round-marker overlay; toggleable; separate render layer (Pitfall 10) |
+| ALIGN-01 | 1006 | ZOH-only alignment in MonitorTag (interpolation forbidden) |
+| ALIGN-02 | 1006 | Union-of-timestamps grid (CompositeTag inherits in 1008) |
+| ALIGN-03 | 1006 | Drop grid points before max(child.X(1)) — no false pre-history alarms |
+| ALIGN-04 | 1006 | NaN handling in aggregation per IEEE 754 conventions |
+| MIGRATE-01 | 1004 | Phase-0 golden integration test — written this phase, untouched until 1011 |
+| MIGRATE-02 | 1004 | Strangler-fig sequencing enforced — ≤20-file budget for 1004 (Pitfall 5) |
+| MIGRATE-03 | 1011 | Delete 8 legacy classes; rewrite golden test for new API |
+
+**Coverage:** 45/45 v2.0 requirements mapped to exactly one phase. Phase 1009 (consumer migration) is a structural integration phase that owns no exclusive REQ-IDs — it wires existing Tag/MONITOR/COMPOSITE REQs into existing widget consumers without introducing new requirements.
+
+**Phase distribution:**
+- Phase 1004: 13 REQs (TAG-01..07, META-01..04, MIGRATE-01, MIGRATE-02)
+- Phase 1005: 3 REQs (TAG-08, TAG-09, TAG-10)
+- Phase 1006: 12 REQs (MONITOR-01..07, MONITOR-10, ALIGN-01..04)
+- Phase 1007: 2 REQs (MONITOR-08, MONITOR-09)
+- Phase 1008: 7 REQs (COMPOSITE-01..07)
+- Phase 1009: 0 REQs (structural consumer migration; MONITOR-05 auto-emit fully realized end-to-end here)
+- Phase 1010: 7 REQs (EVENT-01..07)
+- Phase 1011: 1 REQ (MIGRATE-03)
 
 ---
 
 *Defined for: v2.0 Tag-Based Domain Model — pure-MATLAB unified Tag abstraction over existing FastSense codebase*
 *Defined: 2026-04-16*
+*Traceability filled: 2026-04-16 by gsd-roadmapper (Phases 1004-1011 mapped, 45/45 coverage)*

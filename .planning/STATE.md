@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: tag-based-domain-model
-status: defining-requirements
-stopped_at: Milestone v2.0 initialized — defining requirements
+status: roadmap-complete
+stopped_at: Roadmap for v2.0 complete (Phases 1004-1011) — ready for /gsd:plan-phase 1004
 last_updated: "2026-04-16T00:00:00.000Z"
 last_activity: 2026-04-16
 progress:
-  total_phases: 0
+  total_phases: 8
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,24 +21,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Milestone v2.0 — Tag-Based Domain Model (defining requirements)
+**Current focus:** Milestone v2.0 — Tag-Based Domain Model (Phases 1004-1011 mapped; ready to plan Phase 1004)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 1004 — Tag Foundation + Golden Test (next to plan)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-04-16 — Milestone v2.0 started
+Status: Roadmap complete; awaiting `/gsd:plan-phase 1004`
+Last activity: 2026-04-16 — ROADMAP.md filled with 8 phases (1004-1011), 45/45 REQ coverage, strangler-fig sequencing locked
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 0 (v2.0)
 - Average duration: —
-- Total execution time: 0 hours
+- Total execution time: 0 hours (v2.0)
 
 **By Phase:**
 
@@ -158,8 +158,7 @@ Recent decisions affecting current work:
 - [Phase 1002]: IconCardWidget Threshold resolver in own varargin constructor; mutual exclusivity post-loop
 - [Phase 1002]: MultiStatusWidget toStruct emits s.items typed array for mixed Sensor/threshold entries
 - [Phase 1002]: ChipBarWidget threshold block before statusFcn in resolveChipColor so threshold takes priority
-- [Phase 1003]: CompositeThreshold extends Threshold directly so isa check works; AND/OR/MAJORITY via AggregateMode property; evaluateLeaf_ uses IsUpper; addChild uses warning not error for unknown key
-- [Phase 1003]: toStruct children as cell of structs with key+optional value; fromStruct resolves via ThresholdRegistry with warn-and-skip for missing keys; isequal() for Octave-safe handle identity
+- [Phase 1003]: CompositeThreshold extends Threshold directly so isa check works; AND/OR/MAJORITY via AggregateMode property; toStruct children as cell of structs with key+optional value; fromStruct resolves via ThresholdRegistry with warn-and-skip for missing keys; isequal() for Octave-safe handle identity
 
 ### Roadmap Evolution
 
@@ -167,6 +166,7 @@ Recent decisions affecting current work:
 - Phase 1 added: Dashboard Performance Optimization — faster creation, instantiation, and interactivity
 - Phase 1000 added: Dashboard Engine Performance Optimization Phase 2 — 6 bottlenecks: incremental FastSenseWidget refresh, debounced slider broadcast, lazy page realization, cached time ranges, batched page switch, debounced resize
 - Milestone v2.0 added: Tag-Based Domain Model (Ambitious tier — A+B+C+E) — full SensorThreshold reboot under unified `Tag` root + MonitorTag time-series + CompositeTag aggregation + events attached to tags
+- Phases 1004-1011 mapped (2026-04-16): 8-phase strangler-fig decomposition — Tag introduced as parallel hierarchy in Phase 1004; legacy classes deleted only in Phase 1011. 45/45 v2.0 REQs mapped (TAG, MONITOR, COMPOSITE, META, EVENT, ALIGN, MIGRATE). Phase 1009 owns no exclusive REQ-IDs (structural consumer-migration phase).
 
 ### Pending Todos
 
@@ -174,8 +174,10 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 3 (Multi-Page): DashboardEngine render guard interaction with panel-visibility-based page switching needs architecture review before implementation starts
-- Phase 5 (Detachable): `cloneForDetach()` for FastSenseWidget and RawAxesWidget involves non-serializable live references — enumerate affected widget types at phase start
+- Phase 1004: ≤20-file budget for the parallel-hierarchy introduction is the falsifiable gate per Pitfall 5 — if Phase 1004 plan exceeds this, the strangler-fig sequencing is broken and the plan must be re-scoped before execution
+- Phase 1006: MonitorTag live-tick performance unverified — bench at phase exit (≤10% regression vs. legacy `Sensor.resolve` at 12-widget tick)
+- Phase 1008: CompositeTag merge-sort streaming aggregation must avoid N×M union materialization — 8 children × 100k samples bench gates phase exit (<50MB peak, <200ms compute)
+- Phase 1009: Per-widget consumer migration is many small commits, not one big PR — each commit must keep `tests/run_all_tests.m` AND the golden integration test green
 
 ### Quick Tasks Completed
 
@@ -191,5 +193,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-16T00:00:00.000Z
-Stopped at: Milestone v2.0 (Tag-Based Domain Model) initialized — defining requirements
-Resume file: None
+Stopped at: ROADMAP.md complete for v2.0 (Phases 1004-1011); 45/45 REQ coverage; STATE.md and REQUIREMENTS.md traceability updated. Ready for `/gsd:plan-phase 1004`.
+Resume file: `.planning/ROADMAP.md` (Phase 1004 detail section)
