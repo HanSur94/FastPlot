@@ -58,7 +58,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 1004: Tag Foundation + Golden Test** — abstract `Tag` base, `TagRegistry` (two-phase loader), META properties, plus untouchable golden integration test guarding the rewrite (completed 2026-04-16)
 - [x] **Phase 1005: SensorTag + StateTag (data carriers)** — port `Sensor`/`StateChannel` to Tag subclasses; add `FastSense.addTag()` alongside legacy `addSensor()` (completed 2026-04-16)
 - [x] **Phase 1006: MonitorTag (lazy, in-memory)** — derived 0/1 time series with debounce, hysteresis, parent-driven invalidation, ZOH alignment; no disk persistence (completed 2026-04-16)
-- [ ] **Phase 1007: MonitorTag streaming + persistence** — `appendData` incremental tail computation and opt-in `FastSenseDataStore` storeMonitor/loadMonitor
+- [x] **Phase 1007: MonitorTag streaming + persistence** — `appendData` incremental tail computation and opt-in `FastSenseDataStore` storeMonitor/loadMonitor (completed 2026-04-16)
 - [ ] **Phase 1008: CompositeTag** — AND/OR/MAJORITY/COUNT/WORST/SEVERITY/USER_FN aggregation with cycle detection and merge-sort streaming
 - [ ] **Phase 1009: Consumer migration (one widget at a time)** — migrate FastSenseWidget, MultiStatusWidget, IconCardWidget, EventTimelineWidget, SensorDetailPlot, DashboardWidget base, EventDetection consumers; each in a separate green-CI commit
 - [ ] **Phase 1010: Event ↔ Tag binding + FastSense overlay** — `Event.TagKeys`, `EventBinding` registry, `EventStore.eventsForTag`, FastSense round-marker overlay (toggleable)
@@ -153,7 +153,7 @@ Plans:
 Plans:
 - [x] 1007-01-PLAN.md — MonitorTag.appendData streaming + boundary-state continuity (MONITOR-08)
 - [x] 1007-02-PLAN.md — MonitorTag Persist opt-in + FastSenseDataStore storeMonitor/loadMonitor/clearMonitor + quad-signature staleness (MONITOR-09)
-- [ ] 1007-03-PLAN.md — Pitfall 9 bench_monitortag_append + phase-exit audit + LEP-deferral SUMMARY (Success Criterion #4 -> Phase 1009)
+- [x] 1007-03-PLAN.md — Pitfall 9 bench_monitortag_append + phase-exit audit + LEP-deferral SUMMARY (Success Criterion #4 -> Phase 1009)
 
 ### Phase 1008: CompositeTag
 **Goal**: Aggregate one or more MonitorTags / CompositeTags into a single derived signal via merge-sort streaming, supporting AND / OR / MAJORITY / COUNT / WORST / SEVERITY / USER_FN — replacing the legacy `CompositeThreshold` for time-series aggregation.
@@ -234,7 +234,7 @@ Plans:
 | 1004. Tag Foundation + Golden Test | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1005. SensorTag + StateTag | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1006. MonitorTag (lazy, in-memory) | v2.0 | 3/3 | Complete    | 2026-04-16 |
-| 1007. MonitorTag streaming + persistence | v2.0 | 2/3 | In Progress|  |
+| 1007. MonitorTag streaming + persistence | v2.0 | 3/3 | Complete   | 2026-04-16 |
 | 1008. CompositeTag | v2.0 | 0/? | Not started | — |
 | 1009. Consumer migration | v2.0 | 0/? | Not started | — |
 | 1010. Event ↔ Tag binding + overlay | v2.0 | 0/? | Not started | — |
@@ -246,7 +246,7 @@ Plans:
 
 **Goal:** Add Home Assistant-style Mushroom Card widgets to the dashboard engine — minimal, icon-driven cards with clean visual design for sensor status, controls, and quick glance data. Three new widget classes: IconCardWidget, ChipBarWidget, SparklineCardWidget, plus theme additions and full serializer/builder/detach integration.
 **Requirements:** [MUSH-01: DashboardTheme InfoColor, MUSH-02: IconCardWidget, MUSH-03: ChipBarWidget, MUSH-04: SparklineCardWidget, MUSH-05: DashboardEngine type registration, MUSH-06: DashboardSerializer integration, MUSH-07: DetachedMirror + DashboardBuilder integration]
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 999.1-01-PLAN.md — DashboardTheme InfoColor + IconCardWidget implementation
