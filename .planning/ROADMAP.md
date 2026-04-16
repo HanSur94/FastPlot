@@ -59,7 +59,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 1005: SensorTag + StateTag (data carriers)** — port `Sensor`/`StateChannel` to Tag subclasses; add `FastSense.addTag()` alongside legacy `addSensor()` (completed 2026-04-16)
 - [x] **Phase 1006: MonitorTag (lazy, in-memory)** — derived 0/1 time series with debounce, hysteresis, parent-driven invalidation, ZOH alignment; no disk persistence (completed 2026-04-16)
 - [x] **Phase 1007: MonitorTag streaming + persistence** — `appendData` incremental tail computation and opt-in `FastSenseDataStore` storeMonitor/loadMonitor (completed 2026-04-16)
-- [ ] **Phase 1008: CompositeTag** — AND/OR/MAJORITY/COUNT/WORST/SEVERITY/USER_FN aggregation with cycle detection and merge-sort streaming
+- [x] **Phase 1008: CompositeTag** — AND/OR/MAJORITY/COUNT/WORST/SEVERITY/USER_FN aggregation with cycle detection and merge-sort streaming (completed 2026-04-16)
 - [ ] **Phase 1009: Consumer migration (one widget at a time)** — migrate FastSenseWidget, MultiStatusWidget, IconCardWidget, EventTimelineWidget, SensorDetailPlot, DashboardWidget base, EventDetection consumers; each in a separate green-CI commit
 - [ ] **Phase 1010: Event ↔ Tag binding + FastSense overlay** — `Event.TagKeys`, `EventBinding` registry, `EventStore.eventsForTag`, FastSense round-marker overlay (toggleable)
 - [ ] **Phase 1011: Cleanup — collapse parallel hierarchy + delete legacy** — delete 8 legacy classes, rewrite golden test for new API, full suite green
@@ -175,7 +175,7 @@ Plans:
 Plans:
 - [x] 1008-01-PLAN.md — CompositeTag class core + addChild with cycle detection + truth-table aggregator + basic unit tests (COMPOSITE-01..04, 07)
 - [x] 1008-02-PLAN.md — Merge-sort getXY + ALIGN tests (NaN truth tables + pre-history drop) + 3-deep round-trip (COMPOSITE-05, 06, ALIGN-01..04)
-- [ ] 1008-03-PLAN.md — FastSense/TagRegistry integration + Pitfall 3 bench + phase audit (COMPOSITE-01, 05)
+- [x] 1008-03-PLAN.md — FastSense/TagRegistry integration + Pitfall 3 bench + phase audit (COMPOSITE-01, 05)
 
 ### Phase 1009: Consumer migration (one widget at a time)
 **Goal**: Migrate every existing consumer of `Sensor` / `Threshold` / `StateChannel` / `CompositeThreshold` to the new Tag API — one widget per commit, each with green CI — so the legacy hierarchy can be deleted in Phase 1011 with zero references remaining.
@@ -240,7 +240,7 @@ Plans:
 | 1005. SensorTag + StateTag | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1006. MonitorTag (lazy, in-memory) | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1007. MonitorTag streaming + persistence | v2.0 | 3/3 | Complete    | 2026-04-16 |
-| 1008. CompositeTag | v2.0 | 2/3 | In Progress|  |
+| 1008. CompositeTag | v2.0 | 3/3 | Complete   | 2026-04-16 |
 | 1009. Consumer migration | v2.0 | 0/? | Not started | — |
 | 1010. Event ↔ Tag binding + overlay | v2.0 | 0/? | Not started | — |
 | 1011. Cleanup + delete legacy | v2.0 | 0/? | Not started | — |
@@ -251,7 +251,7 @@ Plans:
 
 **Goal:** Add Home Assistant-style Mushroom Card widgets to the dashboard engine — minimal, icon-driven cards with clean visual design for sensor status, controls, and quick glance data. Three new widget classes: IconCardWidget, ChipBarWidget, SparklineCardWidget, plus theme additions and full serializer/builder/detach integration.
 **Requirements:** [MUSH-01: DashboardTheme InfoColor, MUSH-02: IconCardWidget, MUSH-03: ChipBarWidget, MUSH-04: SparklineCardWidget, MUSH-05: DashboardEngine type registration, MUSH-06: DashboardSerializer integration, MUSH-07: DetachedMirror + DashboardBuilder integration]
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 999.1-01-PLAN.md — DashboardTheme InfoColor + IconCardWidget implementation
