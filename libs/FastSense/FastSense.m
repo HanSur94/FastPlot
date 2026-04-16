@@ -940,6 +940,71 @@ classdef FastSense < handle
             obj.addShaded(x, y, y2, shadedNV{:});
         end
 
+        function addTag(obj, tag, varargin)
+            %ADDTAG Polymorphic dispatch — route a Tag to the correct render path.
+            %   fp.ADDTAG(sensorTag)     — routes to addLine via tag.getXY
+            %   fp.ADDTAG(stateTag)      — routes to a staircase line (numeric Y)
+            %
+            %   Dispatches by tag.getKind() — NO isa() subtype checks (Pitfall 1).
+            %   Must be called BEFORE render() (enforced by IsRendered guard).
+            %
+            %   Error IDs:
+            %     FastSense:invalidTag                   — not a Tag object
+            %     FastSense:unsupportedTagKind           — kind not handled
+            %     FastSense:stateTagCellstrNotSupported  — cellstr Y StateTag (deferred)
+            %     FastSense:alreadyRendered              — render() already called
+            %
+            %   See also addLine, addSensor, Tag, SensorTag, StateTag.
+
+            if obj.IsRendered
+                error('FastSense:alreadyRendered', ...
+                    'Cannot add tags after render() has been called.');
+            end
+            if ~isa(tag, 'Tag')
+                error('FastSense:invalidTag', ...
+                    'addTag requires a Tag object, got %s.', class(tag));
+            end
+            switch tag.getKind()
+                case 'sensor'
+                    [x, y] = tag.getXY();
+                    obj.addLine(x, y, 'DisplayName', tag.Name, varargin{:});
+                case 'state'
+                    obj.addStateTagAsStaircase_(tag, varargin{:});
+                otherwise
+                    error('FastSense:unsupportedTagKind', ...
+                        'Unsupported tag kind ''%s''.', tag.getKind());
+            end
+        end
+
+        function addStateTagAsStaircase_(obj, tag, varargin)
+            %ADDSTATETAGASSTAIRCASE_ Render a numeric StateTag as a stepped line.
+            %   Private helper (name ends in _) invoked by addTag for the
+            %   'state' kind. Expands (X, Y) pairs into an interleaved
+            %   2N-1 staircase and delegates to addLine. Cellstr Y is not
+            %   supported in Phase 1005 (deferred).
+            [x, y] = tag.getXY();
+            if iscell(y)
+                error('FastSense:stateTagCellstrNotSupported', ...
+                    'Cellstr StateTag rendering is deferred (Phase 1005 supports numeric Y only).');
+            end
+            if isempty(x) || isempty(y)
+                return;
+            end
+            n = numel(x);
+            xStep = zeros(1, 2*n - 1);
+            yStep = zeros(1, 2*n - 1);
+            xStep(1) = x(1);
+            yStep(1) = y(1);
+            for i = 2:n
+                xStep(2*i - 2) = x(i);
+                yStep(2*i - 2) = y(i-1);
+                xStep(2*i - 1) = x(i);
+                yStep(2*i - 1) = y(i);
+            end
+            obj.addLine(xStep, yStep, 'DisplayName', tag.Name, ...
+                'AssumeSorted', true, varargin{:});
+        end
+
         function render(obj, progressBar)
             %RENDER Create the plot with all configured lines and annotations.
             %   fp.RENDER() finalizes the plot and displays it. This method:

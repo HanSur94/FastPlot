@@ -345,9 +345,13 @@ classdef TagRegistry
                     tag = MockTag.fromStruct(s);
                 case 'mockthrowingresolve'
                     tag = MockTagThrowingResolve.fromStruct(s);
+                case 'sensor'
+                    tag = SensorTag.fromStruct(s);
+                case 'state'
+                    tag = StateTag.fromStruct(s);
                 otherwise
                     error('TagRegistry:unknownKind', ...
-                        'Unknown tag kind ''%s''. Valid kinds (Phase 1004): mock.', ...
+                        'Unknown tag kind ''%s''. Valid kinds (Phase 1005): mock, sensor, state.', ...
                         kind);
             end
         end
