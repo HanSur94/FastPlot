@@ -51,13 +51,21 @@ classdef CompositeTag < Tag
     %     invalidate() / addListener(m)   -- observer pattern (inherited shape)
     %     getChildCount / getChildKeys    -- read-only inspection probes
     %     getChildWeights / isDirty       -- read-only inspection probes
+    %     getChildAt(i)                   -- i-th child Tag handle (3-deep descent)
     %     getKind()                       -- returns 'composite'
     %
-    %   Methods (Plan 02 -- stubbed with CompositeTag:notImplemented):
-    %     getXY()         -- merge-sort streaming over child sample streams
-    %     valueAt(t)      -- fast path aggregating child.valueAt(t)
-    %     getTimeRange()  -- min/max across children
-    %     toStruct()      -- serialization (fromStruct + resolveRefs in Plan 02)
+    %   Methods (Tag contract -- Plan 02 merge-sort + serialization):
+    %     getXY()         -- lazy-memoized union-of-timestamps grid via
+    %                        RESEARCH §5 vectorized sort-based merge
+    %                        (no set union, no linear interpolation; ALIGN-03)
+    %     valueAt(t)      -- COMPOSITE-06 fast path; aggregates
+    %                        child.valueAt(t) without materializing series
+    %     getTimeRange()  -- [X(1), X(end)] of the aggregated grid
+    %     toStruct()      -- serialize to {kind, key, ..., childkeys,
+    %                        childweights, aggregatemode, threshold}
+    %     fromStruct(s)   -- Static Pass-1 ctor; stashes ChildKeys_ for Pass-2
+    %     resolveRefs(r)  -- Pass-2 wiring; iterates ChildKeys_ and calls
+    %                        obj.addChild(registry(k), 'Weight', w) per child
     %
     %   Error IDs (locked):
     %     CompositeTag:cycleDetected        -- addChild would create cycle
@@ -67,7 +75,9 @@ classdef CompositeTag < Tag
     %     CompositeTag:userFnRequired       -- mode=='user_fn' but UserFn empty
     %     CompositeTag:unknownOption        -- constructor NV-pair unknown
     %     CompositeTag:invalidListener      -- addListener target lacks invalidate()
-    %     CompositeTag:notImplemented       -- method deferred to Plan 02
+    %     CompositeTag:dataMismatch         -- fromStruct missing required .key
+    %     CompositeTag:unresolvedChild      -- resolveRefs key not in registry
+    %     CompositeTag:indexOutOfBounds     -- getChildAt index out of range
     %
     %   Cycle-detection note (RESEARCH §7 / Pitfall 3 Octave SIGILL):
     %     CompositeTag EXPLICITLY creates listener cycles (addChild wires
@@ -233,30 +243,135 @@ classdef CompositeTag < Tag
             k = 'composite';
         end
 
-        % ---- Plan-02 stubs (throw-from-base with CompositeTag:notImplemented) ----
+        % ---- Tag contract (merge-sort streaming, fast-path valueAt) ----
 
-        function [x, y] = getXY(obj) %#ok<STOUT,MANU>
-            %GETXY Plan 02 -- merge-sort streaming over child sample streams.
-            error('CompositeTag:notImplemented', ...
-                'CompositeTag.getXY merge-sort is Plan 02 of Phase 1008.');
+        function [x, y] = getXY(obj)
+            %GETXY Lazy-memoized union-of-timestamps grid via merge-sort streaming.
+            %   Aggregates every child's (X, Y) via the RESEARCH §5
+            %   vectorized sort-based algorithm (no set-union, no linear
+            %   interpolation).  Drops samples before `max(child.X(1))`
+            %   per ALIGN-03.  Cache stays warm across calls; invalidate()
+            %   (cascade from any child) clears it.
+            if obj.dirty_ || ~isfield(obj.cache_, 'x')
+                obj.mergeStream_();
+            end
+            x = obj.cache_.x;
+            y = obj.cache_.y;
         end
 
-        function v = valueAt(obj, t) %#ok<STOUT,INUSD>
-            %VALUEAT Plan 02 -- fast-path aggregation of child.valueAt(t).
-            error('CompositeTag:notImplemented', ...
-                'CompositeTag.valueAt fast-path is Plan 02 of Phase 1008.');
+        function v = valueAt(obj, t)
+            %VALUEAT COMPOSITE-06 fast-path -- aggregate child.valueAt(t).
+            %   Iterates children and aggregates their instantaneous
+            %   scalar values; NEVER materializes the full series.  Does
+            %   NOT increment recomputeCount_ and does NOT warm the cache.
+            %   At N=8 children, depth 3, log(M)=17 -> ~400 ops per call
+            %   (sub-microsecond vs. ~150ms for a full getXY).
+            n = numel(obj.children_);
+            if n == 0
+                v = NaN;
+                return;
+            end
+            vals    = zeros(1, n);
+            weights = zeros(1, n);
+            for i = 1:n
+                c = obj.children_{i};
+                vals(i)    = c.tag.valueAt(t);
+                weights(i) = c.weight;
+            end
+            v = CompositeTag.aggregate_(vals, weights, ...
+                obj.AggregateMode, obj.UserFn, obj.Threshold);
         end
 
-        function [tMin, tMax] = getTimeRange(obj) %#ok<STOUT,MANU>
-            %GETTIMERANGE Plan 02 -- requires getXY to be implemented.
-            error('CompositeTag:notImplemented', ...
-                'CompositeTag.getTimeRange requires getXY (Plan 02).');
+        function [tMin, tMax] = getTimeRange(obj)
+            %GETTIMERANGE Return [X(1), X(end)] of the aggregated grid.
+            %   Warms the merge-sort cache if cold.  Returns [NaN NaN] when
+            %   there are no children or any child has no data.
+            [x, ~] = obj.getXY();
+            if isempty(x)
+                tMin = NaN;
+                tMax = NaN;
+                return;
+            end
+            tMin = x(1);
+            tMax = x(end);
         end
 
-        function s = toStruct(obj) %#ok<STOUT,MANU>
-            %TOSTRUCT Plan 02 -- serialization with childKeys/childWeights.
-            error('CompositeTag:notImplemented', ...
-                'CompositeTag.toStruct is Plan 02 of Phase 1008.');
+        function s = toStruct(obj)
+            %TOSTRUCT Serialize CompositeTag to a plain struct.
+            %   Emits {kind='composite', key, name, labels, metadata,
+            %   criticality, units, description, sourceref, aggregatemode,
+            %   threshold, childkeys, childweights}.  UserFn is NOT
+            %   serialized (function handles cannot round-trip); consumers
+            %   must re-bind UserFn after loadFromStructs for 'user_fn' mode.
+            %   childkeys is double-wrapped (cell-in-cell) to survive the
+            %   MATLAB struct() cellstr-collapse idiom; fromStruct unwraps.
+            s = struct();
+            s.kind          = 'composite';
+            s.key           = obj.Key;
+            s.name          = obj.Name;
+            s.labels        = {obj.Labels};   % double-wrap (Tag idiom)
+            s.metadata      = obj.Metadata;
+            s.criticality   = obj.Criticality;
+            s.units         = obj.Units;
+            s.description   = obj.Description;
+            s.sourceref     = obj.SourceRef;
+            s.aggregatemode = obj.AggregateMode;
+            s.threshold     = obj.Threshold;
+
+            nKids = numel(obj.children_);
+            childKeys    = cell(1, nKids);
+            childWeights = zeros(1, nKids);
+            for i = 1:nKids
+                childKeys{i}    = obj.children_{i}.tag.Key;
+                childWeights(i) = obj.children_{i}.weight;
+            end
+            s.childkeys    = {childKeys};     % double-wrap (survives struct())
+            s.childweights = childWeights;
+        end
+
+        function resolveRefs(obj, registry)
+            %RESOLVEREFS Pass-2 hook -- wire stashed ChildKeys_ via addChild.
+            %   Called by TagRegistry.loadFromStructs (and local two-pass
+            %   loaders during Plan 02 tests).  Re-uses the validated
+            %   addChild path so type guard + cycle DFS + listener hookup
+            %   all run on deserialized children.
+            %
+            %   Errors: CompositeTag:unresolvedChild if a stashed key is
+            %   missing from the registry.
+            if isempty(obj.ChildKeys_)
+                return;
+            end
+            for i = 1:numel(obj.ChildKeys_)
+                key = obj.ChildKeys_{i};
+                if ~registry.isKey(key)
+                    error('CompositeTag:unresolvedChild', ...
+                        'Child tag ''%s'' not registered.', key);
+                end
+                childHandle = registry(key);
+                weight = 1.0;
+                if i <= numel(obj.ChildWeights_)
+                    weight = obj.ChildWeights_(i);
+                end
+                obj.addChild(childHandle, 'Weight', weight);
+            end
+            obj.ChildKeys_    = {};
+            obj.ChildWeights_ = [];
+            obj.invalidate();
+        end
+
+        function tag = getChildAt(obj, i)
+            %GETCHILDAT Return the Tag handle of the i-th child (1-based).
+            %   Test-affordance API for 3-deep descent assertions
+            %   (Pitfall 8 round-trip).  Not a mutation path -- child
+            %   insertion goes through addChild.
+            %
+            %   Errors: CompositeTag:indexOutOfBounds.
+            if i < 1 || i > numel(obj.children_)
+                error('CompositeTag:indexOutOfBounds', ...
+                    'Child index %d out of bounds (have %d children).', ...
+                    i, numel(obj.children_));
+            end
+            tag = obj.children_{i}.tag;
         end
 
     end
@@ -268,6 +383,84 @@ classdef CompositeTag < Tag
             for i = 1:numel(obj.listeners_)
                 obj.listeners_{i}.invalidate();
             end
+        end
+
+        function mergeStream_(obj)
+            %MERGESTREAM_ Vectorized sort-based k-way merge (RESEARCH §5).
+            %   Concatenates every child's (X, Y, childIdx) triples,
+            %   sorts once by X, then walks the sorted stream maintaining
+            %   `lastY(childIdx) = Y` (ZOH).  Emits (X, aggregate) at each
+            %   unique timestamp once `X >= first_x = max(child_first_x)`
+            %   (ALIGN-03 pre-history drop).  Same-timestamp collisions
+            %   coalesce -- aggregation runs once at the LAST sample of
+            %   the cluster so every contributing child has registered.
+            %
+            %   Memory: O(Sum len_i) for concat + O(M) output preallocation.
+            %   Time:   O(M log M) single sort + O(M) walk.
+            %   NO set-union; NO linear interpolation (ZOH via lastY update).
+            obj.recomputeCount_ = obj.recomputeCount_ + 1;
+            N = numel(obj.children_);
+            if N == 0
+                obj.cache_ = struct('x', [], 'y', []);
+                obj.dirty_ = false;
+                return;
+            end
+            % Pre-concatenate (X, Y, childIdx) per child.
+            allX     = cell(1, N);
+            allY     = cell(1, N);
+            allChild = cell(1, N);
+            weights  = zeros(1, N);
+            for i = 1:N
+                c = obj.children_{i};
+                [xi, yi] = c.tag.getXY();
+                allX{i}     = xi(:).';
+                allY{i}     = yi(:).';
+                allChild{i} = i * ones(1, numel(xi));
+                weights(i)  = c.weight;
+            end
+            % Any-empty-child short-circuit -- produce empty output.
+            if any(cellfun(@isempty, allX))
+                obj.cache_ = struct('x', [], 'y', []);
+                obj.dirty_ = false;
+                return;
+            end
+            cat_X     = [allX{:}];
+            cat_Y     = [allY{:}];
+            cat_Child = [allChild{:}];
+            [sortedX, order] = sort(cat_X);
+            sortedY     = cat_Y(order);
+            sortedChild = cat_Child(order);
+
+            % ALIGN-03 pre-history drop: skip samples before all children
+            % have started.  `first_x = max(child.X(1))`.
+            first_x = max(cellfun(@(xx) xx(1), allX));
+
+            M = numel(sortedX);
+            lastY = nan(1, N);
+            X_out = zeros(1, M);
+            Y_out = zeros(1, M);
+            nOut  = 0;
+            mode      = obj.AggregateMode;
+            userFn    = obj.UserFn;
+            threshold = obj.Threshold;
+            for k = 1:M
+                lastY(sortedChild(k)) = sortedY(k);
+                if sortedX(k) < first_x
+                    continue;  % ALIGN-03 drop
+                end
+                if k < M && sortedX(k + 1) == sortedX(k)
+                    continue;  % coalesce same-timestamp cluster
+                end
+                agg = CompositeTag.aggregate_(lastY, weights, ...
+                    mode, userFn, threshold);
+                nOut = nOut + 1;
+                X_out(nOut) = sortedX(k);
+                Y_out(nOut) = agg;
+            end
+            obj.cache_ = struct( ...
+                'x', X_out(1:nOut), ...
+                'y', Y_out(1:nOut));
+            obj.dirty_ = false;
         end
 
         function cycle = wouldCreateCycle_(obj, newChild)
@@ -404,6 +597,15 @@ classdef CompositeTag < Tag
             end
         end
 
+        function v = fieldOr_(s, name, def)
+            %FIELDOR_ Return s.(name) when present & non-empty; else default.
+            if isfield(s, name) && ~isempty(s.(name))
+                v = s.(name);
+            else
+                v = def;
+            end
+        end
+
     end
 
     methods (Static)
@@ -415,6 +617,63 @@ classdef CompositeTag < Tag
             %   graph.  Not part of the stable public API -- consumers
             %   should use getXY() / valueAt() instead (Plan 02).
             out = CompositeTag.aggregate_(vals, weights, mode, userFn, threshold);
+        end
+
+        function obj = fromStruct(s)
+            %FROMSTRUCT Pass-1 reconstruction from a toStruct output.
+            %   Constructs an empty-children CompositeTag and stashes
+            %   `ChildKeys_` + `ChildWeights_` for Pass-2 `resolveRefs` to
+            %   consume.  UserFn is NOT restored -- consumers re-bind it
+            %   after loadFromStructs for 'user_fn' mode.
+            %
+            %   Errors: CompositeTag:dataMismatch if .key missing.
+            if ~isstruct(s) || ~isfield(s, 'key') || isempty(s.key)
+                error('CompositeTag:dataMismatch', ...
+                    'fromStruct requires struct with non-empty .key.');
+            end
+            % Unwrap the defensive double-wrap on Labels.
+            labels = {};
+            if isfield(s, 'labels') && ~isempty(s.labels)
+                L = s.labels;
+                if iscell(L) && numel(L) == 1 && iscell(L{1})
+                    L = L{1};
+                end
+                if iscell(L), labels = L; end
+            end
+            metadata = struct();
+            if isfield(s, 'metadata') && isstruct(s.metadata)
+                metadata = s.metadata;
+            end
+            % Unwrap childkeys double-wrap.
+            childKeys = {};
+            if isfield(s, 'childkeys') && ~isempty(s.childkeys)
+                K = s.childkeys;
+                if iscell(K) && numel(K) == 1 && iscell(K{1})
+                    K = K{1};
+                end
+                if iscell(K), childKeys = K; end
+            end
+            childWeights = ones(1, numel(childKeys));
+            if isfield(s, 'childweights') && ~isempty(s.childweights)
+                w = s.childweights;
+                if numel(w) == numel(childKeys)
+                    childWeights = w(:).';
+                end
+            end
+            aggMode = CompositeTag.fieldOr_(s, 'aggregatemode', 'and');
+            thresh  = CompositeTag.fieldOr_(s, 'threshold',     0.5);
+            nvArgs = { ...
+                'Name',        CompositeTag.fieldOr_(s, 'name',        s.key), ...
+                'Labels',      labels, ...
+                'Metadata',    metadata, ...
+                'Criticality', CompositeTag.fieldOr_(s, 'criticality', 'medium'), ...
+                'Units',       CompositeTag.fieldOr_(s, 'units',       ''), ...
+                'Description', CompositeTag.fieldOr_(s, 'description', ''), ...
+                'SourceRef',   CompositeTag.fieldOr_(s, 'sourceref',   ''), ...
+                'Threshold',   thresh};
+            obj = CompositeTag(s.key, aggMode, nvArgs{:});
+            obj.ChildKeys_    = childKeys;
+            obj.ChildWeights_ = childWeights;
         end
 
     end
