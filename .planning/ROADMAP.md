@@ -134,3 +134,13 @@ Plans:
 - [x] 1004-01-PLAN.md — DashboardEngine.exportImage delegate + RED/GREEN test scaffold (IMG-02..IMG-06)
 - [x] 1004-02-PLAN.md — DashboardToolbar Image button + onImage/dispatch/defaultFilename (IMG-01, IMG-07)
 - [x] 1004-03-PLAN.md — MATLAB suite extension + Octave parallel tests (IMG-01, IMG-07, IMG-08, IMG-09)
+
+### Phase 1005: Expand CI coverage: MATLAB + Octave tests on macOS and Windows, MATLAB benchmark
+
+**Goal:** Expand CI test coverage so the actual test suites (not just MEX build) run on macOS and Windows for both MATLAB and Octave, and run the performance benchmark under MATLAB too. Today Linux has full coverage; macOS/Windows only verify MEX compiles via `mex-build-macos` / `mex-build-windows`. This phase closes that gap.
+**Requirements**: [COV-01: MATLAB tests on macOS ARM64, COV-02: MATLAB tests on Windows, COV-03: Octave tests on macOS ARM64, COV-04: Octave tests on Windows, COV-05: MATLAB benchmark job, COV-06: Reusable workflow extraction (conditional)]
+**Depends on:** Phase 1004 (complete) + quick tasks 260416-j6e / jfo / jnp / k23 (all complete — provide the DRY'd reusable-workflow foundation and Octave 11.1.0 base)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 1005 to break down)

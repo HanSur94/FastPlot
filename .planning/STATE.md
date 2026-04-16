@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 Phase: 1004
 Plan: Not started
 Status: Phase complete — ready for verification
-Last activity: 2026-04-16 - Completed quick task 260416-k23: Upgraded Octave CI containers to 11.1.0 and removed GC crash workaround (upstream bug #67749)
+Last activity: 2026-04-16 - Added Phase 1005 (Expand CI coverage: MATLAB + Octave on Mac/Win + MATLAB benchmark)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -185,6 +185,7 @@ Recent decisions affecting current work:
 - Phase 8 added: Widget improvements — DividerWidget, CollapsibleWidget, Y-axis limits
 - Phase 1 added: Dashboard Performance Optimization — faster creation, instantiation, and interactivity
 - Phase 1000 added: Dashboard Engine Performance Optimization Phase 2 — 6 bottlenecks: incremental FastSenseWidget refresh, debounced slider broadcast, lazy page realization, cached time ranges, batched page switch, debounced resize
+- Phase 1005 added: Expand CI coverage — MATLAB + Octave tests on macOS and Windows, MATLAB benchmark (COV-01 through COV-06). Builds on quick tasks 260416-j6e/jfo/jnp/k23.
 
 ### Pending Todos
 
