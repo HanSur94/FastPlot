@@ -227,5 +227,35 @@ classdef TestTagRegistry < matlab.unittest.TestCase
             testCase.verifyEqual(got.Labels{1}, 'a');
             testCase.verifyEqual(got.Criticality, 'safety');
         end
+
+        % ---- Phase 1005-03: SensorTag + StateTag round-trip via loadFromStructs ----
+
+        function testRoundTripSensorTag(testCase)
+            % Phase 1005-03: TagRegistry.instantiateByKind must dispatch
+            % 'sensor' to SensorTag.fromStruct.
+            t = SensorTag('p', 'Name', 'Pump');
+            s = t.toStruct();
+            TagRegistry.clear();
+            TagRegistry.loadFromStructs({s});
+            got = TagRegistry.get('p');
+            testCase.verifyEqual(got.Key, 'p');
+            testCase.verifyEqual(got.Name, 'Pump');
+            testCase.verifyEqual(got.getKind(), 'sensor');
+        end
+
+        function testRoundTripStateTag(testCase)
+            % Phase 1005-03: TagRegistry.instantiateByKind must dispatch
+            % 'state' to StateTag.fromStruct.
+            t = StateTag('m', 'X', [1 5 10], 'Y', [0 1 2]);
+            s = t.toStruct();
+            TagRegistry.clear();
+            TagRegistry.loadFromStructs({s});
+            got = TagRegistry.get('m');
+            testCase.verifyEqual(got.Key, 'm');
+            testCase.verifyEqual(got.getKind(), 'state');
+            [X, Y] = got.getXY();
+            testCase.verifyEqual(X, [1 5 10]);
+            testCase.verifyEqual(Y, [0 1 2]);
+        end
     end
 end

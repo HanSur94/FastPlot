@@ -101,7 +101,28 @@ function test_tag_registry()
     assert(strcmp(got.Criticality, 'safety'), 'test_tag_registry: roundtrip Criticality');
     TagRegistry.clear();
 
-    fprintf('    All 11 test_tag_registry tests passed.\n');
+    % --- Phase 1005-03: SensorTag + StateTag round-trip via loadFromStructs ---
+    % testRoundTripSensorTag
+    tS = SensorTag('p', 'Name', 'Pump');
+    TagRegistry.loadFromStructs({tS.toStruct()});
+    gotS = TagRegistry.get('p');
+    assert(strcmp(gotS.Key, 'p'), 'test_tag_registry: SensorTag roundtrip Key');
+    assert(strcmp(gotS.Name, 'Pump'), 'test_tag_registry: SensorTag roundtrip Name');
+    assert(strcmp(gotS.getKind(), 'sensor'), 'test_tag_registry: SensorTag roundtrip kind');
+    TagRegistry.clear();
+
+    % testRoundTripStateTag
+    tST = StateTag('m', 'X', [1 5 10], 'Y', [0 1 2]);
+    TagRegistry.loadFromStructs({tST.toStruct()});
+    gotST = TagRegistry.get('m');
+    assert(strcmp(gotST.Key, 'm'), 'test_tag_registry: StateTag roundtrip Key');
+    assert(strcmp(gotST.getKind(), 'state'), 'test_tag_registry: StateTag roundtrip kind');
+    [Xr, Yr] = gotST.getXY();
+    assert(isequal(Xr, [1 5 10]), 'test_tag_registry: StateTag roundtrip X');
+    assert(isequal(Yr, [0 1 2]), 'test_tag_registry: StateTag roundtrip Y');
+    TagRegistry.clear();
+
+    fprintf('    All 13 test_tag_registry tests passed.\n');
 end
 
 function add_tag_registry_path()
