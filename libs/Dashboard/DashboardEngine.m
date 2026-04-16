@@ -420,34 +420,46 @@ classdef DashboardEngine < handle
                         'Unknown image format ''%s''. Use ''png'' or ''jpeg''.', format);
             end
 
-            % Octave compat: print() in Octave 7+ requires at least one axes
-            % object directly under the figure; it does NOT recurse into
-            % uipanels. MATLAB recurses, so this only matters on Octave.
-            % Add a hidden 1px stub axes when no top-level axes exists, then
-            % delete it afterwards. This keeps `print()` happy without
-            % polluting the captured image.
+            % Choose backend per platform/version:
+            %   * MATLAB R2024a+ : use exportapp() — the print() builtin in
+            %     R2025b refuses figures containing UI components and
+            %     instructs the user to use exportapp instead. exportapp
+            %     handles uipanels/uicontrols correctly and supports a
+            %     Resolution name-value pair.
+            %   * MATLAB pre-R2024a + all Octave : use print(). Octave's
+            %     print() requires at least one axes object DIRECTLY under
+            %     the figure (it does not recurse into uipanels), so we
+            %     insert a hidden 1px stub axes when none exists and remove
+            %     it after the call.
+            % exist('exportapp') returns 6 for the shipped P-file in
+            % MATLAB R2024a+. Treat any non-zero value as "available".
+            useExportApp = exist('exportapp') ~= 0;  %#ok<EXIST>
+
             stubAxes = [];
             try
-                topLevelChildren = get(obj.hFigure, 'children');
-                hasTopAxes = false;
-                for k = 1:numel(topLevelChildren)
-                    if strcmp(get(topLevelChildren(k), 'type'), 'axes')
-                        hasTopAxes = true;
-                        break;
+                if useExportApp
+                    % exportapp signature is exportapp(fig, filename) only
+                    % (introduced R2020b). Resolution is implicit (figure
+                    % pixel size + screen DPI). Trade-off accepted: we lose
+                    % the explicit 150 DPI for MATLAB R2024a+ but gain
+                    % working export of UI-component figures.
+                    exportapp(obj.hFigure, filepath);
+                else
+                    topLevelChildren = get(obj.hFigure, 'children');
+                    hasTopAxes = false;
+                    for k = 1:numel(topLevelChildren)
+                        if strcmp(get(topLevelChildren(k), 'type'), 'axes')
+                            hasTopAxes = true;
+                            break;
+                        end
                     end
+                    if ~hasTopAxes
+                        stubAxes = axes('Parent', obj.hFigure, ...
+                            'Units', 'pixels', 'Position', [0 0 1 1], ...
+                            'Visible', 'off', 'HitTest', 'off');
+                    end
+                    print(obj.hFigure, devFlag, '-r150', filepath);
                 end
-                if ~hasTopAxes
-                    stubAxes = axes('Parent', obj.hFigure, ...
-                        'Units', 'pixels', 'Position', [0 0 1 1], ...
-                        'Visible', 'off', 'HitTest', 'off');
-                end
-            catch
-                % If axes inspection fails, proceed; print() will surface
-                % the original error if it actually fails.
-            end
-
-            try
-                print(obj.hFigure, devFlag, '-r150', filepath);
                 if ~isempty(stubAxes) && ishandle(stubAxes); delete(stubAxes); end
             catch ME
                 if ~isempty(stubAxes) && ishandle(stubAxes); delete(stubAxes); end
