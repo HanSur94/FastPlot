@@ -150,6 +150,24 @@ jobs:
             exit 1
           fi
 
+      - name: Write test summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/test-results.txt ]; then
+            read PASSED FAILED < /tmp/test-results.txt
+            {
+              echo "### Octave Tests"
+              echo ""
+              echo "- Passed: ${PASSED:-0}"
+              echo "- Failed: ${FAILED:-0}"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Octave Tests" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "_Results file not produced (test job likely crashed before completion)._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   mex-build-macos:
     name: MEX Build (macOS ${{ matrix.os == 'macos-latest' && 'ARM64' || 'x64' }})
     timeout-minutes: 20
@@ -264,6 +282,16 @@ jobs:
         uses: matlab-actions/run-command@v2
         with:
           command: "addpath('scripts'); run_tests_with_coverage();"
+
+      - name: Write MATLAB test summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### MATLAB Tests"
+            echo ""
+            echo "MATLAB test run completed — see job log for details."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload coverage to Codecov
         if: always()
