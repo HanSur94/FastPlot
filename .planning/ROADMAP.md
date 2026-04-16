@@ -191,7 +191,13 @@ Plans:
   - **Pitfall 5:** No legacy class is deleted in this phase; legacy `addSensor` / `addThreshold` paths remain alive in production
   - **Pitfall 9:** Live-tick benchmark with 12 migrated widgets ≤10% regression vs. baseline
   - **Pitfall 11:** Golden integration test untouched throughout this phase
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 1009-01-PLAN.md — FastSense-layer consumers (FastSenseWidget + SensorDetailPlot) Tag migration + shared fixture factory
+- [ ] 1009-02-PLAN.md — Dashboard widgets (MultiStatusWidget + IconCardWidget + EventTimelineWidget) + DashboardWidget base Tag property + DashboardEngine tick dispatch + EventStore.getEventsForTag
+- [ ] 1009-03-PLAN.md — EventDetection consumers (EventDetector 2-arg overload + LiveEventPipeline MonitorTargets/appendData wire-up — realizes Phase 1007 SC#4)
+- [ ] 1009-04-PLAN.md — Pitfall 9 12-widget live-tick benchmark + phase-exit audit
 **UI hint**: yes
 
 ### Phase 1010: Event ↔ Tag binding + FastSense overlay
@@ -241,7 +247,7 @@ Plans:
 | 1006. MonitorTag (lazy, in-memory) | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1007. MonitorTag streaming + persistence | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1008. CompositeTag | v2.0 | 3/3 | Complete    | 2026-04-16 |
-| 1009. Consumer migration | v2.0 | 0/? | Not started | — |
+| 1009. Consumer migration | v2.0 | 0/4 | Planned | — |
 | 1010. Event ↔ Tag binding + overlay | v2.0 | 0/? | Not started | — |
 | 1011. Cleanup + delete legacy | v2.0 | 0/? | Not started | — |
 
