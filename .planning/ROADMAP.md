@@ -215,7 +215,12 @@ Plans:
   - **Pitfall 10 (render-path pollution):** New `renderEventLayer()` is a separate method called after `renderLines()`; single early-out at top if no events; no new conditionals in the line-rendering loop; 0-event render benchmark no regression
   - **Pitfall 5:** Phase touches ≤12 files (Event.m, EventBinding.m new, EventStore.m, EventViewer.m, FastSense.m, plus tests)
   - **EVENT-02 explicit:** Single-write-side rule — only `EventBinding.attach` mutates the relation; convenience wrappers on Event/Tag delegate
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 1010-01-PLAN.md — Event.TagKeys + EventBinding singleton + EventStore auto-Id/eventsForTag migration + MonitorTag emission update (EVENT-01, EVENT-02, EVENT-03, EVENT-04, EVENT-05)
+- [ ] 1010-02-PLAN.md — Tag.addManualEvent + Tag.eventsAttached + FastSense renderEventLayer_ overlay (EVENT-06, EVENT-07)
+- [ ] 1010-03-PLAN.md — 0-event render benchmark + phase-exit Pitfall audit (all 7 EVENT gates)
 **UI hint**: yes
 
 ### Phase 1011: Cleanup — collapse parallel hierarchy + delete legacy
@@ -248,7 +253,7 @@ Plans:
 | 1007. MonitorTag streaming + persistence | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1008. CompositeTag | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1009. Consumer migration | v2.0 | 4/4 | Complete    | 2026-04-17 |
-| 1010. Event ↔ Tag binding + overlay | v2.0 | 0/? | Not started | — |
+| 1010. Event ↔ Tag binding + overlay | v2.0 | 0/3 | Planning    | — |
 | 1011. Cleanup + delete legacy | v2.0 | 0/? | Not started | — |
 
 ## Backlog
