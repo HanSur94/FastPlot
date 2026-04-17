@@ -267,7 +267,7 @@ None yet.
 | 260405-oqu | Create 4 dedicated widget example scripts (iconcard, chipbar, sparkline, divider) | 2026-04-05 | 1f53bca | [260405-oqu-create-5-dedicated-widget-example-script](./quick/260405-oqu-create-5-dedicated-widget-example-script/) |
 | 260405-ovf | Update README based on research of 12 highly-starred open-source projects | 2026-04-05 | 144fbb2 | [260405-ovf-update-project-readme-based-on-research-](./quick/260405-ovf-update-project-readme-based-on-research-/) |
 | 260405-plc | Change DashboardToolbar Edit button to open source file in MATLAB editor | 2026-04-05 | 5188b04 | [260405-plc-change-the-edit-button-of-dashboardengin](./quick/260405-plc-change-the-edit-button-of-dashboardengin/) |
-| 260417-kg9 | Add captureDashboard helper for matlab-mcp screenshot-based UI inspection | 2026-04-17 | 63e8d34 | [260417-kg9-implement-matlab-screenshot-helper-captu](./quick/260417-kg9-implement-matlab-screenshot-helper-captu/) |
+| 260417-kg9 | Add captureDashboard helper for matlab-mcp screenshot-based UI inspection (widget crop fix included) | 2026-04-17 | 5b4984e | [260417-kg9-implement-matlab-screenshot-helper-captu](./quick/260417-kg9-implement-matlab-screenshot-helper-captu/) |
 
 ## Session Continuity
 

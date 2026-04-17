@@ -26,8 +26,13 @@ metrics:
   duration_human: "~3 min"
   tasks_completed: 3
   files_touched: 3
-  commits: 3
+  commits: 4
   completed_at: "2026-04-17T12:51:12Z"
+post_execution_fix:
+  commit: 5b4984e
+  issue: "exportgraphics(uipanel, ...) fails on uicontrol-only panels (NumberWidget etc.) with 'Figure must contain graphics' on MATLAB R2024a+"
+  fix: "Widget-only captures on MATLAB R2024a+ now route through exportapp+crop using getpixelposition(h,true) to handle nested uipanel parents and offset for figure chrome height"
+  validation: "End-to-end via matlab-mcp on MATLAB R2025b: full + widget PNGs produced headless, widget crop isolates target uipanel correctly. test_capture_dashboard 4/4 pass, test_dashboard_toolbar_image_export 4/4 pass."
 ---
 
 # Quick Task 260417-kg9: captureDashboard Screenshot Helper Summary
