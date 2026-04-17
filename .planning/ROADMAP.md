@@ -277,15 +277,6 @@ Plans:
 - [ ] 999.1-03-PLAN.md — SparklineCardWidget implementation
 - [x] 999.1-04-PLAN.md — Infrastructure wiring (Engine, Serializer, DetachedMirror, Builder)
 
-### Phase 999.2: Dashboard Image Export Button (BACKLOG)
-
-**Goal:** Add an image export button to the dashboard toolbar that captures the entire dashboard layout as a single image (PNG/JPEG), enabling users to share or document their dashboard state with one click.
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
-
 ### Phase 999.3: Graph Data Export (.mat / .csv) (BACKLOG)
 
 **Goal:** Enable exporting any graph's underlying data as .mat or .csv files, so users can easily extract plotted data for further analysis in MATLAB or external tools.
@@ -306,7 +297,7 @@ Plans:
 Plans:
 - [x] 1000-01-PLAN.md — Incremental FastSenseWidget refresh + cached time ranges
 - [x] 1000-02-PLAN.md — Debounced slider broadcast + resize without dirty marking
-- [ ] 1000-03-PLAN.md — Lazy page panel realization + batched switchPage realize
+- [x] 1000-03-PLAN.md — Lazy page panel realization + batched switchPage realize
 
 ### Phase 1001: First-Class Threshold Entities
 
@@ -332,7 +323,7 @@ Plans:
 
 Plans:
 - [x] 1002-01-PLAN.md — StatusWidget + GaugeWidget threshold binding + serialization + tests
-- [ ] 1002-02-PLAN.md — IconCardWidget + MultiStatusWidget + ChipBarWidget threshold binding + serialization + tests
+- [x] 1002-02-PLAN.md — IconCardWidget + MultiStatusWidget + ChipBarWidget threshold binding + serialization + tests
 
 ### Phase 1003: Composite Thresholds — CompositeThreshold class that aggregates child Threshold objects for hierarchical status. Component A is green only if children A.A and A.B are both green. Enables system health trees and nested status monitoring.
 
@@ -345,3 +336,38 @@ Plans:
 - [x] 1003-01-PLAN.md — CompositeThreshold class + TDD test suite (AND/OR/MAJORITY, addChild, computeStatus, nesting)
 - [x] 1003-02-PLAN.md — Widget isa-guards (StatusWidget, GaugeWidget, IconCardWidget) + MultiStatusWidget composite expansion
 - [x] 1003-03-PLAN.md — CompositeThreshold toStruct/fromStruct serialization + round-trip tests
+
+### Phase 1004: Dashboard Image Export Button
+
+**Goal:** Add an image export button to the dashboard toolbar that captures the entire dashboard layout as a single image (PNG/JPEG), enabling users to share or document their dashboard state with one click.
+**Requirements**: [IMG-01: Image button present (label/tooltip/order), IMG-02: PNG export via Engine.exportImage, IMG-03: JPEG export via Engine.exportImage, IMG-04: Filename sanitization regex, IMG-05: Unknown format error ID, IMG-06: Write-failure error ID, IMG-07: uiputfile cancel no-op, IMG-08: Multi-page active-page capture, IMG-09: Live mode no-pause]
+**Depends on:** Phase 1003
+**Plans:** 3/3 plans complete
+
+Plans:
+- [x] 1004-01-PLAN.md — DashboardEngine.exportImage delegate + RED/GREEN test scaffold (IMG-02..IMG-06)
+- [x] 1004-02-PLAN.md — DashboardToolbar Image button + onImage/dispatch/defaultFilename (IMG-01, IMG-07)
+- [x] 1004-03-PLAN.md — MATLAB suite extension + Octave parallel tests (IMG-01, IMG-07, IMG-08, IMG-09)
+
+### Phase 1005: Expand CI coverage: MATLAB + Octave tests on macOS and Windows, MATLAB benchmark
+
+**Goal:** Expand CI test coverage so the actual test suites (not just MEX build) run on macOS and Windows for both MATLAB and Octave, and run the performance benchmark under MATLAB too. Today Linux has full coverage; macOS/Windows only verify MEX compiles via `mex-build-macos` / `mex-build-windows`. This phase closes that gap.
+**Requirements**: [COV-01: MATLAB tests on macOS ARM64, COV-02: MATLAB tests on Windows, COV-03: Octave tests on macOS ARM64, COV-04: Octave tests on Windows, COV-05: MATLAB benchmark job, COV-06: Reusable workflow extraction (conditional)]
+**Depends on:** Phase 1004 (complete) + quick tasks 260416-j6e / jfo / jnp / k23 (all complete — provide the DRY'd reusable-workflow foundation and Octave 11.1.0 base)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 1005 to break down)
+
+### Phase 1006: Fix 137 MATLAB test failures surfaced by MATLAB-on-every-push CI enablement (7 categories from R2025b drift)
+
+**Goal:** Fix the 137 MATLAB test failures surfaced when quick task 260416-j6e enabled MATLAB tests on every push/PR and removed `continue-on-error: true`. Pre-existing failures, now honest CI signal. Root-cause categorization in [.planning/debug/matlab-tests-failures-investigation.md](.planning/debug/matlab-tests-failures-investigation.md): 6 test-level categories + 1 infrastructure decision. Fixing A + B + F alone recovers ~95 tests (62%); A+B+C+D+E = ~92%.
+**Requirements**: [MATLABFIX-A: mksqlite.mexa64 availability (~50 tests), MATLABFIX-B: testCase.TestData → properties migration (~41 tests), MATLABFIX-C: test-friend private access for 4 methods (~12 tests), MATLABFIX-D: R2025b API changes — table/OnOffSwitchState/jsondecode/fread (~18 tests), MATLABFIX-E: stale test expectations — KpiWidget/kpi-type rename/warning IDs/etc. (~21 tests), MATLABFIX-F: headless image export CI (4 tests), MATLABFIX-G: MATLAB version pinning policy (infrastructure decision — may reshape B/C/D)]
+**Depends on:** Phase 1004 (complete) + quick tasks 260416-j6e / jfo / jnp / k23 (all complete — provide the CI foundation that surfaced these failures) + debug session `octave-cleanup-crash-investigation.md` (unrelated, already resolved) + debug session `matlab-tests-failures-investigation.md` (source of this phase's scope). **NOT** dependent on Phase 1005 (parallel work).
+**Plans:** 4/4 plans executed
+
+Plans:
+- [x] 1006-01-PLAN.md — Pin MATLAB CI to R2020b in tests.yml + examples.yml (MATLABFIX-G; wave 1; reshapes scope of A/E/F)
+- [x] 1006-02-PLAN.md — mksqlite diagnostic-first + fix branch (A/B/C) for TestMksqliteEdgeCases + TestMksqliteTypes (MATLABFIX-A; wave 2)
+- [x] 1006-03-PLAN.md — Stale test expectations E1-E9 cluster + E10 grid-snap diagnostic+fix (MATLABFIX-E; wave 2)
+- [x] 1006-04-PLAN.md — DashboardEngine.exportImage → exportgraphics() for headless MATLAB CI (MATLABFIX-F; wave 2)

@@ -59,6 +59,13 @@ GETCACHEDTHEME Return cached theme struct, recomputing only when Theme changes.
 
 #### `exportScript(obj, filepath)`
 
+#### `exportImage(obj, filepath, format)`
+
+EXPORTIMAGE Save the rendered dashboard figure as PNG or JPEG at 150 DPI.
+  d.exportImage('out.png')           % format inferred from extension
+  d.exportImage('out.png', 'png')
+  d.exportImage('out.jpg', 'jpeg')
+
 #### `preview(obj, varargin)`
 
 PREVIEW Print ASCII representation of the dashboard to console.
@@ -287,6 +294,12 @@ ASCIIRENDER Return ASCII representation of this widget.
   available number of lines. Default implementation shows
   [type] Title; subclasses override for richer content.
 
+#### `render(~, ~)`
+
+#### `refresh(~)`
+
+#### `t = getType(~)`
+
 ---
 
 ## `FastSenseWidget` --- Dashboard widget wrapping a FastSense instance.
@@ -299,7 +312,7 @@ Supports three data binding modes:
     Inline:    w = FastSenseWidget('XData', x, 'YData', y)
     File:      w = FastSenseWidget('File', 'path.mat', 'XVar', 'x', 'YVar', 'y')
 
-  When bound to a Sensor, ThresholdRules apply automatically.
+  When bound to a Sensor, Thresholds apply automatically.
 
 ### Constructor
 
@@ -330,7 +343,9 @@ obj = FastSenseWidget(varargin)
 #### `refresh(obj)`
 
 Re-render sensor-bound widgets so updated data + violations show.
-Preserves current zoom state (xlim) across the rebuild.
+Uses incremental updateData() path when sensor identity is unchanged
+(PERF2-01); falls back to full teardown/rebuild on first render,
+sensor swap, or error.  Zoom state (xlim) is preserved in both paths.
 
 #### `update(obj)`
 
@@ -347,6 +362,9 @@ If xlim changed by user zoom/pan (not by setTimeRange),
 detach this widget from global time.
 
 #### `[tMin, tMax] = getTimeRange(obj)`
+
+Return cached min/max in O(1). Cache is kept up to date by
+updateTimeRangeCache() which is called from render/refresh/update.
 
 #### `t = getType(~)`
 
@@ -367,6 +385,7 @@ detach this widget from global time.
 w = GaugeWidget('Title', 'Pressure', 'ValueFcn', @() getPressure(), ...
                   'Range', [0 100], 'Units', 'bar');
   w = GaugeWidget('Sensor', mySensor, 'Style', 'donut');
+  w = GaugeWidget('Threshold', t, 'StaticValue', 50);
 
 ### Constructor
 
@@ -383,6 +402,7 @@ obj = GaugeWidget(varargin)
 | Units | `''` |  |
 | StaticValue | `[]` |  |
 | Style | `'arc'` | 'arc', 'donut', 'bar', 'thermometer' |
+| Threshold | `[]` | Threshold object or registry key string (per D-01) |
 
 ### Methods
 
@@ -452,6 +472,10 @@ obj = NumberWidget(varargin)
 Sensor-first:
     w = StatusWidget('Sensor', sensorObj);
 
+  Threshold-bound (no Sensor required):
+    w = StatusWidget('Title', 'Temp', 'Threshold', t, 'Value', 85);
+    w = StatusWidget('Title', 'Temp', 'Threshold', 'temp_hi', 'ValueFcn', @getTemp);
+
   Legacy (still supported):
     w = StatusWidget('Title', 'Pump 1', 'StatusFcn', @() 'ok');
 
@@ -467,6 +491,9 @@ obj = StatusWidget(varargin)
 |----------|---------|-------------|
 | StatusFcn | `[]` | function_handle returning 'ok'/'warning'/'alarm' (legacy) |
 | StaticStatus | `''` | fixed status string (legacy) |
+| Threshold | `[]` | Threshold object or registry key string (per D-01) |
+| Value | `[]` | Scalar numeric value for threshold comparison (per D-03) |
+| ValueFcn | `[]` | Function handle returning scalar value (per D-03, D-09) |
 
 ### Methods
 
@@ -848,7 +875,7 @@ ONKEYPRESSFORDISMISS Dismiss popup when Escape is pressed.
 
 > Inherits from: `handle`
 
-Provides buttons for: Live mode toggle, Edit mode, Save, Export.
+Provides buttons for: Live mode toggle, Edit mode, Save, Image, Export.
   Sits at the top of the dashboard figure.
 
 ### Constructor
@@ -876,6 +903,30 @@ SETLASTUPDATETIME Update the last-update label with a timestamp.
 #### `onSave(obj)`
 
 #### `onExport(obj)`
+
+#### `onImage(obj)`
+
+ONIMAGE Open save dialog and export dashboard figure as PNG/JPEG.
+  Pops a uiputfile with PNG+JPEG filters, defaults to the
+  sanitized dashboard name plus timestamp. On cancel, returns
+  silently. On engine error, surfaces message via warndlg.
+
+#### `dispatchImageExport(obj, file, path, idx)`
+
+DISPATCHIMAGEEXPORT Post-dialog dispatcher — testable without uiputfile.
+  file  — filename string, or 0 on user-cancel
+  path  — directory path from uiputfile
+  idx   — filter index (1=PNG, 2=JPEG). Defaults to PNG.
+
+#### `fname = defaultImageFilename(obj)`
+
+DEFAULTIMAGEFILENAME Build sanitized default filename for the dialog.
+  Pattern: {sanitized Engine.Name}_{yyyymmdd_HHMMSS}.png
+  Sanitization: replace [/\:*?"<>|] and whitespace with '_'.
+  NOTE: datestr format 'yyyymmdd_HHMMSS' (lowercase mm=month here,
+  HHMMSS=seconds). This differs from datetime/ISO notation —
+  see libs/EventDetection/generateEventSnapshot.m:28 for the
+  in-codebase precedent.
 
 #### `onInfo(obj)`
 
@@ -1271,6 +1322,7 @@ ICONCARDWIDGET Construct an IconCardWidget with optional name-value pairs.
 | Units | `''` | Display units string |
 | Format | `'%.1f'` | sprintf format for numeric value |
 | SecondaryLabel | `''` | Subtitle text below primary value |
+| Threshold | `[]` | Threshold object or registry key string (per D-01) |
 
 ### Methods
 

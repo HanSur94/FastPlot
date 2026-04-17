@@ -129,7 +129,7 @@ classdef TestDashboardEngine < matlab.unittest.TestCase
             pause(0.5);
 
             % Timer must still be running (restarted inside ErrorFcn).
-            testCase.verifyTrue(isrunning(d.LiveTimer));
+            testCase.verifyTrue(strcmp(d.LiveTimer.Running, 'on'));
         end
 
         function testAddWidgetWithTag(testCase)
@@ -192,7 +192,7 @@ classdef TestDashboardEngine < matlab.unittest.TestCase
         end
 
         function testAddCollapsible(testCase)
-            d = DashboardEngine('Name', 'Test');
+            d = DashboardEngine('Test');
             w = d.addCollapsible('Sensors', {});
             testCase.verifyEqual(w.Mode, 'collapsible');
             testCase.verifyEqual(w.Label, 'Sensors');
@@ -200,7 +200,7 @@ classdef TestDashboardEngine < matlab.unittest.TestCase
         end
 
         function testAddCollapsibleWithChildren(testCase)
-            d = DashboardEngine('Name', 'Test');
+            d = DashboardEngine('Test');
             c1 = TextWidget('Title', 'A');
             c2 = TextWidget('Title', 'B');
             w = d.addCollapsible('Group', {c1, c2});
@@ -208,7 +208,7 @@ classdef TestDashboardEngine < matlab.unittest.TestCase
         end
 
         function testAddCollapsibleForwardsOptions(testCase)
-            d = DashboardEngine('Name', 'Test');
+            d = DashboardEngine('Test');
             w = d.addCollapsible('G', {}, 'Collapsed', true);
             testCase.verifyTrue(w.Collapsed);
         end
