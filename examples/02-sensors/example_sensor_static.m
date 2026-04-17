@@ -28,7 +28,7 @@ s.updateData(sx, sy);
 
 % --- Plot ---
 fp = FastSense();
-fp.addTag(s, 'ShowThresholds', true);
+fp.addTag(s);
 fp.render();
 title('Motor Vibration — Static Upper & Lower Thresholds');
 xlabel('Time [s]');

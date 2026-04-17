@@ -47,25 +47,9 @@ fprintf('  machine state at t=10: %d (idle)\n', scMachine.valueAt(10));
 fprintf('  machine state at t=35: %d (running)\n', scMachine.valueAt(35));
 fprintf('  zone at t=50: %s\n', scZone.valueAt(50));
 
-% --- Query active thresholds at specific time points ---
-fprintf('\n=== Active thresholds at specific times ===\n');
-queryTimes = [10, 35, 50, 65, 95];
-for i = 1:numel(queryTimes)
-    tq = queryTimes(i);
-    fprintf('  t = %3.0f s:', tq);
-    if isempty(active)
-        fprintf('  (none)\n');
-    else
-        for j = 1:numel(active)
-            fprintf('  [%s] %.0f (%s)', active(j).Label, active(j).Value, active(j).Direction);
-        end
-        fprintf('\n');
-    end
-end
-
 % --- Plot with FastSense ---
 fp = FastSense();
-fp.addTag(s, 'ShowThresholds', true);
+fp.addTag(s);
 fp.render();
 title('Gas Flow — Multi-State Dynamic Thresholds');
 xlabel('Time [s]');

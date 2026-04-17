@@ -142,7 +142,7 @@ fprintf('========================================\n');
 %% Plot first sensor as demo
 fprintf('\nPlotting first sensor with FastSense...\n');
 fp = FastSense();
-fp.addTag(sensors{1}, 'ShowThresholds', true);
+fp.addTag(sensors{1});
 fp.render();
 title(fp.hAxes, sprintf('%s — 100M pts, 6 Dynamic Thresholds', ...
     sensors{1}.Name));
