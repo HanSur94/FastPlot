@@ -5,7 +5,7 @@ function test_event_timeline_widget_tag()
 %   EventTimelineWidget.m.  Classdef-dependent widget-construction tests
 %   are MATLAB-only (DashboardWidget:Abstract blocks Octave parse).
 %
-%   See also TestEventTimelineWidgetTag, EventStore, makePhase1009Fixtures.
+%   See also TestEventTimelineWidgetTag, EventStore, MakePhase1009Fixtures.
 
     add_event_timeline_widget_tag_path();
 
@@ -54,7 +54,7 @@ function test_get_events_for_tag_on_store()
 
     % Match by ThresholdLabel (MONITOR-05 carrier): an event whose
     % ThresholdLabel == tagKey must be returned even if SensorName differs.
-    store2 = EventStore(makePhase1009Fixtures.makeEventStoreTmp());
+    store2 = EventStore(MakePhase1009Fixtures.makeEventStoreTmp());
     ev = Event(100, 150, 'parent_x', 'mon_alarm', 5, 'upper');
     store2.append(ev);
     got3 = store2.getEventsForTag('mon_alarm');
@@ -71,7 +71,7 @@ function test_filter_tag_key_matches_sensor_name()
 end
 
 function test_filter_tag_key_matches_threshold_label()
-    store = EventStore(makePhase1009Fixtures.makeEventStoreTmp());
+    store = EventStore(MakePhase1009Fixtures.makeEventStoreTmp());
     ev = Event(100, 150, 'parent_x', 'mon_alarm', 5, 'upper');
     store.append(ev);
     w = EventTimelineWidget('Title', 'T', 'EventStoreObj', store, ...
@@ -112,7 +112,7 @@ function test_filter_tag_key_round_trip()
 end
 
 function store = build_store()
-    store = EventStore(makePhase1009Fixtures.makeEventStoreTmp());
+    store = EventStore(MakePhase1009Fixtures.makeEventStoreTmp());
     store.append(Event(10, 15, 'press_a', 'hi',  50, 'upper'));
     store.append(Event(20, 25, 'press_a', 'hi',  50, 'upper'));
     store.append(Event(30, 35, 'press_a', 'alm', 80, 'upper'));

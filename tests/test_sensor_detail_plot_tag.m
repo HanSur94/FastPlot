@@ -4,7 +4,7 @@ function test_sensor_detail_plot_tag()
 %   first positional argument, stores it in TagRef, preserves the legacy
 %   Sensor construction path, and errors on non-Tag/Sensor inputs.
 %
-%   See also TestSensorDetailPlotTag, makePhase1009Fixtures.
+%   See also TestSensorDetailPlotTag, MakePhase1009Fixtures.
 
     add_sensor_detail_plot_tag_path();
     TagRegistry.clear();
@@ -20,7 +20,7 @@ end
 
 function test_sensor_tag_construct()
     TagRegistry.clear();
-    st = makePhase1009Fixtures.makeSensorTag('sdp_press_a', 'Units', 'bar');
+    st = MakePhase1009Fixtures.makeSensorTag('sdp_press_a', 'Units', 'bar');
     sdp = SensorDetailPlot(st);
     assert(~isempty(sdp.TagRef), ...
         'test_sensor_detail_plot_tag: SensorTag construct -> TagRef set');
@@ -30,8 +30,8 @@ end
 
 function test_monitor_tag_construct()
     TagRegistry.clear();
-    st = makePhase1009Fixtures.makeSensorTag('sdp_press_b');
-    m  = makePhase1009Fixtures.makeMonitorTag('sdp_press_hi', st);
+    st = MakePhase1009Fixtures.makeSensorTag('sdp_press_b');
+    m  = MakePhase1009Fixtures.makeMonitorTag('sdp_press_hi', st);
     sdp = SensorDetailPlot(m);
     assert(~isempty(sdp.TagRef), ...
         'test_sensor_detail_plot_tag: MonitorTag construct -> TagRef set');

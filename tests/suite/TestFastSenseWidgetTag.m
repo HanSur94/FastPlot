@@ -4,7 +4,7 @@ classdef TestFastSenseWidgetTag < matlab.unittest.TestCase
     %   FastSenseWidget and proves the legacy Sensor path remains
     %   functional.  Mirror of the Octave-flat test_fastsense_widget_tag.m.
     %
-    %   See also FastSenseWidget, makePhase1009Fixtures.
+    %   See also FastSenseWidget, MakePhase1009Fixtures.
 
     methods (TestClassSetup)
         function addPaths(testCase) %#ok<MANU>
@@ -31,7 +31,7 @@ classdef TestFastSenseWidgetTag < matlab.unittest.TestCase
     methods (Test)
 
         function testSensorTagRender(testCase)
-            st = makePhase1009Fixtures.makeSensorTag('press_a', 'Units', 'bar');
+            st = MakePhase1009Fixtures.makeSensorTag('press_a', 'Units', 'bar');
 
             hFig = figure('Visible', 'off');
             testCase.addTeardown(@() close(hFig));
@@ -47,8 +47,8 @@ classdef TestFastSenseWidgetTag < matlab.unittest.TestCase
         end
 
         function testMonitorTagRender(testCase)
-            st = makePhase1009Fixtures.makeSensorTag('press_b');
-            m  = makePhase1009Fixtures.makeMonitorTag('press_hi', st);
+            st = MakePhase1009Fixtures.makeSensorTag('press_b');
+            m  = MakePhase1009Fixtures.makeMonitorTag('press_hi', st);
 
             hFig = figure('Visible', 'off');
             testCase.addTeardown(@() close(hFig));
@@ -63,7 +63,7 @@ classdef TestFastSenseWidgetTag < matlab.unittest.TestCase
         end
 
         function testTagUpdateIncremental(testCase)
-            st = makePhase1009Fixtures.makeSensorTag('press_c', ...
+            st = MakePhase1009Fixtures.makeSensorTag('press_c', ...
                 'X', 1:10, 'Y', (1:10) * 1.0);
 
             hFig = figure('Visible', 'off');
@@ -81,7 +81,7 @@ classdef TestFastSenseWidgetTag < matlab.unittest.TestCase
         end
 
         function testTagRoundTrip(testCase)
-            st = makePhase1009Fixtures.makeSensorTag('press_rt', 'Units', 'Pa');
+            st = MakePhase1009Fixtures.makeSensorTag('press_rt', 'Units', 'Pa');
 
             w = FastSenseWidget('Tag', st);
             s = w.toStruct();
@@ -128,7 +128,7 @@ classdef TestFastSenseWidgetTag < matlab.unittest.TestCase
         end
 
         function testYLabelFromTagUnits(testCase)
-            st = makePhase1009Fixtures.makeSensorTag('press_units', 'Units', 'kPa');
+            st = MakePhase1009Fixtures.makeSensorTag('press_units', 'Units', 'kPa');
             w = FastSenseWidget('Tag', st);
             testCase.verifyEqual(w.YLabel, 'kPa');
         end

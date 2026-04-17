@@ -82,7 +82,18 @@ function plotBarStats(ax, data)
 end
 
 function plotDistribution(ax, sensor)
-    q = quantile(sensor.Y, [0.25 0.50 0.75]);
+    % Pure-MATLAB quartiles (toolbox-free, Octave-compatible).
+    % Uses linear interpolation across a sorted sample — matches the
+    % default MATLAB quantile() / Octave quantile() type-7 definition.
+    y  = sort(sensor.Y(:).');
+    n  = numel(y);
+    q  = zeros(1, 3);
+    for i = 1:3
+        p  = [0.25, 0.50, 0.75];
+        h  = (n - 1) * p(i) + 1;
+        lo = floor(h); hi = ceil(h);
+        q(i) = y(lo) + (h - lo) * (y(hi) - y(lo));
+    end
     mu = mean(sensor.Y);
     vals  = [q(1), q(2), q(3), mu];
     names = {'Q1', 'Median', 'Q3', 'Mean'};

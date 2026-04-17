@@ -1,4 +1,4 @@
-classdef makePhase1009Fixtures
+classdef MakePhase1009Fixtures
     %MAKEPHASE1009FIXTURES Shared Tag fixture factory for Phase 1009 tests.
     %   Provides static-method factories for SensorTag, MonitorTag,
     %   CompositeTag, and an ephemeral EventStore path.  Every factory

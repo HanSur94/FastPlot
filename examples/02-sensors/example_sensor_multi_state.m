@@ -27,7 +27,6 @@ scMachine = StateTag('machine', 'X', [0  30  60  90], 'Y', [0   1   2   1]);  % 
 % --- String-valued state channel: zone ---
 scZone = StateTag('zone', 'X', [0, 40, 80], 'Y', {'A', 'B', 'A'});  % zone changes mid-run
 
-
 % --- Upper thresholds per machine state ---
 % Idle: lenient upper limit
 

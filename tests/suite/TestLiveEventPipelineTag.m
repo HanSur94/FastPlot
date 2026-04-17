@@ -157,7 +157,7 @@ classdef TestLiveEventPipelineTag < matlab.unittest.TestCase
             TagRegistry.register('s1', parent);
             monitor = MonitorTag('m1', parent, @(x, y) y > 15);
             TagRegistry.register('m1', monitor);
-            store = EventStore(makePhase1009Fixtures.makeEventStoreTmp());
+            store = EventStore(MakePhase1009Fixtures.makeEventStoreTmp());
             monitor.EventStore = store;
 
             % Sensor side: legacy
@@ -206,7 +206,7 @@ function [pipeline, store, monitor, parent, ds] = makeLiveTagFixture_()
     monitor = MonitorTag('m1', parent, @(x, y) y > 15);
     TagRegistry.register('m1', monitor);
 
-    store = EventStore(makePhase1009Fixtures.makeEventStoreTmp());
+    store = EventStore(MakePhase1009Fixtures.makeEventStoreTmp());
     monitor.EventStore = store;
 
     ds    = StubDataSource();

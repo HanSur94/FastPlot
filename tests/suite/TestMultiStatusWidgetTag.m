@@ -7,7 +7,7 @@ classdef TestMultiStatusWidgetTag < matlab.unittest.TestCase
     %   CompositeTag children parallel to CompositeThreshold, and
     %   round-trips via toStruct/fromStruct.
     %
-    %   See also MultiStatusWidget, makePhase1009Fixtures.
+    %   See also MultiStatusWidget, MakePhase1009Fixtures.
 
     methods (TestClassSetup)
         function addPaths(testCase) %#ok<MANU>
@@ -35,9 +35,9 @@ classdef TestMultiStatusWidgetTag < matlab.unittest.TestCase
 
         function testTagItemAlarmStatus(testCase)
             % MonitorTag whose last sample fires alarm → dot is theme.StatusAlarmColor.
-            st = makePhase1009Fixtures.makeSensorTag('mst_src_a', ...
+            st = MakePhase1009Fixtures.makeSensorTag('mst_src_a', ...
                 'X', 1:5, 'Y', [1 1 1 1 20]);
-            m  = makePhase1009Fixtures.makeMonitorTag('mst_mon_a', st);
+            m  = MakePhase1009Fixtures.makeMonitorTag('mst_mon_a', st);
 
             w = MultiStatusWidget('Title', 'S');
             w.Sensors = {struct('label', 'mon', 'tag', m)};
@@ -59,9 +59,9 @@ classdef TestMultiStatusWidgetTag < matlab.unittest.TestCase
 
         function testTagItemOkStatus(testCase)
             % ConditionFn returns 0 for the tail → dot is default (okColor).
-            st = makePhase1009Fixtures.makeSensorTag('mst_src_ok', ...
+            st = MakePhase1009Fixtures.makeSensorTag('mst_src_ok', ...
                 'X', 1:5, 'Y', [1 1 1 1 1]);
-            m  = makePhase1009Fixtures.makeMonitorTag('mst_mon_ok', st);
+            m  = MakePhase1009Fixtures.makeMonitorTag('mst_mon_ok', st);
 
             w = MultiStatusWidget('Title', 'S');
             w.Sensors = {struct('label', 'mon', 'tag', m)};
@@ -81,9 +81,9 @@ classdef TestMultiStatusWidgetTag < matlab.unittest.TestCase
 
         function testTagItemStringKey(testCase)
             % String tag key resolves via TagRegistry on render.
-            st = makePhase1009Fixtures.makeSensorTag('mst_src_sk', ...
+            st = MakePhase1009Fixtures.makeSensorTag('mst_src_sk', ...
                 'X', 1:5, 'Y', [1 1 1 1 20]);
-            makePhase1009Fixtures.makeMonitorTag('mst_mon_sk', st);
+            MakePhase1009Fixtures.makeMonitorTag('mst_mon_sk', st);
 
             w = MultiStatusWidget('Title', 'S');
             w.Sensors = {struct('label', 'mon', 'tag', 'mst_mon_sk')};
@@ -102,8 +102,8 @@ classdef TestMultiStatusWidgetTag < matlab.unittest.TestCase
         end
 
         function testTagRoundTripViaToStruct(testCase)
-            st = makePhase1009Fixtures.makeSensorTag('mst_src_rt');
-            m  = makePhase1009Fixtures.makeMonitorTag('mst_mon_rt', st);
+            st = MakePhase1009Fixtures.makeSensorTag('mst_src_rt');
+            m  = MakePhase1009Fixtures.makeMonitorTag('mst_mon_rt', st);
 
             w = MultiStatusWidget('Title', 'S');
             w.Sensors = {struct('label', 'alpha', 'tag', m)};
@@ -155,13 +155,13 @@ classdef TestMultiStatusWidgetTag < matlab.unittest.TestCase
         function testCompositeTagExpansion(testCase)
             % CompositeTag item expands children + summary row
             % (parallel to existing CompositeThreshold expansion).
-            st1 = makePhase1009Fixtures.makeSensorTag('mst_src_c1', ...
+            st1 = MakePhase1009Fixtures.makeSensorTag('mst_src_c1', ...
                 'X', 1:5, 'Y', [1 1 1 1 20]);
-            st2 = makePhase1009Fixtures.makeSensorTag('mst_src_c2', ...
+            st2 = MakePhase1009Fixtures.makeSensorTag('mst_src_c2', ...
                 'X', 1:5, 'Y', [1 1 1 1 20]);
-            m1 = makePhase1009Fixtures.makeMonitorTag('mst_mon_c1', st1);
-            m2 = makePhase1009Fixtures.makeMonitorTag('mst_mon_c2', st2);
-            ct = makePhase1009Fixtures.makeCompositeTag('mst_comp_c', ...
+            m1 = MakePhase1009Fixtures.makeMonitorTag('mst_mon_c1', st1);
+            m2 = MakePhase1009Fixtures.makeMonitorTag('mst_mon_c2', st2);
+            ct = MakePhase1009Fixtures.makeCompositeTag('mst_comp_c', ...
                 {m1, m2}, 'and');
 
             w = MultiStatusWidget('Title', 'S');
@@ -183,7 +183,7 @@ classdef TestMultiStatusWidgetTag < matlab.unittest.TestCase
             % confirm toStruct@DashboardWidget writes 'tag' source. MultiStatus
             % overrides toStruct fully; use IconCardWidget (subclass that calls
             % toStruct@DashboardWidget) for this assertion.
-            st = makePhase1009Fixtures.makeSensorTag('mst_base_tag');
+            st = MakePhase1009Fixtures.makeSensorTag('mst_base_tag');
             w = IconCardWidget('Title', 'B', 'Tag', st);
             s = w.toStruct();
             testCase.verifyTrue(isfield(s, 'source'));

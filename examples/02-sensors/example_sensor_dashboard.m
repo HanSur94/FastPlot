@@ -30,7 +30,6 @@ s2_y_(3000:3100) = s2_y_(3000:3100) + 12;  % spike
 s2 = SensorTag('temperature', 'Name', 'Chamber Temperature', 'Units', [char(176) 'C'], ...
     'X', t2, 'Y', s2_y_);
 
-
 % ========================================================
 % Sensor 3: Vibration (manual, static thresholds)
 % ========================================================
@@ -40,7 +39,6 @@ s3_y_ = 3 + 1.2*sin(2*pi*t3/15) + 0.5*randn(1, numel(t3));
 s3_y_(7000:7050) = s3_y_(7000:7050) + 5;
 s3.updateData(t3, s3_y_);
 
-
 % ========================================================
 % Sensor 4: Gas Flow (manual, state-dependent + lower)
 % ========================================================
@@ -49,7 +47,6 @@ t4 = linspace(0, 100, 10000);
 s4_y_ = 50 + 10*sin(2*pi*t4/18) + 3*randn(1, numel(t4));
 s4_y_(5000:5200) = s4_y_(5000:5200) - 30;
 s4.updateData(t4, s4_y_);
-
 
 % ========================================================
 % Build 2x2 dashboard with FastSenseGrid

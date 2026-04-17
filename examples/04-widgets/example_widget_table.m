@@ -18,7 +18,7 @@ clear functions;
 projectRoot = fileparts(fileparts(fileparts(mfilename('fullpath'))));
 run(fullfile(projectRoot, 'install.m'));
 
-%% 1. Create a Sensor with threshold violations
+%% 1. Create a Sensor
 rng(42);
 N = 5000;
 t = linspace(0, 86400, N);  % 24 hours in seconds
@@ -26,24 +26,21 @@ temp = 70 + 6*sin(2*pi*t/3600) + randn(1, N)*1.5;
 
 sTemp = SensorTag('T-401', 'Name', 'Temperature', 'X', t, 'Y', temp);
 
-
-%% 2. Build a static alarm log from resolved violations
+%% 2. Build a static alarm log from samples that exceed a plain threshold
 alarmLog = {};
-for vi = 1:numel(sTemp.ResolvedViolations)
-    v = sTemp.ResolvedViolations(vi);
-    if isempty(v.X), continue; end
-    nSample = min(5, numel(v.X));
-    idx = round(linspace(1, numel(v.X), nSample));
+alarmLimit = 78;
+overIdx = find(temp > alarmLimit);
+if ~isempty(overIdx)
+    nSample = min(10, numel(overIdx));
+    picks = round(linspace(1, numel(overIdx), nSample));
     for j = 1:nSample
-        tSec = v.X(idx(j));
+        idx = overIdx(picks(j));
+        tSec = t(idx);
         timeStr = sprintf('%02d:%02d', floor(tSec/3600), ...
             floor(mod(tSec, 3600)/60));
         alarmLog(end+1, :) = {timeStr, 'T-401', ...
-            sprintf('%.1f', v.Y(idx(j))), v.Label}; %#ok<AGROW>
+            sprintf('%.1f', temp(idx)), 'Hi Warn'}; %#ok<AGROW>
     end
-end
-if size(alarmLog, 1) > 10
-    alarmLog = alarmLog(end-9:end, :);
 end
 
 %% 3. Create dashboard with three table configurations

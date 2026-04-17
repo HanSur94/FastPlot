@@ -97,7 +97,7 @@ function [pipeline, store, monitor, parent, ds] = make_live_tag_fixture()
     monitor = MonitorTag('m1', parent, @(x, y) y > 15);
     TagRegistry.register('m1', monitor);
 
-    store = EventStore(makePhase1009Fixtures.makeEventStoreTmp());
+    store = EventStore(MakePhase1009Fixtures.makeEventStoreTmp());
     monitor.EventStore = store;
 
     ds    = StubDataSource();

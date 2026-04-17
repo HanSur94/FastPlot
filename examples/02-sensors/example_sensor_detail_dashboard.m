@@ -18,7 +18,6 @@ d1(25000:25300) = d1(25000:25300) + 30;  % spike
 s1 = SensorTag('temp', 'Name', 'Furnace Temperature', 'Units', [char(176) 'C']);
 s1.updateData(t1, d1);
 
-
 ev1 = Event(t1(25000), t1(25300), 'temp', 'HH Alarm', 155, 'upper');
 
 %% Sensor 2: Pressure

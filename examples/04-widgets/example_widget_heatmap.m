@@ -58,8 +58,9 @@ corrMat(5,6) = 0.90;  corrMat(6,5) = 0.90;
 % --- Sensor-bound (vibration RMS over time, reshaped 8x16) ---
 N = 5000;
 t = linspace(0, 86400, N);
-sVib = SensorTag('V-501', 'Name', 'Vibration RMS', 'Units', 'mm/s', 'X', t, 'Y', 1.5 + 0.8*sin(2*pi*t/7200) + randn(1,N)*0.15);
-sVib.Y(t > 43200 & t < 46800) = sVib.Y(t > 43200 & t < 46800) + 1.2;
+vibY = 1.5 + 0.8*sin(2*pi*t/7200) + randn(1,N)*0.15;
+vibY(t > 43200 & t < 46800) = vibY(t > 43200 & t < 46800) + 1.2;
+sVib = SensorTag('V-501', 'Name', 'Vibration RMS', 'Units', 'mm/s', 'X', t, 'Y', vibY);
 
 %% 2. Build dashboard
 d = DashboardEngine('Heatmap Widget Demo');

@@ -28,15 +28,13 @@ t = linspace(0, 86400, N);  % 24 hours in seconds
 % Temperature — nearly normal distribution
 sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X', t, 'Y', 72 + 4*sin(2*pi*t/3600) + randn(1,N)*1.5);
 
-
 % Pressure — bimodal (two machine modes)
-sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi');
-sPress.X = t;
 modeA = t < 43200;  % first 12 hours: lower pressure
 modeB = t >= 43200; % second 12 hours: higher pressure
-sPress.Y = zeros(1, N);
-sPress.Y(modeA) = 30 + randn(1, sum(modeA))*3;
-sPress.Y(modeB) = 55 + randn(1, sum(modeB))*4;
+pressY = zeros(1, N);
+pressY(modeA) = 30 + randn(1, sum(modeA))*3;
+pressY(modeB) = 55 + randn(1, sum(modeB))*4;
+sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', t, 'Y', pressY);
 
 % Vibration — log-normal (positively skewed)
 sVib = SensorTag('V-501', 'Name', 'Vibration RMS', 'Units', 'mm/s', 'X', t, 'Y', max(0.1, exp(0.5 + 0.4*randn(1,N))));  % log-normal

@@ -53,10 +53,6 @@ overIdx = t >= 36000 & t <= 38000;
 temp(overIdx) = temp(overIdx) + 12;
 
 sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X', t, 'Y', temp);
-% Running mode thresholds
-
-
-% Idle mode threshold (tighter — equipment should be cool)
 
 % --- Pressure sensor P-201 ---
 pressBase = zeros(1, N);
@@ -73,7 +69,6 @@ pressure = pressBase + pressNoise;
 
 sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', t, 'Y', pressure);
 
-
 % --- Flow sensor F-301 ---
 flowBase = zeros(1, N);
 for k = 1:N
@@ -89,42 +84,44 @@ flow = max(0, flowBase + flowNoise);
 
 sFlow = SensorTag('F-301', 'Name', 'Flow Rate', 'Units', 'L/min', 'X', t, 'Y', flow);
 
-
-%% ========== Build alarm log from resolved violations ==========
+%% ========== Build alarm log from samples over simple thresholds ==========
+% NOTE: v2.0 Tag model: thresholds are expressed as MonitorTag bindings,
+% not as fields on the SensorTag itself. For this demo we synthesise an
+% alarm log by picking samples that exceed a plain upper limit.
 alarmLog = {};
-sensors = {sTemp, sPress, sFlow};
+sensors   = {sTemp, sPress, sFlow};
+hiLimits  = [85, 70, 160];        % per-sensor upper alarm band
+hiLabels  = {'Hi Warn', 'Hi Warn', 'Hi Warn'};
 for si = 1:numel(sensors)
-    s = sensors{si};
-    if isempty(s.ResolvedViolations)
-        continue;
-    end
-    for vi = 1:numel(s.ResolvedViolations)
-        v = s.ResolvedViolations(vi);
-        if isempty(v.X)
-            continue;
-        end
-        % Sample up to 3 violation points per rule
-        nSample = min(3, numel(v.X));
-        idx = round(linspace(1, numel(v.X), nSample));
-        for j = 1:nSample
-            tSec = v.X(idx(j));
-            hours = floor(tSec / 3600);
-            mins = floor(mod(tSec, 3600) / 60);
-            timeStr = sprintf('%02d:%02d', hours, mins);
-            valStr = sprintf('%.1f', v.Y(idx(j)));
-            sevStr = v.Label;
-            alarmLog(end+1, :) = {timeStr, s.Key, valStr, sevStr}; %#ok<AGROW>
-        end
+    s   = sensors{si};
+    [sX, sY] = s.getXY();
+    over = find(sY > hiLimits(si));
+    if isempty(over), continue; end
+    nSample = min(5, numel(over));
+    picks   = round(linspace(1, numel(over), nSample));
+    for j = 1:nSample
+        idx = over(picks(j));
+        tSec = sX(idx);
+        hours = floor(tSec / 3600);
+        mins  = floor(mod(tSec, 3600) / 60);
+        timeStr = sprintf('%02d:%02d', hours, mins);
+        valStr  = sprintf('%.1f', sY(idx));
+        alarmLog(end+1, :) = {timeStr, s.Key, valStr, hiLabels{si}}; %#ok<AGROW>
     end
 end
 % Sort by time
 if ~isempty(alarmLog)
     [~, sortIdx] = sort(alarmLog(:, 1));
     alarmLog = alarmLog(sortIdx, :);
-    % Limit to last 10 entries
     if size(alarmLog, 1) > 10
         alarmLog = alarmLog(end-9:end, :);
     end
+end
+% Per-sensor violation counts (used below for the bar chart)
+violCounts = zeros(1, numel(sensors));
+for si = 1:numel(sensors)
+    [~, sY] = sensors{si}.getXY();
+    violCounts(si) = sum(sY > hiLimits(si));
 end
 
 %% ========== Build events from state channel transitions ==========
@@ -248,7 +245,7 @@ d.addWidget('heatmap', 'Title', 'Temp by Hour & Machine Mode', ...
 % BarChart: alarm counts by sensor tag
 alarmCounts = struct( ...
     'categories', {{'T-401','P-201','F-301'}}, ...
-    'values', [sTemp.countViolations(), sPress.countViolations(), sFlow.countViolations()]);
+    'values', violCounts);
 d.addWidget('barchart', 'Title', 'Violation Count by Sensor', ...
     'Position', [15 22 10 6], ...
     'DataFcn', @() alarmCounts, ...
@@ -291,8 +288,8 @@ d.addWidget('multistatus', 'Title', 'Sensor Status', ...
 d.render();
 
 fprintf('Dashboard rendered with %d widgets.\n', numel(d.Widgets));
-fprintf('Sensors: T-401 (%d violations), P-201 (%d violations), F-301 (%d violations)\n', ...
-    sTemp.countViolations(), sPress.countViolations(), sFlow.countViolations());
+fprintf('Sensors: T-401 (%d > hi), P-201 (%d > hi), F-301 (%d > hi)\n', ...
+    violCounts(1), violCounts(2), violCounts(3));
 fprintf('Phase B widgets added: heatmap, barchart, histogram, scatter, image, multistatus.\n');
 fprintf('Click "Edit" to enter GUI builder mode.\n');
 fprintf('Click "Save" to export as JSON, "Export" to generate .m script.\n');

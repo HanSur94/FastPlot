@@ -10,7 +10,7 @@ function test_multistatus_widget_tag()
 %   enforces the Pitfall 1 grep gate on MultiStatusWidget.m in all
 %   interpreters and skips classdef-dependent assertions on Octave.
 %
-%   See also TestMultiStatusWidgetTag, makePhase1009Fixtures.
+%   See also TestMultiStatusWidgetTag, MakePhase1009Fixtures.
 
     add_multistatus_widget_tag_path();
 
@@ -55,8 +55,8 @@ function test_pitfall1_no_isa_in_widget()
 end
 
 function test_tag_item_alarm_status()
-    st = makePhase1009Fixtures.makeSensorTag('mst_f_a_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
-    m  = makePhase1009Fixtures.makeMonitorTag('mst_f_a_mon', st);
+    st = MakePhase1009Fixtures.makeSensorTag('mst_f_a_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
+    m  = MakePhase1009Fixtures.makeMonitorTag('mst_f_a_mon', st);
 
     w = MultiStatusWidget('Title', 'S');
     w.Sensors = {struct('label', 'mon', 'tag', m)};
@@ -74,8 +74,8 @@ function test_tag_item_alarm_status()
 end
 
 function test_tag_item_ok_status()
-    st = makePhase1009Fixtures.makeSensorTag('mst_f_ok_src', 'X', 1:5, 'Y', [1 1 1 1 1]);
-    m  = makePhase1009Fixtures.makeMonitorTag('mst_f_ok_mon', st);
+    st = MakePhase1009Fixtures.makeSensorTag('mst_f_ok_src', 'X', 1:5, 'Y', [1 1 1 1 1]);
+    m  = MakePhase1009Fixtures.makeMonitorTag('mst_f_ok_mon', st);
 
     w = MultiStatusWidget('Title', 'S');
     w.Sensors = {struct('label', 'mon', 'tag', m)};
@@ -93,8 +93,8 @@ function test_tag_item_ok_status()
 end
 
 function test_tag_item_string_key()
-    st = makePhase1009Fixtures.makeSensorTag('mst_f_sk_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
-    makePhase1009Fixtures.makeMonitorTag('mst_f_sk_mon', st);
+    st = MakePhase1009Fixtures.makeSensorTag('mst_f_sk_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
+    MakePhase1009Fixtures.makeMonitorTag('mst_f_sk_mon', st);
 
     w = MultiStatusWidget('Title', 'S');
     w.Sensors = {struct('label', 'mon', 'tag', 'mst_f_sk_mon')};
@@ -112,8 +112,8 @@ function test_tag_item_string_key()
 end
 
 function test_tag_round_trip()
-    st = makePhase1009Fixtures.makeSensorTag('mst_f_rt_src');
-    m  = makePhase1009Fixtures.makeMonitorTag('mst_f_rt_mon', st);
+    st = MakePhase1009Fixtures.makeSensorTag('mst_f_rt_src');
+    m  = MakePhase1009Fixtures.makeMonitorTag('mst_f_rt_mon', st);
 
     w = MultiStatusWidget('Title', 'S');
     w.Sensors = {struct('label', 'alpha', 'tag', m)};
@@ -158,11 +158,11 @@ function test_legacy_sensor_item()
 end
 
 function test_composite_tag_expansion()
-    st1 = makePhase1009Fixtures.makeSensorTag('mst_f_c1_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
-    st2 = makePhase1009Fixtures.makeSensorTag('mst_f_c2_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
-    m1 = makePhase1009Fixtures.makeMonitorTag('mst_f_c1_mon', st1);
-    m2 = makePhase1009Fixtures.makeMonitorTag('mst_f_c2_mon', st2);
-    ct = makePhase1009Fixtures.makeCompositeTag('mst_f_comp', {m1, m2}, 'and');
+    st1 = MakePhase1009Fixtures.makeSensorTag('mst_f_c1_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
+    st2 = MakePhase1009Fixtures.makeSensorTag('mst_f_c2_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
+    m1 = MakePhase1009Fixtures.makeMonitorTag('mst_f_c1_mon', st1);
+    m2 = MakePhase1009Fixtures.makeMonitorTag('mst_f_c2_mon', st2);
+    ct = MakePhase1009Fixtures.makeCompositeTag('mst_f_comp', {m1, m2}, 'and');
 
     w = MultiStatusWidget('Title', 'S');
     w.Sensors = {struct('label', 'composite', 'tag', ct)};

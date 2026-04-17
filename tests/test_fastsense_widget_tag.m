@@ -9,7 +9,7 @@ function test_fastsense_widget_tag()
 %   assertions are MATLAB-only.  The Pitfall 1 grep gate is pure file
 %   regex and runs everywhere.
 %
-%   See also TestFastSenseWidgetTag, makePhase1009Fixtures.
+%   See also TestFastSenseWidgetTag, MakePhase1009Fixtures.
 
     add_fastsense_widget_tag_path();
 
@@ -36,7 +36,7 @@ end
 
 function test_sensor_tag_render()
     TagRegistry.clear();
-    st = makePhase1009Fixtures.makeSensorTag('press_a', 'Units', 'bar');
+    st = MakePhase1009Fixtures.makeSensorTag('press_a', 'Units', 'bar');
 
     hFig = figure('Visible', 'off');
     cleanup_fig = onCleanup(@() close(hFig)); %#ok<NASGU>
@@ -57,8 +57,8 @@ end
 
 function test_monitor_tag_render()
     TagRegistry.clear();
-    st = makePhase1009Fixtures.makeSensorTag('press_b');
-    m  = makePhase1009Fixtures.makeMonitorTag('press_hi', st);
+    st = MakePhase1009Fixtures.makeSensorTag('press_b');
+    m  = MakePhase1009Fixtures.makeMonitorTag('press_hi', st);
 
     hFig = figure('Visible', 'off');
     cleanup_fig = onCleanup(@() close(hFig)); %#ok<NASGU>
@@ -77,7 +77,7 @@ end
 
 function test_tag_update_incremental()
     TagRegistry.clear();
-    st = makePhase1009Fixtures.makeSensorTag('press_c', 'X', 1:10, 'Y', (1:10) * 1.0);
+    st = MakePhase1009Fixtures.makeSensorTag('press_c', 'X', 1:10, 'Y', (1:10) * 1.0);
 
     hFig = figure('Visible', 'off');
     cleanup_fig = onCleanup(@() close(hFig)); %#ok<NASGU>
@@ -99,7 +99,7 @@ end
 
 function test_tag_round_trip()
     TagRegistry.clear();
-    st = makePhase1009Fixtures.makeSensorTag('press_rt', 'Units', 'Pa');
+    st = MakePhase1009Fixtures.makeSensorTag('press_rt', 'Units', 'Pa');
 
     w = FastSenseWidget('Tag', st);
     s = w.toStruct();
@@ -163,7 +163,7 @@ end
 
 function test_ylabel_from_tag_units()
     TagRegistry.clear();
-    st = makePhase1009Fixtures.makeSensorTag('press_units', 'Units', 'kPa');
+    st = MakePhase1009Fixtures.makeSensorTag('press_units', 'Units', 'kPa');
 
     w = FastSenseWidget('Tag', st);
     assert(strcmp(w.YLabel, 'kPa'), ...

@@ -24,10 +24,12 @@ scMode = StateTag('machine', 'X', [0, 7200, 43200, 57600], 'Y', [0, 1,    0,    
 % Temperature sensor with mode-dependent thresholds
 sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'C'], 'X', t, 'Y', 70 + 5*sin(2*pi*t/3600) + randn(1,N)*0.8);
 
-
 % Pressure sensor with unconditional thresholds
 sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'bar', 'X', t, 'Y', 50 + 20*sin(2*pi*t/7200) + randn(1,N)*1.5);
 
+% Register tags so DashboardEngine.load can resolve them by Key on reload.
+TagRegistry.register('T-401', sTemp);
+TagRegistry.register('P-201', sPress);
 
 %% 2. Create dashboard with sensor-bound widgets
 d = DashboardEngine('Process Monitoring — Line 4');
@@ -70,8 +72,12 @@ fprintf('removeWidget: removed widget 3 (full-view temperature).\n');
 %% 6. Load from JSON (demonstrates roundtrip)
 % Loads the original 3-widget layout saved in step 3, before the
 % removeWidget/setWidgetPosition mutations above.
-% SensorResolver maps sensor keys back to Sensor objects for the loaded config
-sensorMap = containers.Map({'T-401', 'P-201'}, {sTemp, sPress});
-d2 = DashboardEngine.load(jsonPath, 'SensorResolver', @(key) sensorMap(key));
+% Tags were registered above via TagRegistry.register so fromStruct can
+% resolve them by Key during load.
+d2 = DashboardEngine.load(jsonPath);
 d2.render();
 fprintf('Dashboard reloaded from JSON and rendered in a second figure.\n');
+
+% Clean up registry
+TagRegistry.unregister('T-401');
+TagRegistry.unregister('P-201');

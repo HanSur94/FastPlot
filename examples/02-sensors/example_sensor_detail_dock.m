@@ -32,7 +32,6 @@ d1(100000:100200) = d1(100000:100200) + 40; % spike ~09:47
 s1 = SensorTag('temp', 'Name', 'Furnace Temperature');
 s1.updateData(tNum, d1);
 
-
 ev1a = Event(tNum(40000), tNum(40600), 'temp', 'HH Alarm', 155, 'upper');
 ev1b = Event(tNum(100000), tNum(100200), 'temp', 'HH Alarm', 155, 'upper');
 

@@ -14,7 +14,9 @@ run(fullfile(projectRoot, 'install.m'));
 
 fprintf('=== 1. Basic toDisk workflow ===\n');
 
-s = SensorTag('temperature', 'Name', 'Chamber Temperature', 'ID', 201, 'X', linspace(0, 200, 2e6), 'Y', 50 + 8*sin(2*pi*s.X/60) + 3*randn(1, 2e6));
+sX = linspace(0, 200, 2e6);
+sY = 50 + 8*sin(2*pi*sX/60) + 3*randn(1, 2e6);
+s  = SensorTag('temperature', 'Name', 'Chamber Temperature', 'ID', 201, 'X', sX, 'Y', sY);
 
 fprintf('  Before toDisk: %.1f MB in memory\n', numel(s.X) * 16 / 1e6);
 
@@ -32,11 +34,11 @@ fprintf('\n=== 2. Disk-backed resolve ===\n');
 
 sc = StateTag('machine', 'X', [0 50 100 150], 'Y', [0 1 2 1]);  % idle -> running -> evacuated -> running
 
-
 tic;
-fprintf('  resolve() on 2M disk-backed points: %.3f s\n', toc);
-fprintf('  Thresholds: %d, Violations: %d\n', ...
-    numel(s.ResolvedThresholds), numel(s.ResolvedViolations));
+fprintf('  load from disk on 2M disk-backed points: %.3f s\n', toc);
+[sX2, sY2] = s.getXY();
+fprintf('  Points: %d, Y range: [%.2f, %.2f]\n', ...
+    numel(sX2), min(sY2), max(sY2));
 
 %% 3. Plot the disk-backed sensor
 % addSensor passes the DataStore directly to FastSense — no copying.
@@ -56,7 +58,9 @@ title(fp.hAxes, 'Disk-backed Sensor — 2M Points with Dynamic Thresholds');
 
 fprintf('\n=== 4. toMemory round-trip ===\n');
 
-s2 = SensorTag('pressure', 'Name', 'Pressure Sensor', 'X', linspace(0, 100, 500000), 'Y', 40 + 20*sin(2*pi*s2.X/30) + 5*randn(1, 500000));
+s2X = linspace(0, 100, 500000);
+s2Y = 40 + 20*sin(2*pi*s2X/30) + 5*randn(1, 500000);
+s2  = SensorTag('pressure', 'Name', 'Pressure Sensor', 'X', s2X, 'Y', s2Y);
 
 s2.toDisk();
 fprintf('  On disk: X empty=%d, NumPoints=%d\n', isempty(s2.X), s2.DataStore.NumPoints);
@@ -70,9 +74,11 @@ fprintf('  Back in memory: numel(X)=%d, isOnDisk=%d\n', numel(s2.X), s2.isOnDisk
 
 fprintf('\n=== 5. Large sensor with metadata columns ===\n');
 
-s3 = SensorTag('flow', 'Name', 'Gas Flow Rate');
-n = 5e6;
-s3.updateData(linspace(0, 1000, n), 50 + 15*sin(2*pi*s3.X/20) + 3*randn(1, n));
+n   = 5e6;
+s3X = linspace(0, 1000, n);
+s3Y = 50 + 15*sin(2*pi*s3X/20) + 3*randn(1, n);
+s3  = SensorTag('flow', 'Name', 'Gas Flow Rate');
+s3.updateData(s3X, s3Y);
 
 tic;
 s3.toDisk();
@@ -117,7 +123,9 @@ names = {'Temperature', 'Pressure', 'Flow Rate', 'Vibration'};
 nPts = 1e6;
 
 for i = 1:4
-    si = SensorTag(lower(names{i}), 'Name', names{i}, 'X', linspace(0, 200, nPts), 'Y', 30 + 10*i + 15*sin(2*pi*si.X/(20+10*i)) + 4*randn(1, nPts));
+    siX = linspace(0, 200, nPts);
+    siY = 30 + 10*i + 15*sin(2*pi*siX/(20+10*i)) + 4*randn(1, nPts);
+    si  = SensorTag(lower(names{i}), 'Name', names{i}, 'X', siX, 'Y', siY);
     si.toDisk();
     sensors{i} = si;
 end
