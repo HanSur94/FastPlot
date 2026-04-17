@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
 status: executing
-stopped_at: Completed 1009-02-PLAN.md
-last_updated: "2026-04-16T21:34:56.109Z"
-last_activity: 2026-04-16
+stopped_at: Completed 1009-03-PLAN.md
+last_updated: "2026-04-17T07:40:27.725Z"
+last_activity: 2026-04-17
 progress:
   total_phases: 15
   completed_phases: 11
   total_plans: 39
-  completed_plans: 37
+  completed_plans: 38
   percent: 0
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 ## Current Position
 
 Phase: 1009 (Consumer migration) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
-Last activity: 2026-04-16
+Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 
@@ -107,6 +107,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1008 P03 | 12min | 2 tasks | 6 files |
 | Phase 1009-consumer-migration P01 | 8min | 4 tasks | 8 files |
 | Phase 1009 P02 | 14min | 4 tasks | 13 files |
+| Phase 1009-consumer-migration P03 | 2149s | 4 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -215,6 +216,7 @@ Recent decisions affecting current work:
 - [Phase 1009]: Base-class Tag property lands in Plan 02 (RESEARCH Q#1 rec); FastSenseWidget local Tag removed — net neutral
 - [Phase 1009]: EventTimelineWidget FilterTagKey uses MONITOR-05 carrier pattern — zero Event schema change (Pitfall X); Phase 1010 owns TagKeys
 - [Phase 1009]: DashboardEngine.onLiveTick uses unconditional markDirty for Tag widgets (Sensor parity; RESEARCH Q#2 Option A)
+- [Phase 1009-consumer-migration]: EventDetector varargin shim (detect_) preserves all 6-arg callers; LEP uses separate MonitorTargets map; processMonitorTag_ enforces Pitfall Y ordering; Phase 1007 SC#4 realized end-to-end
 
 ### Roadmap Evolution
 
@@ -248,6 +250,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-16T21:34:56.105Z
-Stopped at: Completed 1009-02-PLAN.md
+Last session: 2026-04-17T07:40:27.720Z
+Stopped at: Completed 1009-03-PLAN.md
 Resume file: None
