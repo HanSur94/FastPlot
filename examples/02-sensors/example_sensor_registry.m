@@ -12,21 +12,22 @@
 projectRoot = fileparts(fileparts(fileparts(mfilename('fullpath'))));
 run(fullfile(projectRoot, 'install.m'));
 
-%% 1. List all sensors in the catalog
-fprintf('=== All registered sensors ===');
+%% 1. Register sensors in the catalog
+t = linspace(0, 80, 15000);
+pressure = SensorTag('pressure', 'Name', 'Pressure Sensor', 'Units', 'bar', ...
+    'X', t, 'Y', 45 + 18*sin(2*pi*t/20) + 4*randn(1, numel(t)));
+temperature = SensorTag('temperature', 'Name', 'Temperature Sensor', 'Units', 'C', ...
+    'X', t, 'Y', 72 + 8*sin(2*pi*t/30) + 2*randn(1, numel(t)));
+
+TagRegistry.register('pressure', pressure);
+TagRegistry.register('temperature', temperature);
+
+fprintf('=== All registered sensors ===\n');
 TagRegistry.list();
 
 %% 2. Retrieve a single sensor by key
 s = TagRegistry.get('pressure');
-fprintf('Retrieved sensor: key="%s", name="%s", ID=%d\n', s.Key, s.Name, s.ID);
-
-% Populate with synthetic data
-t = linspace(0, 80, 15000);
-s.updateData(t, 45 + 18*sin(2*pi*t/20) + 4*randn(1, numel(t)));
-
-% Add state channel and state-dependent thresholds
-sc = StateTag('machine', 'X', [0 20 40 60], 'Y', [0  1  2  1]);
-
+fprintf('Retrieved sensor: key="%s", name="%s"\n', s.Key, s.Name);
 
 %% 3. Retrieve multiple sensors at once
 keys = {'pressure', 'temperature'};

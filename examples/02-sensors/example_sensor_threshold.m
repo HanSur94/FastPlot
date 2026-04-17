@@ -24,7 +24,7 @@ sc = StateTag('machine_state', 'X', [0 25 50 75], 'Y', [0 1 2 1]);  % 0=idle, 1=
 
 % --- Plot with FastSense ---
 fp = FastSense();
-fp.addTag(s, 'ShowThresholds', true);
+fp.addTag(s);
 fp.render();
 title('Chamber Pressure with Dynamic Thresholds');
 xlabel('Time');

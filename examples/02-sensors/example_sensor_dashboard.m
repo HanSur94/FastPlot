@@ -15,23 +15,20 @@ run(fullfile(projectRoot, 'install.m'));
 scMachine = StateTag('machine', 'X', [0  20  50  80], 'Y', [0   1   2   1]);
 
 % ========================================================
-% Sensor 1: Chamber Pressure (from registry, add thresholds)
+% Sensor 1: Chamber Pressure
 % ========================================================
-s1 = TagRegistry.get('pressure');
-s1.Units = 'mbar';
 t1 = linspace(0, 100, 10000);
-s1.updateData(t1, 40 + 20*sin(2*pi*t1/25) + 4*randn(1, numel(t1)));
-
+s1 = SensorTag('pressure', 'Name', 'Chamber Pressure', 'Units', 'mbar', ...
+    'X', t1, 'Y', 40 + 20*sin(2*pi*t1/25) + 4*randn(1, numel(t1)));
 
 % ========================================================
-% Sensor 2: Chamber Temperature (from registry, static thresholds)
+% Sensor 2: Chamber Temperature
 % ========================================================
-s2 = TagRegistry.get('temperature');
-s2.Units = [char(176) 'C'];
-t2 = linspace(0, 100, 8000);
+t2 = linspace(0, 100, 10000);
 s2_y_ = 22 + 5*sin(2*pi*t2/40) + 1.5*randn(1, numel(t2));
 s2_y_(3000:3100) = s2_y_(3000:3100) + 12;  % spike
-s2.updateData(t2, s2_y_);
+s2 = SensorTag('temperature', 'Name', 'Chamber Temperature', 'Units', [char(176) 'C'], ...
+    'X', t2, 'Y', s2_y_);
 
 
 % ========================================================
