@@ -174,6 +174,56 @@ function test_fastsense_event_overlay()
         try close(f); catch; end
     end
 
+    % --- Test 6 (bench): 0-event render with 12 tags, ShowEventMarkers=true ---
+    try
+        EventBinding.clear();
+        f = figure('Visible', 'off');
+        ax = axes('Parent', f);
+        es = EventStore('');
+        fp = FastSense('Parent', ax);
+        fp.ShowEventMarkers = true;
+        fp.EventStore = es;
+        % Add 12 SensorTag lines (representative dashboard)
+        nTags = 12;
+        x = 1:1000;
+        for i = 1:nTags
+            st = SensorTag(sprintf('bench_tag_%d', i), 'X', x, 'Y', sin(x / (5 + i)) * 30 + 40 + i);
+            fp.addTag(st);
+        end
+        % NO events attached — 0-event path
+        % Warm-up render
+        fp.render();
+        close(f);
+        % Timed runs
+        times = zeros(1, 3);
+        for r = 1:3
+            EventBinding.clear();
+            f = figure('Visible', 'off');
+            ax = axes('Parent', f);
+            fp = FastSense('Parent', ax);
+            fp.ShowEventMarkers = true;
+            fp.EventStore = es;
+            for i = 1:nTags
+                st = SensorTag(sprintf('bench_tag_%d_%d', i, r), 'X', x, 'Y', sin(x / (5 + i)) * 30 + 40 + i);
+                fp.addTag(st);
+            end
+            t0 = tic;
+            fp.render();
+            times(r) = toc(t0);
+            close(f);
+        end
+        medianTime = median(times);
+        fprintf('    BENCH: 12-tag 0-event render median = %.3f s (runs: %.3f, %.3f, %.3f)\n', ...
+            medianTime, times(1), times(2), times(3));
+        assert(medianTime < 10, 'Expected < 10s render, got %.3f s', medianTime);
+        nPassed = nPassed + 1;
+        fprintf('    PASS: 0-event render bench (12 tags, ShowEventMarkers=true) under 10s\n');
+    catch e
+        nFailed = nFailed + 1;
+        fprintf('    FAIL: 0-event render bench: %s\n', e.message);
+        try close(f); catch; end
+    end
+
     fprintf('    %d/%d tests passed.\n', nPassed, nPassed + nFailed);
     if nFailed > 0
         error('test_fastsense_event_overlay:failed', '%d tests failed.', nFailed);
