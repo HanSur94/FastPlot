@@ -1,8 +1,8 @@
 classdef SensorDetailPlot < handle
     % SensorDetailPlot  Two-panel sensor overview+detail plot with interactive navigator.
     %
-    %   sdp = SensorDetailPlot(sensor)
-    %   sdp = SensorDetailPlot(sensor, Name, Value, ...)
+    %   sdp = SensorDetailPlot(tag)
+    %   sdp = SensorDetailPlot(tag, Name, Value, ...)
     %
     %   Name-Value Options:
     %     'Theme'              - FastSense theme (default: 'default')
@@ -12,12 +12,11 @@ classdef SensorDetailPlot < handle
     %     'Events'             - EventStore or Event array (default: [])
     %     'ShowEventLabels'    - Reserved, no effect (default: false)
     %     'Parent'             - uipanel handle for embedding (default: [])
-    %     'Title'              - Plot title (default: sensor.Name)
+    %     'Title'              - Plot title (default: tag.Name)
     %     'XType'              - 'numeric' or 'datenum' (default: 'numeric')
 
     properties (SetAccess = private)
-        Sensor              % Sensor object (legacy path; empty when TagRef set)
-        TagRef              % Tag handle (v2.0 path; empty when Sensor set)
+        TagRef              % Tag handle (v2.0 path)
         MainPlot            % FastSense instance for upper panel
         NavigatorPlot       % FastSense instance for lower panel
         NavigatorOverlayObj % NavigatorOverlay instance
@@ -46,32 +45,27 @@ classdef SensorDetailPlot < handle
     end
 
     methods
-        function obj = SensorDetailPlot(tagOrSensor, varargin)
-            % Dual-input guard: accept Tag (v2.0) OR Sensor (legacy).
+        function obj = SensorDetailPlot(tag, varargin)
+            % Accept Tag (v2.0) only.
             % Tag class is the abstract base — uses isa(x, 'Tag'), NOT
             % isa-on-subclass-name (Pitfall 1).
-            if isa(tagOrSensor, 'Tag')
-                obj.TagRef = tagOrSensor;
-                obj.Sensor = [];
-                % Soft validation: warn on empty data instead of hard error.
-                try
-                    [xChk, ~] = tagOrSensor.getXY();
-                    if isempty(xChk)
-                        warning('SensorDetailPlot:emptyTag', ...
-                            'Tag ''%s'' returned empty X — plot will render with no data.', ...
-                            tagOrSensor.Key);
-                    end
-                catch ex
-                    warning('SensorDetailPlot:tagGetXYFailed', ...
-                        'Tag ''%s'' getXY threw: %s', tagOrSensor.Key, ex.message);
-                end
-            elseif isa(tagOrSensor, 'Sensor')
-                obj.Sensor = tagOrSensor;
-                obj.TagRef = [];
-            else
+            if ~isa(tag, 'Tag')
                 error('SensorDetailPlot:invalidInput', ...
-                    'First argument must be a Sensor or Tag object; got %s.', ...
-                    class(tagOrSensor));
+                    'First argument must be a Tag object; got %s.', ...
+                    class(tag));
+            end
+            obj.TagRef = tag;
+            % Soft validation: warn on empty data instead of hard error.
+            try
+                [xChk, ~] = tag.getXY();
+                if isempty(xChk)
+                    warning('SensorDetailPlot:emptyTag', ...
+                        'Tag ''%s'' returned empty X — plot will render with no data.', ...
+                        tag.Key);
+                end
+            catch ex
+                warning('SensorDetailPlot:tagGetXYFailed', ...
+                    'Tag ''%s'' getXY threw: %s', tag.Key, ex.message);
             end
 
             obj.IsRendered = false;
@@ -89,13 +83,9 @@ classdef SensorDetailPlot < handle
             conDefaults.Events = [];
             conDefaults.ShowEventLabels = false;
             conDefaults.Parent = [];
-            % Title default: Tag.Name/Key for Tag mode, Sensor.Name for legacy.
-            if ~isempty(obj.TagRef)
-                conDefaults.Title = obj.TagRef.Name;
-                if isempty(conDefaults.Title), conDefaults.Title = obj.TagRef.Key; end
-            else
-                conDefaults.Title = obj.Sensor.Name;
-            end
+            % Title default: Tag.Name/Key.
+            conDefaults.Title = obj.TagRef.Name;
+            if isempty(conDefaults.Title), conDefaults.Title = obj.TagRef.Key; end
             conDefaults.XType = 'numeric';
             [opts, ~] = parseOpts(conDefaults, varargin);
 
@@ -129,55 +119,18 @@ classdef SensorDetailPlot < handle
                     'SensorDetailPlot has already been rendered.');
             end
 
-            % Tag path: skip legacy Sensor.resolve — Tag owns its own data
-            % via getXY(). Threshold overlay deferred (Phase 1010).
-            if isempty(obj.TagRef)
-                % Auto-resolve sensor if not yet resolved (avoids struct()
-                % default in ResolvedThresholds crashing FastSense.addSensor)
-                if isstruct(obj.Sensor.ResolvedThresholds) && isempty(fieldnames(obj.Sensor.ResolvedThresholds))
-                    obj.Sensor.resolve();
-                end
-            end
-
             % Create layout
             obj.createLayout();
 
-            % Resolve the (X, Y) vectors + display name in a mode-independent
-            % way so the downstream rendering code reads the same locals.
-            if ~isempty(obj.TagRef)
-                [xVec, yVec] = obj.TagRef.getXY();
-                displayName = obj.TagRef.Name;
-                if isempty(displayName); displayName = obj.TagRef.Key; end
-            else
-                xVec = obj.Sensor.X;
-                yVec = obj.Sensor.Y;
-                displayName = obj.Sensor.Name;
-                if isempty(displayName); displayName = obj.Sensor.Key; end
-            end
+            % Resolve the (X, Y) vectors + display name from Tag.
+            [xVec, yVec] = obj.TagRef.getXY();
+            displayName = obj.TagRef.Name;
+            if isempty(displayName); displayName = obj.TagRef.Key; end
 
             % Create main FastSense
             obj.MainPlot = FastSense('Parent', obj.hMainAxes, 'Theme', obj.Theme);
             obj.MainPlot.addLine(xVec, yVec, ...
                 'DisplayName', displayName, 'XType', obj.XType);
-
-            % Add thresholds — Sensor-only in Phase 1009; Tag thresholds
-            % are deferred to Phase 1010 (EVENT-01 / Threshold-on-Tag).
-            if isempty(obj.TagRef) && obj.ShowThresholds && ~isempty(obj.Sensor.ResolvedThresholds)
-                for i = 1:numel(obj.Sensor.ResolvedThresholds)
-                    th = obj.Sensor.ResolvedThresholds(i);
-                    thLabel = th.Label;
-                    if isempty(thLabel); thLabel = sprintf('Threshold %d', i); end
-                    thArgs = {'Direction', th.Direction, ...
-                        'ShowViolations', true, 'Label', thLabel};
-                    if ~isempty(th.Color)
-                        thArgs = [thArgs, {'Color', th.Color}]; %#ok<AGROW>
-                    end
-                    if ~isempty(th.LineStyle)
-                        thArgs = [thArgs, {'LineStyle', th.LineStyle}]; %#ok<AGROW>
-                    end
-                    obj.MainPlot.addThreshold(th.X, th.Y, thArgs{:});
-                end
-            end
 
             % Render main plot
             obj.MainPlot.render();
@@ -194,12 +147,12 @@ classdef SensorDetailPlot < handle
             end
 
             % Create navigator FastSense — uses the same (X, Y) vectors
-            % resolved above (Tag mode via getXY; legacy mode via Sensor).
+            % resolved above via Tag.getXY().
             obj.NavigatorPlot = FastSense('Parent', obj.hNavAxes, 'Theme', obj.Theme);
             obj.NavigatorPlot.addLine(xVec, yVec, ...
                 'DisplayName', displayName, 'XType', obj.XType);
 
-            % Add threshold bands to navigator (Sensor-only in Phase 1009).
+            % Add threshold bands to navigator (reserved for future).
             if obj.ShowThresholdBands
                 obj.addNavigatorThresholdBands();
             end
@@ -419,44 +372,9 @@ classdef SensorDetailPlot < handle
             end
         end
 
-        function addNavigatorThresholdBands(obj)
-            if ~isempty(obj.TagRef)
-                % Phase 1009: navigator threshold bands are Sensor-only.
-                % Phase 1010 will revisit threshold overlay for Tag-bound
-                % plots when the EventBinding registry lands.
-                return;
-            end
-            if isempty(obj.Sensor.ResolvedThresholds)
-                return;
-            end
-
-            for i = 1:numel(obj.Sensor.ResolvedThresholds)
-                th = obj.Sensor.ResolvedThresholds(i);
-
-                % Determine color
-                if ~isempty(th.Color)
-                    bandColor = th.Color;
-                elseif strcmp(th.Direction, 'upper')
-                    bandColor = [1 0.2 0.2]; % red
-                else
-                    bandColor = [0.2 0.2 1]; % blue
-                end
-
-                thVal = mean(th.Y, 'omitnan');
-                if isnan(thVal); continue; end
-
-                if strcmp(th.Direction, 'upper')
-                    yHigh = max(obj.Sensor.Y) + (max(obj.Sensor.Y) - min(obj.Sensor.Y)) * 0.05;
-                    obj.NavigatorPlot.addBand(thVal, yHigh, ...
-                        'FaceColor', bandColor, 'FaceAlpha', 0.10, ...
-                        'EdgeColor', 'none', 'Label', th.Label);
-                else
-                    yLow = min(obj.Sensor.Y) - (max(obj.Sensor.Y) - min(obj.Sensor.Y)) * 0.05;
-                    obj.NavigatorPlot.addBand(yLow, thVal, ...
-                        'FaceColor', bandColor, 'FaceAlpha', 0.10, ...
-                        'EdgeColor', 'none', 'Label', th.Label);
-                end
-            end
+        function addNavigatorThresholdBands(~)
+            % Navigator threshold bands are not yet supported for Tag-bound
+            % plots. Reserved for future enhancement.
         end
 
         function addEventShading(obj)
@@ -464,7 +382,7 @@ classdef SensorDetailPlot < handle
             if isempty(obj.Events); return; end
 
             % Filter events for this sensor
-            sensorEvents = obj.filterEventsForSensor(obj.Events);
+            sensorEvents = obj.filterEventsForTag(obj.Events);
             if isempty(sensorEvents); return; end
 
             yLim = get(obj.hMainAxes, 'YLim');
@@ -506,7 +424,7 @@ classdef SensorDetailPlot < handle
             % Add event vertical lines to navigator
             if isempty(obj.Events); return; end
 
-            sensorEvents = obj.filterEventsForSensor(obj.Events);
+            sensorEvents = obj.filterEventsForTag(obj.Events);
             if isempty(sensorEvents); return; end
 
             yLim = get(obj.hNavAxes, 'YLim');
@@ -524,16 +442,12 @@ classdef SensorDetailPlot < handle
             hold(obj.hNavAxes, 'off');
         end
 
-        function filtered = filterEventsForSensor(obj, events)
+        function filtered = filterEventsForTag(obj, events)
             if isempty(events)
                 filtered = events;
                 return;
             end
-            if ~isempty(obj.TagRef)
-                key = obj.TagRef.Key;
-            else
-                key = obj.Sensor.Key;
-            end
+            key = obj.TagRef.Key;
             mask = strcmp({events.SensorName}, key);
             filtered = events(mask);
         end

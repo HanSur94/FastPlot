@@ -517,89 +517,6 @@ classdef FastSense < handle
             end
         end
 
-        function addSensor(obj, sensor, varargin)
-            %ADDSENSOR Add a resolved Sensor's data and thresholds to the plot.
-            %   fp.ADDSENSOR(s) adds the sensor's X/Y data as a line and
-            %   all resolved thresholds with violation markers enabled.
-            %   fp.ADDSENSOR(s, 'ShowThresholds', false) adds only the data
-            %   line, suppressing threshold overlay.
-            %
-            %   The sensor's Name (or Key as fallback) is used as the
-            %   DisplayName for the line legend entry. Each threshold in
-            %   sensor.ResolvedThresholds is added via addThreshold() with
-            %   its resolved color, line style, direction, and label.
-            %
-            %   Must be called BEFORE render().
-            %
-            %   Inputs:
-            %     sensor   — a Sensor object with fields X, Y, Name, Key,
-            %                and ResolvedThresholds
-            %     varargin — name-value pairs:
-            %       'ShowThresholds' — logical (default: true)
-            %
-            %   Example:
-            %     s = sensorLib.resolve('temperature');
-            %     fp.addSensor(s);
-            %     fp.render();
-            %
-            %   See also addLine, addThreshold.
-
-            if obj.IsRendered
-                error('FastSense:alreadyRendered', ...
-                    'Cannot add sensors after render() has been called.');
-            end
-
-            showThresholds = true;
-            for k = 1:2:numel(varargin)
-                switch lower(varargin{k})
-                    case 'showthresholds'
-                        showThresholds = varargin{k+1};
-                end
-            end
-
-            displayName = sensor.Name;
-            if isempty(displayName)
-                displayName = sensor.Key;
-            end
-
-            if ~isempty(sensor.DataStore)
-                % Sensor is disk-backed — pass DataStore directly
-                obj.addLine([], [], 'DisplayName', displayName, ...
-                    'DataStore', sensor.DataStore);
-            else
-                obj.addLine(sensor.X, sensor.Y, 'DisplayName', displayName);
-            end
-
-            if showThresholds && ~isempty(sensor.ResolvedThresholds) && ...
-                    isfield(sensor.ResolvedThresholds, 'Label')
-                resolvedTh = sensor.ResolvedThresholds;
-                for i = 1:numel(resolvedTh)
-                    th = resolvedTh(i);
-                    thLabel = th.Label;
-                    if isempty(thLabel)
-                        thLabel = sprintf('Threshold %d', i);
-                    end
-                    [thColor, thStyle] = obj.resolveThresholdStyle(th.Color, th.LineStyle);
-                    nvArgs = {'Direction', th.Direction, ...
-                        'ShowViolations', true, ...
-                        'Label', thLabel, ...
-                        'Color', thColor, ...
-                        'LineStyle', thStyle};
-                    if ~isempty(th.X) && numel(th.X) > 1
-                        % Time-varying threshold
-                        obj.addThreshold(th.X, th.Y, nvArgs{:});
-                    else
-                        % Scalar threshold — use Value field
-                        thVal = th.Value;
-                        if isempty(thVal) && ~isempty(th.Y)
-                            thVal = th.Y(1);
-                        end
-                        obj.addThreshold(thVal, nvArgs{:});
-                    end
-                end
-            end
-        end
-
         function addThreshold(obj, varargin)
             %ADDTHRESHOLD Add a threshold line (scalar or time-varying).
             %   fp.ADDTHRESHOLD(value) adds a constant horizontal threshold.
@@ -960,7 +877,7 @@ classdef FastSense < handle
             %     FastSense:stateTagCellstrNotSupported  — cellstr Y StateTag (deferred)
             %     FastSense:alreadyRendered              — render() already called
             %
-            %   See also addLine, addSensor, Tag, SensorTag, StateTag.
+            %   See also addLine, addThreshold, Tag, SensorTag, StateTag.
 
             if obj.IsRendered
                 error('FastSense:alreadyRendered', ...
@@ -2458,30 +2375,6 @@ classdef FastSense < handle
                 save(filepath, 'lines', 'thresholds', 'exported_datetime');
             else
                 save(filepath, 'lines', 'thresholds');
-            end
-        end
-
-        function [color, style] = resolveThresholdStyle(obj, color, style)
-            %RESOLVETHRESHOLDSTYLE Apply theme defaults for empty color/style.
-            %   [color, style] = RESOLVETHRESHOLDSTYLE(obj, color, style)
-            %   fills in empty color or style with Theme.ThresholdColor and
-            %   Theme.ThresholdStyle respectively. Used by addSensor to
-            %   resolve sensor-defined threshold visuals against the theme.
-            %
-            %   Inputs:
-            %     color — RGB triplet or empty
-            %     style — line style string or empty
-            %
-            %   Outputs:
-            %     color — resolved RGB triplet
-            %     style — resolved line style string
-            %
-            %   See also addSensor, addThreshold.
-            if isempty(color)
-                color = obj.Theme.ThresholdColor;
-            end
-            if isempty(style)
-                style = obj.Theme.ThresholdStyle;
             end
         end
 

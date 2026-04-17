@@ -3,14 +3,11 @@ classdef EventDetector < handle
     %   det = EventDetector()
     %   det = EventDetector('MinDuration', 2, 'OnEventStart', @myCallback)
     %
-    %   Two call shapes for detect():
-    %     events = det.detect(t, values, thresholdValue, direction, thresholdLabel, sensorName)   % LEGACY 6-arg
-    %     events = det.detect(tag, threshold)                                                      % NEW v2.0 Tag overload
+    %   Call shape:
+    %     events = det.detect(tag, threshold)   % 2-arg Tag overload
     %
-    %   The Tag overload (Phase 1009 Plan 03) reads (X, Y) from
-    %   tag.getXY() and derives threshold metadata from the Threshold
-    %   handle; it then forwards to the same private detect_ body used
-    %   by the legacy 6-arg path, so event semantics are identical.
+    %   Reads (X, Y) from tag.getXY() and derives threshold metadata
+    %   from the Threshold handle; forwards to the private detect_ body.
     %   Dispatch is entry-level on isa(arg, 'Tag') — the ABSTRACT BASE —
     %   matching the FastSense.addTag precedent (Pitfall 1: NO subclass
     %   isa anywhere in this file).
@@ -39,57 +36,49 @@ classdef EventDetector < handle
             end
         end
 
-        function events = detect(obj, varargin)
+        function events = detect(obj, tag, threshold)
             %DETECT Find events from threshold violations.
-            %   Two call shapes:
-            %     events = det.detect(t, values, thresholdValue, direction, thresholdLabel, sensorName)   % LEGACY
-            %     events = det.detect(tag, threshold)                                                      % NEW v2.0 Tag overload
+            %   events = det.detect(tag, threshold)
             %
-            %   The Tag overload pulls (t, values) from tag.getXY() and
-            %   derives (thresholdValue, direction, thresholdLabel,
-            %   sensorName) from the Threshold + Tag handles, then
-            %   forwards to the private detect_() body.  The legacy 6-arg
-            %   path is preserved byte-for-byte.
+            %   Pulls (t, values) from tag.getXY() and derives
+            %   (thresholdValue, direction, thresholdLabel, sensorName)
+            %   from the Threshold + Tag handles, then forwards to the
+            %   private detect_() body.
 
-            if numel(varargin) == 2 && isa(varargin{1}, 'Tag') ...
-                    && isa(varargin{2}, 'Threshold')
-                tag       = varargin{1};
-                threshold = varargin{2};
-                [t, values] = tag.getXY();
-                if isempty(t)
-                    events = [];
-                    return;
-                end
-                tVals = threshold.allValues();
-                if isempty(tVals)
-                    events = [];
-                    return;
-                end
-                thresholdValue = tVals(1);
-                direction      = threshold.Direction;
-                thresholdLabel = threshold.Name;
-                if isempty(thresholdLabel)
-                    thresholdLabel = threshold.Key;
-                end
-                sensorName = tag.Name;
-                if isempty(sensorName)
-                    sensorName = tag.Key;
-                end
-                events = obj.detect_(t, values, thresholdValue, direction, ...
-                    thresholdLabel, sensorName);
-                return;
+            if ~isa(tag, 'Tag')
+                error('EventDetector:invalidTag', ...
+                    'First argument must be a Tag object; got %s.', class(tag));
             end
 
-            % Legacy 6-arg shape — forward verbatim.
-            events = obj.detect_(varargin{:});
+            [t, values] = tag.getXY();
+            if isempty(t)
+                events = [];
+                return;
+            end
+            tVals = threshold.allValues();
+            if isempty(tVals)
+                events = [];
+                return;
+            end
+            thresholdValue = tVals(1);
+            direction      = threshold.Direction;
+            thresholdLabel = threshold.Name;
+            if isempty(thresholdLabel)
+                thresholdLabel = threshold.Key;
+            end
+            sensorName = tag.Name;
+            if isempty(sensorName)
+                sensorName = tag.Key;
+            end
+            events = obj.detect_(t, values, thresholdValue, direction, ...
+                thresholdLabel, sensorName);
         end
     end
 
     methods (Access = private)
         function events = detect_(obj, t, values, thresholdValue, direction, thresholdLabel, sensorName)
-            %DETECT_ Legacy 6-arg detection body (byte-for-byte preserved).
-            %   Private implementation shared by both the legacy 6-arg
-            %   detect() call and the Tag-overload dispatch.
+            %DETECT_ Core detection body.
+            %   Private implementation used by the Tag-overload dispatch.
 
             groups = groupViolations(t, values, thresholdValue, direction);
             events = [];

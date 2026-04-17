@@ -1,27 +1,19 @@
 classdef LiveEventPipeline < handle
     % LiveEventPipeline  Orchestrates live event detection.
     %
-    %   Supports two kinds of live targets:
-    %     Sensors        — legacy containers.Map of key -> Sensor; processed
-    %                      via IncrementalEventDetector.process (full recompute).
-    %     MonitorTargets — NEW v2.0 containers.Map of key -> MonitorTag;
-    %                      processed via MonitorTag.appendData (Phase 1007
-    %                      MONITOR-08 streaming tail extension). Realizes
-    %                      Phase 1007 Success Criterion #4 end-to-end.
+    %   Uses MonitorTargets — containers.Map of key -> MonitorTag;
+    %   processed via MonitorTag.appendData (Phase 1007 MONITOR-08
+    %   streaming tail extension).
     %
     %   Ordering invariant (Pitfall Y) — enforced by processMonitorTag_:
-    %     monitor.Parent.updateData(newX, newY)  ← called FIRST
-    %     monitor.appendData(newX, newY)         ← THEN
+    %     monitor.Parent.updateData(newX, newY)  <- called FIRST
+    %     monitor.appendData(newX, newY)         <- THEN
     %   The reverse order causes cache incoherence: MonitorTag.appendData's
     %   cold path recomputes against a stale parent grid.  See the docstring
     %   at libs/SensorThreshold/MonitorTag.m lines 330-334 for the contract.
-    %
-    %   Legacy Sensor path preserved byte-for-byte — tests/test_live_pipeline.m
-    %   is the regression gate.
 
     properties
-        Sensors              % containers.Map: key -> Sensor (LEGACY, unchanged)
-        MonitorTargets       % containers.Map: key -> MonitorTag (NEW v2.0)
+        MonitorTargets       % containers.Map: key -> MonitorTag
         DataSourceMap        % DataSourceMap
         EventStore           % EventStore
         NotificationService  % NotificationService
@@ -40,7 +32,7 @@ classdef LiveEventPipeline < handle
     end
 
     methods
-        function obj = LiveEventPipeline(sensors, dataSourceMap, varargin)
+        function obj = LiveEventPipeline(monitors, dataSourceMap, varargin)
             defaults.EventFile         = '';
             defaults.Interval          = 15;
             defaults.MinDuration       = 0;
@@ -48,26 +40,21 @@ classdef LiveEventPipeline < handle
             defaults.MaxBackups        = 5;
             defaults.MaxCallsPerEvent  = 1;
             defaults.OnEventStart      = [];
-            defaults.Monitors          = [];   % NEW — optional MonitorTag map
             opts = parseOpts(defaults, varargin);
 
-            obj.Sensors       = sensors;
+            % Accept MonitorTargets map (containers.Map of key -> MonitorTag).
+            if isa(monitors, 'containers.Map')
+                obj.MonitorTargets = monitors;
+            else
+                obj.MonitorTargets = containers.Map( ...
+                    'KeyType', 'char', 'ValueType', 'any');
+            end
             obj.DataSourceMap = dataSourceMap;
             obj.Interval      = opts.Interval;
             obj.MinDuration   = opts.MinDuration;
             obj.EscalateSeverity = opts.EscalateSeverity;
             obj.MaxCallsPerEvent = opts.MaxCallsPerEvent;
             obj.OnEventStart     = opts.OnEventStart;
-
-            % Initialize MonitorTargets — empty map when no 'Monitors' NV
-            % pair is provided.  This preserves the legacy constructor
-            % call shape (sensors, dsMap, varargin) for existing callers.
-            if isa(opts.Monitors, 'containers.Map')
-                obj.MonitorTargets = opts.Monitors;
-            else
-                obj.MonitorTargets = containers.Map( ...
-                    'KeyType', 'char', 'ValueType', 'any');
-            end
 
             if ~isempty(opts.EventFile)
                 obj.EventStore = EventStore(opts.EventFile, ...
@@ -118,34 +105,10 @@ classdef LiveEventPipeline < handle
             allNewEvents = [];
             hasNewData = false;
 
-            % --- Legacy Sensor path (UNCHANGED) ---------------------------
-            sensorKeys = obj.Sensors.keys();
-            for i = 1:numel(sensorKeys)
-                key = sensorKeys{i};
-                try
-                    [newEvents, gotData] = obj.processSensor(key);
-                    hasNewData = hasNewData || gotData;
-                    if ~isempty(newEvents)
-                        if isempty(allNewEvents)
-                            allNewEvents = newEvents;
-                        else
-                            allNewEvents = [allNewEvents, newEvents];
-                        end
-                    end
-                catch ex
-                    fprintf('[PIPELINE WARNING] Sensor "%s" failed: %s\n', key, ex.message);
-                end
-            end
-
-            % --- MonitorTag path (NEW v2.0 — Phase 1007 SC#4 realization) -
+            % --- MonitorTag path ---
             monitorKeys = obj.MonitorTargets.keys();
             for i = 1:numel(monitorKeys)
                 key = monitorKeys{i};
-                % Collision rule: if a key appears in BOTH maps, Sensors
-                % wins (legacy preservation).  Skip the monitor branch.
-                if obj.Sensors.isKey(key)
-                    continue;
-                end
                 try
                     [newEvents, gotData] = obj.processMonitorTag_(key);
                     hasNewData = hasNewData || gotData;
@@ -160,11 +123,6 @@ classdef LiveEventPipeline < handle
                     fprintf('[PIPELINE WARNING] MonitorTag "%s" failed: %s\n', ...
                         key, ex.message);
                 end
-            end
-
-            % Update sensor data in store only when new data arrived
-            if ~isempty(obj.EventStore) && hasNewData
-                obj.updateStoreSensorData();
             end
 
             % Write to store
@@ -184,9 +142,8 @@ classdef LiveEventPipeline < handle
             if ~isempty(obj.NotificationService)
                 for i = 1:numel(allNewEvents)
                     ev = allNewEvents(i);
-                    sd = obj.buildSensorData(ev.SensorName);
                     try
-                        obj.NotificationService.notify(ev, sd);
+                        obj.NotificationService.notify(ev, struct());
                     catch ex
                         fprintf('[PIPELINE WARNING] Notification failed: %s\n', ex.message);
                     end
@@ -200,29 +157,6 @@ classdef LiveEventPipeline < handle
     end
 
     methods (Access = private)
-        function [newEvents, gotData] = processSensor(obj, key)
-            newEvents = [];
-            gotData = false;
-
-            if ~obj.DataSourceMap.has(key)
-                return;
-            end
-
-            ds = obj.DataSourceMap.get(key);
-            result = ds.fetchNew();
-
-            if ~result.changed
-                return;
-            end
-
-            gotData = true;
-
-            sensor = obj.Sensors(key);
-
-            newEvents = obj.detector_.process(key, sensor, ...
-                result.X, result.Y, result.stateX, result.stateY);
-        end
-
         function [newEvents, gotData] = processMonitorTag_(obj, key)
             %PROCESSMONITORTAG_ Tag-first live-tick path (SC#4 realization).
             %
@@ -307,59 +241,6 @@ classdef LiveEventPipeline < handle
                     newEvents = allEvts((preCount+1):postCount);
                 end
             end
-        end
-
-        function sd = buildSensorData(obj, sensorKey)
-            % Build sensorData struct for snapshot generation.
-            %
-            % Tag-originated events (from MonitorTag via MONITOR-05 carrier)
-            % set SensorName = parent.Key — that key may not exist in
-            % obj.Sensors (legacy map).  Emit a minimal struct in that
-            % case to keep notifications flowing without crashing.
-            st = obj.detector_.getSensorState(sensorKey);
-            if ~obj.Sensors.isKey(sensorKey)
-                sd = struct('X', [], 'Y', [], ...
-                    'thresholdValue', NaN, 'thresholdDirection', 'upper');
-                return;
-            end
-            sensor = obj.Sensors(sensorKey);
-
-            thVal = NaN;
-            thDir = 'upper';
-            if ~isempty(sensor.Thresholds)
-                vals = sensor.Thresholds{1}.allValues();
-                if ~isempty(vals)
-                    thVal = vals(1);
-                end
-                thDir = sensor.Thresholds{1}.Direction;
-            end
-
-            sd = struct('X', st.fullX, 'Y', st.fullY, ...
-                'thresholdValue', thVal, 'thresholdDirection', thDir);
-        end
-
-        function updateStoreSensorData(obj)
-            % Build sensorData struct array from detector state for EventViewer.
-            %
-            % Iterates only obj.Sensors.keys() (legacy path) — Tag-backed
-            % MonitorTag targets are NOT surfaced into store.SensorData in
-            % Phase 1009.  Phase 1010 revisits SensorData semantics for
-            % Tag-originated events (EVENT-01 Tag-keyed sensor data).
-            sensorKeys = obj.Sensors.keys();
-            sd = struct('name', {}, 't', {}, 'y', {}, 'thresholds', {});
-            for i = 1:numel(sensorKeys)
-                key = sensorKeys{i};
-                st = obj.detector_.getSensorState(key);
-                if ~isempty(st.fullX)
-                    sd(end+1).name = key; %#ok<AGROW>
-                    sd(end).t = st.fullX;
-                    sd(end).y = st.fullY;
-                    % Store threshold handles for reconstruction in EventViewer
-                    sensor = obj.Sensors(key);
-                    sd(end).thresholds = sensor.Thresholds;
-                end
-            end
-            obj.EventStore.SensorData = sd;
         end
 
         function timerCallback(obj)
