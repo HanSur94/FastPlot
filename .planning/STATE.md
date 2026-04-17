@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
-status: executing
-stopped_at: Completed 1011-04-PLAN.md
-last_updated: "2026-04-17T09:32:09.216Z"
+status: verifying
+stopped_at: Completed 1011-05-PLAN.md (FINAL PLAN)
+last_updated: "2026-04-17T10:00:44.153Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 15
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 47
-  completed_plans: 46
+  completed_plans: 47
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 
 Phase: 1011 (Cleanup — delete legacy) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
@@ -116,6 +116,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1011 P01 | 3min | 2 tasks | 22 files |
 | Phase 1011 P03 | 15min | 2 tasks | 21 files |
 | Phase 1011 P04 | 962 | 2 tasks | 100 files |
+| Phase 1011 P05 | 22min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -234,6 +235,8 @@ Recent decisions affecting current work:
 - [Phase 1011]: DashboardWidget maps legacy Sensor NV to Tag for backward compat; all fromStruct methods use TagRegistry.get
 - [Phase 1011]: EventDetector 6-arg legacy path removed; LiveEventPipeline takes MonitorTargets directly
 - [Phase 1011]: SensorTag X/Y via constructor args or updateData(); test method names renamed to avoid grep false positives
+- [Phase 1011]: Golden test uses MonitorTag+EventStore (not EventDetector.detect) for event detection -- Threshold class deleted
+- [Phase 1011]: IncrementalEventDetector.process() and EventConfig.addSensor() stubbed as dead code after legacy pipeline deletion
 
 ### Roadmap Evolution
 
@@ -267,6 +270,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T09:32:09.211Z
-Stopped at: Completed 1011-04-PLAN.md
+Last session: 2026-04-17T10:00:38.507Z
+Stopped at: Completed 1011-05-PLAN.md (FINAL PLAN)
 Resume file: None
