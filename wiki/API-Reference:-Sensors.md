@@ -446,6 +446,14 @@ SENSORTAG Construct a SensorTag with inlined data storage.
 
 GET.DATASTORE Return the disk-backed DataStore (read-only view).
 
+#### `v = get()`
+
+GET.X Read-only access to timestamps (backward-compat with legacy Sensor.X).
+
+#### `v = get()`
+
+GET.Y Read-only access to values (backward-compat with legacy Sensor.Y).
+
 #### `[X, Y] = getXY(obj)`
 
 GETXY Return X, Y by reference (zero-copy via COW).
