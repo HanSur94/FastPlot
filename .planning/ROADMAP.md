@@ -237,7 +237,14 @@ Plans:
   - **Pitfall 5:** This is the ONE phase in v2.0 where production deletions are allowed; no new feature code in this phase
   - **Pitfall 11:** Golden integration test rewrite is the ONLY allowed touch — must preserve assertion semantics; if behavior changed, that's a bug to investigate, not a test to update
   - **Pitfall 12 (feature creep):** Plan-write checked against A+B+C+E scope — no D/F/G features introduced under guise of cleanup
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 1011-01-PLAN.md — SensorTag data inlining + delete 8 legacy classes + private helpers + install.m update
+- [ ] 1011-02-PLAN.md — Delete legacy-only test files + benchmark files
+- [ ] 1011-03-PLAN.md — Remove legacy branches from 19 consumer production files
+- [ ] 1011-04-PLAN.md — Migrate 42 examples + 4 benchmarks + surviving test fixtures to Tag API
+- [ ] 1011-05-PLAN.md — Rewrite golden integration test + grep audit + phase-exit gate
 
 ## Progress
 
@@ -254,7 +261,7 @@ Plans:
 | 1008. CompositeTag | v2.0 | 3/3 | Complete    | 2026-04-16 |
 | 1009. Consumer migration | v2.0 | 4/4 | Complete    | 2026-04-17 |
 | 1010. Event ↔ Tag binding + overlay | v2.0 | 3/3 | Complete    | 2026-04-17 |
-| 1011. Cleanup + delete legacy | v2.0 | 0/? | Not started | — |
+| 1011. Cleanup + delete legacy | v2.0 | 0/5 | In progress | — |
 
 ## Backlog
 
