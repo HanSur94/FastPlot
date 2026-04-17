@@ -98,7 +98,7 @@ classdef MonitorTag < Tag
         ConditionFn              % function_handle @(x,y) -> logical (required)
         AlarmOffConditionFn = [] % function_handle; [] means no hysteresis
         MinDuration         = 0  % native parent-X units; 0 disables debounce
-        EventStore          = [] % EventStore handle; [] disables event emission
+        % EventStore inherited from Tag base class (Phase 1010)
         OnEventStart        = [] % function_handle @(event); [] disables callback
         OnEventEnd          = [] % function_handle @(event); [] disables callback
         Persist             = false  % MONITOR-09 opt-in (Pitfall 2 default-off)

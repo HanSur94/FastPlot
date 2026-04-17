@@ -57,6 +57,7 @@ classdef Tag < handle
         Metadata     = struct() % struct: open key-value bag
         Criticality  = 'medium' % char enum: 'low'|'medium'|'high'|'safety'
         SourceRef    = ''       % char: optional provenance string
+        EventStore   = []       % EventStore handle; [] disables event convenience methods
     end
 
     methods
@@ -144,6 +145,34 @@ classdef Tag < handle
             %   Default: no-op.  CompositeTag (Phase 1008) will override to
             %   wire up children by key.  Leaf tags (Sensor/State/Monitor)
             %   do not need references resolved.
+        end
+
+        function addManualEvent(obj, tStart, tEnd, label, message) %#ok<INUSD>
+            %ADDMANUALEVENT Create a manual annotation event bound to this tag.
+            %   tag.addManualEvent(tStart, tEnd, label, message) creates an Event
+            %   with Category = 'manual_annotation' and TagKeys = {obj.Key},
+            %   appends to the bound EventStore, and registers in EventBinding.
+            %
+            %   Errors: Tag:noEventStore if EventStore is not bound.
+            if isempty(obj.EventStore)
+                error('Tag:noEventStore', 'Bind an EventStore before adding events.');
+            end
+            ev = Event(tStart, tEnd, char(obj.Key), label, NaN, 'upper');
+            ev.Category = 'manual_annotation';
+            obj.EventStore.append(ev);
+            ev.TagKeys = {char(obj.Key)};
+            EventBinding.attach(ev.Id, char(obj.Key));
+        end
+
+        function events = eventsAttached(obj)
+            %EVENTSATTACHED Query events bound to this tag via EventBinding.
+            %   Returns Event array (possibly empty). This is a query, NOT a
+            %   stored property -- no Event handles on Tag (Pitfall 4).
+            if isempty(obj.EventStore)
+                events = [];
+                return;
+            end
+            events = obj.EventStore.getEventsForTag(char(obj.Key));
         end
     end
 
