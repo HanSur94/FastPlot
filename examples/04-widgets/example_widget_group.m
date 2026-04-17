@@ -33,9 +33,9 @@ rng(42);
 N = 5000;
 t = linspace(0, 86400, N);  % 24 hours
 
-sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X', t, 'Y', 72 + 4*sin(2*pi*t/3600) + randn(1,N)*1.2);
-sTemp.Y(end) = 79;  % near warning level
-
+tempY = 72 + 4*sin(2*pi*t/3600) + randn(1,N)*1.2;
+tempY(end) = 79;  % near warning level
+sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X', t, 'Y', tempY);
 
 sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', t, 'Y', 55 + 8*sin(2*pi*t/7200) + randn(1,N)*1.5);
 

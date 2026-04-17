@@ -5,7 +5,7 @@ classdef TestIconCardWidgetTag < matlab.unittest.TestCase
     %   Tag.valueAt(now), with precedence Tag > Threshold > Sensor.  The
     %   legacy Threshold and Sensor binding paths remain unchanged.
     %
-    %   See also IconCardWidget, makePhase1009Fixtures.
+    %   See also IconCardWidget, MakePhase1009Fixtures.
 
     methods (TestClassSetup)
         function addPaths(testCase) %#ok<MANU>
@@ -33,9 +33,9 @@ classdef TestIconCardWidgetTag < matlab.unittest.TestCase
 
         function testTagPropertyRender(testCase)
             % MonitorTag in alarm → CurrentState='alarm', icon color = theme.StatusAlarmColor.
-            st = makePhase1009Fixtures.makeSensorTag('icw_src_a', ...
+            st = MakePhase1009Fixtures.makeSensorTag('icw_src_a', ...
                 'X', 1:5, 'Y', [1 1 1 1 20]);
-            m  = makePhase1009Fixtures.makeMonitorTag('icw_mon_a', st);
+            m  = MakePhase1009Fixtures.makeMonitorTag('icw_mon_a', st);
 
             w = IconCardWidget('Title', 'Pump', 'Tag', m);
             fig = figure('Visible', 'off');
@@ -51,9 +51,9 @@ classdef TestIconCardWidgetTag < matlab.unittest.TestCase
         end
 
         function testTagOkState(testCase)
-            st = makePhase1009Fixtures.makeSensorTag('icw_src_ok', ...
+            st = MakePhase1009Fixtures.makeSensorTag('icw_src_ok', ...
                 'X', 1:5, 'Y', [1 1 1 1 1]);
-            m  = makePhase1009Fixtures.makeMonitorTag('icw_mon_ok', st);
+            m  = MakePhase1009Fixtures.makeMonitorTag('icw_mon_ok', st);
 
             w = IconCardWidget('Title', 'Pump', 'Tag', m);
             fig = figure('Visible', 'off');
@@ -69,9 +69,9 @@ classdef TestIconCardWidgetTag < matlab.unittest.TestCase
             % Setting both Tag and Threshold: Tag wins; Threshold is cleared
             % by the constructor mutex (parallel to the existing
             % Threshold > Sensor mutex on line 69-71).
-            st = makePhase1009Fixtures.makeSensorTag('icw_pr_src', ...
+            st = MakePhase1009Fixtures.makeSensorTag('icw_pr_src', ...
                 'X', 1:5, 'Y', [1 1 1 1 20]);
-            m  = makePhase1009Fixtures.makeMonitorTag('icw_pr_mon', st);
+            m  = MakePhase1009Fixtures.makeMonitorTag('icw_pr_mon', st);
 
             t = Threshold('icw_pr_thr', 'Direction', 'upper');
             t.addCondition(struct(), 10);
@@ -83,8 +83,8 @@ classdef TestIconCardWidgetTag < matlab.unittest.TestCase
         end
 
         function testTagToStructRoundTrip(testCase)
-            st = makePhase1009Fixtures.makeSensorTag('icw_rt_src');
-            m  = makePhase1009Fixtures.makeMonitorTag('icw_rt_mon', st);
+            st = MakePhase1009Fixtures.makeSensorTag('icw_rt_src');
+            m  = MakePhase1009Fixtures.makeMonitorTag('icw_rt_mon', st);
 
             w = IconCardWidget('Title', 'RT', 'Tag', m);
             s = w.toStruct();
@@ -124,11 +124,11 @@ classdef TestIconCardWidgetTag < matlab.unittest.TestCase
 
         function testCompositeTagValueAt(testCase)
             % CompositeTag Tag: valueAt(now) fast path reached.
-            st1 = makePhase1009Fixtures.makeSensorTag('icw_c1_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
-            st2 = makePhase1009Fixtures.makeSensorTag('icw_c2_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
-            m1 = makePhase1009Fixtures.makeMonitorTag('icw_c1_mon', st1);
-            m2 = makePhase1009Fixtures.makeMonitorTag('icw_c2_mon', st2);
-            ct = makePhase1009Fixtures.makeCompositeTag('icw_composite', {m1, m2}, 'and');
+            st1 = MakePhase1009Fixtures.makeSensorTag('icw_c1_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
+            st2 = MakePhase1009Fixtures.makeSensorTag('icw_c2_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
+            m1 = MakePhase1009Fixtures.makeMonitorTag('icw_c1_mon', st1);
+            m2 = MakePhase1009Fixtures.makeMonitorTag('icw_c2_mon', st2);
+            ct = MakePhase1009Fixtures.makeCompositeTag('icw_composite', {m1, m2}, 'and');
 
             w = IconCardWidget('Title', 'C', 'Tag', ct);
             fig = figure('Visible', 'off');

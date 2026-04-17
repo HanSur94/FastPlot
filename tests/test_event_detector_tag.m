@@ -2,7 +2,7 @@ function test_event_detector_tag()
 %TEST_EVENT_DETECTOR_TAG Octave flat tests for EventDetector Tag-based detection.
 %   Rewritten in Phase 1011 -- legacy Threshold/6-arg paths removed.
 %
-%   See also TestEventDetectorTag, EventDetector, makePhase1009Fixtures.
+%   See also TestEventDetectorTag, EventDetector, MakePhase1009Fixtures.
 
     add_event_detector_tag_path();
 
@@ -33,7 +33,7 @@ end
 
 function test_tag_overload_detects_events()
     TagRegistry.clear(); EventBinding.clear();
-    st = makePhase1009Fixtures.makeSensorTag('press_a');
+    st = MakePhase1009Fixtures.makeSensorTag('press_a');
     es = EventStore('');
     mon = MonitorTag('warn', st, @(x, y) y > 10, 'EventStore', es);
     mon.getXY();

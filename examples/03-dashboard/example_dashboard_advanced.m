@@ -57,7 +57,6 @@ temp(overIdx) = temp(overIdx) + 12;
 
 sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X', t, 'Y', temp);
 
-
 % --- Pressure sensor P-201 ---
 pressBase = zeros(1, N);
 for k = 1:N
@@ -72,7 +71,6 @@ pressNoise = 8*sin(2*pi*t/7200) + randn(1,N)*2;
 pressure = pressBase + pressNoise;
 
 sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', t, 'Y', pressure);
-
 
 % --- Flow sensor F-301 ---
 flowBase = zeros(1, N);
@@ -89,29 +87,26 @@ flow = max(0, flowBase + flowNoise);
 
 sFlow = SensorTag('F-301', 'Name', 'Flow Rate', 'Units', 'L/min', 'X', t, 'Y', flow);
 
-
-%% ========== Build alarm log ==========
+%% ========== Build alarm log from samples over simple thresholds ==========
+% v2.0 note: thresholds now live on MonitorTag; this demo synthesises an
+% alarm log by picking samples that exceed a plain upper limit.
 alarmLog = {};
-sensors = {sTemp, sPress, sFlow};
+sensors  = {sTemp, sPress, sFlow};
+hiLimits = [85, 70, 160];
 for si = 1:numel(sensors)
     s = sensors{si};
-    if isempty(s.ResolvedViolations)
-        continue;
-    end
-    for vi = 1:numel(s.ResolvedViolations)
-        v = s.ResolvedViolations(vi);
-        if isempty(v.X)
-            continue;
-        end
-        nSample = min(2, numel(v.X));
-        idx = round(linspace(1, numel(v.X), nSample));
-        for j = 1:nSample
-            tSec = v.X(idx(j));
-            hours = floor(tSec / 3600);
-            mins = floor(mod(tSec, 3600) / 60);
-            timeStr = sprintf('%02d:%02d', hours, mins);
-            alarmLog(end+1, :) = {timeStr, s.Key, sprintf('%.1f', v.Y(idx(j))), v.Label}; %#ok<AGROW>
-        end
+    [sX, sY] = s.getXY();
+    over = find(sY > hiLimits(si));
+    if isempty(over), continue; end
+    nSample = min(3, numel(over));
+    picks   = round(linspace(1, numel(over), nSample));
+    for j = 1:nSample
+        idx = over(picks(j));
+        tSec = sX(idx);
+        hours = floor(tSec / 3600);
+        mins  = floor(mod(tSec, 3600) / 60);
+        timeStr = sprintf('%02d:%02d', hours, mins);
+        alarmLog(end+1, :) = {timeStr, s.Key, sprintf('%.1f', sY(idx)), 'Hi Warn'}; %#ok<AGROW>
     end
 end
 if ~isempty(alarmLog)

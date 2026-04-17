@@ -5,7 +5,7 @@ classdef TestEventTimelineWidgetTag < matlab.unittest.TestCase
     %   Event.ThresholdLabel matches the tag key).  Also covers the
     %   sibling EventStore.getEventsForTag method directly.
     %
-    %   See also EventTimelineWidget, EventStore, makePhase1009Fixtures.
+    %   See also EventTimelineWidget, EventStore, MakePhase1009Fixtures.
 
     methods (TestClassSetup)
         function addPaths(testCase) %#ok<MANU>
@@ -35,7 +35,7 @@ classdef TestEventTimelineWidgetTag < matlab.unittest.TestCase
         end
 
         function testFilterTagKeyMatchesThresholdLabel(testCase)
-            store = EventStore(makePhase1009Fixtures.makeEventStoreTmp());
+            store = EventStore(MakePhase1009Fixtures.makeEventStoreTmp());
             ev = Event(100, 150, 'parent_x', 'mon_alarm', 5, 'upper');
             store.append(ev);
 
@@ -97,7 +97,7 @@ classdef TestEventTimelineWidgetTag < matlab.unittest.TestCase
 end
 
 function store = buildStore_(testCase) %#ok<INUSD>
-    store = EventStore(makePhase1009Fixtures.makeEventStoreTmp());
+    store = EventStore(MakePhase1009Fixtures.makeEventStoreTmp());
     % 3 events on 'press_a'
     store.append(Event(10, 15, 'press_a', 'hi',  50, 'upper'));
     store.append(Event(20, 25, 'press_a', 'hi',  50, 'upper'));

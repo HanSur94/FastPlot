@@ -28,9 +28,8 @@ t = linspace(0, 86400, N);  % 24 hours in seconds
 % Temperature and Pressure — positively correlated (higher temp = higher press)
 sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X', t, 'Y', 72 + 6*sin(2*pi*t/7200) + randn(1,N)*1.5);
 
-sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', t, 'Y', 40 + 0.8*(sTemp.Y - 72) + randn(1,N)*2);
 % Deliberately correlated with temperature
-sPress.Y = 40 + 0.8*(sTemp.Y - 72) + randn(1,N)*2;
+sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', t, 'Y', 40 + 0.8*(sTemp.Y - 72) + randn(1,N)*2);
 
 % Flow Rate — weaker correlation with temperature
 sFlow = SensorTag('F-301', 'Name', 'Flow Rate', 'Units', 'L/min', 'X', t, 'Y', max(0, 100 + 0.4*(sTemp.Y - 72) + randn(1,N)*10));

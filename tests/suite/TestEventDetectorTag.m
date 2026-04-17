@@ -3,7 +3,7 @@ classdef TestEventDetectorTag < matlab.unittest.TestCase
     %   Phase 1009 Plan 03 — covers the additive 2-arg `detect(tag, threshold)`
     %   overload and proves the legacy 6-arg signature remains functional.
     %
-    %   See also EventDetector, makePhase1009Fixtures, TestEventDetector.
+    %   See also EventDetector, MakePhase1009Fixtures, TestEventDetector.
 
     methods (TestClassSetup)
         function addPaths(testCase) %#ok<MANU>
@@ -32,7 +32,7 @@ classdef TestEventDetectorTag < matlab.unittest.TestCase
         function testTagOverloadDetectsEvents(testCase)
             % SensorTag with golden Y pattern — two runs above 10 (indices
             % 4..7 and 13..15 of the fixture Y).
-            st = makePhase1009Fixtures.makeSensorTag('press_a');
+            st = MakePhase1009Fixtures.makeSensorTag('press_a');
             thr = Threshold('warn', 'Name', 'Warn', 'Direction', 'upper');
             thr.addCondition(struct(), 10);
 

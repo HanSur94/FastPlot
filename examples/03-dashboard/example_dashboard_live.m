@@ -38,14 +38,11 @@ function example_dashboard_live_run()
     % Temperature sensor T-401 (4 thresholds: upper/lower warn + alarm)
     sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X', tSeed, 'Y', 70 + 2*sin(2*pi*tSeed/10) + randn(1, nSeed)*0.5);
 
-
     % Pressure sensor P-201 (4 thresholds: upper/lower warn + alarm)
     sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', tSeed, 'Y', 50 + 5*sin(2*pi*tSeed/15) + randn(1, nSeed)*1.0);
 
-
     % Flow sensor F-301 (4 thresholds: upper/lower warn + alarm)
     sFlow = SensorTag('F-301', 'Name', 'Flow Rate', 'Units', 'L/min', 'X', tSeed, 'Y', max(0, 120 + 8*sin(2*pi*tSeed/8) + randn(1, nSeed)*2.0));
-
 
     %% ========== EventStore for violation events ==========
     store = EventStore(fullfile(tempdir, 'dashboard_live_events.mat'));

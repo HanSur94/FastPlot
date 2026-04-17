@@ -45,7 +45,6 @@ customX = linspace(0, 60, 5000);
 customY = 7.0 + 0.5*sin(2*pi*customX/15) + 0.1*randn(1, numel(customX));
 customSensor = SensorTag('my_custom_ph', 'Name', 'pH Sensor', 'ID', 999, 'Units', 'pH', 'X', customX, 'Y', customY);
 
-
 TagRegistry.register('my_custom_ph', customSensor);
 fprintf('\nTagRegistry.register(): added custom sensor "my_custom_ph".\n');
 

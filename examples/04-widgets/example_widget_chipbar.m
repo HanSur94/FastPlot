@@ -47,35 +47,35 @@ d.Theme = 'dark';
 % --- Bar 1: statusFcn chips (mix of all states) ---
 bar1 = ChipBarWidget('Title', 'System Health (statusFcn)', 'Position', [1 1 24 2]);
 bar1.Chips = {
-    struct('label', 'Pump A',   'statusFcn', @() 'ok'),
-    struct('label', 'Pump B',   'statusFcn', @() 'warn'),
-    struct('label', 'Valve 1',  'statusFcn', @() 'alarm'),
-    struct('label', 'Valve 2',  'statusFcn', @() 'ok'),
-    struct('label', 'Fan',      'statusFcn', @() 'info'),
-    struct('label', 'Heater',   'statusFcn', @() 'ok'),
-    struct('label', 'Cooler',   'statusFcn', @() 'inactive'),
-    struct('label', 'Conveyor', 'statusFcn', @() 'ok'),
+    struct('label', 'Pump A',   'statusFcn', @() 'ok')
+    struct('label', 'Pump B',   'statusFcn', @() 'warn')
+    struct('label', 'Valve 1',  'statusFcn', @() 'alarm')
+    struct('label', 'Valve 2',  'statusFcn', @() 'ok')
+    struct('label', 'Fan',      'statusFcn', @() 'info')
+    struct('label', 'Heater',   'statusFcn', @() 'ok')
+    struct('label', 'Cooler',   'statusFcn', @() 'inactive')
+    struct('label', 'Conveyor', 'statusFcn', @() 'ok')
 };
 d.addWidget(bar1);
 
 % --- Bar 2: sensor-bound chips (state auto-derived from ThresholdRules) ---
 bar2 = ChipBarWidget('Title', 'Reactor Status (sensor-bound)', 'Position', [1 4 24 2]);
 bar2.Chips = {
-    struct('label', 'Reactor A', 'sensor', sA),   % ok   — value below threshold
-    struct('label', 'Reactor B', 'sensor', sB),   % alarm — value above threshold
-    struct('label', 'Cooler',    'sensor', sC),   % ok   — value below threshold
+    struct('label', 'Reactor A', 'sensor', sA)    % ok   — value below threshold
+    struct('label', 'Reactor B', 'sensor', sB)    % alarm — value above threshold
+    struct('label', 'Cooler',    'sensor', sC)    % ok   — value below threshold
 };
 d.addWidget(bar2);
 
 % --- Bar 3: explicit iconColor override on every chip ---
 bar3 = ChipBarWidget('Title', 'Custom Colors (iconColor)', 'Position', [1 7 24 2]);
 bar3.Chips = {
-    struct('label', 'Zone 1', 'iconColor', [0.20 0.80 0.40]),
-    struct('label', 'Zone 2', 'iconColor', [0.95 0.75 0.10]),
-    struct('label', 'Zone 3', 'iconColor', [0.90 0.25 0.25]),
-    struct('label', 'Zone 4', 'iconColor', [0.25 0.55 0.95]),
-    struct('label', 'Zone 5', 'iconColor', [0.65 0.40 0.90]),
-    struct('label', 'Zone 6', 'iconColor', [0.95 0.55 0.15]),
+    struct('label', 'Zone 1', 'iconColor', [0.20 0.80 0.40])
+    struct('label', 'Zone 2', 'iconColor', [0.95 0.75 0.10])
+    struct('label', 'Zone 3', 'iconColor', [0.90 0.25 0.25])
+    struct('label', 'Zone 4', 'iconColor', [0.25 0.55 0.95])
+    struct('label', 'Zone 5', 'iconColor', [0.65 0.40 0.90])
+    struct('label', 'Zone 6', 'iconColor', [0.95 0.55 0.15])
 };
 d.addWidget(bar3);
 

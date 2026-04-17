@@ -8,7 +8,7 @@ function test_icon_card_widget_tag()
 %   deferred-items.md).  Pitfall 1 grep gate runs on both interpreters;
 %   classdef-dependent assertions are MATLAB-only.
 %
-%   See also TestIconCardWidgetTag, makePhase1009Fixtures.
+%   See also TestIconCardWidgetTag, MakePhase1009Fixtures.
 
     add_icon_card_widget_tag_path();
 
@@ -46,8 +46,8 @@ function test_pitfall1_no_isa_in_widget()
 end
 
 function test_tag_property_render()
-    st = makePhase1009Fixtures.makeSensorTag('icw_f_a_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
-    m  = makePhase1009Fixtures.makeMonitorTag('icw_f_a_mon', st);
+    st = MakePhase1009Fixtures.makeSensorTag('icw_f_a_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
+    m  = MakePhase1009Fixtures.makeMonitorTag('icw_f_a_mon', st);
 
     w = IconCardWidget('Title', 'P', 'Tag', m);
     fig = figure('Visible', 'off');
@@ -62,8 +62,8 @@ function test_tag_property_render()
 end
 
 function test_tag_ok_state()
-    st = makePhase1009Fixtures.makeSensorTag('icw_f_ok_src', 'X', 1:5, 'Y', [1 1 1 1 1]);
-    m  = makePhase1009Fixtures.makeMonitorTag('icw_f_ok_mon', st);
+    st = MakePhase1009Fixtures.makeSensorTag('icw_f_ok_src', 'X', 1:5, 'Y', [1 1 1 1 1]);
+    m  = MakePhase1009Fixtures.makeMonitorTag('icw_f_ok_mon', st);
     w = IconCardWidget('Title', 'P', 'Tag', m);
     fig = figure('Visible', 'off');
     cleanup = onCleanup(@() close(fig));  %#ok<NASGU>
@@ -74,8 +74,8 @@ function test_tag_ok_state()
 end
 
 function test_tag_precedence()
-    st = makePhase1009Fixtures.makeSensorTag('icw_f_pr_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
-    m  = makePhase1009Fixtures.makeMonitorTag('icw_f_pr_mon', st);
+    st = MakePhase1009Fixtures.makeSensorTag('icw_f_pr_src', 'X', 1:5, 'Y', [1 1 1 1 20]);
+    m  = MakePhase1009Fixtures.makeMonitorTag('icw_f_pr_mon', st);
     t = Threshold('icw_f_pr_thr', 'Direction', 'upper');
     t.addCondition(struct(), 10);
 
@@ -85,8 +85,8 @@ function test_tag_precedence()
 end
 
 function test_tag_round_trip()
-    st = makePhase1009Fixtures.makeSensorTag('icw_f_rt_src');
-    m  = makePhase1009Fixtures.makeMonitorTag('icw_f_rt_mon', st);
+    st = MakePhase1009Fixtures.makeSensorTag('icw_f_rt_src');
+    m  = MakePhase1009Fixtures.makeMonitorTag('icw_f_rt_mon', st);
     w = IconCardWidget('Title', 'RT', 'Tag', m);
     s = w.toStruct();
     assert(isfield(s, 'source'));

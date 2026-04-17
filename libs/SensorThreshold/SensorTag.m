@@ -35,6 +35,7 @@ classdef SensorTag < Tag
         DataStore   % read-only view of DataStore_
         X           % read-only view of X_ (backward-compat with legacy Sensor.X)
         Y           % read-only view of Y_ (backward-compat with legacy Sensor.Y)
+        Thresholds  % always {} (backward-compat with legacy Sensor.Thresholds cell array)
     end
 
     methods
@@ -83,6 +84,19 @@ classdef SensorTag < Tag
         function v = get.Y(obj)
             %GET.Y Read-only access to values (backward-compat with legacy Sensor.Y).
             v = obj.Y_;
+        end
+
+        function v = get.Thresholds(obj) %#ok<MANU>
+            %GET.THRESHOLDS Always empty cell array (backward-compat stub).
+            %   Legacy Sensor class exposed a Thresholds cell array of
+            %   ThresholdRule handles. In the v2.0 Tag model, thresholds
+            %   are expressed as MonitorTag children bound via TagRegistry
+            %   — not as a nested collection on the sensor. Widgets that
+            %   still read .Thresholds (GaugeWidget, StatusWidget) see an
+            %   empty cell here and fall through to their "no thresholds"
+            %   branch. Consumers should migrate to the TagRegistry +
+            %   MonitorTag workflow for threshold behaviour.
+            v = {};
         end
 
         % ---- Tag contract ----

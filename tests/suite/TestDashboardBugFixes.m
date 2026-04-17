@@ -250,7 +250,7 @@ classdef TestDashboardBugFixes < matlab.unittest.TestCase
             d.switchPage(1);
 
             s = SensorTag('testSensorListeners', 'Name', 'T');
-            s.updateData((1:5), rand(1, 5));
+            s.updateData(1:5, rand(1, 5));
             [s_x_, s_y_] = s.getXY();
 
             d.addWidget('fastsense', 'Title', 'T', 'Position', [1 1 6 2], ...

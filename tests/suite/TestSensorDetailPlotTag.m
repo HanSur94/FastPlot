@@ -4,7 +4,7 @@ classdef TestSensorDetailPlotTag < matlab.unittest.TestCase
     %   accepts either a Tag (v2.0) or a Sensor (legacy) as the first
     %   positional argument.  Mirror of test_sensor_detail_plot_tag.m.
     %
-    %   See also SensorDetailPlot, makePhase1009Fixtures.
+    %   See also SensorDetailPlot, MakePhase1009Fixtures.
 
     methods (TestClassSetup)
         function addPaths(testCase) %#ok<MANU>
@@ -31,7 +31,7 @@ classdef TestSensorDetailPlotTag < matlab.unittest.TestCase
     methods (Test)
 
         function testSensorTagConstruct(testCase)
-            st = makePhase1009Fixtures.makeSensorTag('sdp_press_a', 'Units', 'bar');
+            st = MakePhase1009Fixtures.makeSensorTag('sdp_press_a', 'Units', 'bar');
             sdp = SensorDetailPlot(st);
             testCase.verifyNotEmpty(sdp.TagRef);
             testCase.verifyEmpty(sdp.Sensor);
@@ -39,8 +39,8 @@ classdef TestSensorDetailPlotTag < matlab.unittest.TestCase
         end
 
         function testMonitorTagConstruct(testCase)
-            st = makePhase1009Fixtures.makeSensorTag('sdp_press_b');
-            m  = makePhase1009Fixtures.makeMonitorTag('sdp_press_hi', st);
+            st = MakePhase1009Fixtures.makeSensorTag('sdp_press_b');
+            m  = MakePhase1009Fixtures.makeMonitorTag('sdp_press_hi', st);
             sdp = SensorDetailPlot(m);
             testCase.verifyNotEmpty(sdp.TagRef);
             testCase.verifyEmpty(sdp.Sensor);

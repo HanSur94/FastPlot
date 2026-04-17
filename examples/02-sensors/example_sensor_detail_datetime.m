@@ -26,7 +26,6 @@ s = SensorTag('line_pressure', 'Name', 'Line Pressure', 'X', tNum, 'Y', data);
 % State channel and threshold
 sc = StateTag('mode', 'X', [tNum(1) tNum(end)], 'Y', [1 1]);
 
-
 %% 2. Create an event for the spike
 dSpike = data(idx1:idx2);
 ev = Event(tNum(idx1), tNum(idx2), 'line_pressure', 'H Warning', 5.2, 'upper');

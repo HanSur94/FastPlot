@@ -25,7 +25,6 @@ sc = StateTag('mode', 'X', [0 300], 'Y', [1 1]);
 
 % Add threshold rules
 
-
 %% 2. Create events matching the spikes
 % Event is a handle class — setStats(peak, numPoints, min, max, mean, rms, std)
 d1 = data(30000:30200);

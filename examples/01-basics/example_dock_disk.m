@@ -72,7 +72,6 @@ s2a_y_ = 2.1 + 0.8*sin(2*pi*sec/1800) + 0.3*randn(1,n);
 s2a_y_(round(n*0.6):round(n*0.62)) = s2a_y_(round(n*0.6):round(n*0.62)) + 3.5;
 s2a.updateData(tdn, s2a_y_);
 
-
 s2a.toDisk();
 
 s2b = SensorTag('vib_nde', 'Name', 'NDE Bearing');
@@ -118,7 +117,6 @@ sec = (tdn - tdn0) * 86400;
 s4a = SensorTag('rpm', 'Name', 'Shaft Speed');
 s4a.updateData(tdn, 3000 + 50*sin(2*pi*sec/14400) + 15*randn(1,n));
 
-
 s4a.toDisk();
 
 fp = fig1.tile(4);
@@ -146,7 +144,6 @@ s5a = SensorTag('rx_temp', 'Name', 'Reactor Core');
 s5a_y_ = 180 + 30*sin(2*pi*sec/7200) + 5*randn(1,n);
 s5a_y_(round(n*0.25):round(n*0.27)) = s5a_y_(round(n*0.25):round(n*0.27)) + 40;
 s5a.updateData(tdn, s5a_y_);
-
 
 s5a.toDisk();
 
@@ -289,7 +286,6 @@ s11a_y_ = 25 + 8*sin(2*pi*sec/1800) + 3*randn(1,n);
 s11a_y_(round(n*0.4):round(n*0.41)) = s11a_y_(round(n*0.4):round(n*0.41)) - 20;
 s11a.updateData(tdn, s11a_y_);
 
-
 s11a.toDisk();
 
 fp = fig3.tile(3);
@@ -316,8 +312,10 @@ sec = (tdn - tdn0) * 86400;
 phases = {'A', 'B', 'C'};
 phaseShifts = [0, 2*pi/3, 4*pi/3];
 for p = 1:3
-    sV = SensorTag(sprintf('v_phase_%s', phases{p}), 'Name', sprintf('Phase %s', phases{p}), 'X', tdn, 'Y', 400 + 8*sin(2*pi*sec/1200 + phaseShifts(p)) + 3*randn(1,n));
-
+    yPhase = 400 + 8*sin(2*pi*sec/1200 + phaseShifts(p)) + 3*randn(1, n);
+    sV = SensorTag(sprintf('v_phase_%s', phases{p}), ...
+        'Name', sprintf('Phase %s', phases{p}), ...
+        'X', tdn, 'Y', yPhase);
     sV.toDisk();
     fp = fig4.tile(1);
     fp.addTag(sV);
@@ -332,7 +330,6 @@ sec = (tdn - tdn0) * 86400;
 
 s13a = SensorTag('freq', 'Name', 'Grid Frequency');
 s13a.updateData(tdn, 50 + 0.03*sin(2*pi*sec/600) + 0.008*randn(1,n));
-
 
 s13a.toDisk();
 
@@ -353,7 +350,6 @@ sec = (tdn - tdn0) * 86400;
 
 s14 = SensorTag('mw', 'Name', 'Active Power');
 s14.updateData(tdn, 180 + 40*sin(2*pi*sec/7200) + 10*randn(1,n));
-
 
 s14.toDisk();
 
@@ -401,7 +397,6 @@ sec = (tdn - tdn0) * 86400;
 s16a = SensorTag('co2', 'Name', 'CO₂');
 s16a.updateData(tdn, 450 + 150*sin(2*pi*sec/14400) + 30*randn(1,n));
 
-
 s16a.toDisk();
 
 s16b = SensorTag('pm25', 'Name', 'PM2.5');
@@ -444,7 +439,6 @@ s18 = SensorTag('noise', 'Name', 'Noise Level');
 s18_y_ = 55 + 10*sin(2*pi*sec/7200) + 4*randn(1,n);
 s18_y_(round(n*0.5):round(n*0.52)) = s18_y_(round(n*0.5):round(n*0.52)) + 25;
 s18.updateData(tdn, s18_y_);
-
 
 s18.toDisk();
 

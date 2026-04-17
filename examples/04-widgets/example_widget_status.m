@@ -24,18 +24,17 @@ N = 5000;
 t = linspace(0, 3600, N);  % 1 hour
 
 % Temperature — last value above Hi Alarm => red/alarm
-sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'C'], 'X', t, 'Y', 70 + 4*sin(2*pi*t/600) + randn(1,N)*0.5);
-sTemp.Y(end-200:end) = 92 + randn(1,201)*0.3;        % push tail into alarm
-
+tempY = 70 + 4*sin(2*pi*t/600) + randn(1,N)*0.5;
+tempY(end-200:end) = 92 + randn(1,201)*0.3;        % push tail into alarm
+sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'C'], 'X', t, 'Y', tempY);
 
 % Pressure — last value between Hi Warn and Hi Alarm => yellow/warning
-sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'bar', 'X', t, 'Y', 48 + 3*sin(2*pi*t/900) + randn(1,N)*0.8);
-sPress.Y(end-100:end) = 67 + randn(1,101)*0.4;       % push tail into warning
-
+pressY = 48 + 3*sin(2*pi*t/900) + randn(1,N)*0.8;
+pressY(end-100:end) = 67 + randn(1,101)*0.4;       % push tail into warning
+sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'bar', 'X', t, 'Y', pressY);
 
 % Flow — last value well within limits => green/ok
 sFlow = SensorTag('F-301', 'Name', 'Flow Rate', 'Units', 'L/min', 'X', t, 'Y', 120 + 5*sin(2*pi*t/1200) + randn(1,N)*1.0);
-
 
 %% 2. Build dashboard
 d = DashboardEngine('Status Widget Demo');
@@ -60,5 +59,5 @@ d.addWidget('fastsense', 'Position', [17 3 8 6], 'Tag', sFlow);
 d.render();
 
 fprintf('Status demo: T-401=alarm, P-201=warning, F-301=ok\n');
-fprintf('Violations: T-401=%d  P-201=%d  F-301=%d\n', ...
-    sTemp.countViolations(), sPress.countViolations(), sFlow.countViolations());
+fprintf('Latest values: T-401=%.1f  P-201=%.1f  F-301=%.1f\n', ...
+    sTemp.Y(end), sPress.Y(end), sFlow.Y(end));

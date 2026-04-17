@@ -54,7 +54,6 @@ temp = tempBase + tempNoise;
 
 sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X', t, 'Y', temp);
 
-
 % --- Pressure sensor P-201 ---
 pressBase = zeros(1, N);
 for k = 1:N
@@ -69,7 +68,6 @@ pressNoise = 8 * sin(2*pi*t/7200) + randn(1, N) * 2;
 pressure = pressBase + pressNoise;
 
 sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', t, 'Y', pressure);
-
 
 %% ========== Create DashboardEngine ==========
 % Dark theme contrasts nicely with the state-colored icon circles.

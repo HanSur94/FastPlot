@@ -25,7 +25,6 @@ s_rpm = SensorTag('rpm_main', 'Name', 'Main RPM', 'Units', 'rpm', 'X', t, 'Y', 1
 % Bearing temperature sensor with thresholds
 s_temp = SensorTag('temp_bearing', 'Name', 'Bearing Temp', 'Units', [char(176) 'C'], 'X', t, 'Y', 60 + 5*randn(1, N));
 
-
 % Line pressure sensor
 s_pres = SensorTag('pressure', 'Name', 'Line Pressure', 'Units', 'bar', 'X', t, 'Y', 2.5 + 0.3*randn(1, N));
 
