@@ -12,7 +12,7 @@ function test_sensor_detail_plot_tag()
     test_sensor_tag_construct();
     test_monitor_tag_construct();
     test_invalid_input_error();
-    test_legacy_sensor_still_works();
+    test_tag_construct_with_sensortag();
 
     TagRegistry.clear();
     fprintf('    All 4 sensor_detail_plot_tag tests passed.\n');
@@ -24,8 +24,6 @@ function test_sensor_tag_construct()
     sdp = SensorDetailPlot(st);
     assert(~isempty(sdp.TagRef), ...
         'test_sensor_detail_plot_tag: SensorTag construct -> TagRef set');
-    assert(isempty(sdp.Sensor), ...
-        'test_sensor_detail_plot_tag: SensorTag construct -> Sensor empty');
     assert(strcmp(sdp.TagRef.Key, 'sdp_press_a'), ...
         'test_sensor_detail_plot_tag: TagRef.Key matches input');
 end
@@ -37,8 +35,6 @@ function test_monitor_tag_construct()
     sdp = SensorDetailPlot(m);
     assert(~isempty(sdp.TagRef), ...
         'test_sensor_detail_plot_tag: MonitorTag construct -> TagRef set');
-    assert(isempty(sdp.Sensor), ...
-        'test_sensor_detail_plot_tag: MonitorTag construct -> Sensor empty');
 end
 
 function test_invalid_input_error()
@@ -52,14 +48,12 @@ function test_invalid_input_error()
         'test_sensor_detail_plot_tag: invalid input raises SensorDetailPlot:invalidInput');
 end
 
-function test_legacy_sensor_still_works()
+function test_tag_construct_with_sensortag()
     s = SensorTag('sdp_legacy', 'Name', 'LegacySensor');
     s.updateData(1:30, (1:30) * 0.1);
     sdp = SensorDetailPlot(s);
-    assert(~isempty(sdp.Sensor), ...
-        'test_sensor_detail_plot_tag: legacy Sensor construct -> Sensor set');
-    assert(isempty(sdp.TagRef), ...
-        'test_sensor_detail_plot_tag: legacy Sensor construct -> TagRef empty');
+    assert(~isempty(sdp.TagRef), ...
+        'test_sensor_detail_plot_tag: SensorTag construct -> TagRef set');
 end
 
 function add_sensor_detail_plot_tag_path()

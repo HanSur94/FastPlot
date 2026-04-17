@@ -1,22 +1,21 @@
 function test_event_detector_tag()
-%TEST_EVENT_DETECTOR_TAG Octave flat tests for EventDetector Tag overload.
-%   Phase 1009 Plan 03 — mirror of TestEventDetectorTag for Octave.
+%TEST_EVENT_DETECTOR_TAG Octave flat tests for EventDetector Tag-based detection.
+%   Rewritten in Phase 1011 -- legacy Threshold/6-arg paths removed.
 %
 %   See also TestEventDetectorTag, EventDetector, makePhase1009Fixtures.
 
     add_event_detector_tag_path();
 
     TagRegistry.clear();
-    cleanup_on_exit_ = onCleanup(@() TagRegistry.clear());
+    EventBinding.clear();
+    cleanup_on_exit_ = onCleanup(@() cleanup_registries()); %#ok<NASGU>
 
     test_tag_overload_detects_events();
-    test_legacy_six_arg_unchanged();
-    test_non_tag_non_sensor_errors();
+    test_non_tag_errors();
     test_tag_overload_with_empty_tag();
     test_pitfall1_no_subclass_isa_in_detect();
-    test_legacy_callers_still_work();
 
-    fprintf('    All 6 event_detector_tag tests passed.\n');
+    fprintf('    All 4 event_detector_tag tests passed.\n');
 end
 
 function add_event_detector_tag_path()
@@ -27,40 +26,30 @@ function add_event_detector_tag_path()
     addpath(fullfile(repo, 'tests', 'suite'));
 end
 
-function test_tag_overload_detects_events()
+function cleanup_registries()
     TagRegistry.clear();
-    st = makePhase1009Fixtures.makeSensorTag('press_a');
-    thr = Threshold('warn', 'Name', 'Warn', 'Direction', 'upper');
-    thr.addCondition(struct(), 10);
+    EventBinding.clear();
+end
 
-    det = EventDetector();
-    events = det.detect(st, thr);
+function test_tag_overload_detects_events()
+    TagRegistry.clear(); EventBinding.clear();
+    st = makePhase1009Fixtures.makeSensorTag('press_a');
+    es = EventStore('');
+    mon = MonitorTag('warn', st, @(x, y) y > 10, 'EventStore', es);
+    mon.getXY();
+    events = es.getEvents();
 
     assert(numel(events) == 2, ...
-        sprintf('Tag overload should yield 2 events, got %d', numel(events)));
+        sprintf('Tag MonitorTag should yield 2 events, got %d', numel(events)));
     assert(events(1).StartTime == 4, 'e1 start');
     assert(events(1).EndTime   == 7, 'e1 end');
     assert(events(2).StartTime == 13, 'e2 start');
     assert(events(2).EndTime   == 15, 'e2 end');
     assert(strcmp(events(1).SensorName, 'press_a'), 'SensorName carrier');
-    assert(strcmp(events(1).ThresholdLabel, 'Warn'), 'ThresholdLabel carrier');
-    assert(events(1).ThresholdValue == 10, 'ThresholdValue');
-    assert(strcmp(events(1).Direction, 'upper'), 'Direction');
+    assert(strcmp(events(1).ThresholdLabel, 'warn'), 'ThresholdLabel carrier');
 end
 
-function test_legacy_six_arg_unchanged()
-    det = EventDetector();
-    t      = [1 2 3 4 5 6 7 8 9 10];
-    values = [12 13 5 5 5 14 15 5 5 5];
-    events = det.detect(t, values, 10, 'upper', 'warn', 'temp');
-    assert(numel(events) == 2, 'legacy 6-arg: count');
-    assert(events(1).StartTime == 1, 'legacy 6-arg: e1 start');
-    assert(events(2).StartTime == 6, 'legacy 6-arg: e2 start');
-    assert(strcmp(events(1).SensorName, 'temp'), 'legacy 6-arg: SensorName');
-    assert(strcmp(events(1).ThresholdLabel, 'warn'), 'legacy 6-arg: ThresholdLabel');
-end
-
-function test_non_tag_non_sensor_errors()
+function test_non_tag_errors()
     det = EventDetector();
     threw = false;
     try
@@ -72,15 +61,13 @@ function test_non_tag_non_sensor_errors()
 end
 
 function test_tag_overload_with_empty_tag()
-    TagRegistry.clear();
+    TagRegistry.clear(); EventBinding.clear();
     st = SensorTag('empty_tag', 'X', [], 'Y', []);
     TagRegistry.register('empty_tag', st);
-    thr = Threshold('warn', 'Name', 'Warn', 'Direction', 'upper');
-    thr.addCondition(struct(), 10);
-
-    det = EventDetector();
-    events = det.detect(st, thr);
-    assert(isempty(events), 'empty Tag => empty events');
+    es = EventStore('');
+    mon = MonitorTag('warn_empty', st, @(x, y) y > 10, 'EventStore', es);
+    mon.getXY();
+    assert(isempty(es.getEvents()), 'empty Tag => empty events');
 end
 
 function test_pitfall1_no_subclass_isa_in_detect()
@@ -96,6 +83,3 @@ function test_pitfall1_no_subclass_isa_in_detect()
                 badKinds{i}));
     end
 end
-
-% Legacy test_legacy_callers_still_work removed — legacy bridge helper
-% bridge helper deleted in Phase 1011 cleanup.
