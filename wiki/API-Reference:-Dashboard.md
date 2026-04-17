@@ -267,6 +267,14 @@ of serialized dashboards.
 
 #### `t = get()`
 
+#### `s = get()`
+
+GET.SENSOR Backward-compat alias for Tag (v1.x API).
+
+#### `set()`
+
+SET.SENSOR Backward-compat alias — maps to Tag property.
+
 #### `s = toStruct(obj)`
 
 #### `markDirty(obj)`
