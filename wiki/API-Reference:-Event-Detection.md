@@ -8,7 +8,15 @@
 
 det = EventDetector()
   det = EventDetector('MinDuration', 2, 'OnEventStart', @myCallback)
-  events = det.detect(t, values, thresholdValue, direction, thresholdLabel, sensorName)
+
+  Call shape:
+    events = det.detect(tag, threshold)   % 2-arg Tag overload
+
+  Reads (X, Y) from tag.getXY() and derives threshold metadata
+  from the Threshold handle; forwards to the private detect_ body.
+  Dispatch is entry-level on isa(arg, 'Tag') — the ABSTRACT BASE —
+  matching the FastSense.addTag precedent (Pitfall 1: NO subclass
+  isa anywhere in this file).
 
 ### Constructor
 
@@ -26,11 +34,10 @@ obj = EventDetector(varargin)
 
 ### Methods
 
-#### `events = detect(obj, t, values, thresholdValue, direction, thresholdLabel, sensorName)`
+#### `events = detect(obj, tag, threshold)`
 
 DETECT Find events from threshold violations.
-  events = det.detect(t, values, thresholdValue, direction, thresholdLabel, sensorName)
-  Returns Event array.
+  events = det.detect(tag, threshold)
 
 ---
 
@@ -57,7 +64,14 @@ obj = IncrementalEventDetector(varargin)
 
 ### Methods
 
-#### `newEvents = process(obj, sensorKey, sensor, newX, newY, newStateX, newStateY)`
+#### `newEvents = process(~, ~, ~, ~, ~, ~, ~)`
+
+PROCESS Legacy entry point -- no longer functional.
+  The Sensor/Threshold/StateChannel pipeline this method relied
+  on was deleted in Phase 1011.  LiveEventPipeline now uses
+  MonitorTag.appendData() for incremental detection (Phase 1007
+  MONITOR-08).  This stub remains so that callers get a clear
+  error rather than a missing-method crash.
 
 #### `tf = hasOpenEvent(obj, sensorKey)`
 
@@ -82,6 +96,10 @@ obj = Event(startTime, endTime, sensorName, thresholdLabel, thresholdValue, dire
 
 | Property | Default | Description |
 |----------|---------|-------------|
+| TagKeys | `{}` | cell of char: tag keys bound to this event (EVENT-01) |
+| Severity | `1` | numeric: 1=ok/info, 2=warn, 3=alarm (EVENT-04) |
+| Category | `''` | char: alarm\|maintenance\|process_change\|manual_annotation (EVENT-05) |
+| Id | `''` | char: unique id assigned by EventStore.append (EVENT-02) |
 | DIRECTIONS | `{'upper', 'lower'}` |  |
 
 ### Methods
@@ -128,9 +146,11 @@ obj = EventConfig()
 
 ### Methods
 
-#### `addSensor(obj, sensor)`
+#### `addSensor(~, ~)`
 
-ADDSENSOR Register a sensor with its data.
+ADDSENSOR Legacy entry point -- no longer functional.
+  The Sensor.resolve() pipeline was deleted in Phase 1011.
+  Use MonitorTag + EventStore for event detection.
 
 #### `setColor(obj, label, rgb)`
 
@@ -172,6 +192,14 @@ obj = EventStore(filePath, varargin)
 #### `append(obj, newEvents)`
 
 #### `events = getEvents(obj)`
+
+#### `events = getEventsForTag(obj, tagKey)`
+
+GETEVENTSFORTAG Return events bound to tagKey via EventBinding + carrier fallback.
+  Primary path: uses EventBinding.getEventsForTag for events
+  with non-empty Id (Phase 1010 EVENT-01/EVENT-03).
+  Fallback path: carrier-field matching (SensorName/ThresholdLabel)
+  for events without Id (backward compat, Pitfall 4).
 
 #### `save(obj)`
 
@@ -250,17 +278,28 @@ FROMFILE Open EventViewer from a saved .mat event store file.
 
 > Inherits from: `handle`
 
+Uses MonitorTargets — containers.Map of key -> MonitorTag;
+  processed via MonitorTag.appendData (Phase 1007 MONITOR-08
+  streaming tail extension).
+
+  Ordering invariant (Pitfall Y) — enforced by processMonitorTag_:
+    monitor.Parent.updateData(newX, newY)  <- called FIRST
+    monitor.appendData(newX, newY)         <- THEN
+  The reverse order causes cache incoherence: MonitorTag.appendData's
+  cold path recomputes against a stale parent grid.  See the docstring
+  at libs/SensorThreshold/MonitorTag.m lines 330-334 for the contract.
+
 ### Constructor
 
 ```matlab
-obj = LiveEventPipeline(sensors, dataSourceMap, varargin)
+obj = LiveEventPipeline(monitors, dataSourceMap, varargin)
 ```
 
 ### Properties
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| Sensors |  | containers.Map: key -> Sensor |
+| MonitorTargets |  | containers.Map: key -> MonitorTag |
 | DataSourceMap |  | DataSourceMap |
 | EventStore |  | EventStore |
 | NotificationService |  | NotificationService |
@@ -424,6 +463,40 @@ obj = DataSourceMap()
 #### `tf = has(obj, key)`
 
 #### `remove(obj, key)`
+
+---
+
+## `EventBinding` --- Singleton many-to-many registry binding Events to Tags.
+
+EventBinding stores (eventId, tagKey) pairs using two persistent
+  containers.Map indexes (forward: eventId -> {tagKeys}, reverse:
+  tagKey -> {eventIds}) for O(1) lookup in both directions.
+
+  This is the single-write-side for Event-Tag binding (EVENT-02).
+  Only EventBinding.attach mutates the registry. Convenience wrappers
+  on Event/Tag/EventStore delegate to this class.
+
+### Static Methods
+
+#### `EventBinding.attach(eventId, tagKey)`
+
+ATTACH Bind an event to a tag (idempotent).
+  EventBinding.attach(eventId, tagKey) adds the (eventId, tagKey)
+  pair to both forward and reverse indexes. Silent on duplicate.
+
+#### `EventBinding.keys = getTagKeysForEvent(eventId)`
+
+GETTAGKEYSFOREVENT Return cell of tagKey strings bound to eventId.
+
+#### `EventBinding.events = getEventsForTag(tagKey, eventStore)`
+
+GETEVENTSFORTAG Return Event array bound to tagKey via reverse index.
+  Uses the reverse index for O(1) lookup of eventIds, then
+  filters the eventStore's events by matching Id.
+
+#### `EventBinding.clear()`
+
+CLEAR Reset all bindings in both forward and reverse indexes.
 
 ---
 

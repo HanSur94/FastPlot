@@ -46,6 +46,8 @@ FASTSENSE Construct a FastSense instance.
 | YScale | `'linear'` | 'linear' or 'log' — Y axis scale |
 | ViolationsVisible | `true` | global toggle for violation markers |
 | ShowThresholdLabels | `false` | show inline name labels on threshold lines |
+| ShowEventMarkers | `true` | toggle event round-marker overlay (EVENT-07) |
+| EventStore | `[]` | EventStore handle for event overlay queries |
 | MinPointsForDownsample | `5000` | below this, plot raw data |
 | DownsampleFactor | `2` | points per pixel (min + max) |
 | PyramidReduction | `100` | reduction factor per pyramid level |
@@ -84,14 +86,6 @@ ADDLINE Add a data line to the plot.
   adds a red line labeled 'Sensor1' in the legend.
   fp.ADDLINE(x, y, 'DownsampleMethod', 'lttb') uses the
   Largest-Triangle-Three-Buckets algorithm instead of MinMax.
-
-#### `addSensor(obj, sensor, varargin)`
-
-ADDSENSOR Add a resolved Sensor's data and thresholds to the plot.
-  fp.ADDSENSOR(s) adds the sensor's X/Y data as a line and
-  all resolved thresholds with violation markers enabled.
-  fp.ADDSENSOR(s, 'ShowThresholds', false) adds only the data
-  line, suppressing threshold overlay.
 
 #### `addThreshold(obj, varargin)`
 
@@ -134,6 +128,22 @@ ADDFILL Add an area fill from a line to a baseline.
   of zero using default shading colors.
   fp.ADDFILL(x, y, 'Baseline', -1, 'FaceColor', [0 0.5 1])
   fills between y and y=-1 with a custom color.
+
+#### `addTag(obj, tag, varargin)`
+
+ADDTAG Polymorphic dispatch — route a Tag to the correct render path.
+  fp.ADDTAG(sensorTag)     — routes to addLine via tag.getXY
+  fp.ADDTAG(stateTag)      — routes to a staircase line (numeric Y)
+  fp.ADDTAG(monitorTag)    — routes to addLine via tag.getXY (0/1 binary series)
+  fp.ADDTAG(compositeTag)  — routes to addLine via tag.getXY (aggregated 0/1 or 0..1 series)
+
+#### `addStateTagAsStaircase_(obj, tag, varargin)`
+
+ADDSTATETAGASSTAIRCASE_ Render a numeric StateTag as a stepped line.
+  Private helper (name ends in _) invoked by addTag for the
+  'state' kind. Expands (X, Y) pairs into an interleaved
+  2N-1 staircase and delegates to addLine. Cellstr Y is not
+  supported in Phase 1005 (deferred).
 
 #### `render(obj, progressBar)`
 
@@ -608,6 +618,26 @@ LOADRESOLVED Load pre-computed resolve() results from SQLite.
 
 CLEARRESOLVED Invalidate pre-computed resolve() cache.
 
+#### `storeMonitor(obj, key, X, Y, parentKey, parentNumPts, parentXMin, parentXMax)`
+
+STOREMONITOR Cache a MonitorTag's derived (X, Y) plus staleness quad.
+  ds.storeMonitor(key, X, Y, parentKey, parentNumPts, parentXMin, parentXMax)
+  upserts a monitors row. The quad (parent_key, num_points,
+  parent_xmin, parent_xmax) is stamped at write time and is
+  compared at load time by MonitorTag.cacheIsStale_.
+
+#### `[X, Y, meta] = loadMonitor(obj, key)`
+
+LOADMONITOR Retrieve cached MonitorTag (X, Y) + staleness metadata.
+  [X, Y, meta] = ds.loadMonitor(key) returns X=[] on miss.
+  Callers must verify freshness via the returned meta struct
+  (fields: parent_key, num_points, parent_xmin, parent_xmax,
+  computed_at).
+
+#### `clearMonitor(obj, key)`
+
+CLEARMONITOR Delete a cached MonitorTag row by key.
+
 #### `cleanup(obj)`
 
 CLEANUP Close the database and delete temp files.
@@ -661,8 +691,8 @@ Clamp to data limits
 
 > Inherits from: `handle`
 
-sdp = SensorDetailPlot(sensor)
-  sdp = SensorDetailPlot(sensor, Name, Value, ...)
+sdp = SensorDetailPlot(tag)
+  sdp = SensorDetailPlot(tag, Name, Value, ...)
 
   Name-Value Options:
     'Theme'              - FastSense theme (default: 'default')
@@ -672,16 +702,18 @@ sdp = SensorDetailPlot(sensor)
     'Events'             - EventStore or Event array (default: [])
     'ShowEventLabels'    - Reserved, no effect (default: false)
     'Parent'             - uipanel handle for embedding (default: [])
-    'Title'              - Plot title (default: sensor.Name)
+    'Title'              - Plot title (default: tag.Name)
     'XType'              - 'numeric' or 'datenum' (default: 'numeric')
 
 ### Constructor
 
 ```matlab
-obj = SensorDetailPlot(sensor, varargin)
+obj = SensorDetailPlot(tag, varargin)
 ```
 
-Validate sensor
+Accept Tag (v2.0) only.
+Tag class is the abstract base — uses isa(x, 'Tag'), NOT
+isa-on-subclass-name (Pitfall 1).
 
 ### Methods
 

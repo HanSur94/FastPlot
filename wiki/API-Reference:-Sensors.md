@@ -2,606 +2,825 @@
 
 # API Reference: Sensors
 
-## `Sensor` --- Represents a sensor with data, state channels, and threshold entities.
+## `CompositeTag` --- Aggregate MonitorTag/CompositeTag children into a 0/1 derived series.
 
-> Inherits from: `handle`
+> Inherits from: `Tag`
 
-Sensor is the central class of the SensorThreshold library.  It
-  bundles raw time-series data (X, Y) with a set of StateChannels
-  (discrete system states) and Threshold objects (condition-dependent
-  limit values).  The resolve() method evaluates all thresholds against
-  the state channels to produce pre-computed threshold time series,
-  violation indices, and state-band regions that can be rendered by
-  a plotting layer such as FastSense.
+CompositeTag < Tag -- a derived-signal Tag that aggregates 1..N
+  MonitorTag/CompositeTag children into a single 0/1 (or 0..1
+  severity-pre-threshold) time series via k-way merge-sort ZOH
+  streaming (implemented in Plan 02; Plan 01 ships the core API only:
+  constructor, addChild cycle-DFS + type-guard + listener hookup, and
+  the 7-mode aggregator helper).
+
+  Truth Table (binary 0/1 inputs; NaN = unknown):
+
+    AND:
+      | c1  | c2  | out  |
+      |  0  |  0  |  0   |
+      |  0  |  1  |  0   |
+      |  1  |  1  |  1   |
+      |  0  | NaN | NaN  |
+      |  1  | NaN | NaN  |
+      | NaN | NaN | NaN  |
+
+    OR:
+      | c1  | c2  | out  |
+      |  0  |  0  |  0   |
+      |  0  |  1  |  1   |
+      |  1  |  1  |  1   |
+      |  0  | NaN |  0   |   (other operand wins)
+      |  1  | NaN |  1   |   (other operand wins)
+      | NaN | NaN | NaN  |
+
+    WORST:    max(vals) ignoring NaN; all-NaN -> NaN.  Matches
+              MATLAB `max([...], 'omitnan')` semantics.
+    COUNT:    sum of (vals >= 0.5) ignoring NaN; then thresholded
+              by obj.Threshold to 0/1.
+    MAJORITY: #ones > (#non-NaN)/2 -> 1; all-NaN -> NaN.  Strictly
+              binary 0/1 inputs for v2.0 (multi-state deferred).
+    SEVERITY: weighted avg (sum(w_i*v_i)/sum(w_i)) over non-NaN,
+              then thresholded by obj.Threshold to 0/1.  All-NaN or
+              zero-weight -> NaN.
+    USER_FN:  obj.UserFn(vals) -- caller handles NaN semantics.
+
+  Properties (public):
+    AggregateMode -- 'and'|'or'|'majority'|'count'|'worst'|'severity'|'user_fn'
+    UserFn        -- function_handle; required when mode=='user_fn'
+    Threshold     -- double; for COUNT/SEVERITY binarization (default 0.5)
+
+  Methods (public):
+    addChild(tagOrKey, 'Weight', w) -- resolves string keys via TagRegistry;
+                                       cycle DFS (Key-equality per RESEARCH §7);
+                                       rejects SensorTag/StateTag
+    invalidate() / addListener(m)   -- observer pattern (inherited shape)
+    getChildCount / getChildKeys    -- read-only inspection probes
+    getChildWeights / isDirty       -- read-only inspection probes
+    getChildAt(i)                   -- i-th child Tag handle (3-deep descent)
+    getKind()                       -- returns 'composite'
+
+  Methods (Tag contract -- Plan 02 merge-sort + serialization):
+    getXY()         -- lazy-memoized union-of-timestamps grid via
+                       RESEARCH §5 vectorized sort-based merge
+                       (no set union, no linear interpolation; ALIGN-03)
+    valueAt(t)      -- COMPOSITE-06 fast path; aggregates
+                       child.valueAt(t) without materializing series
+    getTimeRange()  -- [X(1), X(end)] of the aggregated grid
+    toStruct()      -- serialize to {kind, key, ..., childkeys,
+                       childweights, aggregatemode, threshold}
+    fromStruct(s)   -- Static Pass-1 ctor; stashes ChildKeys_ for Pass-2
+    resolveRefs(r)  -- Pass-2 wiring; iterates ChildKeys_ and calls
+                       obj.addChild(registry(k), 'Weight', w) per child
+
+  Error IDs (locked):
+    CompositeTag:cycleDetected        -- addChild would create cycle
+                                         (self or deeper via Key-equality DFS)
+    CompositeTag:invalidChildType     -- child is not MonitorTag/CompositeTag
+    CompositeTag:invalidAggregateMode -- AggregateMode not in 7-mode list
+    CompositeTag:userFnRequired       -- mode=='user_fn' but UserFn empty
+    CompositeTag:unknownOption        -- constructor NV-pair unknown
+    CompositeTag:invalidListener      -- addListener target lacks invalidate()
+    CompositeTag:dataMismatch         -- fromStruct missing required .key
+    CompositeTag:unresolvedChild      -- resolveRefs key not in registry
+    CompositeTag:indexOutOfBounds     -- getChildAt index out of range
+
+  Cycle-detection note (RESEARCH §7 / Pitfall 3 Octave SIGILL):
+    CompositeTag EXPLICITLY creates listener cycles (addChild wires
+    composite as listener on child).  Octave's `isequal`/`==` on
+    user-defined handles recurses through listener cells and hits
+    SIGILL.  Use Key equality (`strcmp(a.Key, b.Key)`) for all handle
+    identity checks -- TagRegistry enforces globally-unique keys so
+    Key equality is semantically equivalent to handle equality within
+    a registry session AND Octave-safe.
 
 ### Constructor
 
 ```matlab
-obj = Sensor(key, varargin)
+obj = CompositeTag(key, aggregateMode, varargin)
 ```
 
-SENSOR Construct a Sensor object.
-  s = Sensor(key) creates a sensor with the given string
-  identifier and default property values.
+COMPOSITETAG Construct a CompositeTag with aggregation mode + Tag NV pairs.
+  c = CompositeTag(key)                       -- mode defaults to 'and'
+  c = CompositeTag(key, mode)                 -- mode in the 7-mode set
+  c = CompositeTag(key, mode, NV, NV, ...)    -- Tag + CompositeTag NV pairs
 
 ### Properties
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| Key |  | char: unique string identifier for this sensor |
-| Name |  | char: human-readable display name |
-| ID |  | numeric: sensor ID (e.g., from a database) |
-| Source |  | char: path to the original raw data file |
-| MatFile |  | char: path to .mat file with transformed data |
-| KeyName |  | char: field name in .mat file (defaults to Key) |
-| X |  | 1xN double: datenum time stamps |
-| Y |  | 1xN (or MxN) double: sensor values |
-| Units |  | char: measurement unit (e.g., 'degC', 'bar', 'rpm') |
-| DataStore |  | FastSenseDataStore: disk-backed storage (set by toDisk) |
-| StateChannels |  | cell array of StateChannel objects |
-| Thresholds |  | cell array of Threshold handle references |
-| ResolvedThresholds |  | struct array: precomputed threshold step-function lines |
-| ResolvedViolations |  | struct array: precomputed violation (X,Y) points |
-| ResolvedStateBands |  | struct: precomputed state region bands for shading |
+| AggregateMode | `'and'` | 'and'\|'or'\|'majority'\|'count'\|'worst'\|'severity'\|'user_fn' |
+| UserFn | `[]` | function_handle; required for 'user_fn' |
+| Threshold | `0.5` | for COUNT/SEVERITY binarization |
 
 ### Methods
 
-#### `load(obj)`
+#### `addChild(obj, tagOrKey, varargin)`
+
+ADDCHILD Attach a MonitorTag/CompositeTag child with optional Weight.
+  addChild(tagHandle)               -- handle path
+  addChild('keyString')             -- registry-resolved path
+  addChild(tagOrKey, 'Weight', w)   -- SEVERITY-mode weight (default 1.0)
+
+#### `invalidate(obj)`
+
+INVALIDATE Clear cache + mark dirty; cascade to downstream listeners.
+
+#### `addListener(obj, m)`
+
+ADDLISTENER Register a listener notified when this composite invalidates.
+  Errors: CompositeTag:invalidListener if ~ismethod(m, 'invalidate').
+
+#### `n = getChildCount(obj)`
+
+GETCHILDCOUNT Return the number of attached children.
+
+#### `keys = getChildKeys(obj)`
+
+GETCHILDKEYS Return a cellstr of child Keys (order preserved).
+
+#### `w = getChildWeights(obj)`
+
+GETCHILDWEIGHTS Return a numeric row vector of child weights.
+
+#### `tf = isDirty(obj)`
+
+ISDIRTY Return whether the composite cache is stale.
+
+#### `k = getKind(~)`
+
+GETKIND Return the literal kind identifier 'composite'.
+
+#### `[x, y] = getXY(obj)`
+
+GETXY Lazy-memoized union-of-timestamps grid via merge-sort streaming.
+  Aggregates every child's (X, Y) via the RESEARCH §5
+  vectorized sort-based algorithm (no set-union, no linear
+  interpolation).  Drops samples before `max(child.X(1))`
+  per ALIGN-03.  Cache stays warm across calls; invalidate()
+  (cascade from any child) clears it.
+
+#### `v = valueAt(obj, t)`
+
+VALUEAT COMPOSITE-06 fast-path -- aggregate child.valueAt(t).
+  Iterates children and aggregates their instantaneous
+  scalar values; NEVER materializes the full series.  Does
+  NOT increment recomputeCount_ and does NOT warm the cache.
+  At N=8 children, depth 3, log(M)=17 -> ~400 ops per call
+  (sub-microsecond vs. ~150ms for a full getXY).
+
+#### `[tMin, tMax] = getTimeRange(obj)`
+
+GETTIMERANGE Return [X(1), X(end)] of the aggregated grid.
+  Warms the merge-sort cache if cold.  Returns [NaN NaN] when
+  there are no children or any child has no data.
+
+#### `s = toStruct(obj)`
+
+TOSTRUCT Serialize CompositeTag to a plain struct.
+  Emits {kind='composite', key, name, labels, metadata,
+  criticality, units, description, sourceref, aggregatemode,
+  threshold, childkeys, childweights}.  UserFn is NOT
+  serialized (function handles cannot round-trip); consumers
+  must re-bind UserFn after loadFromStructs for 'user_fn' mode.
+  childkeys is double-wrapped (cell-in-cell) to survive the
+  MATLAB struct() cellstr-collapse idiom; fromStruct unwraps.
+
+#### `resolveRefs(obj, registry)`
+
+RESOLVEREFS Pass-2 hook -- wire stashed ChildKeys_ via addChild.
+  Called by TagRegistry.loadFromStructs (and local two-pass
+  loaders during Plan 02 tests).  Re-uses the validated
+  addChild path so type guard + cycle DFS + listener hookup
+  all run on deserialized children.
+
+#### `tag = getChildAt(obj, i)`
+
+GETCHILDAT Return the Tag handle of the i-th child (1-based).
+  Test-affordance API for 3-deep descent assertions
+  (Pitfall 8 round-trip).  Not a mutation path -- child
+  insertion goes through addChild.
+
+### Static Methods
+
+#### `CompositeTag.out = aggregateForTesting(vals, weights, mode, userFn, threshold)`
+
+AGGREGATEFORTESTING Public test-probe wrapper over private aggregate_.
+  Exists SOLELY so suite/flat tests can exercise the truth
+  tables without materializing a full CompositeTag + children
+  graph.  Not part of the stable public API -- consumers
+  should use getXY() / valueAt() instead (Plan 02).
+
+#### `CompositeTag.obj = fromStruct(s)`
+
+FROMSTRUCT Pass-1 reconstruction from a toStruct output.
+  Constructs an empty-children CompositeTag and stashes
+  `ChildKeys_` + `ChildWeights_` for Pass-2 `resolveRefs` to
+  consume.  UserFn is NOT restored -- consumers re-bind it
+  after loadFromStructs for 'user_fn' mode.
+
+---
+
+## `MonitorTag` --- Derived 0/1 binary time-series Tag — lazy-by-default, no persistence.
+
+> Inherits from: `Tag`
+
+MonitorTag produces a binary alarm/ok signal by evaluating a
+  user-supplied ConditionFn against its Parent tag's (X, Y). Output
+  is cached on first read and recomputed only when invalidate() is
+  called (directly or via parent.updateData listener notification).
+
+  This Phase 1006 implementation is lazy-by-default, no persistence —
+  no FastSense data store writes, no disk footprint. Opt-in persistence
+  arrives in Phase 1007 (MONITOR-09).
+
+  MONITOR-05 note: Phase 1006 (later plans) uses the existing Event
+  carrier fields SensorName = Parent.Key and ThresholdLabel = obj.Key.
+  Phase 1010 (EVENT-01) will migrate to a per-Tag keys field on Event.
+  Do NOT write a TagKeys field in this class — it does not exist on
+  Event yet (the carrier pattern uses SensorName + ThresholdLabel).
+
+  MONITOR-10: Only event-level callbacks (OnEventStart, OnEventEnd)
+  are supported. Per-sample callbacks are a documented anti-pattern
+  (PI-AF side-effect pitfall). This class MUST NOT expose keywords
+  whose shape is a per-sample callback.
+
+  ALIGN: operates directly on parent's native grid via parent.getXY().
+  No interp1 linear ever — ZOH is the only legal alignment when
+  aggregating across parents (CompositeTag in a later phase will
+  re-assert this contract via valueAt-on-common-grid).
+
+  Lifecycle: MonitorTag holds a Parent handle; Parent holds a strong
+  reference to MonitorTag via its listeners_ cell. To dispose,
+  unregister the monitor via TagRegistry.unregister AND reset the
+  parent's listener cell (or construct a fresh parent).
+
+  Properties (public):
+    Parent               — Tag handle (required at construction)
+    ConditionFn          — function_handle @(x,y)->logical (required)
+    AlarmOffConditionFn  — function_handle; [] means no hysteresis
+    MinDuration          — native parent-X units; 0 disables debounce
+    EventStore           — EventStore handle; [] disables event emission
+    OnEventStart         — function_handle @(event); [] disables
+    OnEventEnd           — function_handle @(event); [] disables
+    Persist              — logical; when true, derived (X, Y) is
+                           cached to DataStore via storeMonitor on
+                           every recompute_()/appendData() and loaded
+                           on first getXY() (staleness-checked via
+                           quad-signature). Default false — the opt-in
+                           default enforces Pitfall 2 cache-invalidation
+                           discipline: consumers that do not opt in
+                           pay zero disk cost.
+    DataStore            — FastSenseDataStore handle; required when
+                           Persist=true. Provides storeMonitor /
+                           loadMonitor / clearMonitor back-end.
+
+  Methods (Tag contract):
+    getXY                — lazy-memoized 0/1 vector on parent's grid
+    valueAt(t)           — ZOH lookup into getXY cache
+    getTimeRange         — [X(1), X(end)]; [NaN NaN] if empty
+    getKind              — returns 'monitor'
+    toStruct             — serialize (no function handles, no data)
+    fromStruct (Static)  — Pass-1 reconstruction (dummy parent)
+    resolveRefs(registry)— Pass-2 wire Parent + register listener
+
+  Methods (additional):
+    invalidate           — clear cache + mark dirty
+    appendData(newX,newY) — Phase 1007 (MONITOR-08) streaming tail.
+                            Extends cache incrementally; preserves
+                            hysteresis FSM state and MinDuration
+                            bookkeeping across the append boundary.
+                            Falls back to full recompute_() when
+                            the cache is dirty/empty (cold start).
+
+  Error IDs:
+    MonitorTag:invalidParent            — parentTag not a Tag
+    MonitorTag:invalidCondition         — conditionFn not a function_handle
+    MonitorTag:unknownOption            — unknown NV key or dangling key
+    MonitorTag:dataMismatch             — fromStruct missing required fields
+    MonitorTag:unresolvedParent         — Pass-2 parent key not in registry
+    MonitorTag:invalidData              — appendData numeric/length mismatch
+    MonitorTag:persistDataStoreRequired — Persist=true but DataStore empty
+
+  Persistence (Phase 1007 MONITOR-09):
+    Opt-in via Persist=true + DataStore. Staleness detection uses a
+    quad-signature (parent_key, num_points, parent_xmin, parent_xmax)
+    stamped at write. Default-off preserves Pitfall 2 cache-invalidation
+    safety — consumers that do not opt in pay zero disk cost.
+
+### Constructor
+
+```matlab
+obj = MonitorTag(key, parentTag, conditionFn, varargin)
+```
+
+MONITORTAG Construct a MonitorTag.
+  m = MonitorTag(key, parentTag, conditionFn) creates a lazy
+  binary monitor whose output is conditionFn(parentTag.X,
+  parentTag.Y) aligned to parent's native grid.
+
+### Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| Parent |  | Tag handle (required) |
+| ConditionFn |  | function_handle @(x,y) -> logical (required) |
+| AlarmOffConditionFn | `[]` | function_handle; [] means no hysteresis |
+| MinDuration | `0` | native parent-X units; 0 disables debounce |
+| OnEventStart | `[]` | function_handle @(event); [] disables callback |
+| OnEventEnd | `[]` | function_handle @(event); [] disables callback |
+| Persist | `false` | MONITOR-09 opt-in (Pitfall 2 default-off) |
+| DataStore | `[]` | FastSenseDataStore handle; required when Persist=true |
+
+### Methods
+
+#### `[x, y] = getXY(obj)`
+
+GETXY Return lazy-memoized 0/1 vector aligned to parent's grid.
+  When Persist=true + DataStore bound, first attempts a disk
+  load via tryLoadFromDisk_ (quad-signature staleness check).
+  On miss or stale cache, falls through to recompute_() and
+  then persistIfEnabled_() writes the fresh row.
+
+#### `v = valueAt(obj, t)`
+
+VALUEAT ZOH lookup into the cached 0/1 series.
+  Returns NaN if parent has no data.
+
+#### `[tMin, tMax] = getTimeRange(obj)`
+
+GETTIMERANGE Return [X(1), X(end)]; [NaN NaN] if empty.
+
+#### `k = getKind(obj)`
+
+GETKIND Return the kind identifier 'monitor'.
+
+#### `s = toStruct(obj)`
+
+TOSTRUCT Serialize MonitorTag state to a plain struct.
+  Function handles are NOT serialized — consumers re-bind
+  ConditionFn / AlarmOffConditionFn / EventStore / callbacks
+  after loadFromStructs. The Parent handle is stored as its
+  Key string (parentkey); resolveRefs wires the real handle
+  in Pass 2 of the two-phase loader.
+
+#### `resolveRefs(obj, registry)`
+
+RESOLVEREFS Pass-2 hook to wire Parent from registry by key.
+  Called by TagRegistry.loadFromStructs. On success:
+    - obj.Parent is swapped to the real registry entry
+    - obj registers itself as a listener on the real parent
+    - obj.invalidate() clears any stale cache
+    - obj.ParentKey_ is cleared (consumed)
+
+#### `invalidate(obj)`
+
+INVALIDATE Clear cache + mark dirty; cascade to downstream listeners.
+  MonitorTag itself is observable: downstream MonitorTags
+  (recursive chains) register as listeners and are invalidated
+  here so that a root-parent update propagates through the
+  full derivation chain.
+
+#### `addListener(obj, m)`
+
+ADDLISTENER Register a listener notified when this monitor invalidates.
+  Enables recursive MonitorTag chains — an outer MonitorTag
+  that wraps an inner MonitorTag registers as the inner's
+  listener so that root-parent updates cascade through.
+
+#### `appendData(obj, newX, newY)`
+
+APPENDDATA Extend cached (X, Y) with new tail samples — no full recompute.
+  Preserves hysteresis FSM state and MinDuration bookkeeping
+  across the append boundary (MONITOR-08). Events fire only
+  for runs that COMPLETE (reach a falling edge) inside newX:
+  a run still open at the tail end is carried as state for
+  the next appendData call; a run that was already open at
+  the cache end and closes inside newX fires ONE event with
+  StartTime = the original (carried) start.
+
+#### `set()`
+
+#### `set()`
+
+#### `set()`
+
+### Static Methods
+
+#### `MonitorTag.obj = fromStruct(s)`
+
+FROMSTRUCT Pass-1 reconstruction from a toStruct output.
+  The real Parent handle is wired in Pass 2 via resolveRefs.
+  ConditionFn / AlarmOffConditionFn / EventStore / callbacks
+  are NOT restored — consumers must re-bind these after load.
+
+---
+
+## `SensorTag` --- Concrete Tag subclass for sensor time-series data.
+
+> Inherits from: `Tag`
+
+SensorTag is the primary sensor data carrier in the Tag-based domain
+  model.  It stores time-series data (X, Y) directly and satisfies the
+  Tag contract (getXY, valueAt, getTimeRange, getKind='sensor',
+  toStruct, fromStruct).  Data-role methods (load, toDisk, toMemory,
+  isOnDisk) operate on the inlined private properties.
+
+  Properties (Dependent): DataStore -- read-only view of the disk store.
+
+  Constructor accepts Tag universals (Name, Units, Description,
+  Labels, Metadata, Criticality, SourceRef), sensor extras (ID,
+  Source, MatFile, KeyName), and inline 'X'/'Y' data arrays.
+
+### Constructor
+
+```matlab
+obj = SensorTag(key, varargin)
+```
+
+SENSORTAG Construct a SensorTag with inlined data storage.
+  t = SensorTag(key) creates a SensorTag with the given key.
+
+### Methods
+
+#### `ds = get()`
+
+GET.DATASTORE Return the disk-backed DataStore (read-only view).
+
+#### `[X, Y] = getXY(obj)`
+
+GETXY Return X, Y by reference (zero-copy via COW).
+  MATLAB copy-on-write guarantees no memory allocation until
+  the caller mutates X or Y.
+
+#### `v = valueAt(obj, t)`
+
+VALUEAT Return Y at the last index where X <= t (ZOH, clamped).
+  Returns NaN on empty data.
+
+#### `[tMin, tMax] = getTimeRange(obj)`
+
+GETTIMERANGE Return [X(1), X(end)].  [NaN NaN] if empty.
+
+#### `k = getKind(obj)`
+
+GETKIND Return the literal kind identifier 'sensor'.
+
+#### `s = toStruct(obj)`
+
+TOSTRUCT Serialize SensorTag state to a plain struct.
+  Tag universals at the top level; sensor-specific extras
+  nested under s.sensor (only when non-default) to keep the
+  struct compact.  X/Y are INTENTIONALLY OMITTED -- runtime
+  data, not serialization state.
+
+#### `load(obj, matFile)`
 
 LOAD Load sensor data from a .mat file.
-  s.load() populates s.X and s.Y by loading the file
-  specified in s.MatFile using the field name s.KeyName.
-  Requires MatFile and KeyName to be set.
-
-#### `addStateChannel(obj, sc)`
-
-ADDSTATECHANNEL Attach a StateChannel to this sensor.
-  s.addStateChannel(sc) appends the given StateChannel
-  object to the sensor's StateChannels list.  During
-  resolve(), each attached channel's key becomes a field in
-  the state struct used to evaluate ThresholdRule conditions.
-
-#### `addThreshold(obj, thresholdOrKey)`
-
-ADDTHRESHOLD Attach a Threshold entity to this sensor.
-  s.addThreshold(t) appends the given Threshold handle to the
-  sensor's Thresholds list.
-
-#### `removeThreshold(obj, key)`
-
-REMOVETHRESHOLD Detach a Threshold entity by key.
-  s.removeThreshold(key) removes the first Threshold whose Key
-  matches the given char from the sensor's Thresholds list.
-  No error is raised if the key is not found.
+  t.load() uses the already-configured MatFile.
+  t.load(path) sets MatFile before loading.
 
 #### `toDisk(obj)`
 
-TODISK Move sensor X/Y data to disk-backed DataStore.
-  s.toDisk() creates a FastSenseDataStore from the sensor's
-  X and Y arrays, then clears X and Y from memory. The data
-  remains accessible via s.DataStore.getRange() and
-  s.DataStore.readSlice(). Subsequent calls to resolve(),
-  addSensor(), and FastSense rendering all work transparently.
+TODISK Move X/Y data to disk-backed FastSenseDataStore.
+  Clears X_ and Y_ from memory after transfer.
 
 #### `toMemory(obj)`
 
 TOMEMORY Load disk-backed data back into memory.
-  s.toMemory() reads the full dataset from the DataStore
-  back into s.X and s.Y, then cleans up the DataStore.
 
 #### `tf = isOnDisk(obj)`
 
 ISONDISK True if sensor data is stored on disk.
 
-#### `resolve(obj)`
+#### `addListener(obj, m)`
 
-RESOLVE Precompute threshold time series, violations, and state bands.
-  s.resolve() evaluates all Threshold conditions against the
-  attached StateChannels and the sensor's own X/Y data.
-  Results are stored in the ResolvedThresholds,
-  ResolvedViolations, and ResolvedStateBands properties.
+ADDLISTENER Register a listener notified on underlying data change.
+  Listener must implement an invalidate() method. Strong
+  reference -- caller manages lifecycle.
 
-#### `active = getThresholdsAt(obj, t)`
+#### `updateData(obj, X, Y)`
 
-GETTHRESHOLDSAT Evaluate all thresholds at a single time point.
-  active = s.getThresholdsAt(t) builds the composite state
-  struct at time t (by querying each StateChannel), then
-  tests every condition in every Threshold against that state.
-  Returns a struct array of all conditions whose conditions are
-  satisfied, with fields Value, Direction, and Label.
-
-#### `n = countViolations(obj)`
-
-COUNTVIOLATIONS Count total violation points across all thresholds.
-  n = s.countViolations() returns the total number of
-  violation data points summed over all ResolvedViolations.
-  Call resolve() first.
-
-#### `st = currentStatus(obj)`
-
-CURRENTSTATUS Derive 'ok'/'warning'/'alarm' from latest value.
-  st = s.currentStatus() evaluates the sensor's latest Y
-  value against all threshold conditions active at the latest
-  X time. Returns 'ok' if no thresholds are violated,
-  'warning' if a warning-level threshold is violated, or
-  'alarm' if an alarm-level threshold is violated.
-
----
-
-## `StateChannel` --- Discrete state signal with zero-order hold lookup.
-
-> Inherits from: `handle`
-
-StateChannel models a piecewise-constant ("zero-order hold") time
-  series representing a discrete system state (e.g., machine mode,
-  recipe phase).  Given a query time, it returns the most recent
-  known state value.  The class supports both numeric and
-  string/categorical state values.
-
-  StateChannel is used by Sensor to condition ThresholdRule
-  evaluation: each Sensor may reference one or more StateChannels
-  whose values determine which threshold rules are active at any
-  given moment.
-
-### Constructor
-
-```matlab
-obj = StateChannel(key, varargin)
-```
-
-STATECHANNEL Construct a StateChannel object.
-  sc = StateChannel(key) creates a channel with the given
-  identifier and default properties.
-
-### Properties
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| Key |  | char: unique string identifier for this state channel |
-| MatFile |  | char: path to .mat file containing the state data |
-| KeyName |  | char: field name in .mat file (defaults to Key) |
-| X |  | 1xN datenum: sorted timestamps of state transitions |
-| Y |  | 1xN numeric or 1xN cell: state values at each transition |
-
-### Methods
-
-#### `load(obj)`
-
-LOAD Load state data from the external data source.
-  sc.load() populates sc.X and sc.Y by loading the file
-  specified in sc.MatFile.  This is a placeholder that must
-  be overridden or extended to integrate with your project's
-  data loading library.  Alternatively, set X and Y directly.
-
-#### `val = valueAt(obj, t)`
-
-VALUEAT Return state value at time t using zero-order hold.
-  val = sc.valueAt(t) performs a zero-order hold lookup: it
-  returns the last state value whose transition timestamp is
-  at or before the query time t.  If t precedes the first
-  timestamp, the first state value is returned (clamp).
-
----
-
-## `ThresholdRule` --- Defines a condition-value pair for dynamic thresholds.
-
-ThresholdRule pairs a state-condition struct with a numeric
-  threshold value.  A rule is "active" when every field in its
-  Condition struct matches the current system state (implicit AND).
-  An empty condition struct() means the rule is always active
-  (unconditional threshold).
-
-  The Direction property determines whether the threshold is an
-  upper limit ('upper' -- violation when sensor > Value) or a lower
-  limit ('lower' -- violation when sensor < Value).
-
-### Constructor
-
-```matlab
-obj = ThresholdRule(condition, value, varargin)
-```
-
-THRESHOLDRULE Construct a ThresholdRule object.
-  rule = ThresholdRule(condition, value) creates a rule with
-  default direction 'upper', empty label, and dashed line.
-
-### Properties
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| DIRECTIONS | `{'upper', 'lower'}` | Allowed direction values |
-| Condition |  | struct: field names = state channel keys, values = required state |
-| Value |  | numeric: threshold value when condition is true |
-| Direction |  | char: 'upper' or 'lower' violation direction |
-| Label |  | char: display label for plots and legends |
-| Color |  | 1x3 double: RGB color (empty = use theme default) |
-| LineStyle |  | char: MATLAB line-style specifier (e.g., '--', ':') |
-
-### Methods
-
-#### `tf = matchesState(obj, st)`
-
-MATCHESSTATE Check if a state struct satisfies this rule's condition.
-  tf = rule.matchesState(st) returns true if every field in
-  the rule's Condition struct exists in st and has a matching
-  value (implicit AND logic).  An empty Condition always
-  returns true, meaning the rule is unconditional.
-
----
-
-## `SensorRegistry` --- Catalog of predefined sensor definitions.
-
-SensorRegistry provides a centralized, singleton-style catalog of
-  all known Sensor objects in the SensorThreshold library. Sensor
-  definitions are specified in the private catalog() method and
-  cached in a persistent variable so that repeated lookups incur no
-  construction overhead.
-
-  To add a new sensor, edit the catalog() method at the bottom of
-  this file.  Each entry creates a Sensor object, optionally
-  configures its state channels and threshold rules, then stores it
-  in the containers.Map keyed by a short string identifier.
+UPDATEDATA Replace X/Y data and fire listeners.
 
 ### Static Methods
 
-#### `SensorRegistry.s = get(key)`
+#### `SensorTag.obj = fromStruct(s)`
 
-GET Retrieve a predefined sensor by key.
-  s = SensorRegistry.get(key) returns the Sensor object
-  registered under the string key. Throws an error if the
-  key is not found in the catalog.
-
-#### `SensorRegistry.sensors = getMultiple(keys)`
-
-GETMULTIPLE Retrieve multiple sensors by key.
-  sensors = SensorRegistry.getMultiple(keys) returns a cell
-  array of Sensor objects, one per element of the input keys.
-
-#### `SensorRegistry.list()`
-
-LIST Print all available sensor keys and names.
-  SensorRegistry.list() prints a formatted table of every
-  registered sensor key and its human-readable name to the
-  command window.  Keys are sorted alphabetically.
-
-#### `SensorRegistry.register(key, sensor)`
-
-REGISTER Add a sensor to the catalog at runtime.
-  SensorRegistry.register('myKey', sensorObj)
-
-#### `SensorRegistry.unregister(key)`
-
-UNREGISTER Remove a sensor from the catalog.
-
-#### `SensorRegistry.printTable()`
-
-PRINTTABLE Print a detailed table of all registered sensors.
-  SensorRegistry.printTable() prints a formatted table with
-  columns: Key, Name, ID, Source, MatFile, #States, #Rules, #Points.
-
-#### `SensorRegistry.hFig = viewer()`
-
-VIEWER Open a GUI figure showing all registered sensors.
-  hFig = SensorRegistry.viewer() creates a figure with a
-  uitable listing every sensor's Key, Name, ID, Source,
-  MatFile, #States, #Rules, and #Points.
+FROMSTRUCT Reconstruct SensorTag from a toStruct output.
 
 ---
 
-## `CompositeThreshold` --- Threshold subclass that aggregates child Threshold objects.
+## `StateTag` --- Concrete Tag subclass for discrete state signals with ZOH lookup.
 
-> Inherits from: `Threshold`
+> Inherits from: `Tag`
 
-CompositeThreshold enables hierarchical status trees where a parent
-  component's status is derived from its children's statuses using
-  configurable AND, OR, or MAJORITY logic.
+StateTag models a piecewise-constant ("zero-order hold") time
+  series representing a discrete system state (e.g., machine mode,
+  recipe phase).  valueAt(t) returns the most recent known state
+  value using a right-biased binary search on X.  Supports BOTH
+  numeric and cellstr Y — semantics are byte-for-byte equivalent to
+  legacy StateChannel.valueAt.  Adds StateTag:emptyState guard so
+  unloaded tags produce a clean error instead of a bounds crash.
 
-  A composite is itself a Threshold (isa returns true), so it can be
-  registered in ThresholdRegistry and used anywhere a Threshold is
-  accepted.  Composites can be nested: a CompositeThreshold may be
-  added as a child of another CompositeThreshold, allowing arbitrarily
-  deep system-health trees.
+  Properties (public, in addition to Tag universals):
+    X — 1xN sorted numeric: timestamps of state transitions
+    Y — 1xN numeric OR 1xN cell of char: state values
 
-  CompositeThreshold Properties (public):
-    AggregateMode — 'and' | 'or' | 'majority' (default 'and')
-                    Controls how child statuses are combined.
+  Methods:
+    StateTag     — constructor (key + 'X','Y' + Tag universals)
+    getXY        — return [X, Y] (pass-through)
+    valueAt(t)   — ZOH lookup; scalar or vector t; numeric or cellstr Y
+    getTimeRange — [X(1), X(end)]; [NaN NaN] if empty
+    getKind      — returns 'state'
+    toStruct     — serialize X, Y, plus Tag universals
+    fromStruct   — static factory rebuilding StateTag from toStruct
+
+  Error IDs:
+    StateTag:emptyState     — valueAt on empty X/Y
+    StateTag:unknownOption  — unknown constructor name-value key
+    StateTag:dataMismatch   — fromStruct struct missing .key
 
 ### Constructor
 
 ```matlab
-obj = CompositeThreshold(key, varargin)
+obj = StateTag(key, varargin)
 ```
 
-COMPOSITETHRESHOLD Construct a CompositeThreshold.
-  c = CompositeThreshold(key) creates a composite with the
-  given key and default AggregateMode='and'.
+STATETAG Construct a StateTag; delegates universals to Tag + parses X/Y.
+  Valid name-value keys: 'X', 'Y', plus Tag universals (Name,
+  Units, Description, Labels, Metadata, Criticality, SourceRef).
+  Raises StateTag:unknownOption for unrecognized or dangling keys.
 
 ### Properties
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| AggregateMode | `'and'` | char: 'and' \| 'or' \| 'majority' |
+| X | `[]` | 1xN numeric: sorted transition timestamps |
+| Y | `[]` | 1xN numeric OR 1xN cell of char: state values |
+
+### Methods
+
+#### `[X, Y] = getXY(obj)`
+
+GETXY Return [X, Y] data vectors (pass-through).
+
+#### `val = valueAt(obj, t)`
+
+VALUEAT Return state value at t using zero-order hold.
+  Right-biased binary search on X: largest idx with X(idx)<=t,
+  clamped to [1, N].  Supports scalar and vector t for both
+  numeric and cellstr Y.  Raises StateTag:emptyState if X or
+  Y is empty.  Semantics match StateChannel.valueAt byte-for-byte.
+
+#### `[tMin, tMax] = getTimeRange(obj)`
+
+GETTIMERANGE Return [X(1), X(end)]; [NaN NaN] if empty.
+
+#### `k = getKind(obj)`
+
+GETKIND Return the kind identifier 'state'.
+
+#### `s = toStruct(obj)`
+
+TOSTRUCT Serialize StateTag to a plain struct.
+  Wraps cellstr Labels and cellstr Y once via {...} to survive
+  MATLAB's struct() cellstr-collapse.  fromStruct unwraps.
+
+#### `addListener(obj, m)`
+
+ADDLISTENER Register a listener notified on underlying data change.
+  Listener must implement an invalidate() method. Strong
+  reference — caller manages lifecycle.
+
+#### `updateData(obj, X, Y)`
+
+UPDATEDATA Replace public X/Y and fire listeners (MONITOR-04).
+  Additive API — does NOT touch constructor or getXY paths.
+  Any registered MonitorTag or other listener receives an
+  invalidate() call after the new data is installed.
+
+### Static Methods
+
+#### `StateTag.obj = fromStruct(s)`
+
+FROMSTRUCT Reconstruct StateTag from a toStruct output.
+
+---
+
+## `Tag` --- Abstract base for the unified Tag domain model.
+
+> Inherits from: `handle`
+
+Tag is the root of the v2.0 domain hierarchy.  Subclasses
+  (SensorTag, StateTag, MonitorTag, CompositeTag) provide concrete
+  implementations of the six abstract-by-convention methods.
+
+  Tag uses the Octave-safe "throw-from-base" abstract pattern:
+  the base class provides stub methods that raise a notImplemented
+  error, and subclasses override with concrete implementations.
+  Do NOT use the Abstract-methods block pattern here — it has
+  divergent semantics between MATLAB and Octave (see DataSource.m
+  for the proven pattern used here).
+
+  Tag Properties (public):
+    Key         — char: unique identifier (required, non-empty)
+    Name        — char: human-readable name (defaults to Key)
+    Units       — char: measurement unit
+    Description — char: free-text description
+    Labels      — cellstr: cross-cutting classification (META-01)
+    Metadata    — struct: open key-value bag (META-03)
+    Criticality — char enum: 'low'|'medium'|'high'|'safety' (META-04)
+    SourceRef   — char: optional provenance string
+
+  Tag Methods (abstract-by-convention — subclass must implement):
+    getXY               — return [X, Y] data vectors
+    valueAt(t)          — return scalar value at time t
+    getTimeRange        — return [tMin, tMax]
+    getKind             — return kind string ('sensor'|'state'|'monitor'|'composite'|'mock')
+    toStruct            — return serializable struct
+    fromStruct (Static) — reconstruct from struct
+
+  Tag Methods (default hooks — override when needed):
+    resolveRefs(registry) — Pass-2 deserialization hook; default no-op
+
+### Constructor
+
+```matlab
+obj = Tag(key, varargin)
+```
+
+TAG Construct a Tag with required key and optional name-value pairs.
+
+### Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| Key | `''` | char: unique identifier |
+| Name | `''` | char: human-readable name |
+| Units | `''` | char: measurement unit |
+| Description | `''` | char: free-text description |
+| Labels | `{}` | cellstr: cross-cutting classification |
+| Metadata | `struct()` | struct: open key-value bag |
+| Criticality | `'medium'` | char enum: 'low'\|'medium'\|'high'\|'safety' |
+| SourceRef | `''` | char: optional provenance string |
+| EventStore | `[]` | EventStore handle; [] disables event convenience methods |
 
 ### Methods
 
 #### `set()`
 
-SET.AGGREGATEMODE Validate and set the aggregate mode.
+SET.CRITICALITY Validate enum before assigning.
 
-#### `addChild(obj, thresholdOrKey, varargin)`
+#### `[X, Y] = getXY(obj)`
 
-ADDCHILD Add a child Threshold to this composite.
-  c.addChild(threshold) adds the given Threshold object as a
-  child with no associated value (computeStatus will return
-  'ok' for that child since no value to compare against).
+GETXY Return [X, Y] data vectors.  Subclass must override.
 
-#### `status = computeStatus(obj)`
+#### `v = valueAt(obj, t)`
 
-COMPUTESTATUS Evaluate the aggregate status of this composite.
-  status = c.computeStatus() returns 'ok' if the aggregate of
-  all children's statuses satisfies AggregateMode, or 'alarm'
-  otherwise.  Returns 'ok' when children list is empty.
+VALUEAT Return scalar value at time t.  Subclass must override.
 
-#### `ch = getChildren(obj)`
+#### `[tMin, tMax] = getTimeRange(obj)`
 
-GETCHILDREN Return the children cell array.
-  ch = c.getChildren() returns the internal cell array of child
-  structs, each with fields: threshold, valueFcn, value.
+GETTIMERANGE Return [tMin, tMax] time bounds.  Subclass must override.
 
-#### `vals = allValues(obj)`
+#### `k = getKind(obj)`
 
-ALLVALUES Return [] — composites have no direct conditions.
-  CompositeThreshold stores no ThresholdRule objects directly.
-  Status is computed from children, not from threshold conditions.
+GETKIND Return kind string.  Subclass must override.
 
 #### `s = toStruct(obj)`
 
-TOSTRUCT Serialize this CompositeThreshold to a plain struct.
-  s = c.toStruct() returns a struct suitable for JSON encoding.
-  Fields: type ('composite'), key, name, aggregateMode, children.
-  Each entry in children has: key, and optionally value (when a
-  static scalar value was registered via addChild(...,'Value',v)).
-  Nested CompositeThreshold children additionally carry type='composite'.
+TOSTRUCT Return serializable struct.  Subclass must override.
+
+#### `resolveRefs(obj, registry)`
+
+RESOLVEREFS Pass-2 hook for two-phase deserialization.
+  Default: no-op.  CompositeTag (Phase 1008) will override to
+  wire up children by key.  Leaf tags (Sensor/State/Monitor)
+  do not need references resolved.
+
+#### `addManualEvent(obj, tStart, tEnd, label, message)`
+
+ADDMANUALEVENT Create a manual annotation event bound to this tag.
+  tag.addManualEvent(tStart, tEnd, label, message) creates an Event
+  with Category = 'manual_annotation' and TagKeys = {obj.Key},
+  appends to the bound EventStore, and registers in EventBinding.
+
+#### `events = eventsAttached(obj)`
+
+EVENTSATTACHED Query events bound to this tag via EventBinding.
+  Returns Event array (possibly empty). This is a query, NOT a
+  stored property -- no Event handles on Tag (Pitfall 4).
 
 ### Static Methods
 
-#### `CompositeThreshold.obj = fromStruct(s)`
+#### `Tag.obj = fromStruct(s)`
 
-FROMSTRUCT Reconstruct a CompositeThreshold from a plain struct.
-  obj = CompositeThreshold.fromStruct(s) creates a new
-  CompositeThreshold using fields in s and resolves children
-  via ThresholdRegistry.get(key).  Any child key that is not
-  found in the registry is skipped with a warning.
+FROMSTRUCT Reconstruct a Tag from a struct.  Subclass must override.
 
 ---
 
-## `ExternalSensorRegistry` --- Non-singleton sensor registry for external data.
+## `TagRegistry` --- Singleton catalog of named Tag entities.
 
-> Inherits from: `handle`
+TagRegistry provides a centralized, persistent catalog of all
+  known Tag objects in the v2.0 domain model.  It mirrors the
+  ThresholdRegistry API for CRUD / query / introspection, with
+  three intentional deltas:
 
-ExternalSensorRegistry holds explicitly registered Sensor objects
-  and wires them to .mat file data sources for use with
-  LiveEventPipeline.
+    1. register() HARD-ERRORS on duplicate key (Pitfall 7).
+       ThresholdRegistry silently overwrites — TagRegistry does
+       not, to prevent subtle identity bugs when two different
+       tags claim the same key.
+    2. loadFromStructs() uses two-phase deserialization
+       (Pitfall 8):
+         Pass 1 — instantiate every tag with empty children.
+         Pass 2 — call tag.resolveRefs(registry) on each.
+       This is order-insensitive; no silent try/warn/skip.  Any
+       resolveRefs failure is wrapped as TagRegistry unresolvedRef.
+    3. findByKind() replaces findByDirection() because Tag is
+       multi-kind (sensor | state | monitor | composite | mock).
 
-  Unlike SensorRegistry (singleton with hardcoded catalog), this
-  class supports multiple instances and is populated via register().
+  The catalog starts EMPTY on first use.
 
-### Constructor
-
-```matlab
-obj = ExternalSensorRegistry(name)
-```
-
-EXTERNALSENSORREGISTRY Construct a named registry.
-  reg = ExternalSensorRegistry('MyLab')
-
-### Properties
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| Name |  | char: human-readable label for this registry |
-
-### Methods
-
-#### `n = count(obj)`
-
-COUNT Number of registered sensors.
-
-#### `k = keys(obj)`
-
-KEYS Return all registered sensor keys.
-
-#### `register(obj, key, sensor)`
-
-REGISTER Add a Sensor to the catalog.
-  reg.register('key', sensorObj)
-
-#### `unregister(obj, key)`
-
-UNREGISTER Remove a Sensor from the catalog.
-
-#### `s = get(obj, key)`
-
-GET Retrieve a sensor by key.
-
-#### `sensors = getMultiple(obj, keys)`
-
-GETMULTIPLE Retrieve multiple sensors by key.
-
-#### `m = getAll(obj)`
-
-GETALL Return a copy of the catalog as a containers.Map.
-
-#### `list(obj)`
-
-LIST Print all registered sensor keys and names.
-
-#### `printTable(obj)`
-
-PRINTTABLE Print a detailed table of all registered sensors.
-
-#### `wireMatFile(obj, matFilePath, mappings)`
-
-WIREMATFILE Wire .mat file fields to registered sensor keys.
-  reg.wireMatFile('data.mat', {
-      'sensorKey', 'XVar', 'time', 'YVar', 'value';
-  })
-
-#### `dsMap = getDataSourceMap(obj)`
-
-GETDATASOURCEMAP Return the DataSourceMap for pipeline use.
-
-#### `hFig = viewer(obj)`
-
-VIEWER Open a GUI figure showing all registered sensors.
-
-#### `wireStateChannel(obj, sensorKey, stateKey, matFilePath, varargin)`
-
-WIRESTATECHANNEL Wire state channel data to a registered sensor.
-  reg.wireStateChannel('sensorKey', 'stateKey', 'states.mat', ...
-      'XVar', 'state_time', 'YVar', 'state_val')
-
----
-
-## `Threshold` --- First-class threshold entity with condition-value pairs.
-
-> Inherits from: `handle`
-
-Threshold is an independent, reusable entity that encapsulates a
-  threshold definition — its direction, appearance, metadata, and a
-  set of condition-value pairs (ThresholdRule objects).
-
-  Unlike ThresholdRule (which is sensor-scoped), Threshold is a
-  standalone entity that can be registered in ThresholdRegistry and
-  shared across multiple sensors or dashboard widgets.
-
-### Constructor
-
-```matlab
-obj = Threshold(key, varargin)
-```
-
-THRESHOLD Construct a Threshold object.
-  t = Threshold(key) creates a threshold with the given key
-  and default values: Direction='upper', LineStyle='--'.
-
-### Properties
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| Key |  | char: unique identifier |
-| Name |  | char: human-readable display name |
-| Direction |  | char: 'upper' or 'lower' |
-| Color |  | 1x3 double: RGB color (empty = theme default) |
-| LineStyle |  | char: MATLAB line-style token |
-| Units |  | char: measurement unit |
-| Description |  | char: free-text description |
-| Tags |  | cell: string tags for filtering/discovery |
-
-### Methods
-
-#### `addCondition(obj, conditionStruct, value)`
-
-ADDCONDITION Append a condition-value pair as a ThresholdRule.
-  t.addCondition(conditionStruct, value) creates an internal
-  ThresholdRule using the threshold's Direction, Name, Color,
-  and LineStyle, then appends it to conditions_.
-
-#### `vals = allValues(obj)`
-
-ALLVALUES Return numeric vector of all condition values.
-  vals = t.allValues() extracts the Value from each
-  ThresholdRule in conditions_ and returns them as a row
-  vector.  Returns [] when no conditions are defined.
-
-#### `fields = getConditionFields(obj)`
-
-GETCONDITIONFIELDS Return unique sorted fieldnames across all conditions.
-  fields = t.getConditionFields() iterates every condition in
-  conditions_ and returns the union of all struct fieldnames as
-  a sorted, deduplicated cell array of char.
-
-#### `label = get()`
-
-GET.LABEL Dependent property: returns Name.
-  Provides backward compatibility with code that reads .Label
-  (e.g., buildThresholdEntry uses rule.Label).
-
----
-
-## `ThresholdRegistry` --- Singleton catalog of named Threshold entities.
-
-ThresholdRegistry provides a centralized, persistent catalog of all
-  known Threshold objects.  It mirrors the SensorRegistry API so the
-  two registries have a consistent interface.
-
-  The catalog starts EMPTY — no predefined entries.  Users add their
-  own thresholds via ThresholdRegistry.register(key, t) and retrieve
-  them later via ThresholdRegistry.get(key).
+  TagRegistry Methods (Static, public):
+    get             — retrieve Tag by key; errors if missing
+    register        — add Tag to catalog; hard error on duplicate
+    unregister      — remove Tag (silent no-op if missing)
+    clear           — wipe catalog
+    find            — tags matching predicate fn
+    findByLabel     — tags carrying a given label (META-02)
+    findByKind      — tags whose getKind() matches
+    list            — print sorted keys + names to command window
+    printTable      — detailed table (Key/Name/Kind/Criticality/Units/Labels)
+    viewer          — uitable GUI (Octave-safe)
+    loadFromStructs — two-phase JSON round-trip (TAG-06, TAG-07)
+    instantiateByKind — dispatch s.kind -> the right fromStruct
 
 ### Static Methods
 
-#### `ThresholdRegistry.t = get(key)`
+#### `TagRegistry.t = get(key)`
 
-GET Retrieve a Threshold by key.
-  t = ThresholdRegistry.get(key) returns the Threshold stored
-  under key.  Throws 'ThresholdRegistry:unknownKey' if not found.
+GET Retrieve a Tag by key.
+  t = TagRegistry.get(key) returns the Tag stored under key.
+  Throws TagRegistry unknownKey if not registered.
 
-#### `ThresholdRegistry.ts = getMultiple(keys)`
+#### `TagRegistry.register(key, tag)`
 
-GETMULTIPLE Retrieve multiple Thresholds by key.
-  ts = ThresholdRegistry.getMultiple(keys) returns a 1xN cell
-  array of Threshold handles, one per element of keys.
+REGISTER Add a Tag to the catalog (hard error on collision).
+  TagRegistry.register(key, tag) stores tag under key.
+  Unlike ThresholdRegistry (which silently overwrites), this
+  registry HARD-ERRORS on collision with TagRegistry
+  duplicateKey (Pitfall 7).  Call TagRegistry.unregister(key)
+  first to replace an existing entry.
 
-#### `ThresholdRegistry.register(key, t)`
+#### `TagRegistry.unregister(key)`
 
-REGISTER Add a Threshold to the catalog.
-  ThresholdRegistry.register(key, t) stores t under key.
-  Overwrites any existing entry with the same key.
+UNREGISTER Remove a Tag (silent no-op if missing).
 
-#### `ThresholdRegistry.unregister(key)`
+#### `TagRegistry.clear()`
 
-UNREGISTER Remove a Threshold from the catalog.
-  ThresholdRegistry.unregister(key) removes the entry if it
-  exists.  No error if the key is not present.
+CLEAR Wipe the catalog.  Primarily for test isolation.
 
-#### `ThresholdRegistry.clear()`
+#### `TagRegistry.ts = find(predicateFn)`
 
-CLEAR Remove all entries from the catalog.
-  ThresholdRegistry.clear() empties the entire catalog.
-  Primarily used in tests to reset state between test runs.
+FIND Return cell of Tags matching predicateFn(tag) -> logical.
 
-#### `ThresholdRegistry.list()`
+#### `TagRegistry.ts = findByLabel(label)`
 
-LIST Print all registered threshold keys and names.
-  ThresholdRegistry.list() prints a formatted list of every
-  registered threshold key and its human-readable name.
-  Keys are printed in sorted order.
+FINDBYLABEL Return cell of Tags carrying the given label (META-02).
 
-#### `ThresholdRegistry.printTable()`
+#### `TagRegistry.ts = findByKind(kind)`
 
-PRINTTABLE Print a detailed table of all registered thresholds.
-  ThresholdRegistry.printTable() prints a formatted table with
-  columns: Key, Name, Direction, #Conditions, Tags.
+FINDBYKIND Return cell of Tags where getKind() == kind.
 
-#### `ThresholdRegistry.hFig = viewer()`
+#### `TagRegistry.list()`
 
-VIEWER Open a GUI figure showing all registered thresholds.
-  hFig = ThresholdRegistry.viewer() creates a figure with a
-  uitable listing every threshold's Key, Name, Direction,
-  #Conditions, Units, and Tags.
+LIST Print sorted keys + names to command window.
 
-#### `ThresholdRegistry.ts = findByTag(tag)`
+#### `TagRegistry.printTable()`
 
-FINDBYTAG Return all Thresholds carrying the given tag.
-  ts = ThresholdRegistry.findByTag(tag) iterates the catalog
-  and returns a cell array of Threshold handles whose Tags
-  cell contains an entry matching tag.  Returns {} if none.
+PRINTTABLE Print Key/Name/Kind/Criticality/Units/Labels table.
 
-#### `ThresholdRegistry.ts = findByDirection(dir)`
+#### `TagRegistry.hFig = viewer()`
 
-FINDBYDIRECTION Return all Thresholds with the given direction.
-  ts = ThresholdRegistry.findByDirection(dir) iterates the
-  catalog and returns a cell array of Threshold handles whose
-  Direction matches dir ('upper' or 'lower').  Returns {} if none.
+VIEWER Open uitable GUI showing all registered tags (Octave-safe).
+
+#### `TagRegistry.loadFromStructs(structs)`
+
+LOADFROMSTRUCTS Two-phase JSON deserialization (TAG-06, Pitfall 8).
+  Pass 1: instantiate every tag with empty children and
+          register it via TagRegistry.register (so duplicate
+          keys in the input surface as TagRegistry
+          duplicateKey, and unknown kinds surface as
+          TagRegistry unknownKind).
+  Pass 2: call tag.resolveRefs(catalog) on every registered
+          tag.  Any error raised during Pass 2 is wrapped
+          and rethrown as TagRegistry unresolvedRef — never
+          silently swallowed.
+
+#### `TagRegistry.tag = instantiateByKind(s)`
+
+INSTANTIATEBYKIND Dispatch fromStruct based on s.kind.
+  Phase 1004 ships 'mock' and 'mockThrowingResolve' only
+  (tests).  Phase 1005+ extends the switch for sensor,
+  state, monitor, and composite kinds.
 

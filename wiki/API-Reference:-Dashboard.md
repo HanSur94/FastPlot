@@ -246,6 +246,9 @@ Subclasses must implement:
 obj = DashboardWidget(varargin)
 ```
 
+Map legacy 'Sensor' NV pair to 'Tag' for backward compat
+of serialized dashboards.
+
 ### Properties
 
 | Property | Default | Description |
@@ -255,7 +258,7 @@ obj = DashboardWidget(varargin)
 | ThemeOverride | `struct()` | Per-widget theme overrides (merged on top of dashboard theme) |
 | UseGlobalTime | `true` | false when user manually zooms this widget |
 | Description | `''` | Optional tooltip text shown via info icon hover |
-| Sensor | `[]` | Sensor object for data binding (primary source) |
+| Tag | `[]` | v2.0 Tag API — any Tag subclass |
 | ParentTheme | `[]` | Theme inherited from DashboardEngine |
 | Dirty | `true` | true when widget needs refresh (data changed) |
 | hPanel | `[]` | Handle to the uipanel this widget renders into |
@@ -306,13 +309,11 @@ ASCIIRENDER Return ASCII representation of this widget.
 
 > Inherits from: `DashboardWidget`
 
-Supports three data binding modes:
-    Sensor:    w = FastSenseWidget('Sensor', sensorObj)
+Supports data binding modes:
+    Tag:       w = FastSenseWidget('Tag', tagObj)
     DataStore: w = FastSenseWidget('DataStore', dsObj)
     Inline:    w = FastSenseWidget('XData', x, 'YData', y)
     File:      w = FastSenseWidget('File', 'path.mat', 'XVar', 'x', 'YVar', 'y')
-
-  When bound to a Sensor, Thresholds apply automatically.
 
 ### Constructor
 
@@ -342,14 +343,14 @@ obj = FastSenseWidget(varargin)
 
 #### `refresh(obj)`
 
-Re-render sensor-bound widgets so updated data + violations show.
-Uses incremental updateData() path when sensor identity is unchanged
+Re-render Tag-bound widgets so updated data shows.
+Uses incremental updateData() path when tag identity is unchanged
 (PERF2-01); falls back to full teardown/rebuild on first render,
-sensor swap, or error.  Zoom state (xlim) is preserved in both paths.
+tag swap, or error.  Zoom state (xlim) is preserved in both paths.
 
 #### `update(obj)`
 
-UPDATE Incrementally update sensor data without full axes rebuild.
+UPDATE Incrementally update Tag data without full axes rebuild.
   Uses FastSenseObj.updateData() to replace data and re-downsample,
   avoiding the expensive delete/recreate cycle of refresh().
   Falls back to refresh() if FastSenseObj is not in a renderable state.
@@ -671,6 +672,7 @@ obj = EventTimelineWidget(varargin)
 | Events | `[]` | struct array of events (legacy) |
 | EventFcn | `[]` | function_handle returning events (legacy) |
 | FilterSensors | `{}` | Cell array of Sensor names to filter |
+| FilterTagKey | `''` | Tag-key filter (MONITOR-05 carrier: SensorName OR ThresholdLabel match) |
 | ColorSource | `'event'` | 'event' or 'theme' |
 
 ### Methods
