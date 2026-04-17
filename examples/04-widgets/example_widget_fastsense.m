@@ -32,8 +32,6 @@ t = linspace(0, 86400, N);  % 24 hours in seconds
 scMode = StateTag('machine', 'X', [0, 7200, 43200, 57600], 'Y', [0, 1,    0,     1]);
 
 % Temperature sensor — state-dependent thresholds
-sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'C']);
-sTemp.X = t;
 baseTemp = zeros(1, N);
 for k = 1:N
     if scMode.valueAt(t(k)) == 1
@@ -42,7 +40,8 @@ for k = 1:N
         baseTemp(k) = 66;
     end
 end
-sTemp.Y = baseTemp + 4*sin(2*pi*t/3600) + randn(1,N)*1.5;
+yTemp = baseTemp + 4*sin(2*pi*t/3600) + randn(1,N)*1.5;
+sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'C'], 'X', t, 'Y', yTemp);
 
 
 % Pressure sensor — simple unconditional thresholds

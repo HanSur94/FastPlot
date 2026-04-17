@@ -29,9 +29,9 @@ rng(42);
 N = 500;
 t = linspace(0, 3600, N);
 
-sCpu = SensorTag('CPU-1', 'Name', 'CPU Load', 'Units', '%', 'X', t, 'Y', max(0, min(100, sCpu.Y)));
-sCpu.Y = 55 + 20*sin(2*pi*t/900) + randn(1,N)*3;
-sCpu.Y = max(0, min(100, sCpu.Y));
+yCpu = 55 + 20*sin(2*pi*t/900) + randn(1,N)*3;
+yCpu = max(0, min(100, yCpu));
+sCpu = SensorTag('CPU-1', 'Name', 'CPU Load', 'Units', '%', 'X', t, 'Y', yCpu);
 
 sMem = SensorTag('MEM-1', 'Name', 'Memory', 'Units', 'GB', 'X', t, 'Y', 12 + 4*sin(2*pi*t/1800) + randn(1,N)*0.2);
 

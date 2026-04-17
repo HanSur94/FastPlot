@@ -30,13 +30,12 @@ sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X',
 
 
 % Pressure — bimodal (two machine modes)
-sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi');
-sPress.X = t;
 modeA = t < 43200;  % first 12 hours: lower pressure
 modeB = t >= 43200; % second 12 hours: higher pressure
-sPress.Y = zeros(1, N);
-sPress.Y(modeA) = 30 + randn(1, sum(modeA))*3;
-sPress.Y(modeB) = 55 + randn(1, sum(modeB))*4;
+yPress = zeros(1, N);
+yPress(modeA) = 30 + randn(1, sum(modeA))*3;
+yPress(modeB) = 55 + randn(1, sum(modeB))*4;
+sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', t, 'Y', yPress);
 
 % Vibration — log-normal (positively skewed)
 sVib = SensorTag('V-501', 'Name', 'Vibration RMS', 'Units', 'mm/s', 'X', t, 'Y', max(0.1, exp(0.5 + 0.4*randn(1,N))));  % log-normal

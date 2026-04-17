@@ -34,40 +34,40 @@ t = linspace(0, 3600, N);  % 1 hour
 % --- Green (ok) sensors: tail stays within normal range ---
 
 % Temperature — ok (tail = 74, warn @ 80, alarm @ 90)
-sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X', t, 'Y', 72 + 1.5*randn(1,N));
-sTemp.Y(end-50:end) = 74;
+yTemp = 72 + 1.5*randn(1,N);  yTemp(end-50:end) = 74;
+sTemp = SensorTag('T-401', 'Name', 'Temperature', 'Units', [char(176) 'F'], 'X', t, 'Y', yTemp);
 
 % Flow Rate — ok (tail = 115, lo warn @ 90, hi alarm @ 160)
-sFlow = SensorTag('F-301', 'Name', 'Flow Rate', 'Units', 'L/min', 'X', t, 'Y', 120 + 3*randn(1,N));
-sFlow.Y(end-50:end) = 115;
+yFlow = 120 + 3*randn(1,N);  yFlow(end-50:end) = 115;
+sFlow = SensorTag('F-301', 'Name', 'Flow Rate', 'Units', 'L/min', 'X', t, 'Y', yFlow);
 
 % Tank Level — ok (tail = 52, lo warn @ 15, hi warn @ 85, hi alarm @ 95)
-sLevel = SensorTag('L-102', 'Name', 'Tank Level', 'Units', '%', 'X', t, 'Y', 50 + 5*randn(1,N));
-sLevel.Y(end-50:end) = 52;
+yLevel = 50 + 5*randn(1,N);  yLevel(end-50:end) = 52;
+sLevel = SensorTag('L-102', 'Name', 'Tank Level', 'Units', '%', 'X', t, 'Y', yLevel);
 
 % --- Yellow (warning) sensors: tail above warn but below alarm ---
 
 % Pressure — warning (tail = 67, warn @ 65, alarm @ 75)
-sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', t, 'Y', 45 + 3*randn(1,N));
-sPress.Y(end-50:end) = 67;
+yPress = 45 + 3*randn(1,N);  yPress(end-50:end) = 67;
+sPress = SensorTag('P-201', 'Name', 'Pressure', 'Units', 'psi', 'X', t, 'Y', yPress);
 
 % Humidity — warning (tail = 82, warn @ 80, alarm @ 95)
-sHumid = SensorTag('H-601', 'Name', 'Humidity', 'Units', '%RH', 'X', t, 'Y', 55 + 4*randn(1,N));
-sHumid.Y(end-50:end) = 82;
+yHumid = 55 + 4*randn(1,N);  yHumid(end-50:end) = 82;
+sHumid = SensorTag('H-601', 'Name', 'Humidity', 'Units', '%RH', 'X', t, 'Y', yHumid);
 
 % --- Red (alarm) sensors: tail above alarm threshold ---
 
 % Motor Current — alarm (tail = 16, warn @ 12, alarm @ 15)
-sCurrent = SensorTag('I-701', 'Name', 'Motor Current', 'Units', 'A', 'X', t, 'Y', 8.5 + 0.5*randn(1,N));
-sCurrent.Y(end-50:end) = 16;
+yCurrent = 8.5 + 0.5*randn(1,N);  yCurrent(end-50:end) = 16;
+sCurrent = SensorTag('I-701', 'Name', 'Motor Current', 'Units', 'A', 'X', t, 'Y', yCurrent);
 
 % Vibration RMS — alarm (tail = 4.5, warn @ 3, alarm @ 4)
-sVib = SensorTag('V-501', 'Name', 'Vibration RMS', 'Units', 'mm/s', 'X', t, 'Y', max(0.1, 1.2 + 0.2*randn(1,N)));
-sVib.Y(end-50:end) = 4.5;
+yVib = max(0.1, 1.2 + 0.2*randn(1,N));  yVib(end-50:end) = 4.5;
+sVib = SensorTag('V-501', 'Name', 'Vibration RMS', 'Units', 'mm/s', 'X', t, 'Y', yVib);
 
 % CO Level — alarm (tail = 28, warn @ 15, alarm @ 25)
-sCO = SensorTag('GAS-1', 'Name', 'CO Level', 'Units', 'ppm', 'X', t, 'Y', 5 + 2*randn(1,N));
-sCO.Y(end-50:end) = 28;
+yCO = 5 + 2*randn(1,N);  yCO(end-50:end) = 28;
+sCO = SensorTag('GAS-1', 'Name', 'CO Level', 'Units', 'ppm', 'X', t, 'Y', yCO);
 
 allSensors = {sTemp, sFlow, sLevel, sPress, sHumid, sCurrent, sVib, sCO};
 

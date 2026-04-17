@@ -27,8 +27,9 @@ N = 5000;
 t = linspace(0, 3600, N);  % 1 hour in seconds
 
 % Pump speed — last value above Hi Alarm => alarm (red)
-sPump = SensorTag('M-101', 'Name', 'Pump Speed', 'Units', 'RPM', 'X', t, 'Y', 2800 + 150*sin(2*pi*t/600) + randn(1,N)*20);
-sPump.Y(end-200:end) = 3250 + randn(1,201)*10;   % push tail into alarm
+yPump = 2800 + 150*sin(2*pi*t/600) + randn(1,N)*20;
+yPump(end-200:end) = 3250 + randn(1,201)*10;   % push tail into alarm
+sPump = SensorTag('M-101', 'Name', 'Pump Speed', 'Units', 'RPM', 'X', t, 'Y', yPump);
 
 % Coolant temp — last value within normal range => ok (green)
 sCool = SensorTag('T-202', 'Name', 'Coolant Temp', 'Units', [char(176) 'C'], 'X', t, 'Y', 45 + 5*sin(2*pi*t/900) + randn(1,N)*0.5);

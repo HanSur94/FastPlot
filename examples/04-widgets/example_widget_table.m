@@ -27,23 +27,29 @@ temp = 70 + 6*sin(2*pi*t/3600) + randn(1, N)*1.5;
 sTemp = SensorTag('T-401', 'Name', 'Temperature', 'X', t, 'Y', temp);
 
 
-%% 2. Build a static alarm log from resolved violations
-alarmLog = {};
-for vi = 1:numel(sTemp.ResolvedViolations)
-    v = sTemp.ResolvedViolations(vi);
-    if isempty(v.X), continue; end
-    nSample = min(5, numel(v.X));
-    idx = round(linspace(1, numel(v.X), nSample));
-    for j = 1:nSample
-        tSec = v.X(idx(j));
-        timeStr = sprintf('%02d:%02d', floor(tSec/3600), ...
-            floor(mod(tSec, 3600)/60));
-        alarmLog(end+1, :) = {timeStr, 'T-401', ...
-            sprintf('%.1f', v.Y(idx(j))), v.Label}; %#ok<AGROW>
+%% 2. Build a static alarm log by sampling the sensor at its local peaks
+% In the v2.0 Tag model, thresholds live on separate MonitorTag objects
+% rather than a Sensor.ResolvedViolations list — so for this TableWidget
+% demo we synthesize a compact alarm log by picking the ten highest samples
+% and labelling them against two example thresholds.
+[~, peakIdx] = maxk(temp, 10);
+peakIdx = sort(peakIdx);  % chronological order
+alarmLog = cell(numel(peakIdx), 4);
+hiWarn  = 76;  % mock "Hi Warn" threshold
+hiAlarm = 80;  % mock "Hi Alarm" threshold
+for j = 1:numel(peakIdx)
+    tSec  = t(peakIdx(j));
+    yVal  = temp(peakIdx(j));
+    if yVal >= hiAlarm
+        label = 'Hi Alarm';
+    elseif yVal >= hiWarn
+        label = 'Hi Warn';
+    else
+        label = 'Peak';
     end
-end
-if size(alarmLog, 1) > 10
-    alarmLog = alarmLog(end-9:end, :);
+    timeStr = sprintf('%02d:%02d', floor(tSec/3600), ...
+        floor(mod(tSec, 3600)/60));
+    alarmLog(j, :) = {timeStr, 'T-401', sprintf('%.1f', yVal), label};
 end
 
 %% 3. Create dashboard with three table configurations

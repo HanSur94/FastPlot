@@ -90,38 +90,47 @@ flow = max(0, flowBase + flowNoise);
 sFlow = SensorTag('F-301', 'Name', 'Flow Rate', 'Units', 'L/min', 'X', t, 'Y', flow);
 
 
-%% ========== Build alarm log from resolved violations ==========
+%% ========== Build a mock alarm log by peak-sampling each sensor ==========
+% Thresholds in the v2.0 Tag model live on separate MonitorTag objects;
+% this demo script sidesteps that pipeline and synthesises a representative
+% alarm log by picking each sensor's top 3 samples and labelling them by
+% a per-sensor "Hi Warn" / "Hi Alarm" range. The TableWidget below consumes
+% the resulting cell array unchanged.
 alarmLog = {};
-sensors = {sTemp, sPress, sFlow};
-for si = 1:numel(sensors)
-    s = sensors{si};
-    if isempty(s.ResolvedViolations)
-        continue;
-    end
-    for vi = 1:numel(s.ResolvedViolations)
-        v = s.ResolvedViolations(vi);
-        if isempty(v.X)
-            continue;
+sensorSpecs = { ...
+    sTemp,  74, 78, 'T-401'; ...
+    sPress, 60, 70, 'P-201'; ...
+    sFlow,  130, 150, 'F-301' ...
+};
+for si = 1:size(sensorSpecs, 1)
+    s       = sensorSpecs{si, 1};
+    warnVal = sensorSpecs{si, 2};
+    alarmVal = sensorSpecs{si, 3};
+    sKey     = sensorSpecs{si, 4};
+    [~, yAll] = s.getXY();
+    xAll      = s.X;
+    [~, peakIdx] = maxk(yAll, 3);
+    peakIdx = sort(peakIdx);
+    for j = 1:numel(peakIdx)
+        yVal = yAll(peakIdx(j));
+        if yVal >= alarmVal
+            label = 'Hi Alarm';
+        elseif yVal >= warnVal
+            label = 'Hi Warn';
+        else
+            label = 'Peak';
         end
-        % Sample up to 3 violation points per rule
-        nSample = min(3, numel(v.X));
-        idx = round(linspace(1, numel(v.X), nSample));
-        for j = 1:nSample
-            tSec = v.X(idx(j));
-            hours = floor(tSec / 3600);
-            mins = floor(mod(tSec, 3600) / 60);
-            timeStr = sprintf('%02d:%02d', hours, mins);
-            valStr = sprintf('%.1f', v.Y(idx(j)));
-            sevStr = v.Label;
-            alarmLog(end+1, :) = {timeStr, s.Key, valStr, sevStr}; %#ok<AGROW>
-        end
+        tSec  = xAll(peakIdx(j));
+        hours = floor(tSec / 3600);
+        mins  = floor(mod(tSec, 3600) / 60);
+        timeStr = sprintf('%02d:%02d', hours, mins);
+        alarmLog(end+1, :) = {timeStr, sKey, sprintf('%.1f', yVal), label}; %#ok<AGROW>
     end
 end
-% Sort by time
+% Sort by time; cap to last 10 rows
 if ~isempty(alarmLog)
     [~, sortIdx] = sort(alarmLog(:, 1));
     alarmLog = alarmLog(sortIdx, :);
-    % Limit to last 10 entries
     if size(alarmLog, 1) > 10
         alarmLog = alarmLog(end-9:end, :);
     end
@@ -245,10 +254,14 @@ d.addWidget('heatmap', 'Title', 'Temp by Hour & Machine Mode', ...
     'XLabels', hourXLabels, ...
     'YLabels', {'Idle','Running','Maint'});
 
-% BarChart: alarm counts by sensor tag
+% BarChart: peak-sample counts by sensor tag.
+% countViolations() lived on the legacy Sensor class; in the v2.0 Tag model
+% violation tracking belongs to MonitorTag. For this all-widgets showcase we
+% substitute a simple above-mean-count so the BarChart has a sensible signal.
+countAboveMean = @(s) sum(s.Y > mean(s.Y));
 alarmCounts = struct( ...
     'categories', {{'T-401','P-201','F-301'}}, ...
-    'values', [sTemp.countViolations(), sPress.countViolations(), sFlow.countViolations()]);
+    'values', [countAboveMean(sTemp), countAboveMean(sPress), countAboveMean(sFlow)]);
 d.addWidget('barchart', 'Title', 'Violation Count by Sensor', ...
     'Position', [15 22 10 6], ...
     'DataFcn', @() alarmCounts, ...
@@ -291,8 +304,10 @@ d.addWidget('multistatus', 'Title', 'Sensor Status', ...
 d.render();
 
 fprintf('Dashboard rendered with %d widgets.\n', numel(d.Widgets));
-fprintf('Sensors: T-401 (%d violations), P-201 (%d violations), F-301 (%d violations)\n', ...
-    sTemp.countViolations(), sPress.countViolations(), sFlow.countViolations());
+fprintf('Sensor ranges: T-401 [%.1f %.1f] %s, P-201 [%.1f %.1f] %s, F-301 [%.1f %.1f] %s\n', ...
+    min(sTemp.Y),  max(sTemp.Y),  sTemp.Units, ...
+    min(sPress.Y), max(sPress.Y), sPress.Units, ...
+    min(sFlow.Y),  max(sFlow.Y),  sFlow.Units);
 fprintf('Phase B widgets added: heatmap, barchart, histogram, scatter, image, multistatus.\n');
 fprintf('Click "Edit" to enter GUI builder mode.\n');
 fprintf('Click "Save" to export as JSON, "Export" to generate .m script.\n');
