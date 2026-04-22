@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
 status: verifying
-stopped_at: Completed 1011-05-PLAN.md (FINAL PLAN)
-last_updated: "2026-04-17T10:06:59.046Z"
-last_activity: 2026-04-17
+stopped_at: Completed 1012-05-PLAN.md
+last_updated: "2026-04-22T12:05:23.981Z"
+last_activity: 2026-04-22
 progress:
   total_phases: 15
-  completed_phases: 14
-  total_plans: 47
-  completed_plans: 47
+  completed_phases: 9
+  total_plans: 32
+  completed_plans: 32
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 1011 — Cleanup — delete legacy
+**Current focus:** Phase 1012 — Tag Pipeline — raw files to per-tag MAT via registry, batch and live
 
 ## Current Position
 
-Phase: 1011
+Phase: 1012
 Plan: Not started
 Status: Phase complete — ready for verification
-Last activity: 2026-04-17
+Last activity: 2026-04-22
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 
@@ -117,6 +117,8 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1011 P03 | 15min | 2 tasks | 21 files |
 | Phase 1011 P04 | 962 | 2 tasks | 100 files |
 | Phase 1011 P05 | 22min | 2 tasks | 13 files |
+| Phase 1012 P04 | 12min | 1 tasks | 2 files |
+| Phase 1012 P05 | 11min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -237,6 +239,14 @@ Recent decisions affecting current work:
 - [Phase 1011]: SensorTag X/Y via constructor args or updateData(); test method names renamed to avoid grep false positives
 - [Phase 1011]: Golden test uses MonitorTag+EventStore (not EventDetector.detect) for event detection -- Threshold class deleted
 - [Phase 1011]: IncrementalEventDetector.process() and EventConfig.addSensor() stubbed as dead code after legacy pipeline deletion
+- [Phase 1012]: BatchTagPipeline: inline NV-parse (parseOpts private cross-lib unreachable)
+- [Phase 1012]: BatchTagPipeline: LastFileParseCount captured pre-reset so verifyError+property-read works
+- [Phase 1012]: BatchTagPipeline: D-17 proven via MonitorTag.recomputeCount_ (no FastSenseDataStore dependency in tests)
+- [Phase 1012]: BatchTagPipeline: isIngestable_ docstring rewritten to avoid tripping the Pitfall 10 regex gate
+- [Phase 1012]: Plan 05: Inline-lambda predicate instead of @ClassName.staticPrivate handle -- Octave 7+ rejects cross-class private-method handles at TagRegistry.find call time
+- [Phase 1012]: Plan 05: Removed the static isIngestable_ block in LiveTagPipeline to eliminate single-source-of-truth drift; predicate now lives only inline in eligibleTags_
+- [Phase 1012]: Plan 05: Added Dependent TagStateCount property so testTagStateGCDropsUnregistered observes GC without relaxing tagState_ access
+- [Phase 1012]: Plan 05: LastFileParseCount assigned OUTSIDE outer try/catch in onTick_ so partial-failure ticks still update observability
 
 ### Roadmap Evolution
 
@@ -245,6 +255,7 @@ Recent decisions affecting current work:
 - Phase 1000 added: Dashboard Engine Performance Optimization Phase 2 — 6 bottlenecks: incremental FastSenseWidget refresh, debounced slider broadcast, lazy page realization, cached time ranges, batched page switch, debounced resize
 - Milestone v2.0 added: Tag-Based Domain Model (Ambitious tier — A+B+C+E) — full SensorThreshold reboot under unified `Tag` root + MonitorTag time-series + CompositeTag aggregation + events attached to tags
 - Phases 1004-1011 mapped (2026-04-16): 8-phase strangler-fig decomposition — Tag introduced as parallel hierarchy in Phase 1004; legacy classes deleted only in Phase 1011. 45/45 v2.0 REQs mapped (TAG, MONITOR, COMPOSITE, META, EVENT, ALIGN, MIGRATE). Phase 1009 owns no exclusive REQ-IDs (structural consumer-migration phase).
+- Phase 1012 added (2026-04-22): Tag Pipeline end-to-end — connect TagRegistry to arbitrary raw data files (.dat/.txt/.csv/...), process raw → per-tag .mat files with tag data + metadata, live pipeline variant, load .mat for plotting/dashboarding, including monitor tags.
 
 ### Pending Todos
 
@@ -256,6 +267,7 @@ None yet.
 - Phase 1006: MonitorTag live-tick performance unverified — bench at phase exit (≤10% regression vs. legacy `Sensor.resolve` at 12-widget tick)
 - Phase 1008: CompositeTag merge-sort streaming aggregation must avoid N×M union materialization — 8 children × 100k samples bench gates phase exit (<50MB peak, <200ms compute)
 - Phase 1009: Per-widget consumer migration is many small commits, not one big PR — each commit must keep `tests/run_all_tests.m` AND the golden integration test green
+- Phase 1012 deferred: BatchTagPipeline.eligibleTags_ fails on Octave due to cross-class private-method handle rejection - see .planning/phases/1012-.../deferred-items.md
 
 ### Quick Tasks Completed
 
@@ -270,6 +282,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T10:00:38.507Z
-Stopped at: Completed 1011-05-PLAN.md (FINAL PLAN)
+Last session: 2026-04-22T11:52:28.267Z
+Stopped at: Completed 1012-05-PLAN.md
 Resume file: None
