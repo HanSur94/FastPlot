@@ -4,7 +4,7 @@ milestone: v2.0
 milestone_name: Tag-Based Domain Model
 status: verifying
 stopped_at: Completed 1012-05-PLAN.md
-last_updated: "2026-04-22T11:52:32.342Z"
+last_updated: "2026-04-22T12:05:23.981Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 15
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 
 ## Current Position
 
-Phase: 1012 (Tag Pipeline — raw files to per-tag MAT via registry, batch and live) — EXECUTING
-Plan: 5 of 5
+Phase: 1012
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-04-22
 
