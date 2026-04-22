@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
 status: verifying
-stopped_at: Completed 1013-01-PLAN.md
-last_updated: "2026-04-22T14:22:21.081Z"
+stopped_at: Completed 1013-03-PLAN.md
+last_updated: "2026-04-22T14:45:08.806Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 16
   completed_phases: 9
   total_plans: 38
-  completed_plans: 34
+  completed_plans: 35
   percent: 0
 ---
 
@@ -121,6 +121,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1012 P05 | 11min | 1 tasks | 1 files |
 | Phase 1013 P02 | 115s | 1 tasks | 1 files |
 | Phase 1013 P01 | 25min | 2 tasks | 4 files |
+| Phase 1013 P03 | 1249 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -252,6 +253,7 @@ Recent decisions affecting current work:
 - [Phase 1013]: Use Option A (negation allow-list) to narrow .gitignore MEX exclusions: global *.mex* ignore + explicit !path negations for each shipped location in private/ and octave-<platform>/ subdirs
 - [Phase 1013]: mex_stamp: sha256 via system shell with fprint: fallback; stamp file format sha256:<64hex> at private/.mex-version; input set = sorted *.c/*.h in mex_src/ + build_mex.m + mksqlite.c
 - [Phase 1013]: install shim: varargout=install(varargin) with '__probe_needs_build__' sentinel returns needs_build(root) for tests; needs_build order: SKIP_BUILD -> binary probe -> stamp absent -> stamp mismatch -> trust binary
+- [Phase 1013]: get_octave_platform_tag() in install.m; same logic inlined as local_octave_tag_() in build_mex.m for self-containment; needs_build probe extended with absolute subdir path as third candidate
 
 ### Roadmap Evolution
 
@@ -288,6 +290,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T14:22:10.398Z
-Stopped at: Completed 1013-01-PLAN.md
+Last session: 2026-04-22T14:45:08.801Z
+Stopped at: Completed 1013-03-PLAN.md
 Resume file: None
