@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
-status: verifying
-stopped_at: Phase 1015 context gathered
-last_updated: "2026-04-22T14:24:05.858Z"
+status: executing
+stopped_at: Completed 1015-01-PLAN.md
+last_updated: "2026-04-22T15:04:50.480Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 16
   completed_phases: 9
-  total_plans: 32
-  completed_plans: 32
+  total_plans: 35
+  completed_plans: 33
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 1012 — Tag Pipeline — raw files to per-tag MAT via registry, batch and live
+**Current focus:** Phase 1015 — Demo showcase workspace
 
 ## Current Position
 
-Phase: 1012
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 1015 (Demo showcase workspace) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-22
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
@@ -119,6 +119,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1011 P05 | 22min | 2 tasks | 13 files |
 | Phase 1012 P04 | 12min | 1 tasks | 2 files |
 | Phase 1012 P05 | 11min | 1 tasks | 1 files |
+| Phase 1015 P01 | 35min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -247,6 +248,10 @@ Recent decisions affecting current work:
 - [Phase 1012]: Plan 05: Removed the static isIngestable_ block in LiveTagPipeline to eliminate single-source-of-truth drift; predicate now lives only inline in eligibleTags_
 - [Phase 1012]: Plan 05: Added Dependent TagStateCount property so testTagStateGCDropsUnregistered observes GC without relaxing tagState_ access
 - [Phase 1012]: Plan 05: LastFileParseCount assigned OUTSIDE outer try/catch in onTick_ so partial-failure ticks still update observability
+- [Phase 1015]: [Phase 1015-01]: Mapped MonitorTag criticality plan labels (warning/critical) to Tag validator set (medium/high)
+- [Phase 1015]: [Phase 1015-01]: AlarmOffConditionFn is the release predicate (fires TRUE to drop OFF), not the hold predicate; hysteresis defs inverted
+- [Phase 1015]: [Phase 1015-01]: Generator pushes X/Y via tag.updateData in parallel with LiveTagPipeline .mat persistence so tests observe fresh in-memory data without a reload step
+- [Phase 1015]: [Phase 1015-01]: teardownDemo lives at demo/industrial_plant/ (not private/) so tests can call it directly
 
 ### Roadmap Evolution
 
@@ -283,6 +288,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T14:24:05.852Z
-Stopped at: Phase 1015 context gathered
-Resume file: .planning/phases/1015-demo-showcase-workspace-fully-fledged-live-demo-dashboard-with-real-world-style-updating-data-sources-all-widget-types-tags-groups-tabs-tooltips-and-detachable-widgets/1015-CONTEXT.md
+Last session: 2026-04-22T15:04:50.473Z
+Stopped at: Completed 1015-01-PLAN.md
+Resume file: None

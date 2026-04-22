@@ -385,3 +385,15 @@ Plans:
 - [x] 1012-03-PLAN.md — Private parser helpers: readRawDelimited_, selectTimeAndValue_, writeTagMat_ (D-01, D-02, D-04, D-09, D-10, D-11, D-19 — 7 error IDs)
 - [x] 1012-04-PLAN.md — BatchTagPipeline class + suite (D-02, D-07, D-08, D-09, D-10, D-12, D-15, D-16, D-17, D-18, D-19)
 - [x] 1012-05-PLAN.md — LiveTagPipeline class + suite, modTime+lastIndex tick state machine (D-07, D-12, D-13, D-14, D-15, D-16, D-18, D-19)
+
+### Phase 1015: Demo showcase workspace — fully-fledged live demo dashboard with real-world-style updating data sources, all widget types, tags/groups, tabs, tooltips, and detachable widgets
+
+**Goal:** Deliver a runnable `demo/industrial_plant/` workspace that doubles as a showcase and headless CI smoke test of the full FastSense dashboard + Tag pipeline stack: synthetic `.dat` data source → LiveTagPipeline ingestion → full TagRegistry (SensorTag/StateTag/MonitorTag/CompositeTag) → single multi-page DashboardEngine covering every widget type with info tooltips, groups, a pre-detached widget, a plant-health rollup, and MonitorTag-driven event overlays.
+**Requirements**: Captured by CONTEXT.md decisions D-01..D-17 (no REQ-IDs; v2.0 closed at Phase 1011).
+**Depends on:** Phase 1012
+**Plans:** 1/3 plans executed
+
+Plans:
+- [x] 1015-01-PLAN.md — Demo scaffolding: directory + data generator + TagRegistry population + LiveTagPipeline wiring + install.m + unit test (D-01..D-04, D-10..D-15)
+- [ ] 1015-02-PLAN.md — Multi-page dashboard with full widget breadth + detach + overlays + README (D-05..D-11, D-13)
+- [ ] 1015-03-PLAN.md — Headless CI smoke test (MATLAB + Octave) (D-05, D-07, D-13, D-16, D-17)
