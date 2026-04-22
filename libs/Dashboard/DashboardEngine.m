@@ -308,9 +308,21 @@ classdef DashboardEngine < handle
         end
 
         function stopLive(obj)
+            % Clear IsLive FIRST so any in-flight onLiveTimerError callback
+            % does not re-`start(obj.LiveTimer)` on the timer we are about to
+            % delete (observed on CI as a runaway 500k+ stderr loop in
+            % testTimerContinuesAfterError). Then stop/delete the timer with
+            % isvalid + try/catch guards, matching LiveTagPipeline.stop().
+            obj.IsLive = false;
             if ~isempty(obj.LiveTimer)
-                stop(obj.LiveTimer);
-                delete(obj.LiveTimer);
+                try
+                    if isvalid(obj.LiveTimer)
+                        stop(obj.LiveTimer);
+                        delete(obj.LiveTimer);
+                    end
+                catch
+                    % best-effort teardown
+                end
                 obj.LiveTimer = [];
             end
             if ~isempty(obj.SliderDebounceTimer)
@@ -318,7 +330,6 @@ classdef DashboardEngine < handle
                 try delete(obj.SliderDebounceTimer); catch, end
                 obj.SliderDebounceTimer = [];
             end
-            obj.IsLive = false;
         end
 
         function save(obj, filepath)
