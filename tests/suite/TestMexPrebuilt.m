@@ -202,6 +202,8 @@ classdef TestMexPrebuilt < matlab.unittest.TestCase
 
         function testNeedsBuildReturnsTrueWhenBinaryMissing(testCase)
             %TESTNEEDSBUILDRETSURNSTRUEWHENBINARYMISSING no binary -> true.
+            %   Hides both the flat private/ sentinel AND the octave-<tag>/
+            %   subdir binary (when on Octave) so needs_build has nothing.
             old_env = getenv('FASTSENSE_SKIP_BUILD');
             setenv('FASTSENSE_SKIP_BUILD', '');
             restore_env = onCleanup(@() setenv('FASTSENSE_SKIP_BUILD', old_env));
@@ -213,13 +215,27 @@ classdef TestMexPrebuilt < matlab.unittest.TestCase
             restore_stamp = onCleanup(@() restore_file_( ...
                 testCase.StampFile, old_stamp, stamp_existed));
 
-            % Temporarily rename sentinel binary if it exists.
+            % Temporarily rename flat sentinel binary if it exists.
             bin_existed = (exist(testCase.SentinelBin, 'file') == 3);
             hidden = [testCase.SentinelBin '.bak_test'];
             if bin_existed
                 movefile(testCase.SentinelBin, hidden);
             end
             restore_bin = onCleanup(@() restore_binary_(testCase.SentinelBin, hidden, bin_existed));
+
+            % On Octave also hide the octave-<tag>/ subdir binary.
+            if exist('OCTAVE_VERSION', 'builtin')
+                tag6 = derive_octave_tag_();
+                if ~isempty(tag6)
+                    octBin6 = fullfile(testCase.MexDir, ['octave-' tag6], ...
+                        'binary_search_mex.mex');
+                    octBak6 = [octBin6 '.bak_test6'];
+                    oct6_existed = (exist(octBin6, 'file') ~= 0);
+                    if oct6_existed; movefile(octBin6, octBak6); end
+                    restore_oct6 = onCleanup( ...
+                        @() restore_binary_(octBin6, octBak6, oct6_existed));
+                end
+            end
 
             result = install('__probe_needs_build__');
             testCase.assertTrue(result, ...

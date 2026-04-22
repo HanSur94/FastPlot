@@ -110,6 +110,8 @@ function test_mex_prebuilt()
 
     % ------------------------------------------------------------------
     % 6. needs_build returns true when binary is missing
+    %    Hide BOTH the flat private/ binary AND the octave-<tag>/ subdir
+    %    binary (if present) so needs_build truly has no sentinel to find.
     % ------------------------------------------------------------------
     old_env = getenv('FASTSENSE_SKIP_BUILD');
     setenv('FASTSENSE_SKIP_BUILD', '');
@@ -124,6 +126,23 @@ function test_mex_prebuilt()
         movefile(sentinel, backup);
     end
 
+    % Also hide the octave-<tag>/ subdir binary if running on Octave.
+    oct_tag6 = '';
+    oct_bin6 = '';
+    oct_bin6_bak = '';
+    oct_bin6_existed = false;
+    if exist('OCTAVE_VERSION', 'builtin')
+        oct_tag6 = derive_octave_tag_();
+        if ~isempty(oct_tag6)
+            oct_bin6 = fullfile(mex_dir, ['octave-' oct_tag6], 'binary_search_mex.mex');
+            oct_bin6_existed = (exist(oct_bin6, 'file') ~= 0);
+            oct_bin6_bak = [oct_bin6 '.bak_test6'];
+            if oct_bin6_existed
+                movefile(oct_bin6, oct_bin6_bak);
+            end
+        end
+    end
+
     result = install('__probe_needs_build__');
 
     restore_file_(stamp_file, old_stamp, stamp_existed);
@@ -131,6 +150,10 @@ function test_mex_prebuilt()
         movefile(backup, sentinel);
     end
     delete_if_exists_(backup);
+    if oct_bin6_existed && exist(oct_bin6_bak, 'file') == 2
+        movefile(oct_bin6_bak, oct_bin6);
+    end
+    delete_if_exists_(oct_bin6_bak);
     setenv('FASTSENSE_SKIP_BUILD', old_env);
 
     assert(result == true, ...
