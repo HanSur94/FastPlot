@@ -257,6 +257,7 @@ Recent decisions affecting current work:
 - Phases 1004-1011 mapped (2026-04-16): 8-phase strangler-fig decomposition — Tag introduced as parallel hierarchy in Phase 1004; legacy classes deleted only in Phase 1011. 45/45 v2.0 REQs mapped (TAG, MONITOR, COMPOSITE, META, EVENT, ALIGN, MIGRATE). Phase 1009 owns no exclusive REQ-IDs (structural consumer-migration phase).
 - Phase 1012 added (2026-04-22): Tag Pipeline end-to-end — connect TagRegistry to arbitrary raw data files (.dat/.txt/.csv/...), process raw → per-tag .mat files with tag data + metadata, live pipeline variant, load .mat for plotting/dashboarding, including monitor tags.
 - Phase 1013 added (2026-04-22): Live event markers and click-to-details on FastSense and FastSenseWidget — extends Phase 1010 with open-event visibility (EventStore Single-Source-of-Truth with Status field), click→details panel, and FastSenseWidget-level ShowEventMarkers/EventStore wiring
+- Phase 1014 added (2026-04-22): Fix ~140 MATLAB test-suite failures from v2.0 legacy-class deletion — tests/suite/*.m still instantiates deleted Sensor/Threshold/ThresholdRule/CompositeThreshold/SensorRegistry classes (deleted in commit 4188a7f, Phase 1011 cleanup). Scope: migrate tests to Tag API or delete obsolete ones; also fix TestDashboardBugFixes/testSensorListenersMultiPage (local-var assignment bug introduced after PR #59 merge) + TestDashboardBugFixes/testExitEditModeAfterFigureClose (missing deleted-handle guard in DashboardBuilder.exitEditMode line 124).
 
 ### Pending Todos
 

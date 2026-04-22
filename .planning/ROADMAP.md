@@ -395,3 +395,13 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 1013 to break down)
+
+### Phase 1014: Fix ~140 MATLAB test-suite failures from v2.0 legacy-class deletion
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 1013
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 1014 to break down)
