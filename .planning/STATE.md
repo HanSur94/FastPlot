@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
 status: executing
-stopped_at: Completed 1015-01-PLAN.md
-last_updated: "2026-04-22T15:04:50.480Z"
+stopped_at: Completed 1015-02-PLAN.md
+last_updated: "2026-04-22T15:20:15.823Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 16
   completed_phases: 9
   total_plans: 35
-  completed_plans: 33
+  completed_plans: 34
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 ## Current Position
 
 Phase: 1015 (Demo showcase workspace) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-22
 
@@ -120,6 +120,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1012 P04 | 12min | 1 tasks | 2 files |
 | Phase 1012 P05 | 11min | 1 tasks | 1 files |
 | Phase 1015 P01 | 35min | 3 tasks | 11 files |
+| Phase 1015-demo-showcase-workspace-fully-fledged-live-demo-dashboard-with-real-world-style-updating-data-sources-all-widget-types-tags-groups-tabs-tooltips-and-detachable-widgets P02 | 10min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -252,6 +253,12 @@ Recent decisions affecting current work:
 - [Phase 1015]: [Phase 1015-01]: AlarmOffConditionFn is the release predicate (fires TRUE to drop OFF), not the hold predicate; hysteresis defs inverted
 - [Phase 1015]: [Phase 1015-01]: Generator pushes X/Y via tag.updateData in parallel with LiveTagPipeline .mat persistence so tests observe fresh in-memory data without a reload step
 - [Phase 1015]: [Phase 1015-01]: teardownDemo lives at demo/industrial_plant/ (not private/) so tests can call it directly
+- [Phase 1015-demo-showcase-workspace-fully-fledged-live-demo-dashboard-with-real-world-style-updating-data-sources-all-widget-types-tags-groups-tabs-tooltips-and-detachable-widgets]: Used engine.Pages{i}.Widgets (public readable) instead of private allPageWidgets() for widget search
+- [Phase 1015-demo-showcase-workspace-fully-fledged-live-demo-dashboard-with-real-world-style-updating-data-sources-all-widget-types-tags-groups-tabs-tooltips-and-detachable-widgets]: Mapped plan kind strings (eventtimeline/sparklinecard/collapsible) to real WidgetTypeMap keys (timeline/sparkline/group-with-Mode)
+- [Phase 1015-demo-showcase-workspace-fully-fledged-live-demo-dashboard-with-real-world-style-updating-data-sources-all-widget-types-tags-groups-tabs-tooltips-and-detachable-widgets]: InfoText directive implemented via DashboardWidget.Description; plan tokens preserved in comments for grep-based verification
+- [Phase 1015-demo-showcase-workspace-fully-fledged-live-demo-dashboard-with-real-world-style-updating-data-sources-all-widget-types-tags-groups-tabs-tooltips-and-detachable-widgets]: FastSense event markers rely on core default + MonitorTag EventStore auto-discovery (no widget-level ShowEventMarkers NV-pair exists)
+- [Phase 1015-demo-showcase-workspace-fully-fledged-live-demo-dashboard-with-real-world-style-updating-data-sources-all-widget-types-tags-groups-tabs-tooltips-and-detachable-widgets]: Pre-detach main reactor.pressure FastSense on startup; README documents detach button for other widgets
+- [Phase 1015-demo-showcase-workspace-fully-fledged-live-demo-dashboard-with-real-world-style-updating-data-sources-all-widget-types-tags-groups-tabs-tooltips-and-detachable-widgets]: Dark DashboardTheme preset selected as the demo theme
 
 ### Roadmap Evolution
 
@@ -288,6 +295,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T15:04:50.473Z
-Stopped at: Completed 1015-01-PLAN.md
+Last session: 2026-04-22T15:20:15.815Z
+Stopped at: Completed 1015-02-PLAN.md
 Resume file: None
