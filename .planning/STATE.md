@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
 status: verifying
-stopped_at: Completed 1011-05-PLAN.md (FINAL PLAN)
-last_updated: "2026-04-17T10:06:59.046Z"
+stopped_at: Phase 1012 context gathered
+last_updated: "2026-04-22T09:37:21.388Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 15
-  completed_phases: 14
-  total_plans: 47
-  completed_plans: 47
+  completed_phases: 8
+  total_plans: 27
+  completed_plans: 27
   percent: 0
 ---
 
@@ -245,6 +245,7 @@ Recent decisions affecting current work:
 - Phase 1000 added: Dashboard Engine Performance Optimization Phase 2 — 6 bottlenecks: incremental FastSenseWidget refresh, debounced slider broadcast, lazy page realization, cached time ranges, batched page switch, debounced resize
 - Milestone v2.0 added: Tag-Based Domain Model (Ambitious tier — A+B+C+E) — full SensorThreshold reboot under unified `Tag` root + MonitorTag time-series + CompositeTag aggregation + events attached to tags
 - Phases 1004-1011 mapped (2026-04-16): 8-phase strangler-fig decomposition — Tag introduced as parallel hierarchy in Phase 1004; legacy classes deleted only in Phase 1011. 45/45 v2.0 REQs mapped (TAG, MONITOR, COMPOSITE, META, EVENT, ALIGN, MIGRATE). Phase 1009 owns no exclusive REQ-IDs (structural consumer-migration phase).
+- Phase 1012 added (2026-04-22): Tag Pipeline end-to-end — connect TagRegistry to arbitrary raw data files (.dat/.txt/.csv/...), process raw → per-tag .mat files with tag data + metadata, live pipeline variant, load .mat for plotting/dashboarding, including monitor tags.
 
 ### Pending Todos
 
@@ -270,6 +271,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T10:00:38.507Z
-Stopped at: Completed 1011-05-PLAN.md (FINAL PLAN)
-Resume file: None
+Last session: 2026-04-22T09:37:21.379Z
+Stopped at: Phase 1012 context gathered
+Resume file: .planning/phases/1012-tag-pipeline-raw-files-to-per-tag-mat-via-registry-batch-and-live/1012-CONTEXT.md
