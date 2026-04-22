@@ -11,6 +11,9 @@ function out = readRawDelimitedForTest_(dispatch, varargin)
     %   out = readRawDelimitedForTest_('select', parsed, rawSource)
     %       Returns a 1x2 cell {x, y} from selectTimeAndValue_.
     %
+    %   [] = readRawDelimitedForTest_('write', outDir, tag, x, y, mode)
+    %       Forwards to writeTagMat_ so tests can assert error IDs.
+    %
     %   Revision-1 / Major-1 Option A - DO NOT CALL FROM PRODUCTION CODE.
     %
     %   This file lives OUTSIDE libs/SensorThreshold/private/ so it is
@@ -53,9 +56,18 @@ function out = readRawDelimitedForTest_(dispatch, varargin)
             [x, y] = selectTimeAndValue_(varargin{1}, varargin{2});
             out = {x, y};
 
+        case 'write'
+            if numel(varargin) < 5
+                error('TagPipeline:invalidTestDispatch', ...
+                    '''write'' requires (outDir, tag, x, y, mode) args.');
+            end
+            writeTagMat_(varargin{1}, varargin{2}, varargin{3}, ...
+                varargin{4}, varargin{5});
+            out = [];
+
         otherwise
             error('TagPipeline:invalidTestDispatch', ...
-                'Unknown dispatch ''%s'' (expected: parse|sniff|select)', ...
+                'Unknown dispatch ''%s'' (expected: parse|sniff|select|write)', ...
                 char(dispatch));
     end
 end
