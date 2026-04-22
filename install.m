@@ -1,4 +1,4 @@
-function install()
+function varargout = install(varargin)
 %INSTALL Set up the FastSense project: add paths and compile MEX files.
 %   INSTALL() adds all project directories to the MATLAB path and, on first
 %   run, compiles the MEX accelerators. Subsequent calls just add paths
@@ -33,13 +33,17 @@ function install()
 %   Environment variables:
 %     FASTSENSE_SKIP_BUILD=1  — skip MEX compilation (CI with cache)
 %
+%   Test shim:
+%     install('__probe_needs_build__') returns needs_build(root) as a
+%     scalar logical.  Used exclusively by TestMexPrebuilt / test_mex_prebuilt.
+%
 %   Example:
 %     install;               % run once after cloning
 %     example_basic;         % everything just works
 %     benchmark;             % benchmarks too
 %     run_all_tests;         % and tests
 %
-%   See also build_mex, FastSense.
+%   See also build_mex, FastSense, mex_stamp.
 
     root = fileparts(mfilename('fullpath'));
 
@@ -58,6 +62,12 @@ function install()
         end
     end
 
+    % --- Test shim: expose needs_build result for unit tests ---
+    if nargin == 1 && ischar(varargin{1}) && strcmp(varargin{1}, '__probe_needs_build__')
+        varargout{1} = needs_build(root);
+        return;
+    end
+
     % --- First run only: compile MEX and verify ---
     if needs_build(root)
         first_run(root);
@@ -69,19 +79,52 @@ end
 
 function yes = needs_build(root)
 %NEEDS_BUILD Check whether MEX accelerators need to be compiled.
+%
+%   Decision order (first matching rule wins):
+%     1. FASTSENSE_SKIP_BUILD is non-empty -> false (force skip)
+%     2. binary_search_mex.<mexext()> missing -> true  (must compile)
+%     3. .mex-version stamp missing -> true  (cannot verify sources)
+%     4. stamp content != mex_stamp(root) -> true  (sources changed)
+%     5. Otherwise -> false  (trust shipped binary)
+
     if ~isempty(getenv('FASTSENSE_SKIP_BUILD'))
         yes = false;
         return;
     end
     mex_dir = fullfile(root, 'libs', 'FastSense', 'private');
-    % Probe a representative MEX from the FastSense library -- if missing,
-    % trigger build_mex() which will compile only the missing ones.
+    % Probe a representative MEX from the FastSense library.
     probes = {
         fullfile(mex_dir, ['binary_search_mex.' mexext()])
         fullfile(mex_dir, 'binary_search_mex.mex')
     };
     core_ok = exist(probes{1}, 'file') == 3 || exist(probes{2}, 'file') == 3;
-    yes = ~core_ok;
+    if ~core_ok
+        yes = true;
+        return;
+    end
+    % Stamp check: if .mex-version matches current source hash, trust binary.
+    if ~stamp_matches_(root, mex_dir)
+        yes = true;
+        return;
+    end
+    yes = false;
+end
+
+function ok = stamp_matches_(root, mex_dir)
+%STAMP_MATCHES_ Return true iff .mex-version content matches mex_stamp(root).
+%   Returns false on any I/O error or if stamp file is absent.
+    stamp_file = fullfile(mex_dir, '.mex-version');
+    if exist(stamp_file, 'file') ~= 2
+        ok = false;
+        return;
+    end
+    try
+        stored = strtrim(fileread(stamp_file));
+        current = mex_stamp(root);
+        ok = strcmp(stored, current);
+    catch
+        ok = false;
+    end
 end
 
 function first_run(root)
