@@ -371,3 +371,17 @@ Plans:
 - [x] 1006-02-PLAN.md — mksqlite diagnostic-first + fix branch (A/B/C) for TestMksqliteEdgeCases + TestMksqliteTypes (MATLABFIX-A; wave 2)
 - [x] 1006-03-PLAN.md — Stale test expectations E1-E9 cluster + E10 grid-snap diagnostic+fix (MATLABFIX-E; wave 2)
 - [x] 1006-04-PLAN.md — DashboardEngine.exportImage → exportgraphics() for headless MATLAB CI (MATLABFIX-F; wave 2)
+
+### Phase 1012: Tag Pipeline — raw files to per-tag MAT via registry, batch and live
+
+**Goal:** Deliver a MATLAB pipeline that ingests arbitrary delimited raw files (.csv/.txt/.dat) and emits per-tag .mat files keyed off TagRegistry, in two modes: BatchTagPipeline (synchronous one-shot) and LiveTagPipeline (timer-driven incremental append via modTime+lastIndex, mirroring MatFileDataSource). Outputs round-trip through the existing SensorTag.load() contract unchanged; MonitorTag/CompositeTag remain lazy per MONITOR-03. Binding lives on a new RawSource struct property on SensorTag + StateTag (Tag base untouched per Pitfall 1). Per-tag try/catch isolation + end-of-run TagPipeline:ingestFailed throw. Shared delimited-text parser (textscan-based, Octave 7+ compatible — no readtable/readmatrix).
+**Requirements**: No exclusive REQ-IDs (v2.0 closed at Phase 1011 MIGRATE-03); scope captured by CONTEXT.md decisions D-01..D-19 (see 1012-CONTEXT.md).
+**Depends on:** Phase 1011
+**Plans:** 4/5 plans executed
+
+Plans:
+- [x] 1012-01-PLAN.md — Wave 0 test scaffolds + synthetic raw-fixture generator (D-03)
+- [x] 1012-02-PLAN.md — RawSource property on SensorTag + StateTag (D-05, D-06, D-11)
+- [x] 1012-03-PLAN.md — Private parser helpers: readRawDelimited_, selectTimeAndValue_, writeTagMat_ (D-01, D-02, D-04, D-09, D-10, D-11, D-19 — 7 error IDs)
+- [x] 1012-04-PLAN.md — BatchTagPipeline class + suite (D-02, D-07, D-08, D-09, D-10, D-12, D-15, D-16, D-17, D-18, D-19)
+- [ ] 1012-05-PLAN.md — LiveTagPipeline class + suite, modTime+lastIndex tick state machine (D-07, D-12, D-13, D-14, D-15, D-16, D-18, D-19)
