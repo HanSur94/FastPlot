@@ -133,9 +133,14 @@ classdef TestDashboardEngine < matlab.unittest.TestCase
             counter = containers.Map({'n'}, {int32(0)});
             set(d.LiveTimer, 'TimerFcn', @(~,~) errorOnce(counter));
 
-            % Wait briefly -- timer fires once, errors, ErrorFcn restarts,
-            % next tick calls errorOnce (which no-ops), loop ends.
-            pause(0.3);
+            % Poll until the one-shot TimerFcn has fired, with a timeout.
+            % Simple pause-based waits are fragile inside matlab.unittest --
+            % the test harness sometimes services callbacks differently
+            % than top-level scripts. Bounded polling is robust.
+            deadline = tic;
+            while counter('n') == 0 && toc(deadline) < 3.0
+                pause(0.05);
+            end
 
             % Timer must still be running (restarted inside ErrorFcn).
             testCase.verifyTrue(strcmp(d.LiveTimer.Running, 'on'));
