@@ -272,11 +272,7 @@ classdef LiveTagPipeline < handle
 
             newRange = (state.lastIndex + 1):total;
             newX = x(newRange);
-            if iscell(y)
-                newY = y(newRange);
-            else
-                newY = y(newRange);
-            end
+            newY = y(newRange);
 
             writeTagMat_(obj.OutputDir, t, newX, newY, 'append');
 
@@ -301,21 +297,19 @@ classdef LiveTagPipeline < handle
 
         function tags = eligibleTags_(~)
             %ELIGIBLETAGS_ Query TagRegistry for ingestable tags.
-            %   Mirrors BatchTagPipeline.isIngestable_ semantics via an
-            %   anonymous-function predicate passed to TagRegistry.find.
-            %   The lambda body is fully inlined (not a delegation to a
-            %   private static method) so Octave's private-method access
-            %   check is never triggered -- the predicate evaluates
-            %   entirely in anonymous-function scope and needs no
-            %   class-private visibility.
+            %   Uses an inline anonymous-function predicate passed to
+            %   TagRegistry.find. The lambda body is fully inlined (not a
+            %   delegation to a private static method) so Octave's
+            %   private-method access check is never triggered -- the
+            %   predicate evaluates entirely in anonymous-function scope
+            %   and needs no class-private visibility.
             %
             %   D-16 / Pitfall 10 discipline: positive-isa checks only
             %   (SensorTag || StateTag); NEVER a negative check against
             %   Monitor/Composite.  The inline body here must stay
-            %   byte-semantically identical to
-            %   BatchTagPipeline.isIngestable_ in the companion class --
-            %   adding a new eligible tag kind requires updating BOTH
-            %   sites in lockstep.
+            %   byte-semantically identical to BatchTagPipeline.eligibleTags_
+            %   in the companion class -- adding a new eligible tag kind
+            %   requires updating BOTH sites in lockstep.
             tags = TagRegistry.find(@(t) ...
                 (isa(t, 'SensorTag') || isa(t, 'StateTag')) && ...
                 isstruct(t.RawSource) && ...

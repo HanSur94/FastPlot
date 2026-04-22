@@ -146,7 +146,14 @@ classdef BatchTagPipeline < handle
     methods (Access = private)
         function tags = eligibleTags_(~)
             %ELIGIBLETAGS_ Filter TagRegistry to SensorTag/StateTag with non-empty RawSource.
-            tags = TagRegistry.find(@BatchTagPipeline.isIngestable_);
+            %   Uses an inline lambda rather than @BatchTagPipeline.isIngestable_ because
+            %   Octave rejects cross-class private-method handles at the call site (see
+            %   deferred-items.md). LiveTagPipeline.eligibleTags_ uses the same pattern.
+            tags = TagRegistry.find(@(t) ...
+                (isa(t, 'SensorTag') || isa(t, 'StateTag')) && ...
+                isstruct(t.RawSource) && ...
+                isfield(t.RawSource, 'file') && ...
+                ~isempty(t.RawSource.file));
         end
 
         function [x, y] = ingestTag_(obj, tag)
@@ -191,21 +198,4 @@ classdef BatchTagPipeline < handle
         end
     end
 
-    methods (Static, Access = private)
-        function tf = isIngestable_(t)
-            %ISINGESTABLE_ Predicate: true iff SensorTag/StateTag with non-empty RawSource.
-            %   D-16 / Pitfall 10: POSITIVE isa-checks ONLY. Adding Monitor/Composite
-            %   RawSource in a future phase requires an explicit positive branch here
-            %   -- never a negative check against the derived types.
-            tf = false;
-            if ~(isa(t, 'SensorTag') || isa(t, 'StateTag'))
-                return;
-            end
-            rs = t.RawSource;
-            if ~isstruct(rs) || ~isfield(rs, 'file') || isempty(rs.file)
-                return;
-            end
-            tf = true;
-        end
-    end
 end

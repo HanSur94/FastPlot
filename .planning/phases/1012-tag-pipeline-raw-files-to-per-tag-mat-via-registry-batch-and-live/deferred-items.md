@@ -4,11 +4,12 @@ Out-of-scope issues discovered during execution. Tracked but NOT fixed in this p
 
 ---
 
-## 1. BatchTagPipeline `@BatchTagPipeline.isIngestable_` is not Octave-callable
+## 1. BatchTagPipeline `@BatchTagPipeline.isIngestable_` is not Octave-callable — RESOLVED (in PR #59)
 
 **Discovered during:** Plan 05 execution (2026-04-22)
 **Scope:** Pre-existing defect in Plan 04's `libs/SensorThreshold/BatchTagPipeline.m` (line 149)
 **Severity:** Octave-parity violation (CLAUDE.md mandate)
+**Resolved:** 2026-04-22 (PR #59 pre-merge review — S-1 suggestion applied). `BatchTagPipeline.eligibleTags_` now uses the same inline-lambda predicate as `LiveTagPipeline.eligibleTags_`; the dead private static `isIngestable_` method has been deleted.
 
 ### Symptom
 
