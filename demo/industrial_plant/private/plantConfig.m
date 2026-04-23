@@ -107,6 +107,13 @@ function cfg = plantConfig()
     %   release threshold) as a pair of function handles.
     cfg.MonitorDefs = mkMonitorDefs_();
 
+    % Demo time-base: the data generator timestamps samples with MATLAB
+    % datenum (days since 0000-01-00). MonitorTag.MinDuration is measured
+    % in parent-X native units, so seconds → days.
+    cfg.TimeBase              = 'datenum';
+    cfg.SecondsPerTimeUnit    = 86400;  % days → seconds; inverse factor below
+    cfg.MonitorMinDurationFor = @(seconds) seconds / 86400;
+
     % ---- Display thresholds for FastSense plots -----------------------
     %   Parallel table to MonitorDefs that expresses the trip value in a
     %   form diagram widgets can draw as a horizontal line. Each entry is
@@ -146,16 +153,23 @@ function defs = mkMonitorDefs_()
                @(x,y) y < 20, @(x,y) y > 30, 2, 'medium', 'Cooling')];
 end
 
-function d = mkDef_(key, parentKey, condFn, offFn, minDur, crit, sub)
+function d = mkDef_(key, parentKey, condFn, offFn, minDurSeconds, crit, sub)
     %MKDEF_ Build one MonitorDef entry.
+    %   Debounce is authored in SECONDS (`MinDurationSeconds`) so the
+    %   config stays human-readable. The demo's parent SensorTags time-
+    %   stamp samples with MATLAB datenum (days), so registerPlantTags
+    %   converts via cfg.MonitorMinDurationDays(mDef.MinDurationSeconds)
+    %   before handing the value to MonitorTag.MinDuration. Any other
+    %   consumer that wants to read this directly must be aware of the
+    %   unit — the field name carries that contract.
     d = struct( ...
-        'Key',         key, ...
-        'ParentKey',   parentKey, ...
-        'ConditionFn', condFn, ...
-        'AlarmOffFn',  offFn, ...
-        'MinDuration', minDur, ...
-        'Criticality', crit, ...
-        'Subsystem',   sub);
+        'Key',                key, ...
+        'ParentKey',          parentKey, ...
+        'ConditionFn',        condFn, ...
+        'AlarmOffFn',         offFn, ...
+        'MinDurationSeconds', minDurSeconds, ...
+        'Criticality',        crit, ...
+        'Subsystem',          sub);
 end
 
 function t = mkDisplayThresholds_()

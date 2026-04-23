@@ -383,7 +383,7 @@ classdef IconCardWidget < DashboardWidget
             % CompositeThreshold: delegate to computeStatus, no val needed (per D-04)
             if isa(obj.Threshold, 'CompositeThreshold')
                 cStatus = obj.Threshold.computeStatus();
-                if strcmp(cStatus, 'ok'), state = 'active'; else, state = 'alarm'; end
+                if strcmp(cStatus, 'ok'), state = 'ok'; else, state = 'alarm'; end
                 return;
             end
             % Monitor-kind tags are their own binary alarm signal.
@@ -398,7 +398,7 @@ classdef IconCardWidget < DashboardWidget
                 if val(end) > 0.5
                     state = 'alarm';
                 else
-                    state = 'active';
+                    state = 'ok';
                 end
                 return;
             end

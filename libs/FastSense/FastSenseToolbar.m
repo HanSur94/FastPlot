@@ -661,7 +661,7 @@ classdef FastSenseToolbar < handle
             %   FastSenseDock (via AppData), to the entire dock hierarchy.
             %
             %   Input:
-            %     name — theme name string (e.g. 'dark', 'scientific')
+            %     name — theme name string (e.g. 'light', 'dark')
             cfg = getDefaults();
 
             % Resolve: check custom themes first, then built-in

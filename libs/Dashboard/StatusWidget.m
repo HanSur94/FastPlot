@@ -144,7 +144,7 @@ classdef StatusWidget < DashboardWidget
                             lbl = sprintf('%s: %s', obj.Title, upper(obj.CurrentStatus));
                         end
                     end
-                elseif ~isempty(obj.Sensor)
+                elseif ~isempty(obj.Sensor) && ~isempty(obj.Sensor.Y)
                     val = obj.Sensor.Y(end);
                     units = '';
                     if ~isempty(obj.Sensor.Units)

@@ -19,12 +19,23 @@ classdef FastSenseWidget < DashboardWidget
         YLabel       = ''    % Y-axis label (auto-set from Sensor if empty)
         YLimits             = []    % Fixed Y-axis range [min max]; empty = auto-scale
         ShowThresholdLabels = false % show inline name labels on threshold lines
+        % Forwarded to FastSense.LiveViewMode on render:
+        %   'reset'    — window covers the full X range every tick (default:
+        %                matches dashboard-demo expectation that users see
+        %                every sample since session start)
+        %   'follow'   — window of current width tracks the latest sample
+        %                (use for long-running deployments where the full
+        %                range would exhaust memory / downsampling budget)
+        %   'preserve' — frozen at the initial X range (legacy behaviour)
+        LiveViewMode = 'reset'
     end
     %   (Tag property now lives on the DashboardWidget base class — Plan 1009-02.)
 
     properties (SetAccess = private)
         FastSenseObj  = []
         IsSettingTime = false  % guard to distinguish programmatic vs user xlim change
+        IsSettingYLim = false  % guard so autoScaleY_ does not flip UserZoomedY
+        UserZoomedY   = false  % true after user mouse-zooms Y; suspends autoScaleY_
         CachedXMin    = inf    % cached minimum of X data for O(1) getTimeRange()
         CachedXMax    = -inf   % cached maximum of X data for O(1) getTimeRange()
         LastTagRef    = []     % Tag handle snapshot for cache-invalidation
@@ -71,14 +82,14 @@ classdef FastSenseWidget < DashboardWidget
             obj.FastSenseObj = fp;
             fp.ShowThresholdLabels = obj.ShowThresholdLabels;
 
-            % Slide the X window as new samples arrive on updateData(). The
-            % default empty LiveViewMode leaves the window frozen at the
-            % initial render's data range, so later samples appear off the
-            % right edge of live widgets. 'reset' grows the window to cover
-            % the full current X range each tick — appropriate for
-            % dashboard use where users expect to see all data since the
-            % live pipeline started.
-            fp.LiveViewMode = 'reset';
+            % Slide the X window as new samples arrive on updateData().
+            % Forwarded from the widget-level LiveViewMode property so
+            % callers can swap between 'reset' (default: window grows to
+            % cover all samples — best for short demos), 'follow' (fixed-
+            % width window tracking the latest sample — best for long-
+            % running deployments), and 'preserve' (frozen at the initial
+            % X range — legacy behaviour).
+            fp.LiveViewMode = obj.LiveViewMode;
 
             % Bind data — Tag-first dispatch (v2.0).
             if ~isempty(obj.Tag)
@@ -148,6 +159,12 @@ classdef FastSenseWidget < DashboardWidget
                 addlistener(ax, 'XLim', 'PostSet', @(~,~) obj.onXLimChanged());
             catch
             end
+            % Listen for manual Y zoom so autoScaleY_ stops fighting the
+            % user after a scroll / drag / programmatic ylim.
+            try
+                addlistener(ax, 'YLim', 'PostSet', @(~,~) obj.onYLimChanged());
+            catch
+            end
         end
 
         function refresh(obj)
@@ -205,8 +222,14 @@ classdef FastSenseWidget < DashboardWidget
         %   samples outside the initial range would fall off the chart.
         %   This helper recomputes the Y extent every tick (including any
         %   threshold values so MonitorTag lines stay visible) and updates
-        %   the axes. Skipped when the widget has a user-pinned YLimits.
+        %   the axes. Skipped when:
+        %     - the widget has a user-pinned YLimits NV-pair, or
+        %     - the user manually zoomed Y via mouse (UserZoomedY),
+        %   so we never fight an explicit human interaction.
             if ~isempty(obj.YLimits)
+                return;
+            end
+            if obj.UserZoomedY
                 return;
             end
             if isempty(obj.FastSenseObj) || ~obj.FastSenseObj.IsRendered
@@ -241,7 +264,25 @@ classdef FastSenseWidget < DashboardWidget
             else
                 pad = max(abs(yMax) * 0.1, 1);
             end
-            set(ax, 'YLim', [yMin - pad, yMax + pad]);
+            obj.IsSettingYLim = true;
+            try
+                set(ax, 'YLim', [yMin - pad, yMax + pad]);
+            catch
+            end
+            obj.IsSettingYLim = false;
+        end
+
+        function onYLimChanged(obj)
+        %ONYLIMCHANGED Detach widget from automatic Y rescale after user zoom.
+        %   Fired by the YLim PostSet listener. When the YLim change came
+        %   from inside autoScaleY_ (IsSettingYLim==true) we ignore it; any
+        %   other source — mouse scroll, drag, zoom toolbar, programmatic
+        %   ylim() from user code — counts as a manual override and
+        %   latches UserZoomedY so live ticks stop fighting the user.
+            if obj.IsSettingYLim
+                return;
+            end
+            obj.UserZoomedY = true;
         end
 
         function setTimeRange(obj, tStart, tEnd)
