@@ -75,7 +75,10 @@ classdef IconCardWidget < DashboardWidget
             end
             if ~isempty(obj.Tag)
                 obj.Threshold = [];
-                obj.Sensor    = [];
+                % NOTE: do NOT clear obj.Sensor here. Sensor is a Dependent
+                % alias for Tag (see DashboardWidget.set.Sensor) — setting
+                % it to [] wipes the Tag we just stored, causing the widget
+                % to render "--" forever.
             end
             % Mutual exclusivity: Threshold wins (per D-08)
             if ~isempty(obj.Threshold) && ~isempty(obj.Sensor)
