@@ -86,6 +86,8 @@ classdef IconCardWidget < DashboardWidget
         function render(obj, parentPanel)
         %RENDER Create icon, value text, and label inside parentPanel.
             obj.hPanel = parentPanel;
+            % Re-layout on resize so pixel-scaled fonts/geometry stay correct.
+            try obj.hPanel.SizeChangedFcn = @(~,~) obj.relayout_(); catch, end
             theme = obj.getTheme();
 
             bgColor  = theme.WidgetBackground;
@@ -335,6 +337,14 @@ classdef IconCardWidget < DashboardWidget
     end
 
     methods (Access = private)
+        function relayout_(obj)
+        %RELAYOUT_ Rebuild pixel-scaled elements on panel resize.
+            if isempty(obj.hPanel) || ~ishandle(obj.hPanel), return; end
+            try delete(findobj(obj.hPanel, '-depth', 1, 'Type', 'uicontrol')); catch, end
+            try delete(findobj(obj.hPanel, '-depth', 1, 'Type', 'axes')); catch, end
+            obj.render(obj.hPanel);
+        end
+
         function color = resolveIconColor(obj, theme)
         %RESOLVEICONCOLOR Map current state to a theme color.
             switch obj.CurrentState
