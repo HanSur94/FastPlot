@@ -270,6 +270,9 @@ classdef DashboardEngine < handle
             obj.Layout.ContentArea = [0, obj.TimePanelHeight, ...
                 1, 1 - toolbarH - pageBarH - obj.TimePanelHeight];
             obj.Layout.DetachCallback = @(w) obj.detachWidget(w);
+            % Create viewport once up front — additive allocatePanels calls below
+            % will reuse it rather than destroying and recreating it each time.
+            obj.Layout.ensureViewport(obj.hFigure, themeStruct);
             obj.Layout.allocatePanels(obj.hFigure, obj.activePageWidgets(), themeStruct);
             obj.Layout.OnScrollCallback = @(r1, r2) obj.onScrollRealize(r1, r2);
             obj.realizeBatch(5);
