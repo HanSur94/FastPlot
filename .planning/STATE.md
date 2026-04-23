@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
 status: executing
-stopped_at: Completed 1014-06-PLAN.md (Wave 2 -- Dashboard small-numbers batch)
-last_updated: "2026-04-23T17:11:30.969Z"
+stopped_at: "Plan 07 Tasks 1-2 complete; Task 3 checkpoint:human-verify AWAITING user (push to CI + confirm MATLAB Tests green)"
+last_updated: "2026-04-23T17:38:36.809Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 16
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 ## Current Position
 
 Phase: 1014 (Fix ~140 MATLAB test-suite failures from v2.0 legacy-class deletion) — EXECUTING
-Plan: 3 of 7 (Plan 01 Wave 0 complete)
+Plan: 4 of 7 (Plan 01 Wave 0 complete)
 Status: Ready to execute
 Last activity: 2026-04-23
 
@@ -121,6 +121,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1012 P05 | 11min | 1 tasks | 1 files |
 | Phase 1014 P05 | 3min | 2 tasks | 5 files |
 | Phase 1014 P06 | 10min | 2 tasks | 4 files |
+| Phase 1014 P07 | 25min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -255,6 +256,8 @@ Recent decisions affecting current work:
 - [Phase 1014]: [Phase 1014 Plan 05]: EventDetection test suite collapsed — deleted TestEventDetector/TestIncrementalDetector/TestLivePipeline entirely; pruned TestEventStore (7→1 methods) and TestEventConfig (9→3 methods); 37 methods eliminated; live-path coverage in TestEventDetectorTag/TestEventStoreRw/TestLiveEventPipelineTag untouched
 - [Phase 1014]: Plan 06: Only 4 of 13 in-scope files required edits; 9 no-edit files had zero legacy-class refs and their CI failures are UI-drift/env issues outside Plan 06 scope
 - [Phase 1014]: Plan 06: TestWebBridge 5 methods deleted because they call private startTcp; making it public would violate libs/ scope-lock (D-01)
+- [Phase 1014]: [Phase 1014 Plan 07]: 5 Category F residuals triaged (TestTag/Toolbar/MonitorTagEvents) -- 3 R-release drift fixes (OnOffSwitchState enum char-wrap, 12-button count) + 1 test-contract simplification (0-arg probe dropped) + 1 obsolete-invariant deletion (Phase 1010 TagKeys migration retired Pitfall-5 guard)
+- [Phase 1014]: [Phase 1014 Plan 07]: Local R2025b full suite shows 36 residuals outside Plan 07 frontmatter scope (TestToStepFunctionMex pre-existing per Phase 1008 deferred-items, TestIconCardWidgetTag/TestDashboardBuilderInteraction/widget-tag verify-fails not triaged in Waves 0-2); authoritative signal per D-03 is CI R2020b MATLAB Tests job -- deferred to Task 3 push-to-CI checkpoint
 
 ### Roadmap Evolution
 
@@ -292,6 +295,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T17:11:27.181Z
-Stopped at: Completed 1014-06-PLAN.md (Wave 2 -- Dashboard small-numbers batch)
+Last session: 2026-04-23T17:38:36.791Z
+Stopped at: Plan 07 Tasks 1-2 complete; Task 3 checkpoint:human-verify AWAITING user (push to CI + confirm MATLAB Tests green)
 Resume file: None
