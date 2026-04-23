@@ -957,7 +957,15 @@ classdef DashboardEngine < handle
                 if ~isempty(w.Sensor) || ~isempty(w.Tag)
                     w.markDirty();
                 end
-                if w.Dirty && w.Realized && obj.Layout.isWidgetVisible(w.Position)
+                % Dead-handle recovery: panel was destroyed (e.g. by a layout bug or
+                % figure-close race). Drop Realized so the next scroll-realize pass
+                % can rebuild it, and skip this tick.
+                if ~isempty(w.hPanel) && ~ishandle(w.hPanel)
+                    w.markUnrealized();
+                    continue;
+                end
+                if w.Dirty && w.Realized && ~isempty(w.hPanel) && ishandle(w.hPanel) ...
+                        && obj.Layout.isWidgetVisible(w.Position)
                     try
                         if isa(w, 'FastSenseWidget')
                             w.update();
