@@ -151,8 +151,8 @@ classdef DashboardProgress < handle
                 return;
             end
             tf = usejava('desktop');
-            if tf && exist('batchStartupOptionUsed', 'builtin') ...
-                  && batchStartupOptionUsed()
+            if tf && exist('batchStartupOptionUsed', 'builtin') && ...
+                    batchStartupOptionUsed()
                 tf = false;
             end
         end
