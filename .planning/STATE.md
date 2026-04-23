@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
-status: verifying
-stopped_at: Completed 1013-03-PLAN.md
-last_updated: "2026-04-22T14:45:08.806Z"
-last_activity: 2026-04-22
+status: executing
+stopped_at: Completed 1013-04-PLAN.md
+last_updated: "2026-04-23T16:55:49.979Z"
+last_activity: 2026-04-23
 progress:
   total_phases: 16
   completed_phases: 9
   total_plans: 38
-  completed_plans: 35
+  completed_plans: 36
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 1012 — Tag Pipeline — raw files to per-tag MAT via registry, batch and live
+**Current focus:** Phase 1013 — ship-prebuilt-mex-binaries-for-macos-windows-linux-so-end-users-skip-compilation
 
 ## Current Position
 
-Phase: 1012
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-22
+Phase: 1013 (ship-prebuilt-mex-binaries-for-macos-windows-linux-so-end-users-skip-compilation) — EXECUTING
+Plan: 5 of 6
+Status: Ready to execute
+Last activity: 2026-04-23
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 
@@ -122,6 +122,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1013 P02 | 115s | 1 tasks | 1 files |
 | Phase 1013 P01 | 25min | 2 tasks | 4 files |
 | Phase 1013 P03 | 1249 | 2 tasks | 4 files |
+| Phase 1013 P04 | 4min | 2 tasks | 28 files |
 
 ## Accumulated Context
 
@@ -254,6 +255,7 @@ Recent decisions affecting current work:
 - [Phase 1013]: mex_stamp: sha256 via system shell with fprint: fallback; stamp file format sha256:<64hex> at private/.mex-version; input set = sorted *.c/*.h in mex_src/ + build_mex.m + mksqlite.c
 - [Phase 1013]: install shim: varargout=install(varargin) with '__probe_needs_build__' sentinel returns needs_build(root) for tests; needs_build order: SKIP_BUILD -> binary probe -> stamp absent -> stamp mismatch -> trust binary
 - [Phase 1013]: get_octave_platform_tag() in install.m; same logic inlined as local_octave_tag_() in build_mex.m for self-containment; needs_build probe extended with absolute subdir path as third candidate
+- [Phase 1013]: Plan 04: Committed macOS ARM64 prebuilt MEX binaries (13 MATLAB + 13 Octave + stamp); Octave install 0.245s no-compile, 76/76 tests green, repo delta ~11 MiB; skipped destructive rebuild step (Rule 3) because MATLAB unavailable on dev host but binaries stamp-equal
 
 ### Roadmap Evolution
 
@@ -290,6 +292,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T14:45:08.801Z
-Stopped at: Completed 1013-03-PLAN.md
+Last session: 2026-04-23T16:55:46.893Z
+Stopped at: Completed 1013-04-PLAN.md
 Resume file: None
