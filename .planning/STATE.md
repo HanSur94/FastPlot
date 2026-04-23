@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
-status: executing
-stopped_at: Completed 1013-04-PLAN.md
-last_updated: "2026-04-23T16:55:49.979Z"
+status: verifying
+stopped_at: Completed 1013-05-PLAN.md
+last_updated: "2026-04-23T17:01:28.282Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 16
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 38
-  completed_plans: 36
+  completed_plans: 38
   percent: 0
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 ## Current Position
 
 Phase: 1013 (ship-prebuilt-mex-binaries-for-macos-windows-linux-so-end-users-skip-compilation) — EXECUTING
-Plan: 5 of 6
-Status: Ready to execute
+Plan: 6 of 6
+Status: Phase complete — ready for verification
 Last activity: 2026-04-23
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
@@ -123,6 +123,8 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1013 P01 | 25min | 2 tasks | 4 files |
 | Phase 1013 P03 | 1249 | 2 tasks | 4 files |
 | Phase 1013 P04 | 4min | 2 tasks | 28 files |
+| Phase 1013 P06 | 2min | 4 tasks | 3 files |
+| Phase 1013 P05 | 8min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -256,6 +258,10 @@ Recent decisions affecting current work:
 - [Phase 1013]: install shim: varargout=install(varargin) with '__probe_needs_build__' sentinel returns needs_build(root) for tests; needs_build order: SKIP_BUILD -> binary probe -> stamp absent -> stamp mismatch -> trust binary
 - [Phase 1013]: get_octave_platform_tag() in install.m; same logic inlined as local_octave_tag_() in build_mex.m for self-containment; needs_build probe extended with absolute subdir path as third candidate
 - [Phase 1013]: Plan 04: Committed macOS ARM64 prebuilt MEX binaries (13 MATLAB + 13 Octave + stamp); Octave install 0.245s no-compile, 76/76 tests green, repo delta ~11 MiB; skipped destructive rebuild step (Rule 3) because MATLAB unavailable on dev host but binaries stamp-equal
+- [Phase 1013]: benchmark.yml and examples.yml need no local cache edit — they inherit via workflow_call from _build-mex-octave.yml
+- [Phase 1013]: macOS and Windows mex-build jobs in tests.yml retained as smoke tests; authoritative binaries ship via refresh-mex-binaries.yml (Plan 05)
+- [Phase 1013]: Release tarball now ships committed MEX binaries (find-delete block removed); body text announces prebuilt bundling
+- [Phase 1013]: Plan 05: bash stamp formula mirrors mex_stamp.m (sorted *.c + sorted *.h + build_mex.m + mksqlite.c); macos-13 retired -> macos-15-intel with R2023b
 
 ### Roadmap Evolution
 
@@ -292,6 +298,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T16:55:46.893Z
-Stopped at: Completed 1013-04-PLAN.md
+Last session: 2026-04-23T17:01:28.261Z
+Stopped at: Completed 1013-05-PLAN.md
 Resume file: None
