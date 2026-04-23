@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
 status: verifying
-stopped_at: Completed 1013-05-PLAN.md
-last_updated: "2026-04-23T17:01:28.282Z"
+stopped_at: Completed 1013-07-PLAN.md (gap closure)
+last_updated: "2026-04-23T17:30:06.098Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 16
   completed_phases: 10
-  total_plans: 38
-  completed_plans: 38
+  total_plans: 39
+  completed_plans: 39
   percent: 0
 ---
 
@@ -125,6 +125,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1013 P04 | 4min | 2 tasks | 28 files |
 | Phase 1013 P06 | 2min | 4 tasks | 3 files |
 | Phase 1013 P05 | 8min | 2 tasks | 1 files |
+| Phase 1013 P07 | 20min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -262,6 +263,7 @@ Recent decisions affecting current work:
 - [Phase 1013]: macOS and Windows mex-build jobs in tests.yml retained as smoke tests; authoritative binaries ship via refresh-mex-binaries.yml (Plan 05)
 - [Phase 1013]: Release tarball now ships committed MEX binaries (find-delete block removed); body text announces prebuilt bundling
 - [Phase 1013]: Plan 05: bash stamp formula mirrors mex_stamp.m (sorted *.c + sorted *.h + build_mex.m + mksqlite.c); macos-13 retired -> macos-15-intel with R2023b
+- [Phase 1013]: Plan 1013-07 (gap closure): moved mex_stamp.m from libs/FastSense/private/ to libs/FastSense/ so install.m can reach it via bare-name resolution; closes VERIFICATION.md gap 1 (end-user install skips compilation). Rule 1 fix: tests/test_mex_prebuilt.m section 7 was destroying committed octave-tag/binary_search_mex.mex — preserved via backup/restore. Restamped .mex-version after build_mex.m comment addition.
 
 ### Roadmap Evolution
 
@@ -298,6 +300,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T17:01:28.261Z
-Stopped at: Completed 1013-05-PLAN.md
+Last session: 2026-04-23T17:30:01.981Z
+Stopped at: Completed 1013-07-PLAN.md (gap closure)
 Resume file: None
