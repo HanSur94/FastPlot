@@ -374,9 +374,35 @@ classdef MultiStatusWidget < DashboardWidget
             end
         end
 
-        function color = deriveColor(~, sensor, defaultColor)
+        function color = deriveColor(obj, sensor, defaultColor)
+            %DERIVECOLOR Derive cell color for a bare (non-struct) Sensors entry.
+            %   Two branches by item type:
+            %     - Tag handle (SensorTag/MonitorTag/CompositeTag): dispatch
+            %       through sensor.valueAt(now); value >= 0.5 -> alarm color
+            %       (mirrors deriveColorFromTag_ for struct-wrapped items).
+            %     - Legacy Sensor handle (.Y + .Thresholds cell): original
+            %       threshold-walk (byte-for-byte preserved for backward compat).
+            %   Gap closure for 1015-UAT Test 1: MonitorTag has no .Y property,
+            %   so the legacy branch threw. See 1015-04-PLAN.md.
             color = defaultColor;
-            if isempty(sensor) || isempty(sensor.Y)
+            if isempty(sensor)
+                return;
+            end
+            if isa(sensor, 'Tag')
+                try
+                    theme = obj.getTheme();
+                    v = sensor.valueAt(now);
+                    if ~isempty(v) && isnumeric(v) && ~any(isnan(v)) && v(1) >= 0.5
+                        color = theme.StatusAlarmColor;
+                    end
+                catch
+                    % Defensive: any Tag-side failure falls through to default.
+                end
+                return;
+            end
+            % Legacy Sensor path (pre-Phase-1011 Sensor objects and any other
+            % non-Tag duck-typed handle exposing .Y + .Thresholds).
+            if isempty(sensor.Y)
                 return;
             end
             val = sensor.Y(end);
