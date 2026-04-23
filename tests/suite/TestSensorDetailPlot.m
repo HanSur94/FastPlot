@@ -29,7 +29,7 @@ classdef TestSensorDetailPlot < matlab.unittest.TestCase
         %% Construction
         function testConstructorStoresTag(testCase)
             sdp = SensorDetailPlot(testCase.sensor);
-            testCase.verifyEqual(sdp.Sensor.Key, 'test_pressure');
+            testCase.verifyEqual(sdp.TagRef.Key, 'test_pressure');
             delete(sdp);
         end
 

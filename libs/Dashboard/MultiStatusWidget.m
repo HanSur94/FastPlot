@@ -237,7 +237,7 @@ classdef MultiStatusWidget < DashboardWidget
         function relayout_(obj)
         %RELAYOUT_ Rebuild pixel-scaled elements on panel resize.
             if isempty(obj.hPanel) || ~ishandle(obj.hPanel), return; end
-            try delete(findobj(obj.hPanel, '-depth', 1, 'Type', 'uicontrol')); catch, end
+            try DashboardWidget.clearPanelControls(obj.hPanel); catch, end
             try delete(findobj(obj.hPanel, '-depth', 1, 'Type', 'axes')); catch, end
             obj.render(obj.hPanel);
         end

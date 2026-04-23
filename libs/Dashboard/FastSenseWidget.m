@@ -427,8 +427,8 @@ classdef FastSenseWidget < DashboardWidget
                         obj.XVar = s.source.xVar;
                         obj.YVar = s.source.yVar;
                     case 'data'
-                        obj.XData = s.source.x;
-                        obj.YData = s.source.y;
+                        obj.XData = s.source.x(:).';
+                        obj.YData = s.source.y(:).';
                 end
             end
 

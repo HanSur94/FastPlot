@@ -727,6 +727,16 @@ classdef DashboardBuilder < handle
             layout = obj.Engine.Layout;
             w = obj.Engine.Widgets{widgetIdx};
             oldGrid = w.Position;
+
+            % Resolve overlap against other widgets — bump to next free
+            % row when the dropped position collides (same rule as
+            % DashboardEngine.addWidget).
+            existingPositions = {};
+            for k = 1:numel(obj.Engine.Widgets)
+                if k == widgetIdx, continue; end
+                existingPositions{end+1} = obj.Engine.Widgets{k}.Position; %#ok<AGROW>
+            end
+            newGrid = layout.resolveOverlap(newGrid, existingPositions);
             w.Position = newGrid;
 
             % Check if total rows changed (need full relayout for scroll)

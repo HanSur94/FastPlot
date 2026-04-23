@@ -127,8 +127,7 @@ classdef TestGaugeWidget < matlab.unittest.TestCase
             testCase.verifyEqual(w.CurrentValue, 60, ...
                 'Sensor-driven gauge should read Y(end)');
             % Append new data and refresh
-            s_y_ = [40 50 60 85];
-            % TODO: s_x_ = [1 2 3 4]; (needs manual fix)
+            s.updateData([1 2 3 4], [40 50 60 85]);
             w.refresh();
             testCase.verifyEqual(w.CurrentValue, 85);
         end
