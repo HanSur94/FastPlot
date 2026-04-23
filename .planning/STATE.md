@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
 status: executing
-stopped_at: Completed 1014-05-PLAN.md (Wave 1 parallel — EventDetection test-suite collapse)
-last_updated: "2026-04-22T14:55:44.954Z"
-last_activity: 2026-04-22 -- Phase 1014 Plan 01 complete (Wave 0 pilots landed)
+stopped_at: Completed 1014-06-PLAN.md (Wave 2 -- Dashboard small-numbers batch)
+last_updated: "2026-04-23T17:11:30.969Z"
+last_activity: 2026-04-23
 progress:
   total_phases: 16
   completed_phases: 9
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 ## Current Position
 
 Phase: 1014 (Fix ~140 MATLAB test-suite failures from v2.0 legacy-class deletion) — EXECUTING
-Plan: 2 of 7 (Plan 01 Wave 0 complete)
-Status: Executing Phase 1014 — Wave 1 ready (Plans 02-05 parallelizable)
-Last activity: 2026-04-22 -- Phase 1014 Plan 01 complete (Wave 0 pilots landed)
+Plan: 3 of 7 (Plan 01 Wave 0 complete)
+Status: Ready to execute
+Last activity: 2026-04-23
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 
@@ -120,6 +120,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1012 P04 | 12min | 1 tasks | 2 files |
 | Phase 1012 P05 | 11min | 1 tasks | 1 files |
 | Phase 1014 P05 | 3min | 2 tasks | 5 files |
+| Phase 1014 P06 | 10min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -252,6 +253,8 @@ Recent decisions affecting current work:
 - [Phase 1014 Plan 01]: TestSensorDetailPlot.m received only the `sensor` property migration; legacy-class methods (Sensor/Threshold/ThresholdRule calls + createTagWithThreshold helper) are Plan 04's exclusive scope per D-02-A
 - [Phase 1014 Plan 01]: `DashboardBuilder.exitEditMode` is the only libs/ edit permitted in Phase 1014 (per D-02-E + D-05); guard wraps the first two set(hFig, ...) calls, late guard preserved as idempotent belt-and-suspenders
 - [Phase 1014]: [Phase 1014 Plan 05]: EventDetection test suite collapsed — deleted TestEventDetector/TestIncrementalDetector/TestLivePipeline entirely; pruned TestEventStore (7→1 methods) and TestEventConfig (9→3 methods); 37 methods eliminated; live-path coverage in TestEventDetectorTag/TestEventStoreRw/TestLiveEventPipelineTag untouched
+- [Phase 1014]: Plan 06: Only 4 of 13 in-scope files required edits; 9 no-edit files had zero legacy-class refs and their CI failures are UI-drift/env issues outside Plan 06 scope
+- [Phase 1014]: Plan 06: TestWebBridge 5 methods deleted because they call private startTcp; making it public would violate libs/ scope-lock (D-01)
 
 ### Roadmap Evolution
 
@@ -289,6 +292,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T14:55:44.845Z
-Stopped at: Completed 1014-05-PLAN.md (Wave 1 parallel — EventDetection test-suite collapse)
+Last session: 2026-04-23T17:11:27.181Z
+Stopped at: Completed 1014-06-PLAN.md (Wave 2 -- Dashboard small-numbers batch)
 Resume file: None
