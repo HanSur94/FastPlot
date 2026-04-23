@@ -2,9 +2,10 @@ function engine = buildDashboard(ctx)
 %BUILDDASHBOARD Construct the Phase 1015 demo dashboard.
 %   engine = buildDashboard(ctx) creates the DashboardEngine, adds six
 %   themed pages, delegates per-page widget composition to the build*Page
-%   helpers, renders the figure, attempts to pre-detach the main reactor
-%   pressure plot, starts the live timer, and wires a CloseRequestFcn so
-%   closing the figure invokes teardownDemo(ctx).
+%   helpers, renders the figure, starts the live timer, and wires a
+%   CloseRequestFcn so closing the figure invokes teardownDemo(ctx).
+%   (Earlier revisions auto-detached the reactor pressure plot into its
+%   own figure on startup; that was removed on user feedback.)
 %
 %   Plan-vs-API notes (deviations documented in 1015-02-SUMMARY.md):
 %     - DashboardEngine has no 'Live' NV-pair; startLive() starts the timer.
@@ -40,18 +41,11 @@ function engine = buildDashboard(ctx)
     engine.switchPage(1);
     engine.render();
 
-    % D-09 pre-detach the main reactor pressure plot on Overview.
-    % Helper walks engine.Pages{i}.Widgets (public readable) rather than
-    % the private allPageWidgets() method referenced in the plan body.
-    try
-        mainPlot = firstWidgetByTag_(engine, 'reactor.pressure', 'fastsense');
-        if ~isempty(mainPlot)
-            engine.detachWidget(mainPlot);
-        end
-    catch detachErr
-        warning('IndustrialPlant:detachFailed', ...
-            'Pre-detach of main plot failed: %s', detachErr.message);
-    end
+    % (Plan D-09 called for pre-detaching the reactor pressure plot into
+    % its own figure on startup; that behaviour was removed on user
+    % feedback -- the demo now renders as a single dashboard window. The
+    % Re-attach / Detach button on each FastSenseWidget still lets users
+    % pop a plot out manually.)
 
     % Start live refresh timer.
     engine.startLive();
@@ -63,44 +57,6 @@ function engine = buildDashboard(ctx)
     if ~isempty(fig) && ishandle(fig)
         set(fig, 'Name', 'FastSense Industrial Plant Demo');
         set(fig, 'CloseRequestFcn', @(src, ~) demoClose_(src, ctx));
-    end
-end
-
-function w = firstWidgetByTag_(engine, tagKey, kindHint)
-%FIRSTWIDGETBYTAG_ Search all pages for a widget bound to the given Tag.
-%   Walks engine.Pages{i}.Widgets directly. Pages is SetAccess=private but
-%   publicly readable; DashboardPage.Widgets is a public cell. This avoids
-%   calling the engine's private allPageWidgets() method.
-%
-%   When kindHint is provided, matches only widgets whose Type matches.
-    w = [];
-    if isempty(engine.Pages)
-        pools = {engine.Widgets};
-    else
-        pools = cell(1, numel(engine.Pages));
-        for i = 1:numel(engine.Pages)
-            pools{i} = engine.Pages{i}.Widgets;
-        end
-    end
-    for p = 1:numel(pools)
-        ws = pools{p};
-        for i = 1:numel(ws)
-            wi = ws{i};
-            if nargin >= 3 && ~isempty(kindHint)
-                try
-                    if ~strcmpi(wi.Type, kindHint)
-                        continue;
-                    end
-                catch
-                    continue;
-                end
-            end
-            if ~isempty(wi.Tag) && isprop(wi.Tag, 'Key') && ...
-                    strcmp(wi.Tag.Key, tagKey)
-                w = wi;
-                return;
-            end
-        end
     end
 end
 

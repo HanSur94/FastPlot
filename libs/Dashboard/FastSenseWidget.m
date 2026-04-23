@@ -85,6 +85,27 @@ classdef FastSenseWidget < DashboardWidget
                 fp.addLine(obj.XData, obj.YData);
             end
 
+            % Auto-detect datenum time base so the x-axis renders as dates
+            % instead of raw numeric (which prints '1.776e9' scientific
+            % notation for posix seconds). Triggers when the probed X
+            % values sit in the MATLAB datenum range for years 1910-2100.
+            try
+                probeX = [];
+                if ~isempty(obj.Tag)
+                    [probeX, ~] = obj.Tag.getXY();
+                elseif ~isempty(obj.XData)
+                    probeX = obj.XData;
+                end
+                if ~isempty(probeX) && isnumeric(probeX)
+                    xMax = max(probeX(:));
+                    xMin = min(probeX(:));
+                    if xMin > 697000 && xMax < 769000
+                        fp.XType = 'datenum';
+                    end
+                end
+            catch
+            end
+
             % Set title and axis labels
             if ~isempty(obj.Title)
                 title(ax, obj.Title, 'Color', get(ax, 'XColor'));

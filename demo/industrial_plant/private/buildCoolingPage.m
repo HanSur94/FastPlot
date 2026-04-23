@@ -11,13 +11,14 @@ function buildCoolingPage(engine, ctx) %#ok<INUSD>
     coolOut  = TagRegistry.get('cooling.out_temp');
     coolFlow = TagRegistry.get('cooling.flow');
 
-    % ---- RawAxesWidget with custom PlotFcn ---------------------------
-    % addWidget('rawaxes', 'RenderFcn', @(ax)..., ...)
-    % InfoText: "Custom raw axes plotting cooling.flow vs time"
-    engine.addWidget('rawaxes', ...
-        'Title',       'Cooling Flow (raw axes)', ...
-        'PlotFcn',     @(ax) rawFlowPlot_(ax, coolFlow), ...
-        'Description', 'RawAxesWidget hosts a user-supplied PlotFcn that draws cooling.flow vs time directly against a MATLAB axes.', ...
+    % ---- FastSense time-series: cooling.flow vs time -----------------
+    % Was a RawAxesWidget with a custom PlotFcn; replaced with FastSense
+    % so every signal diagram in the demo uses the same time-series
+    % pipeline (datenum-aware axis, down-sampling, event markers).
+    engine.addWidget('fastsense', ...
+        'Title',       'Cooling Flow', ...
+        'Tag',         coolFlow, ...
+        'Description', 'Cooling flow time series (FastSense, replaces the original RawAxesWidget + PlotFcn).', ...
         'Position',    [1 1 12 4]);
 
     % ---- TableWidget: static summary table ---------------------------
@@ -61,23 +62,6 @@ function buildCoolingPage(engine, ctx) %#ok<INUSD>
     grp.addChild(sc);
     grp.addChild(nm);
     engine.addWidget(grp);
-end
-
-function rawFlowPlot_(ax, tag)
-%RAWFLOWPLOT_ Render cooling.flow vs time onto the supplied axes.
-    try
-        [x, y] = tag.getXY();
-    catch
-        x = []; y = [];
-    end
-    if isempty(x)
-        x = 0; y = 0;
-    end
-    cla(ax);
-    plot(ax, x, y, 'LineWidth', 1.4);
-    xlabel(ax, 'Time (s)');
-    ylabel(ax, 'Flow (L/min)');
-    grid(ax, 'on');
 end
 
 function d = makeStatsTable_(a, b, c)

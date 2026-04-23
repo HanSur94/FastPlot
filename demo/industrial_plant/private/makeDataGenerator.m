@@ -9,8 +9,12 @@ function t = makeDataGenerator(rawDir, varargin)
 %   intended for test isolation).
 %
 %   Row layout (per D-01 / D-12):
-%     Sensor .dat lines: "<epoch_seconds>,<value>\n"   (%.3f,%.6f)
-%     State  .dat lines: "<epoch_seconds>,<label>\n"   (%.3f,%s)
+%     Sensor .dat lines: "<datenum>,<value>\n"   (%.9f,%.6f)
+%     State  .dat lines: "<datenum>,<label>\n"   (%.9f,%s)
+%
+%   Time base: MATLAB serial date number (datenum). All X values fed to
+%   TagRegistry / FastSense are datenum-style doubles so FastSense's
+%   datetime-aware axis formatting kicks in automatically.
 %
 %   Signal model (per tag):
 %     y(t) = mean + amp*sin(2*pi*t/period + phase) + noise*randn
@@ -21,7 +25,7 @@ function t = makeDataGenerator(rawDir, varargin)
 %   Timer UserData:
 %     .cfg        - plantConfig() output
 %     .rawDir     - char, writer root
-%     .tStart     - scalar epoch seconds captured at first tick
+%     .tStart     - scalar datenum captured at first tick
 %     .step       - monotonically increasing tick counter (1..N)
 %     .stateIdx   - struct: stateKey_field -> last-emitted label index
 %
@@ -72,9 +76,9 @@ function industrialPlantTick_(tObj, ~)
     ud  = tObj.UserData;
     cfg = ud.cfg;
 
-    nowEpoch = nowEpochSec_();
+    nowTime = nowDatenum_();
     if isempty(ud.tStart)
-        ud.tStart = nowEpoch;
+        ud.tStart = nowTime;
     end
     ud.step = ud.step + 1;
     step    = ud.step;
@@ -108,7 +112,7 @@ function industrialPlantTick_(tObj, ~)
         % Clamp to physical range so the signal stays plausible.
         y = max(rng(1), min(rng(2), y));
 
-        appendRow_(ud.rawDir, key, nowEpoch, y, 'sensor');
+        appendRow_(ud.rawDir, key, nowTime, y, 'sensor');
 
         % Update in-memory accumulators + push to the registered tag so
         % getXY() / valueAt() / MonitorTag listeners see fresh data
@@ -117,7 +121,7 @@ function industrialPlantTick_(tObj, ~)
             ud.sensorX.(field) = [];
             ud.sensorY.(field) = [];
         end
-        ud.sensorX.(field)(end+1) = nowEpoch; %#ok<AGROW>
+        ud.sensorX.(field)(end+1) = nowTime; %#ok<AGROW>
         ud.sensorY.(field)(end+1) = y;        %#ok<AGROW>
         pushToSensorTag_(key, ud.sensorX.(field), ud.sensorY.(field));
     end
@@ -141,13 +145,13 @@ function industrialPlantTick_(tObj, ~)
             prevIdx = ud.stateIdx.(field);
         end
         if isnan(prevIdx) || prevIdx ~= idx
-            appendRow_(ud.rawDir, key, nowEpoch, labels{idx}, 'state');
+            appendRow_(ud.rawDir, key, nowTime, labels{idx}, 'state');
             ud.stateIdx.(field) = idx;
             if ~isfield(ud.stateX, field)
                 ud.stateX.(field) = [];
                 ud.stateY.(field) = {};
             end
-            ud.stateX.(field)(end+1) = nowEpoch;     %#ok<AGROW>
+            ud.stateX.(field)(end+1) = nowTime;     %#ok<AGROW>
             ud.stateY.(field){end+1} = labels{idx};  %#ok<AGROW>
             pushToStateTag_(key, ud.stateX.(field), ud.stateY.(field));
         end
@@ -184,8 +188,9 @@ function pushToStateTag_(key, xAll, yAll)
     end
 end
 
-function appendRow_(rawDir, key, epochSec, value, kind)
+function appendRow_(rawDir, key, timeVal, value, kind)
     %APPENDROW_ Append a single row to <rawDir>/<key>.dat for the tag.
+    %   timeVal is a MATLAB datenum (days since 0000-01-00).
     path = fullfile(rawDir, [key '.dat']);
     isNew = ~exist(path, 'file');
     fid = fopen(path, 'a');
@@ -199,25 +204,19 @@ function appendRow_(rawDir, key, epochSec, value, kind)
     if isNew
         % Header row so LiveTagPipeline's tall-file path picks up named
         % time+value columns cleanly.
-        switch kind
-            case 'sensor'
-                fprintf(fid, 'time,value\n');
-            case 'state'
-                fprintf(fid, 'time,value\n');
-        end
+        fprintf(fid, 'time,value\n');
     end
 
     switch kind
         case 'sensor'
-            fprintf(fid, '%.3f,%.6f\n', epochSec, value);
+            fprintf(fid, '%.9f,%.6f\n', timeVal, value);
         case 'state'
-            fprintf(fid, '%.3f,%s\n', epochSec, value);
+            fprintf(fid, '%.9f,%s\n', timeVal, value);
     end
 end
 
-function s = nowEpochSec_()
-    %NOWEPOCHSEC_ Return current epoch seconds as a double.
-    %   Octave-safe: avoids datetime; uses now() * 86400 offset from
-    %   MATLAB's datenum epoch (Jan-0-0000).
-    s = (now() - datenum(1970,1,1,0,0,0)) * 86400;
+function d = nowDatenum_()
+    %NOWDATENUM_ Return the current time as a MATLAB serial date number.
+    %   Octave-safe: now() returns a datenum in both MATLAB and Octave.
+    d = now();
 end
