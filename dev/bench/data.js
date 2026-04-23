@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776979798155,
+  "lastUpdate": 1776980438576,
   "repoUrl": "https://github.com/HanSur94/FastSense",
   "entries": {
     "FastPlot Performance": [
@@ -39283,6 +39283,310 @@ window.BENCHMARK_DATA = {
           {
             "name": "Dashboard broadcastTimeRange stdmean",
             "value": 0.12,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "50265832+HanSur94@users.noreply.github.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ae5c53b795cd613daee4f50311c38c6c50354e93",
+          "message": "fix(tests): finish v2.0 Tag API test migration (#66)\n\n* fix(tests): finish v2.0 Tag API migration in 8 test files\n\nPR #64 partially migrated the suite to the Tag-based v2.0 API but left\nthese cases stale. Production API is correct; tests needed updating.\n\n- Widget source struct: 'sensor'/'name' -> 'tag'/'key' (matches\n  DashboardWidget.toStruct contract) in TestFastSenseWidget,\n  TestNumberWidget, TestStatusWidget.\n- SensorDetailPlot dropped legacy Sensor input path in v2.0: remove\n  sdp.Sensor assertions and testLegacySensorStillWorks; use TagRef.Key\n  in TestSensorDetailPlot.\n- TestFastSenseWidgetUpdate / TestGaugeWidget: replace TODO stubs\n  (\"s.X = ..., needs manual fix\") with SensorTag.updateData(X, Y).\n- TestInfoTooltip: NumberWidget 'Value' -> 'StaticValue',\n  StatusWidget 'Status' -> 'StaticStatus'.\n- TestNumberWidget.testComputeTrend: move the 51 spike out of the\n  recent-window so flat data actually reads 'flat' under the current\n  trend algorithm.\n\n* fix(dashboard): widget round-trip orientation + icon preservation + test hook\n\nFour non-Tag-API bugs surfaced by the stale CI suite:\n\n1. FastSenseWidget / GaugeWidget / TableWidget fromStruct: jsondecode\n   returns arrays as column vectors, but the widgets expect row\n   vectors. Round-tripping through JSON flipped XData/YData/Range/\n   ColumnNames from [1 N] to [N 1] and broke\n   testRoundTripPreservesWidgetSpecificProperties. Normalize to row\n   in each fromStruct.\n\n2. TextWidget.relayout_ deleted every uicontrol at depth 1, including\n   the InfoIconButton / DetachButton that DashboardLayout.realizeWidget\n   injects on top of the widget content. The first SizeChangedFcn\n   callback (often fired by drawnow during render) wiped the icons,\n   which is why testDetachButtonInjected and\n   testEndToEndInfoIconAppearsViaEngine saw a 0x0 GraphicsPlaceholder\n   instead of the button. Skip those two Tags when clearing.\n\n3. DashboardEngine.onTimeSlidersChanged is private, so\n   TestDashboardPerformance.testSliderDebounceCreatesTimer errored with\n   MethodRestricted. Add a Hidden, Access=?matlab.unittest.TestCase\n   shim (triggerTimeSlidersChangedForTest) and update the test to use\n   it; keeps the real callback encapsulated.\n\n* fix: address remaining CI failures — widgets, pipeline, tag events, env guards\n\nProduction fixes:\n\n1. Widget icon preservation: 6 additional widgets (NumberWidget,\n   StatusWidget, IconCardWidget, MultiStatusWidget, SparklineCardWidget,\n   ChipBarWidget) carried the same delete(findobj(...,uicontrol))\n   pattern TextWidget had. Added DashboardWidget.clearPanelControls\n   helper that skips InfoIconButton/DetachButton tags, and routed all\n   7 relayout_ paths through it.\n\n2. Tag DataChanged event: Tag subclasses expose X/Y as Dependent\n   (SetAccess=private) properties, so addlistener('PostSet') never\n   fires for Tag.X/Y — which is why TestDashboardBugFixes.\n   testSensorListenersMultiPage found widgets stuck at Dirty=false\n   after updateData. Declared a new 'DataChanged' event on Tag and\n   fire it from SensorTag.updateData / StateTag.updateData.\n   DashboardEngine.wireListeners now prefers the event and keeps the\n   PostSet X/Y pair as a fallback for legacy Sensor-class bindings.\n\n3. LiveEventPipeline 'Monitors' NV-pair: constructor signature is\n   (monitors, dataSourceMap, ...) but TestLiveEventPipelineTag passes\n   the monitors map by name as 'Monitors'. parseOpts was silently\n   discarding it, leaving MonitorTargets empty so runCycle found no\n   work — hence 0 events emitted. Accept 'Monitors' NV-pair with\n   precedence over the first positional arg.\n\n4. DashboardBuilder overlap resolution on drag: onMouseUp called\n   computeSnappedGrid then wrote w.Position directly — no collision\n   detection against other widgets. Route through\n   Layout.resolveOverlap so drops onto another widget bump down a\n   row (DashboardEngine.addWidget already does this).\n\n5. DashboardEngine.exportImage stub-axes: exportgraphics (MATLAB path)\n   needs a direct-child axes handle — widgets live inside uipanels so\n   it fails with \"Specified handle is not valid for export\". Hoisted\n   the Octave-branch stub-axes insertion so it covers the MATLAB\n   exportgraphics path too. exportapp (R2024a+) still short-circuits.\n\n6. FastSenseDataStore.getRange inverted range: xMin > xMax tripped\n   fread with a negative count in the binary fallback. Treat as an\n   empty result instead of a runtime error.\n\n7. Test-access shims for private methods: added\n   DashboardEngine.triggerTimeSlidersChangedForTest and\n   FastSenseDataStore.ensureOpenForTest, both\n   Hidden, Access={?matlab.unittest.TestCase}. Keeps the real\n   methods encapsulated while letting MethodRestricted tests run.\n\nTest-side fixes:\n\n- TestDashboardBuilderInteraction: hardcoded 12-col bounds replaced\n  with Layout.Columns; testMouseMoveDrag/ResizeUpdatesPanelPosition\n  rewritten to watch obj.Builder.hGhost (drag is ghost-only now;\n  panel commits on mouseup).\n- TestEventDetectorTag: Threshold class was deleted in the v2.0\n  Tag milestone and EventDetector has not been migrated yet — guard\n  the whole suite with assumeTrue(exist('Threshold','class')==8)\n  until the detector is reworked.\n- TestDataStoreWAL + TestMonitorTagPersistence: persistence paths\n  depend on mksqlite. Added assumeTrue(exist('mksqlite')==3) guards\n  so they skip gracefully on runners where the MEX failed to build.\n\n* fix: Octave compatibility — guard notify() + drop matlab.unittest Access clause\n\nTwo of the fixes from the previous commit silently broke Octave:\n\n1. notify(obj, 'DataChanged') in SensorTag.updateData / StateTag.updateData\n   crashes on Octave (\"'notify' undefined\"). Octave hasn't implemented\n   the MATLAB event-dispatch API. Guard with exist('OCTAVE_VERSION',\n   'builtin') so Octave skips the event; widget wiring still works\n   there via the existing addlistener invalidate() path.\n\n2. methods (Hidden, Access = {?matlab.unittest.TestCase}) on the\n   test-access shims (triggerTimeSlidersChangedForTest,\n   ensureOpenForTest) prevented Octave from even loading the enclosing\n   classes (DashboardEngine, FastSenseDataStore) — Octave has no\n   matlab.unittest package, so the access list rejects the classdef at\n   parse time. Replace with plain Hidden. Slightly wider access, but\n   the methods are still out of tab completion and their \"ForTest\"\n   suffix flags their intent.\n\nAlso: exportImage now falls back from exportgraphics to print() when\nexportgraphics rejects uipanel-only figures (\"Specified handle is not\nvalid for export\") — the stub-axes insertion alone wasn't enough on\nthe R2020b CI runner.\n\n* fix(dashboard): toggle figure Visible around exportImage for R2020b headless CI\n\nMATLAB R2020b on the CI runner rejects exportgraphics AND print with\n'Specified handle is not valid for export' when the figure has\nVisible='off', even with a hidden stub axes parented under the figure.\nThe tests flip Visible='off' right after render() to keep the figure\noff-screen, which trips this behaviour.\n\nTemporarily set Visible='on' around the export and restore the\noriginal value afterwards. Skipped for exportapp (R2024a+) which\nhandles invisible figures fine.\n\n* fix(dashboard): getframe+imwrite fallback when exportgraphics/print reject figure\n\nThree-tier export fallback for the MATLAB R2020b headless CI path:\nexportgraphics -> print -> getframe/imwrite. The first two still fail\nwith 'Specified handle is not valid for export' on uipanel-only figures\neven with the visibility toggle + stub axes. getframe captures the\nrendered figure content directly and imwrite serializes the resulting\nCData to disk — works regardless of whether the figure contains\ntop-level axes.\n\n* test(export): skip uipanel-export tests on MATLAB < R2024a (no exportapp)\n\nAfter three CI iterations, TestDashboardToolbarImageExport's 4 tests\nstill fail with 'Specified handle is not valid for export' on the\nR2020b headless runner. exportgraphics, print, and getframe all\nrefuse uipanel-only figures there. exportapp (R2024a+) handles UI-\ncomponent figures correctly, but we're pinned to R2020b in CI.\n\nSkip these tests on MATLAB versions lacking exportapp (and on Octave).\nThe export code path is still exercised by local dev runs on R2024a+\nand by the passing MATLAB Example Smoke Tests which write images via\ntheir own paths. The production code's three-tier fallback remains\nin place for users on newer MATLAB versions.\n\n* test(export): runtime-probe skip for uipanel export tests\n\nThe earlier exist('exportapp') heuristic didn't match reality on the\nR2020b CI runner — exportapp apparently registers there but still\ncan't export the test's uipanel-only invisible figure. Replace the\nheuristic with a runtime probe: create a throwaway invisible figure\nwith a uipanel, try exportgraphics on it, and cache the result. The\n4 export tests skip cleanly when the probe fails, which is the only\nenvironment that actually breaks them.\n\nThe production three-tier fallback (exportgraphics -> print ->\ngetframe/imwrite) stays in place so users on working runtimes aren't\naffected.\n\n* test(export): skip on headless MATLAB via feature('ShowFigureWindows')\n\nThe probe-based skip matched false positives — the runner exports a\nplain uipanel figure fine, but still can't export the real dashboard\nfigure with sliders, timeline controls, and widget sub-panels. Use\nfeature('ShowFigureWindows') instead — returns 0 on headless MATLAB,\nwhich is exactly the environment where exportImage breaks.\n\n* test: cover clearPanelControls, DataChanged events, LiveEventPipeline NV-pair\n\nPatch coverage was 48% because several newly-added code paths lacked\ndirect tests. This raises coverage on the biggest blocks:\n\n- TestDashboardWidget/testClearPanelControlsPreservesInjectedTags:\n  populates a panel with widget-owned + layout-injected controls,\n  invokes the shared helper, verifies InfoIconButton/DetachButton\n  survive while widget-owned controls are wiped. Exercises every\n  line of DashboardWidget.clearPanelControls (the helper that 7\n  widget relayout_ paths all delegate to).\n- TestDashboardWidget/testClearPanelControlsHandlesInvalidHandle:\n  covers the empty/invalid-handle guard.\n- MockDashboardWidget.invokeClearPanelControls: test-visible\n  subclass wrapper — clearPanelControls is protected-static so\n  ordinary TestCase classes can't call it directly.\n- TestTag/testDataChangedEventFiresOnSensorTagUpdate: asserts the\n  new Tag event fires on SensorTag.updateData. Skips on Octave\n  (no notify()).\n- TestTag/testDataChangedEventFiresOnStateTagUpdate: same for\n  StateTag.updateData.\n- TestTag/testLiveEventPipelineAcceptsMonitorsNVPair: routing\n  regression — 'Monitors' NV-pair must populate MonitorTargets\n  regardless of what the first positional arg contains.\n- TestTag/testFastSenseDataStoreGetRangeInvertedIsEmpty: explicit\n  coverage of the xMin>xMax early-return guard.",
+          "timestamp": "2026-04-23T23:33:59+02:00",
+          "tree_id": "44ff8a9c950acd672c175d8097a367ed8445269d",
+          "url": "https://github.com/HanSur94/FastSense/commit/ae5c53b795cd613daee4f50311c38c6c50354e93"
+        },
+        "date": 1776980437874,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample mean (1M)",
+            "value": 2.296,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(1M)",
+            "value": 0.065,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (1M)",
+            "value": 148.139,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(1M)",
+            "value": 0.957,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (1M)",
+            "value": 248.737,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(1M)",
+            "value": 1.745,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (1M)",
+            "value": 15.076,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(1M)",
+            "value": 4.189,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (5M)",
+            "value": 10.811,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(5M)",
+            "value": 0.025,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (5M)",
+            "value": 169.006,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(5M)",
+            "value": 1.226,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (5M)",
+            "value": 253.658,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(5M)",
+            "value": 0.847,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (5M)",
+            "value": 14.327,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(5M)",
+            "value": 1.411,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (10M)",
+            "value": 21.343,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std10M)",
+            "value": 0.2,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (10M)",
+            "value": 189.654,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std10M)",
+            "value": 0.571,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (10M)",
+            "value": 262.024,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std10M)",
+            "value": 1.102,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (10M)",
+            "value": 14.196,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std10M)",
+            "value": 0.981,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (50M)",
+            "value": 106.956,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std50M)",
+            "value": 0.558,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (50M)",
+            "value": 1227.021,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std50M)",
+            "value": 17.926,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (50M)",
+            "value": 265.092,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std50M)",
+            "value": 4.932,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (50M)",
+            "value": 14.245,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std50M)",
+            "value": 1.054,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (100M)",
+            "value": 210.472,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 0.374,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (100M)",
+            "value": 2265.034,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 34.952,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (100M)",
+            "value": 269.85,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 2.324,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (100M)",
+            "value": 14.545,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 1.189,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (500M)",
+            "value": 1084.985,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 43.896,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (500M)",
+            "value": 22800.583,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 2584.189,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (500M)",
+            "value": 559.256,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 342.016,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (500M)",
+            "value": 14.623,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 1.165,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render mean",
+            "value": 276.327,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render stdmean",
+            "value": 54.122,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick mean",
+            "value": 1.26,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick stdmean",
+            "value": 0.162,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch mean",
+            "value": 0.205,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch stdmean",
+            "value": 0.172,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange mean",
+            "value": 0.095,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange stdmean",
+            "value": 0.023,
             "unit": "ms"
           }
         ]
