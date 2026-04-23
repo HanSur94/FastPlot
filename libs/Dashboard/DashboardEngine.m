@@ -472,6 +472,17 @@ classdef DashboardEngine < handle
                         'Visible', 'off', 'HitTest', 'off');
                 end
             end
+
+            % Some MATLAB builds (notably R2020b headless) refuse to
+            % export an invisible figure with the opaque error
+            % "Specified handle is not valid for export" even when
+            % exportgraphics/print are used with a stub axes. Temporarily
+            % flip Visible='on' around the export call and restore it.
+            origVisible = get(obj.hFigure, 'Visible');
+            needsVisibilityToggle = ~useExportApp && strcmp(origVisible, 'off');
+            if needsVisibilityToggle
+                try set(obj.hFigure, 'Visible', 'on'); catch, end
+            end
             try
                 if useExportApp
                     % exportapp signature is exportapp(fig, filename) only
@@ -486,11 +497,8 @@ classdef DashboardEngine < handle
                     % Resolution=150 matches the -r150 used by the legacy
                     % print() path for visual parity.
                     %
-                    % Some MATLAB versions/headless modes reject
-                    % uipanel-only figures even with a stub axes ("handle
-                    % is not valid for export"). Fall back to print() in
-                    % that case — the stub axes makes print's
-                    % uipanel-recursion limitation a non-issue.
+                    % Fall back to print() if exportgraphics still rejects
+                    % the figure after the visibility toggle + stub axes.
                     try
                         exportgraphics(obj.hFigure, filepath, ...
                             'ContentType', 'image', 'Resolution', 150);
@@ -502,8 +510,14 @@ classdef DashboardEngine < handle
                     print(obj.hFigure, devFlag, '-r150', filepath);
                 end
                 if ~isempty(stubAxes) && ishandle(stubAxes); delete(stubAxes); end
+                if needsVisibilityToggle
+                    try set(obj.hFigure, 'Visible', origVisible); catch, end
+                end
             catch ME
                 if ~isempty(stubAxes) && ishandle(stubAxes); delete(stubAxes); end
+                if needsVisibilityToggle
+                    try set(obj.hFigure, 'Visible', origVisible); catch, end
+                end
                 error('DashboardEngine:imageWriteFailed', ...
                     'Failed to write image ''%s'': %s', filepath, ME.message);
             end
