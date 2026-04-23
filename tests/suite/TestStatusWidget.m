@@ -118,8 +118,8 @@ classdef TestStatusWidget < matlab.unittest.TestCase
             testCase.verifyEqual(st.description, 'Main valve status');
             testCase.verifyEqual(st.position, ...
                 struct('col', 1, 'row', 1, 'width', 4, 'height', 1));
-            testCase.verifyEqual(st.source.type, 'sensor');
-            testCase.verifyEqual(st.source.name, 'V-100');
+            testCase.verifyEqual(st.source.type, 'tag');
+            testCase.verifyEqual(st.source.key, 'V-100');
         end
 
         function testToStructWithStaticStatus(testCase)

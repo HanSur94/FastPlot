@@ -71,8 +71,8 @@ classdef TestFastSenseWidget < matlab.unittest.TestCase
             w = FastSenseWidget('Sensor', sensor);
 
             s = w.toStruct();
-            testCase.verifyEqual(s.source.type, 'sensor');
-            testCase.verifyEqual(s.source.name, 'P-201');
+            testCase.verifyEqual(s.source.type, 'tag');
+            testCase.verifyEqual(s.source.key, 'P-201');
         end
 
         function testFromStructWithData(testCase)
