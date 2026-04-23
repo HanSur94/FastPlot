@@ -88,6 +88,13 @@ classdef BarChartWidget < DashboardWidget
                     set(obj.hAxes, 'XTick', 1:numel(cats), 'XTickLabel', cats);
                 end
             end
+            % Re-apply title after plot commands (bar/barh may clear via newplot)
+            if ~isempty(obj.Title)
+                theme = obj.getTheme();
+                title(obj.hAxes, obj.Title, ...
+                    'Color', theme.ForegroundColor, ...
+                    'FontSize', theme.WidgetTitleFontSize);
+            end
         end
 
         function t = getType(~)
