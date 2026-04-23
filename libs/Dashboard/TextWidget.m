@@ -156,8 +156,20 @@ classdef TextWidget < DashboardWidget
     methods (Access = private)
         function relayout_(obj)
         %RELAYOUT_ Rebuild pixel-scaled elements on panel resize.
+        %   Preserves DashboardLayout-injected controls (InfoIconButton,
+        %   DetachButton) so a panel resize doesn't strip the icons that
+        %   realizeWidget added on top of the widget content.
             if isempty(obj.hPanel) || ~ishandle(obj.hPanel), return; end
-            try delete(findobj(obj.hPanel, '-depth', 1, 'Type', 'uicontrol')); catch, end
+            protectedTags = {'InfoIconButton', 'DetachButton'};
+            try
+                kids = findobj(obj.hPanel, '-depth', 1, 'Type', 'uicontrol');
+                for i = 1:numel(kids)
+                    if ~ismember(get(kids(i), 'Tag'), protectedTags)
+                        delete(kids(i));
+                    end
+                end
+            catch
+            end
             try delete(findobj(obj.hPanel, '-depth', 1, 'Type', 'axes')); catch, end
             obj.render(obj.hPanel);
         end

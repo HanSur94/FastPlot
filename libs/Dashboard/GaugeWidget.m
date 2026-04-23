@@ -193,7 +193,7 @@ classdef GaugeWidget < DashboardWidget
             if isfield(s, 'description'), obj.Description = s.description; end
             obj.Position = [s.position.col, s.position.row, ...
                             s.position.width, s.position.height];
-            if isfield(s, 'range'), obj.Range = s.range; end
+            if isfield(s, 'range'), obj.Range = s.range(:).'; end
             if isfield(s, 'units'), obj.Units = s.units; end
             if isfield(s, 'style'), obj.Style = s.style; end
             if isfield(s, 'source')

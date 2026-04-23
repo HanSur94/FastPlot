@@ -1031,6 +1031,15 @@ classdef DashboardEngine < handle
         end
     end
 
+    methods (Hidden, Access = {?matlab.unittest.TestCase})
+        function triggerTimeSlidersChangedForTest(obj)
+        %TRIGGERTIMESLIDERSCHANGEDFORTEST Test-only hook to invoke the slider
+        %   callback without going through UI events. Exposes the private
+        %   onTimeSlidersChanged() debounce path to TestCase subclasses.
+            obj.onTimeSlidersChanged();
+        end
+    end
+
     methods (Access = private)
 
         function repositionPanels(obj)
