@@ -21,7 +21,7 @@ function engine = buildDashboard(ctx)
 %             buildDiagnosticsPage.
 
     engine = DashboardEngine('FastSense Industrial Plant Demo', ...
-        'Theme', 'dark', 'LiveInterval', 1.0);
+        'Theme', 'light', 'LiveInterval', 1.0);
 
     engine.addPage('Overview');
     engine.addPage('Feed Line');
