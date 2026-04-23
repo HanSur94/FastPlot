@@ -414,6 +414,22 @@ classdef FastSense < handle
                 obj.IsDatetime = true;
             end
 
+            % Auto-promote XType to 'datenum' when X values fall inside the
+            % MATLAB serial-date range for years 1910-2100 (datenum 697000
+            % .. 769000). This makes Tag/SensorTag data that is timestamped
+            % with `now()` render with proper date ticks instead of raw
+            % scientific-notation numbers, without requiring every caller
+            % to pass 'XType', 'datenum' by hand. Skipped when X is empty.
+            if strcmp(obj.XType, 'numeric') && isnumeric(x) && ~isempty(x)
+                xMinProbe = min(x);
+                xMaxProbe = max(x);
+                if isfinite(xMinProbe) && isfinite(xMaxProbe) && ...
+                        xMinProbe > 697000 && xMaxProbe < 769000
+                    obj.XType = 'datenum';
+                    obj.IsDatetime = true;
+                end
+            end
+
             dsMethod = known.DownsampleMethod;
             meta = known.Metadata;
             assumeSorted = known.AssumeSorted;
