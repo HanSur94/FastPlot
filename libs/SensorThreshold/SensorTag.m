@@ -267,6 +267,7 @@ classdef SensorTag < Tag
             obj.X_ = X;
             obj.Y_ = Y;
             obj.notifyListeners_();
+            notify(obj, 'DataChanged');
         end
     end
 

@@ -451,7 +451,27 @@ classdef DashboardEngine < handle
             useExportApp      = ~isOctave && exist('exportapp') ~= 0;       %#ok<EXIST>
             useExportGraphics = ~isOctave && exist('exportgraphics') ~= 0;  %#ok<EXIST>
 
+            % Both exportgraphics (MATLAB) and print (Octave) only find
+            % axes DIRECTLY under the figure — they do not recurse into
+            % uipanels. Widgets live inside uipanels, so insert a hidden
+            % 1px stub axes when none exists. exportapp handles uipanels
+            % on its own and does not need the stub.
             stubAxes = [];
+            if ~useExportApp
+                topLevelChildren = get(obj.hFigure, 'children');
+                hasTopAxes = false;
+                for k = 1:numel(topLevelChildren)
+                    if strcmp(get(topLevelChildren(k), 'type'), 'axes')
+                        hasTopAxes = true;
+                        break;
+                    end
+                end
+                if ~hasTopAxes
+                    stubAxes = axes('Parent', obj.hFigure, ...
+                        'Units', 'pixels', 'Position', [0 0 1 1], ...
+                        'Visible', 'off', 'HitTest', 'off');
+                end
+            end
             try
                 if useExportApp
                     % exportapp signature is exportapp(fig, filename) only
@@ -468,21 +488,7 @@ classdef DashboardEngine < handle
                     exportgraphics(obj.hFigure, filepath, ...
                         'ContentType', 'image', 'Resolution', 150);
                 else
-                    % Octave path — preserves stub-axes behaviour (Octave's
-                    % print() does not recurse into uipanels).
-                    topLevelChildren = get(obj.hFigure, 'children');
-                    hasTopAxes = false;
-                    for k = 1:numel(topLevelChildren)
-                        if strcmp(get(topLevelChildren(k), 'type'), 'axes')
-                            hasTopAxes = true;
-                            break;
-                        end
-                    end
-                    if ~hasTopAxes
-                        stubAxes = axes('Parent', obj.hFigure, ...
-                            'Units', 'pixels', 'Position', [0 0 1 1], ...
-                            'Visible', 'off', 'HitTest', 'off');
-                    end
+                    % Octave path (print) — stub axes already inserted above.
                     print(obj.hFigure, devFlag, '-r150', filepath);
                 end
                 if ~isempty(stubAxes) && ishandle(stubAxes); delete(stubAxes); end
@@ -1069,16 +1075,25 @@ classdef DashboardEngine < handle
         function wireListeners(obj, w)
         %WIRELISTENERS Wire sensor data-change listeners to mark widget dirty.
         %   Called for both single-page and multi-page addWidget paths so
-        %   sensor PostSet events mark widgets dirty regardless of page routing.
-            if ~isempty(w.Sensor) && isprop(w.Sensor, 'X')
-                try
-                    addlistener(w.Sensor, 'X', 'PostSet', @(~,~) w.markDirty());
-                catch
-                    % Octave may not support addlistener on all property types
-                end
-                try
-                    addlistener(w.Sensor, 'Y', 'PostSet', @(~,~) w.markDirty());
-                catch
+        %   sensor data-change events mark widgets dirty regardless of page
+        %   routing. Uses Tag's 'DataChanged' event (fired from updateData);
+        %   falls back to PostSet on X/Y for legacy Sensor-class bindings
+        %   that still expose settable X/Y properties.
+            if isempty(w.Sensor), return; end
+            try
+                addlistener(w.Sensor, 'DataChanged', @(~,~) w.markDirty());
+            catch
+                % Legacy fallback: PostSet on X/Y. Won't fire for Dependent
+                % properties (Tag.X/Y) but kept for Sensor-class bindings.
+                if isprop(w.Sensor, 'X')
+                    try
+                        addlistener(w.Sensor, 'X', 'PostSet', @(~,~) w.markDirty());
+                    catch
+                    end
+                    try
+                        addlistener(w.Sensor, 'Y', 'PostSet', @(~,~) w.markDirty());
+                    catch
+                    end
                 end
             end
         end
