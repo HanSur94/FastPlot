@@ -669,7 +669,13 @@ classdef DashboardEngine < handle
 
         function showInfo(obj)
         %SHOWINFO Display the linked Markdown info file in a browser.
+        %   When InfoFile is empty, displays a built-in placeholder page
+        %   describing how to attach a custom info file.
             if isempty(obj.InfoFile)
+                mdText = obj.buildPlaceholderInfoMarkdown();
+                mdDir = pwd;
+                html = MarkdownRenderer.render(mdText, obj.Theme, mdDir);
+                obj.writeAndOpenInfoHtml(html);
                 return;
             end
 
@@ -715,7 +721,11 @@ classdef DashboardEngine < handle
             mdDir = fileparts(mdPath);
             html = MarkdownRenderer.render(mdText, obj.Theme, mdDir);
 
-            % Write temp file (reuse path)
+            obj.writeAndOpenInfoHtml(html);
+        end
+
+        function writeAndOpenInfoHtml(obj, html)
+        %WRITEANDOPENINFOHTML Write rendered HTML to the cached temp file and open it.
             if isempty(obj.InfoTempFile)
                 obj.InfoTempFile = [tempname '.html'];
             end
@@ -728,7 +738,6 @@ classdef DashboardEngine < handle
             fwrite(fid, html);
             fclose(fid);
 
-            % Display
             if exist('OCTAVE_VERSION', 'builtin')
                 if ismac
                     system(['open "' obj.InfoTempFile '"']);
@@ -740,6 +749,29 @@ classdef DashboardEngine < handle
             else
                 web(obj.InfoTempFile, '-new');
             end
+        end
+
+        function md = buildPlaceholderInfoMarkdown(obj)
+        %BUILDPLACEHOLDERINFOMARKDOWN Default info page shown when no InfoFile is set.
+            name = obj.Name;
+            if isempty(name)
+                name = 'Dashboard';
+            end
+            md = sprintf([ ...
+                '# %s\n\n' ...
+                'No info page has been configured for this dashboard.\n\n' ...
+                '## Add your own info page\n\n' ...
+                'Attach a Markdown file at construction:\n\n' ...
+                '```matlab\n' ...
+                'd = DashboardEngine(''%s'', ''InfoFile'', ''notes.md'');\n' ...
+                '```\n\n' ...
+                'Or set it after construction:\n\n' ...
+                '```matlab\n' ...
+                'd.InfoFile = ''notes.md'';\n' ...
+                '```\n\n' ...
+                'Relative paths resolve against the loaded dashboard JSON ' ...
+                'directory (or `pwd` for unsaved dashboards).\n'], ...
+                name, name);
         end
 
         function cleanupInfoTempFile(obj)
