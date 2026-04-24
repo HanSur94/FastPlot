@@ -100,6 +100,8 @@ obj = Event(startTime, endTime, sensorName, thresholdLabel, thresholdValue, dire
 | Severity | `1` | numeric: 1=ok/info, 2=warn, 3=alarm (EVENT-04) |
 | Category | `''` | char: alarm\|maintenance\|process_change\|manual_annotation (EVENT-05) |
 | Id | `''` | char: unique id assigned by EventStore.append (EVENT-02) |
+| IsOpen | `false` | logical: true while event is still open (EndTime = NaN) — Phase 1012 |
+| Notes | `''` | char: free-form user annotation edited via details popup — Phase 1012 |
 | DIRECTIONS | `{'upper', 'lower'}` |  |
 
 ### Methods
@@ -107,6 +109,15 @@ obj = Event(startTime, endTime, sensorName, thresholdLabel, thresholdValue, dire
 #### `obj = setStats(obj, peakValue, numPoints, minVal, maxVal, meanVal, rmsVal, stdVal)`
 
 SETSTATS Set event statistics.
+
+#### `obj = close(obj, endTime, finalStats)`
+
+CLOSE Close an open event in place; update EndTime, Duration, and optional running stats.
+  ev.close(endTime, finalStats) mutates the SetAccess=private
+  fields EndTime and Duration and optionally populates stats
+  from a struct with fields {PeakValue, NumPoints, MinValue,
+  MaxValue, MeanValue, RmsValue, StdValue}. Toggles IsOpen
+  false. Called by EventStore.closeEvent.
 
 #### `obj = escalateTo(obj, newLabel, newThresholdValue)`
 
@@ -192,6 +203,15 @@ obj = EventStore(filePath, varargin)
 #### `append(obj, newEvents)`
 
 #### `events = getEvents(obj)`
+
+#### `closeEvent(obj, eventId, endTime, finalStats)`
+
+CLOSEEVENT Close an open event in place.
+  es.closeEvent(eventId, endTime, finalStats) locates an open
+  Event by Id, delegates to ev.close(endTime, finalStats) for
+  the in-place mutation, and returns. finalStats may be []
+  (empty) to skip stats update. Does NOT call save() — consumers
+  decide when to persist (Pitfall 2).
 
 #### `events = getEventsForTag(obj, tagKey)`
 

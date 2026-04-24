@@ -455,6 +455,8 @@ obj = FastSenseWidget(varargin)
 | YLabel | `''` | Y-axis label (auto-set from Sensor if empty) |
 | YLimits | `[]` | Fixed Y-axis range [min max]; empty = auto-scale |
 | ShowThresholdLabels | `false` | show inline name labels on threshold lines |
+| ShowEventMarkers | `false` | Phase 1012 — toggle event round-marker overlay |
+| EventStore | `[]` | Phase 1012 — EventStore handle forwarded to inner FastSense |
 | LiveViewMode | `'reset'` |  |
 
 ### Methods

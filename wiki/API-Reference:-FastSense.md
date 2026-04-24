@@ -254,6 +254,13 @@ EXPORTDATA Export raw line and threshold data as CSV or MAT.
   EXPORTDATA(obj, filepath, format) writes all raw line and
   threshold data from the plot to the file at filepath.
 
+#### `refreshEventLayer(obj)`
+
+REFRESHEVENTLAYER Public thin wrapper — rebuild the event marker layer.
+  Calls the private renderEventLayer_ so external consumers
+  (e.g. FastSenseWidget.refresh()) can trigger a marker rebuild
+  without exposing the implementation method directly.
+
 #### `n = lineNumPoints(obj, i)`
 
 LINENUMPOINTS Return total point count for line i.
@@ -261,6 +268,65 @@ LINENUMPOINTS Return total point count for line i.
 #### `[xMin, xMax] = lineXRange(obj, i)`
 
 LINEXRANGE Return X endpoints for line i.
+
+#### `onEventMarkerClick_(obj, src, ~)`
+
+ONEVENTMARKERCLICK_ ButtonDownFcn dispatcher for event markers.
+  Hidden public so TestFastSenseEventClick can call it for
+  direct-dispatch testing of the click -> details-popup path.
+
+#### `openEventDetails_(obj, ev)`
+
+OPENEVENTDETAILS_ Open a separate floating figure with event fields.
+  Phase 1012 refit: standalone figure (OS-native drag/close), light
+  theme with standard font, read-only field list on top and an
+  editable Notes box at the bottom. Saving the notes mutates
+  ev.Notes (handle persists across the MATLAB session) and calls
+  EventStore.save() when a FilePath is configured (disk persistence).
+
+#### `fitDetailsTableColumns_(~, hTable)`
+
+FITDETAILSTABLECOLUMNS_ Split the uitable width ~1:2 between
+  Field and Value columns based on the parent FIGURE's
+  current pixel width. Deriving from the figure rather than
+  reading the table's own Position avoids a race where the
+  table layout hasn't settled when SizeChangedFcn fires.
+
+#### `saveEventNotes_(obj, ev, hNotesControl)`
+
+SAVEEVENTNOTES_ Commit the Notes textarea to ev.Notes and persist.
+  Mutates the Event handle (in-session persistence) and calls
+  obj.EventStore.save() when available so notes survive MATLAB
+  restarts. Updates the status label to confirm.
+
+#### `closeEventDetails_(obj)`
+
+CLOSEEVENTDETAILS_ Dismiss the popup figure.
+
+#### `onKeyPressForDetailsDismiss_(obj, eventData)`
+
+ONKEYPRESSFORDETAILSDISMISS_ Close popup on ESC key.
+
+#### `tbl = buildEventFieldsTable_(~, ev)`
+
+BUILDEVENTFIELDSTABLE_ Nx2 cell array for the uitable in the
+  details popup. Columns are {Field, Value}. Empty statistics
+  rows are skipped. Section separators use a blank-label row
+  with a bullet '·' value to maintain visual grouping without
+  relying on cell-level styling (not portable across MATLAB
+  versions).
+
+#### `txt = formatEventFields_(~, ev)`
+
+FORMATEVENTFIELDS_ Produce a grouped, readable listing of event fields.
+  Sections: TIMING / STATISTICS / CLASSIFICATION / TAGS / THRESHOLD.
+  Empty-valued statistics rows are hidden (they carry no
+  information and clutter the popup). IsOpen=true displays
+  "Open" for EndTime and Duration so the test contract in
+  TestFastSenseEventClick.testFormatEventFieldsShowsOpenForOpenEvent
+  still holds.
+
+#### `s = formatSection(header, rows, labelWidth)`
 
 ### Static Methods
 
