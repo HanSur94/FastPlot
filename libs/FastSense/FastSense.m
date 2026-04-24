@@ -2243,16 +2243,17 @@ classdef FastSense < handle
             obj.EventMarkerHandles_ = {};
             obj.EventByIdMap_ = containers.Map('KeyType', 'char', 'ValueType', 'any');
 
-            % Resolve marker size from theme (fallback to 8). Scaled up
-            % because triangle markers visually read smaller than circles
-            % at the same MarkerSize, and we need room for the '!' overlay.
+            % Resolve marker size from theme (fallback to 8). Scale up so
+            % the white badge has room for the glyph inside (TrendMiner-style).
             sz = 8;
             if isstruct(obj.Theme) && isfield(obj.Theme, 'EventMarkerSize')
                 sz = obj.Theme.EventMarkerSize;
             end
-            triSize = sz * 2.0;   % triangle glyph size (TrendMiner-style caution sign)
+            badgeSize = sz * 2.6;                 % badge (circle) marker size
+            edgeColor = [0.82 0.84 0.88];         % soft grey ring
+            glyph     = char(10226);              % U+27F2 anticlockwise gapped circle arrow (fallback below if font lacks it)
 
-            % One triangle + '!' per event
+            % One badge + glyph per event
             for i = 1:numel(obj.Tags_)
                 tag = obj.Tags_{i};
                 events = es.getEventsForTag(char(tag.Key));
@@ -2263,19 +2264,23 @@ classdef FastSense < handle
                     yVal = tag.valueAt(ev.StartTime);
                     if isnan(yVal), continue; end
                     c = obj.severityToColor_(sev);
+                    % Open = outline-only (translucent badge, severity-colored ring).
+                    % Closed = white-filled badge with neutral grey ring.
                     if ev.IsOpen
-                        faceColor = 'none';   % hollow triangle for open events
-                        textColor = c;         % '!' in severity color (visible on bg)
+                        faceColor = 'none';
+                        ringColor = c;
                     else
-                        faceColor = c;         % filled triangle for closed events
-                        textColor = [1 1 1];   % white '!' on severity-colored fill
+                        faceColor = [1 1 1];
+                        ringColor = edgeColor;
                     end
-                    % Triangle marker — the clickable hit target
+                    glyphColor = c;     % glyph always severity-colored
+                    % Circular badge — the clickable hit target
                     h = line(ev.StartTime, yVal, ...
                         'Parent', obj.hAxes, ...
-                        'Marker', '^', 'MarkerSize', triSize, ...
-                        'MarkerFaceColor', faceColor, 'MarkerEdgeColor', c, ...
+                        'Marker', 'o', 'MarkerSize', badgeSize, ...
+                        'MarkerFaceColor', faceColor, 'MarkerEdgeColor', ringColor, ...
                         'LineStyle', 'none', ...
+                        'LineWidth', 1.2, ...
                         'HandleVisibility', 'off', ...
                         'HitTest', 'on', ...
                         'PickableParts', 'visible', ...
@@ -2283,13 +2288,13 @@ classdef FastSense < handle
                         'ButtonDownFcn', @(src, evt) obj.onEventMarkerClick_(src, evt), ...
                         'UserData', struct('eventId', ev.Id, 'tagKey', char(tag.Key)));
                     obj.EventMarkerHandles_{end+1} = h;
-                    % Exclamation mark overlay — clicks pass through to triangle
+                    % Glyph overlay — clicks pass through to badge beneath
                     try
-                        hT = text(ev.StartTime, yVal, '!', ...
+                        hT = text(ev.StartTime, yVal, glyph, ...
                             'Parent', obj.hAxes, ...
-                            'Color', textColor, ...
+                            'Color', glyphColor, ...
                             'FontWeight', 'bold', ...
-                            'FontSize', max(7, round(triSize * 0.65)), ...
+                            'FontSize', max(9, round(badgeSize * 0.55)), ...
                             'HorizontalAlignment', 'center', ...
                             'VerticalAlignment', 'middle', ...
                             'HitTest', 'off', ...
@@ -2298,7 +2303,7 @@ classdef FastSense < handle
                             'Tag', 'FastSenseEventMarker');
                         obj.EventMarkerHandles_{end+1} = hT;
                     catch
-                        % Text rendering may fail on headless Octave — triangle alone is enough
+                        % Text rendering may fail on headless Octave — badge alone is enough
                     end
                     if ~isempty(ev.Id)
                         obj.EventByIdMap_(ev.Id) = ev;
