@@ -53,11 +53,12 @@ classdef DashboardEngine < handle
         TimePanelHeight = 0.06
         DataTimeRange   = [0 1]    % [tMin tMax] across all widget data
         hTimePanel      = []
-        hTimeSliderL    = []       % Left (start) slider
-        hTimeSliderR    = []       % Right (end) slider
+        hTimeSliderL    = []       % Shim handle — points at TimeRangeSelector_ (D-10)
+        hTimeSliderR    = []       % Shim handle — points at TimeRangeSelector_ (D-10)
         hTimeStart      = []
         hTimeEnd        = []
         SliderDebounceTimer = []   % MATLAB timer for coalescing rapid slider events
+        TimeRangeSelector_  = []   % TimeRangeSelector handle (replaces dual sliders)
         Progress_           = []   % DashboardProgress instance (active during render)
         % Stale-data banner (shown during live mode when a widget's tMax stops advancing)
         hStaleBanner         = []  % uipanel overlay; hidden unless live+stale+!dismissed
@@ -110,6 +111,9 @@ classdef DashboardEngine < handle
             if obj.ActivePage == 0
                 obj.ActivePage = 1;
             end
+            % Refresh the preview envelope (D-07). Safe before render():
+            % computePreviewEnvelope guards on TimeRangeSelector_ presence.
+            try obj.computePreviewEnvelope(); catch, end
         end
 
         function switchPage(obj, pageIdx)
@@ -164,6 +168,8 @@ classdef DashboardEngine < handle
                     obj.realizeBatch(5);
                 end
             end
+            % Refresh the preview envelope on the newly active page (D-07).
+            try obj.computePreviewEnvelope(); catch, end
         end
 
         function w = addWidget(obj, type, varargin)
@@ -1075,13 +1081,18 @@ classdef DashboardEngine < handle
             end
             obj.DataTimeRange = [tMin, tMax];
 
-            % Reset sliders to full range
-            if ~isempty(obj.hTimeSliderL) && ishandle(obj.hTimeSliderL)
-                set(obj.hTimeSliderL, 'Value', 0);
-                set(obj.hTimeSliderR, 'Value', 1);
+            % Reset selection to full range via the selector.
+            % Guard on type (not ishandle) — hTimeSliderL now points at a
+            % TimeRangeSelector which ishandle() returns false for under
+            % stock Octave 7.
+            if ~isempty(obj.TimeRangeSelector_) && ...
+                    isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                obj.TimeRangeSelector_.setDataRange(tMin, tMax);
             end
 
             obj.updateTimeLabels(tMin, tMax);
+            % Refresh the preview envelope after DataTimeRange change (D-07).
+            try obj.computePreviewEnvelope(); catch, end
         end
 
         function updateLiveTimeRange(obj)
@@ -1407,15 +1418,16 @@ classdef DashboardEngine < handle
                 obj.Toolbar.setLastUpdateTime(obj.LastUpdateTime);
             end
 
-            % Re-apply current slider positions to the updated time range
-            % Use direct broadcastTimeRange (not debounced) since live tick is already rate-limited
-            if ~isempty(obj.hTimeSliderL) && ishandle(obj.hTimeSliderL)
-                valL = get(obj.hTimeSliderL, 'Value');
-                valR = get(obj.hTimeSliderR, 'Value');
-                tr = obj.DataTimeRange;
-                span = tr(2) - tr(1);
-                tStart = tr(1) + valL * span;
-                tEnd   = tr(1) + valR * span;
+            % Re-apply current selection to the updated data range (D-06).
+            % Use isa(...) guard, not ishandle() — hTimeSliderL now points
+            % at a TimeRangeSelector which ishandle() returns false for
+            % under stock Octave 7. Broadcast is direct (not debounced)
+            % since the live tick is already rate-limited.
+            if ~isempty(obj.TimeRangeSelector_) && ...
+                    isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                obj.TimeRangeSelector_.setDataRange( ...
+                    obj.DataTimeRange(1), obj.DataTimeRange(2));
+                [tStart, tEnd] = obj.TimeRangeSelector_.getSelection();
                 obj.broadcastTimeRange(tStart, tEnd);
             end
 
@@ -1423,6 +1435,8 @@ classdef DashboardEngine < handle
             for i = 1:numel(ws)
                 ws{i}.Dirty = false;
             end
+            % Refresh the preview envelope on every live tick (D-07).
+            try obj.computePreviewEnvelope(); catch, end
         end
 
         function markAllDirty(obj)
@@ -1441,6 +1455,17 @@ classdef DashboardEngine < handle
         end
 
         function delete(obj)
+            % Tear down the selector first so its figure-level callback
+            % restore happens before the figure/panel potentially go away.
+            if ~isempty(obj.TimeRangeSelector_) && ...
+                    isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                try delete(obj.TimeRangeSelector_); catch, end
+                obj.TimeRangeSelector_ = [];
+            end
+            % Clear the shim references so downstream cleanup doesn't try
+            % to set() anything on a now-deleted selector handle.
+            obj.hTimeSliderL = [];
+            obj.hTimeSliderR = [];
             if ~isempty(obj.SliderDebounceTimer)
                 try stop(obj.SliderDebounceTimer); catch, end
                 try delete(obj.SliderDebounceTimer); catch, end
@@ -1459,6 +1484,27 @@ classdef DashboardEngine < handle
         %   (Hidden, not the narrower Access = {?matlab.unittest.TestCase},
         %   so Octave parsing survives — Octave has no matlab.unittest.)
             obj.onTimeSlidersChanged();
+        end
+
+        function broadcastTimeRangeNow(obj, tStart, tEnd)
+        %BROADCASTTIMERANGENOW Test-only synchronous broadcast bypassing the
+        %   SliderDebounceTimer. Stock Octave 7 batch mode has unreliable
+        %   timer scheduling; tests should use this entry point to drive
+        %   the broadcast deterministically. Also updates the time labels
+        %   (skipping the debounced onRangeSelectorChanged path).
+            obj.updateTimeLabels(tStart, tEnd);
+            obj.broadcastTimeRange(tStart, tEnd);
+        end
+
+        function env = computePreviewEnvelopeForTest(obj, nBuckets)
+        %COMPUTEPREVIEWENVELOPEFORTEST Test-only wrapper around the
+        %   private computePreviewEnvelopeReturning_. Runs the real
+        %   aggregation and returns the envelope struct so tests can
+        %   assert shape/monotonicity without scraping the selector's
+        %   patch handles. When nBuckets is omitted, uses the method's
+        %   own width-derived default.
+            if nargin < 2, nBuckets = []; end
+            env = obj.computePreviewEnvelopeReturning_(nBuckets);
         end
     end
 
@@ -1600,9 +1646,11 @@ classdef DashboardEngine < handle
         function createTimePanel(obj, theme)
             tH = obj.TimePanelHeight;
 
-            % Simple uipanel + dual sliders. NavigatorOverlay doesn't
-            % work reliably in dashboard context (axes interaction
-            % handlers, z-order, uipanel isolation). Sliders just work.
+            % Bottom time panel now hosts a single TimeRangeSelector with a
+            % data-preview envelope behind a draggable selection rectangle
+            % (phase 1016, D-01/D-02). The legacy dual uicontrol sliders
+            % have been replaced; hTimeSliderL / hTimeSliderR survive as
+            % shims pointing at the selector handle (D-10).
             obj.hTimePanel = uipanel('Parent', obj.hFigure, ...
                 'Units', 'normalized', ...
                 'Position', [0, 0, 1, tH], ...
@@ -1610,93 +1658,74 @@ classdef DashboardEngine < handle
                 'BackgroundColor', theme.ToolbarBackground, ...
                 'ForegroundColor', theme.WidgetBorderColor);
 
-            % Start time label
-            obj.hTimeStart = uicontrol('Parent', obj.hTimePanel, ...
-                'Style', 'text', ...
+            % Time labels are rendered INSIDE the selector as text objects
+            % that track the selection edges — set via updateTimeLabels ->
+            % TimeRangeSelector.setLabels. No uicontrol text fields needed.
+            obj.hTimeStart = [];
+            obj.hTimeEnd   = [];
+
+            % Reset button on the far left of the time panel — restores
+            % the selection to the full DataTimeRange. Double-clicking the
+            % selection patch does the same, but a visible button is more
+            % discoverable.
+            uicontrol('Parent', obj.hTimePanel, ...
+                'Style', 'pushbutton', ...
                 'Units', 'normalized', ...
-                'Position', [0.005 0.55 0.12 0.4], ...
-                'String', '', ...
+                'Position', [0.003 0.15 0.035 0.7], ...
+                'String', 'Reset', ...
                 'FontSize', 9, ...
+                'TooltipString', 'Reset the time window to the full data range', ...
                 'ForegroundColor', theme.ToolbarFontColor, ...
                 'BackgroundColor', theme.ToolbarBackground, ...
-                'HorizontalAlignment', 'left');
+                'Callback', @(~, ~) obj.resetTimeRange());
 
-            % End time label
-            obj.hTimeEnd = uicontrol('Parent', obj.hTimePanel, ...
-                'Style', 'text', ...
-                'Units', 'normalized', ...
-                'Position', [0.88 0.55 0.115 0.4], ...
-                'String', '', ...
-                'FontSize', 9, ...
-                'ForegroundColor', theme.ToolbarFontColor, ...
-                'BackgroundColor', theme.ToolbarBackground, ...
-                'HorizontalAlignment', 'right');
+            % Single TimeRangeSelector replaces the two uicontrol sliders.
+            obj.TimeRangeSelector_ = TimeRangeSelector(obj.hTimePanel, ...
+                'OnRangeChanged', @(a, b) obj.onRangeSelectorChanged(a, b), ...
+                'Theme', theme);
 
-            % "From" / "To" labels
-            uicontrol('Parent', obj.hTimePanel, ...
-                'Style', 'text', ...
-                'Units', 'normalized', ...
-                'Position', [0.005 0.05 0.04 0.45], ...
-                'String', 'From:', ...
-                'FontSize', 8, ...
-                'ForegroundColor', theme.ToolbarFontColor * 0.7 + ...
-                    theme.ToolbarBackground * 0.3, ...
-                'BackgroundColor', theme.ToolbarBackground, ...
-                'HorizontalAlignment', 'left');
+            % Legacy shims (D-10): tests still read these handles; wire
+            % them to the selector so existing `set(..., 'Value', ...)`
+            % call-sites at least find a live handle. The shim itself is
+            % not expected to accept slider-style Value writes — those
+            % tests are documented as out-of-scope for this phase.
+            obj.hTimeSliderL = obj.TimeRangeSelector_;
+            obj.hTimeSliderR = obj.TimeRangeSelector_;
+        end
 
-            uicontrol('Parent', obj.hTimePanel, ...
-                'Style', 'text', ...
-                'Units', 'normalized', ...
-                'Position', [0.50 0.05 0.03 0.45], ...
-                'String', 'To:', ...
-                'FontSize', 8, ...
-                'ForegroundColor', theme.ToolbarFontColor * 0.7 + ...
-                    theme.ToolbarBackground * 0.3, ...
-                'BackgroundColor', theme.ToolbarBackground, ...
-                'HorizontalAlignment', 'left');
-
-            % Left slider (range start): 0 = data start, 1 = data end
-            obj.hTimeSliderL = uicontrol('Parent', obj.hTimePanel, ...
-                'Style', 'slider', ...
-                'Units', 'normalized', ...
-                'Position', [0.045 0.1 0.45 0.42], ...
-                'Min', 0, 'Max', 1, 'Value', 0, ...
-                'SliderStep', [0.01 0.1], ...
-                'Callback', @(src,~) obj.onTimeSlidersChanged());
-
-            % Right slider (range end): 0 = data start, 1 = data end
-            obj.hTimeSliderR = uicontrol('Parent', obj.hTimePanel, ...
-                'Style', 'slider', ...
-                'Units', 'normalized', ...
-                'Position', [0.535 0.1 0.45 0.42], ...
-                'Min', 0, 'Max', 1, 'Value', 1, ...
-                'SliderStep', [0.01 0.1], ...
-                'Callback', @(src,~) obj.onTimeSlidersChanged());
+        function resetTimeRange(obj)
+        %RESETTIMERANGE Restore the selection to the full DataTimeRange.
+        %   Wired to the "Reset" button on the time panel; also reachable
+        %   via double-click on the selection patch inside the selector.
+            if isempty(obj.TimeRangeSelector_) || ...
+                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                return;
+            end
+            tr = obj.DataTimeRange;
+            obj.TimeRangeSelector_.setSelection(tr(1), tr(2));
+            % setSelection fires OnRangeChanged, which debounces through
+            % SliderDebounceTimer into broadcastTimeRange — restoring xlim
+            % on every widget. No extra plumbing needed.
         end
 
         function onTimeSlidersChanged(obj)
-            valL = get(obj.hTimeSliderL, 'Value');
-            valR = get(obj.hTimeSliderR, 'Value');
-
-            % Enforce left < right
-            if valL >= valR
-                valR = min(1, valL + 0.01);
-                if valL >= valR
-                    valL = valR - 0.01;
-                    set(obj.hTimeSliderL, 'Value', valL);
-                end
-                set(obj.hTimeSliderR, 'Value', valR);
+        %ONTIMESLIDERSCHANGED Legacy test entry point (D-10).
+        %   Reads the current selection from the TimeRangeSelector and
+        %   routes it through onRangeSelectorChanged so tests see the
+        %   same 100 ms-debounced broadcast pipeline as live drag events.
+            if isempty(obj.TimeRangeSelector_) || ...
+                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                return;
             end
+            [tStart, tEnd] = obj.TimeRangeSelector_.getSelection();
+            obj.onRangeSelectorChanged(tStart, tEnd);
+        end
 
-            tr = obj.DataTimeRange;
-            span = tr(2) - tr(1);
-            tStart = tr(1) + valL * span;
-            tEnd   = tr(1) + valR * span;
-
-            % Update labels immediately for visual feedback
+        function onRangeSelectorChanged(obj, tStart, tEnd)
+        %ONRANGESELECTORCHANGED Callback from TimeRangeSelector.OnRangeChanged.
+        %   Plugs into the same broadcast pipeline as the legacy slider
+        %   callback, including the 100 ms SliderDebounceTimer coalescing (D-06).
             obj.updateTimeLabels(tStart, tEnd);
-
-            % Debounce the expensive broadcastTimeRange — coalesce rapid slider events
             if ~isempty(obj.SliderDebounceTimer)
                 try stop(obj.SliderDebounceTimer); catch, end
                 try delete(obj.SliderDebounceTimer); catch, end
@@ -1709,9 +1738,92 @@ classdef DashboardEngine < handle
         end
 
         function updateTimeLabels(obj, tStart, tEnd)
-            if isempty(obj.hTimeStart), return; end
-            set(obj.hTimeStart, 'String', obj.formatTimeVal(tStart));
-            set(obj.hTimeEnd, 'String', obj.formatTimeVal(tEnd));
+            if isempty(obj.TimeRangeSelector_) || ...
+                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                return;
+            end
+            obj.TimeRangeSelector_.setLabels( ...
+                obj.formatTimeVal(tStart), ...
+                obj.formatTimeVal(tEnd));
+        end
+
+        function computePreviewEnvelope(obj, nBuckets)
+        %COMPUTEPREVIEWENVELOPE Aggregate per-bucket min/max across
+        %   active-page widgets and push the result onto the selector's
+        %   envelope patch (D-07, D-08). nBuckets optional; when omitted,
+        %   defaults to ~200 based on panel axes pixel width, clamped to
+        %   [50, 400]. Silently no-ops when no selector is wired yet (e.g.
+        %   before render()).
+            if nargin < 2, nBuckets = []; end
+            obj.computePreviewEnvelopeReturning_(nBuckets);
+        end
+
+        function env = computePreviewEnvelopeReturning_(obj, nBuckets)
+        %COMPUTEPREVIEWENVELOPERETURNING_ computePreviewEnvelope + return.
+        %   Same side-effects as computePreviewEnvelope, but additionally
+        %   returns the aggregate envelope struct (xCenters, yMin, yMax)
+        %   so Hidden test accessors can verify shape/monotonicity without
+        %   scraping the selector's patch XData/YData.
+            env = [];
+            if isempty(obj.TimeRangeSelector_) || ...
+                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                return;
+            end
+            if isempty(nBuckets)
+                % Derive nBuckets from figure pixel width; clamp to [50, 400].
+                nBuckets = 200;
+                try
+                    oldU = get(obj.hFigure, 'Units');
+                    set(obj.hFigure, 'Units', 'pixels');
+                    figPx = get(obj.hFigure, 'Position');
+                    set(obj.hFigure, 'Units', oldU);
+                    axWpx = figPx(3) * 0.94;
+                    nBuckets = max(50, min(400, floor(axWpx / 2)));
+                catch
+                end
+            end
+            ws = obj.activePageWidgets();
+            if isempty(ws)
+                obj.TimeRangeSelector_.setPreviewLines({});
+                env = struct('xCenters', [], 'yMin', [], 'yMax', []);
+                return;
+            end
+            aggMin = inf(1, nBuckets);
+            aggMax = -inf(1, nBuckets);
+            xCenters = [];
+            linesList = {};
+            for i = 1:numel(ws)
+                try
+                    s = ws{i}.getPreviewSeries(nBuckets);
+                catch
+                    s = [];
+                end
+                if isempty(s) || ~isstruct(s), continue; end
+                if ~isfield(s, 'xCenters') || ~isfield(s, 'yMin') || ~isfield(s, 'yMax')
+                    continue;
+                end
+                if numel(s.yMin) ~= nBuckets || numel(s.yMax) ~= nBuckets
+                    continue;
+                end
+                if isempty(xCenters), xCenters = s.xCenters; end
+                % Aggregate min/max kept so computePreviewEnvelopeForTest
+                % can still return an envelope struct for existing tests.
+                aggMin = min(aggMin, s.yMin);
+                aggMax = max(aggMax, s.yMax);
+                % Per-widget line: midpoint of bucket, already normalized
+                % to [0,1] by the widget (D-08).
+                yMid = (s.yMin + s.yMax) / 2;
+                linesList{end + 1} = struct('x', s.xCenters, 'y', yMid); %#ok<AGROW>
+            end
+            if isempty(xCenters) || ~any(isfinite(aggMin))
+                obj.TimeRangeSelector_.setPreviewLines({});
+                env = struct('xCenters', [], 'yMin', [], 'yMax', []);
+                return;
+            end
+            aggMin(~isfinite(aggMin)) = 0;
+            aggMax(~isfinite(aggMax)) = 0;
+            obj.TimeRangeSelector_.setPreviewLines(linesList);
+            env = struct('xCenters', xCenters, 'yMin', aggMin, 'yMax', aggMax);
         end
 
     end
