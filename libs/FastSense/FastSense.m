@@ -1419,10 +1419,18 @@ classdef FastSense < handle
             loupeCb = @(s,e) obj.onAxesDoubleClick(e);
             set(obj.hAxes, 'ButtonDownFcn', loupeCb);
             % Also install on all children (lines, patches) so clicks on
-            % data reach the callback even when HitTest is on
+            % data reach the callback even when HitTest is on. EXCEPT event
+            % markers (Phase 1012) — those have their own ButtonDownFcn that
+            % must not be overwritten, or single-click-to-details breaks.
             ch = get(obj.hAxes, 'Children');
             for ci = 1:numel(ch)
-                try set(ch(ci), 'ButtonDownFcn', loupeCb); catch; end
+                try
+                    if strcmp(get(ch(ci), 'Tag'), 'FastSenseEventMarker')
+                        continue;   % preserve onEventMarkerClick_ wiring
+                    end
+                    set(ch(ci), 'ButtonDownFcn', loupeCb);
+                catch
+                end
             end
 
             % Only set figure-level callbacks when we own the figure
@@ -2265,6 +2273,7 @@ classdef FastSense < handle
                         'HandleVisibility', 'off', ...
                         'HitTest', 'on', ...
                         'PickableParts', 'visible', ...
+                        'Tag', 'FastSenseEventMarker', ...
                         'ButtonDownFcn', @(src, evt) obj.onEventMarkerClick_(src, evt), ...
                         'UserData', struct('eventId', ev.Id, 'tagKey', char(tag.Key)));
                     obj.EventMarkerHandles_{end+1} = h;
@@ -2757,19 +2766,34 @@ classdef FastSense < handle
             %   flag = LOUPEBUTTONFILTER(obj) is installed as the zoom
             %   tool's ButtonDownFilter during render(). When the user
             %   double-clicks, it opens a loupe and returns true to prevent
-            %   the zoom tool from processing the click. Single clicks
-            %   return false, allowing normal zoom behavior.
+            %   the zoom tool from processing the click. Single clicks on an
+            %   event marker also return true so onEventMarkerClick_ can
+            %   fire (Phase 1012). Other single clicks return false,
+            %   allowing normal zoom behavior.
             %
             %   Output:
-            %     flag — true to block zoom (loupe opened), false to allow
+            %     flag — true to block zoom (loupe opened or event-marker
+            %            click), false to allow zoom
             %
             %   See also onAxesDoubleClick, openLoupe, render.
             if strcmp(get(obj.hFigure, 'SelectionType'), 'open')
                 obj.openLoupe();
                 flag = true;
-            else
-                flag = false;
+                return;
             end
+            % Phase 1012: single click on an event marker -> release the
+            % click from the zoom tool so the marker's ButtonDownFcn fires.
+            try
+                hit = hittest(obj.hFigure);
+                if ~isempty(hit) && ishandle(hit) && ...
+                        strcmp(get(hit, 'Tag'), 'FastSenseEventMarker')
+                    flag = true;
+                    return;
+                end
+            catch
+                % hittest may not exist on older Octave — fall through
+            end
+            flag = false;
         end
 
         function onXLimChanged(obj, ~, ~)
