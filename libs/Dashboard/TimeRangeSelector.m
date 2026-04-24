@@ -211,7 +211,7 @@ classdef TimeRangeSelector < handle
                 'Position', [0.045 0.1 0.94 0.85], ...
                 'XTick', [], 'YTick', [], ...
                 'Box', 'on', ...
-                'YLim', [0 1], 'XLim', obj.DataRange);
+                'YLim', [0 1], 'XLim', obj.DataRange + [-1, 1] * 0.02 * (obj.DataRange(2) - obj.DataRange(1)));
             hold(obj.hAxes, 'on');
             envColor = [0.55 0.55 0.55];
             selColor = [0.2 0.4 0.8];
@@ -237,8 +237,13 @@ classdef TimeRangeSelector < handle
 
         function redraw_(obj)
             %redraw_  Push current DataRange/Selection to the graphics handles.
+            %   Pads the axes XLim with 2% of the span on each side so the
+            %   selection window's edge handles remain visible even when the
+            %   selection equals the full DataRange.
             if ~ishandle(obj.hAxes), return; end
-            set(obj.hAxes, 'XLim', obj.DataRange);
+            span = obj.DataRange(2) - obj.DataRange(1);
+            pad = span * 0.02;
+            set(obj.hAxes, 'XLim', [obj.DataRange(1) - pad, obj.DataRange(2) + pad]);
             xL = obj.Selection(1); xR = obj.Selection(2);
             set(obj.hSelection, 'XData', [xL xL xR xR], 'YData', [0 1 1 0]);
             set(obj.hEdgeLeft,  'XData', [xL xL], 'YData', [0 1]);
