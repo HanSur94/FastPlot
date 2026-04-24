@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777011390402,
+  "lastUpdate": 1777011414106,
   "repoUrl": "https://github.com/HanSur94/FastSense",
   "entries": {
     "FastPlot Performance": [
@@ -40487,6 +40487,310 @@ window.BENCHMARK_DATA = {
           {
             "name": "Dashboard broadcastTimeRange stdmean",
             "value": 0.588,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "50265832+HanSur94@users.noreply.github.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "26a1e499b04b766474228fd5ba0e279ae961cb97",
+          "message": "Phase 1015 showcase demo: layout, datetime, MonitorTag wiring + theme trim (#68)\n\n* docs(1015): capture phase context\n\n* docs(state): record phase 1015 context session\n\n* feat(1015-01): add plant config + synthetic data generator scaffold\n\n- plantConfig enumerates 8 sensors, 2 states, 4 monitor rules, 3 subsystems\n- makeDataGenerator returns a 1 Hz fixedRate timer appending delimited\n  rows to data/raw/<key>.dat and pushing fresh X/Y to the registered\n  SensorTag/StateTag so downstream consumers see updates immediately\n- Anomaly injection at t~15-18 + t~45-48 on reactor.pressure and\n  t~20-25 on feedline.pressure drives deterministic MonitorTag events\n- data/.gitignore keeps raw/ and tags/ runtime dirs out of version control\n\n* feat(1015-01): wire TagRegistry, LiveTagPipeline, teardown, and run_demo entry\n\n- registerPlantTags registers 8 SensorTags + 2 StateTags + 4 MonitorTags\n  + 4 CompositeTags (3 subsystem + 1 plant.health rollup)\n- MonitorTags use AlarmOffConditionFn for hysteresis and carry a shared\n  EventStore so MonitorTag rising edges become Events\n- startLivePipeline recreates data/tags/ and runs LiveTagPipeline at 1 Hz\n  against the generator's data/raw/ output\n- teardownDemo stops writer timer + pipeline + engine and clears the\n  TagRegistry (best-effort try/catch around each step)\n- run_demo returns a ctx struct with every handle a test needs\n- install.m adds demo/industrial_plant/ to the MATLAB path\n- Rule 1: mapped plan criticality labels warning->medium, critical->high\n  to satisfy Tag base class validator (accepts low/medium/high/safety)\n\n* test(1015-01): add headless pipeline integration suite + fix hysteresis\n\n- TestDemoIndustrialPlantPipeline (class-based) covers 5 scenarios:\n  ctx shape, live ingestion, MonitorTag event emission, CompositeTag\n  plant.health resolution, clean timer teardown\n- test_demo_industrial_plant (function-based) mirrors the same five\n  scenarios for Octave compatibility, with a graceful skip when Octave\n  lacks the MATLAB timer primitive\n- Rule 1: AlarmOffConditionFn semantics corrected (it fires when the\n  release predicate is TRUE -> inverted plan's 'release threshold >' to\n  '<' for high-trip monitors and vice versa for low-trip)\n- Rule 1: registerPlantTags pid lookup made Octave-safe via getpid()\n  fallback around feature('getpid')\n- teardownDemo moved out of private/ so test suites can invoke it\n- All 5 MATLAB tests pass; Octave skips cleanly\n\n* docs(1015-01): complete demo pipeline scaffold plan\n\n* feat(1015-02): add dashboard scaffold + Overview/FeedLine/Reactor pages\n\n- New buildDashboard.m: 6-page DashboardEngine with dark theme, pre-detach\n  of reactor.pressure FastSense widget, CloseRequestFcn wired to\n  teardownDemo, uses engine.Pages{i}.Widgets (not private\n  allPageWidgets()) for widget search.\n- buildOverviewPage.m: plant.health status rollup, iconcard/chipbar/\n  sparkline mushroom tiles, number/gauge, multistatus, divider, text,\n  fastsense for reactor.pressure (detach target).\n- buildFeedLinePage.m: fastsense pressure+flow inside a 'Feed Line\n  Signals' group, status for feedline.pressure.high, bar chart of\n  min/mean/max, divider, text.\n- buildReactorPage.m: 'Reactor Signals' group wrapping pressure+temp\n  fastsense, rpm gauge, Advanced collapsible (GroupWidget Mode=collapsible)\n  containing rpm fastsense, reactor temp number.\n- Patched teardownDemo.m to call engine.stopLive() (not stop()) and\n  sweep dashboard timer stragglers.\n- Updated run_demo.m to call buildDashboard(ctx) and populate ctx.engine.\n- Added 400x300 PNG placeholder asset.\n\n* feat(1015-02): add Cooling/Events/Diagnostics pages + demo README\n\n- buildCoolingPage.m: rawaxes flow plot, static stats table, group\n  wrapping scatter (in_temp vs out_temp) + cooling.flow number.\n- buildEventsPage.m: 'Event Context' group wrapping reactor.pressure\n  FastSense (ShowEventMarkers via auto-discovery) + EventTimelineWidget\n  filtered on reactor.pressure.critical (bound to ctx.store), plus a\n  status widget and a multistatus covering all 4 monitors.\n- buildDiagnosticsPage.m: 4x4 correlation heatmap, reactor.temperature\n  histogram, pressure-vs-temperature scatter, plant schematic image,\n  markdown-flavoured topology text, all wrapped in a Statistics group.\n- README.md: how to run, what to click (detach hint prominent), shutdown,\n  limitations.\n- All 20 D-07 widget kinds represented across the six page builders\n  (fastsense, rawaxes, number, status, gauge, multistatus, text, table,\n  barchart, heatmap, histogram, scatter, image, eventtimeline, group,\n  divider, collapsible, iconcard, chipbar, sparklinecard).\n\n* docs(1015-02): complete demo dashboard composition plan\n\n* test(1015-03): add class-based headless demo dashboard test\n\n- 5 tests: boot, widgets rendered, event fires, composite resolves, clean teardown\n- Scopes defaultFigureVisible='off' via TestClassSetup/Teardown\n- Iterates engine.Pages{i}.Widgets (allPageWidgets is private - Plan 02 pattern)\n- Uses getEventsForTag (correct API; plan text said eventsForTag - typo)\n- Asserts >=25 widgets all Realized, timerfindall count unchanged post-teardown\n\n* test(1015-03): add function-based headless demo smoke test\n\n- Mirrors 5 assertions from TestDemoIndustrialPlantHeadless in Octave-friendly form\n- defaultfigurevisible='off' scoped via try/catch around full run\n- Iterates ctx.engine.Pages{i}.Widgets (allPageWidgets is private)\n- Uses getEventsForTag (real API; plan text said eventsForTag - typo)\n- Skips cleanly on Octave lacking MATLAB timer primitive (matches existing demo test)\n- Auto-discovered by tests/run_all_tests.m under both MATLAB and Octave\n\n* docs(1015-03): complete CI smoke and hardening plan\n\n* test(1015): UAT found blocker - MultiStatusWidget.deriveColor fails on MonitorTag\n\n* docs(1015-04): gap closure plan for MultiStatusWidget MonitorTag crash\n\n* fix(1015-04): Tag-aware deriveColor unblocks MultiStatusWidget MonitorTag binding\n\nClose 1015-UAT Test 1 blocker: MultiStatusWidget.deriveColor previously\nassumed legacy Sensor shape and accessed sensor.Y/.Thresholds\nunconditionally, crashing when buildOverviewPage.m bound bare MonitorTag\nhandles into the widget's Sensors list.\n\n- libs/Dashboard/MultiStatusWidget.m: deriveColor now dispatches on\n  `isa(sensor, 'Tag')`. Tag subclasses route through valueAt(now) with a\n  0.5 threshold (mirrors deriveColorFromTag_). Legacy Sensor path with\n  .Y/.Thresholds preserved byte-for-byte. Signature changed from\n  `(~, sensor, defaultColor)` to `(obj, sensor, defaultColor)` to access\n  theme via obj.getTheme().\n- tests/test_multistatus_monitortag_bare.m: flat Octave-style regression\n  test. Grep gate enforces `isa(sensor, 'Tag')` dispatch on both MATLAB\n  and Octave. MATLAB-only sub-tests exercise bare MonitorTag alarm/ok\n  colors and the 4-tag demo shape end-to-end.\n\nVerification:\n- Octave full suite: 77/78 pass (was 77/77; +1 new test file). Sole\n  failure is pre-existing test_add_marker segfault unrelated to this\n  change (passes in isolation).\n- All grep acceptance criteria pass.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(1015-04): complete MultiStatusWidget MonitorTag gap closure\n\n* test(1015): UAT re-test after 1015-04 fix — new blocker, widgets do not render in page content area\n\n* test(1015): diagnose dashboard blank content blocker — viewport cascade-delete + posix/datenum\n\n* test(1015-05): add failing multipage render regression tests\n\n- Tests 1a-1c assert ensureViewport idempotency and additive allocatePanels\n- Test 1d asserts all pages' hPanels survive multi-page DashboardEngine.render\n- Tests 3a-3b assert onLiveTick dead-handle recovery and no refreshError warning\n- All 5 substantive tests fail on current code (RED state confirmed)\n\n* fix(1015-05): make DashboardLayout multi-page allocation additive\n\n- Add ensureViewport(hFigure, theme): idempotent viewport/canvas/scrollbar creation;\n  returns immediately if hViewport already exists and is a live handle\n- Add resetViewport(): explicit teardown helper for callers that need full rebuild\n- Rewrite allocatePanels() to be additive: calls ensureViewport (no-op if live),\n  accumulates TotalRows with max() instead of overwriting, never deletes hViewport\n- Update reflow() to call resetViewport() before createPanels() for full rebuild\n- Update DashboardEngine.render() to call ensureViewport once before all allocatePanels\n  calls so per-page allocation loop reuses the shared viewport\n- Update tests/test_dashboard_multipage_render.m: tests 1a-1d now pass on Octave\n  (Octave classdef private-prop limitation workaround: pre-markRealized pattern)\n\n* test(1015-05): add failing formatTimeVal posix-seconds tests\n\n- Tests 2a-2d assert posix epoch seconds (t > 9e8) format as correct year strings\n- Test 2a: posix ~1.78e9 (year 2026) must render as 2026-xx-xx, not year 5182\n- Test 2b: MATLAB datenum(2026,4,23) still formats as 2026-04-23\n- Test 2c: small raw seconds use s/m/h/d suffix branch\n- Test 2d: posix ~4e9 (year 2096) renders as 20xx-xx-xx\n- formatTimeVal made public (moved from Access=private to Access=public) for testability\n\n* fix(1015-05): disambiguate posix seconds from datenum in formatTimeVal\n\n- Move formatTimeVal from Access=private to Access=public for testability\n- Add posix epoch seconds branch (t > 9e8 && t < 5e9) evaluated BEFORE\n  the datenum branch (t > 700000) — posix seconds for modern dates are also\n  > 700000 so ordering is critical\n- Posix path converts via datenum(1970,1,1,0,0,0) + t/86400 to get correct date\n- Datenum and raw-seconds branches unchanged\n- Fixes year 5182 display bug for posix epoch timestamps from live data sources\n\n* fix(1015-05): guard onLiveTick against deleted widget hPanels\n\n- Add dead-handle recovery check before the refresh condition:\n  if ~isempty(w.hPanel) && ~ishandle(w.hPanel) then markUnrealized + continue\n- This drops Realized flag so the next scroll-realize pass can rebuild the panel\n- Also add ~isempty(w.hPanel) && ishandle(w.hPanel) guards to the refresh condition\n- Prevents DashboardEngine:refreshError warnings from handle-invalid widget panels\n- Fixes dashboard crash/error-spam when widget panels are deleted by layout bugs\n  or figure-close race conditions\n\n* docs(1015-05): complete multi-page layout additive allocation gap closure\n\n- Add 1015-05-SUMMARY.md documenting 3 bug fixes, 5 commits, 2 new test files\n- Update STATE.md: plan advanced to 2/5, 3 decisions recorded, session updated\n- Update ROADMAP.md: phase 1015 plan progress updated (5/5 plans with summaries)\n\n* test(1015): persist human verification items as UAT\n\n* refactor(theme): trim theme catalog to light + dark, make light default\n\nRemove industrial, scientific, ocean, and the legacy default preset from\nboth FastSenseTheme and DashboardTheme. Legacy names are aliased to\n'light' so existing configs, examples, and wiki samples keep working\nwithout changes.\n\n- FastSenseTheme()/DashboardTheme() with no args now returns 'light'\n- Toolbar theme picker lists only {'light', 'dark'}\n- Theme tests updated to assert aliasing behaviour\n- 80/80 regression suite green\n\n* refactor(demo): switch industrial_plant showcase to light theme\n\nFollows the theme catalog trim — showcase dashboard now ships with the\ndefault light theme instead of dark.\n\n* fix(demo): stop widget overlap on Overview page\n\nRework the 24-col grid so cells are disjoint:\n- ChipBar + IconCard fit inside cols 1-8 (was cols 1-13, overlapping the\n  live plot that spans cols 9-24)\n- Sparkline + MultiStatus moved to rows 7-9 (below the live plot) with\n  clean col 9-16 / col 17-24 split\n- Gauge widened to height 4 so the arc + value no longer collide\n- 'Reactor Temp' renamed to 'Temp' to prevent title wrapping at width 4\n\nKnown remaining issue: FastSense x-axis still prints raw posix seconds\n(1.776e9 ...) because FastSense treats the time base as numeric. Fixing\nthat requires feeding datenum or adding a posix-seconds axis mode to\nFastSense — out of scope for this visual pass.\n\n* refactor(demo): datenum time base, FastSense-only diagrams, no auto-detach\n\nAddress three UAT blockers:\n\n1. Data generator emits MATLAB datenum instead of posix epoch seconds,\n   and FastSenseWidget auto-promotes the axis to 'datenum' XType when\n   the bound Tag's X values sit in the datenum range — so the live\n   plot's x-axis now renders as 'yyyy-mm-dd HH:MM' instead of the\n   scientific-notation '1.776e9'. tagValueToStatus_ queries valueAt\n   with now() to match the new time base.\n\n2. Auto-detach on startup removed — the reactor pressure plot no longer\n   pops into its own figure; the demo renders as a single window.\n   Detach / Re-attach remain available on every FastSense panel.\n\n3. Every time-series diagram in the demo now goes through FastSense:\n   - Overview sparkline (feedline.pressure) -> FastSenseWidget\n   - Cooling rawaxes (cooling.flow) -> FastSenseWidget\n   Statistical views (scatter, barchart, histogram, heatmap) keep their\n   specialised widgets — they are not time-series diagrams.\n\nFiles touched:\n- demo/industrial_plant/run_demo.m (comment refresh)\n- demo/industrial_plant/private/buildDashboard.m (drop detach block)\n- demo/industrial_plant/private/buildOverviewPage.m (sparkline -> fastsense, datenum)\n- demo/industrial_plant/private/buildCoolingPage.m (rawaxes -> fastsense)\n- demo/industrial_plant/private/makeDataGenerator.m (datenum time base)\n- libs/Dashboard/FastSenseWidget.m (auto-detect datenum XType)\n\nRegression suite: 80/80 green.\n\n* fix(fastsense): auto-promote XType to datenum inside addLine\n\nThe previous attempt set fp.XType from FastSenseWidget.render, but\nFastSense.XType has SetAccess=private so the assignment silently\nno-opped inside the widget's try/catch -- the live plot kept rendering\nposix-sized numerics in scientific notation.\n\nMove the auto-detection into FastSense.addLine itself: when the caller\ndid not explicitly pass 'XType' and X values are numeric and sit in the\nMATLAB serial-date range for years 1910-2100 (datenum 697000..769000),\npromote XType to 'datenum' so render()'s updateDatetimeTicks path kicks\nin. Drop the no-op code in FastSenseWidget.render.\n\nVerified headlessly: a FastSense plot built from now()+(0:100)/86400\nnow renders HH:MM tick labels instead of scientific-notation numbers.\nRegression suite: 80/80 green.\n\n* feat(demo): tag-type info tooltips + MonitorTag threshold lines\n\nTwo user-facing additions to the industrial_plant showcase:\n\n1. Every widget's Description (what the info 'i' button shows) now\n   leads with the widget class and the exact Tag(s) it is bound to,\n   e.g.:\n     'FastSenseWidget | Tag: SensorTag reactor.pressure. Threshold\n     line from MonitorTag reactor.pressure.critical (trip: y > 18 bar,\n     release: y < 16 bar, 1 s debounce).'\n   Covers Plant Health, live plots, IconCard, ChipBar, Gauge, Number,\n   MultiStatus, Status, BarChart, Heatmap, Histogram, Scatter, Table,\n   EventTimeline across all six pages.\n\n2. MonitorTag trip values are now visible as threshold lines on every\n   FastSense diagram whose bound SensorTag has a MonitorTag rule:\n   - reactor.pressure:    upper 18 bar  (reactor.pressure.critical)\n   - reactor.temperature: upper 180 C   (reactor.temperature.high)\n   - feedline.pressure:   upper 8 bar   (feedline.pressure.high)\n   - cooling.flow:        lower 20 L/m  (cooling.flow.low)\n\nWiring:\n- plantConfig.m: new cfg.DisplayThresholds table parallel to MonitorDefs\n  that captures each trip as a numeric Value + Direction + Label +\n  MonitorKey struct.\n- FastSenseWidget.m: the existing Thresholds NV-pair (previously stored\n  but never applied) is now pushed into fp.addThreshold() before\n  fp.render() via a local applyThresholds_ helper; accepts 'auto' /\n  numeric / cell-of-structs. Threshold labels surface the owning\n  MonitorTag.\n- buildOverviewPage / buildFeedLinePage / buildReactorPage /\n  buildCoolingPage / buildEventsPage: FastSense widgets bound to a\n  monitored SensorTag now read their threshold spec from\n  cfg.DisplayThresholds and pass it through.\n\nRegression suite: 80/80 green. Threshold-wiring confirmed end-to-end\non a FastSenseWidget render (FastSense.Thresholds(1).Value == 8).\n\n* fix(fastsense): live Y auto-scale + sliding X window\n\nTwo bugs were combining to make FastSense widgets look 'frozen' on the\nlive demo:\n\n1. FastSense locks YLim to manual mode at first render (by design, so\n   zoom/pan is stable). There was no live Y rescaling on updateData —\n   any sample outside the initial Y range fell off the chart, and\n   threshold lines drawn above/below the initial range were clipped.\n\n2. The FastSense instance inside a FastSenseWidget had LiveViewMode\n   empty. On updateData the X window stayed frozen at the initial\n   render's x-range, so newer samples disappeared off the right edge.\n\nFixes in FastSenseWidget:\n- Set fp.LiveViewMode = 'reset' on construction so the X window grows\n  to cover the full data range each tick.\n- New autoScaleY_(y) helper: rescales YLim on every refresh/update to\n  cover the current Y extent, expanded to include any threshold\n  values (MonitorTag limits stay visible) and an 8% pad. Skipped when\n  the caller set a fixed YLimits.\n- Applied at end of render() (so the initial draw already fits\n  thresholds) and at the end of both refresh() and update() paths.\n\nVerified headlessly: data spanning y∈[9.5, 18] with threshold 18\nproduces YLim [8.82, 18.68]; X span grows to match the full data\nrange. Suite 80/80 green.\n\n* fix(widgets): StatusWidget + IconCardWidget recognise MonitorTag thresholds\n\nBoth widgets accept a Tag registry key as 'Threshold' and resolve it\nvia TagRegistry, but their refresh paths still assumed the resolved\nobject was a legacy Threshold (with IsUpper / allValues) plus an\nexternal ValueFcn or StaticValue. When the resolved object was a\nMonitorTag — as it is throughout the industrial_plant demo — the\npaths bailed out early because resolveCurrentValue_ returned empty,\nso the widget never changed colour on a breach AND MonitorTag.getXY\nwas never called, which also meant no events were appended to the\nattached EventStore. That cascaded into 'no event markers on FastSense'\nand 'no entries in EventTimelineWidget'.\n\nStatusWidget:\n- Detects monitor-kind thresholds and routes through a new\n  deriveStatusFromMonitorTag_ helper that calls tag.getXY, reads the\n  latest 0/1 sample, and maps it to ok / violation with warn / alarm\n  colour based on the MonitorTag's Criticality.\n- Label rendering skips the numeric-value formatting for monitor-kind.\n\nIconCardWidget:\n- Refresh pulls the current value from tag.getXY when the threshold\n  is monitor-kind, so CurrentValue is the binary alarm signal.\n- deriveStateFromThreshold short-circuits to 'active' / 'alarm' /\n  'inactive' for monitor-kind without invoking the non-existent\n  allValues / IsUpper legacy API.\n\nBoth widgets route the check through a local thresholdIsMonitorKind_\nhelper that uses tag.getKind() rather than isa(), respecting the\nproject's Pitfall 1 rule (no subtype checks inside widget code).\n\nVerified headlessly: a breach on a SensorTag makes the bound\nStatusWidget go 'violation' / alarm-red, the bound IconCardWidget\ngo 'alarm', and the attached EventStore now carries 1 event after\nthe breach. Regression suite: 80/80 green.\n\n* fix(dashboard): mark every widget dirty on live tick\n\nonLiveTick was only calling markDirty() when the widget carried a\nSensor or Tag property. That left stuck-on-first-render any widget\nbound through another mechanism:\n\n  - StatusWidget / IconCardWidget with 'Threshold' = MonitorTag (no\n    Tag/Sensor), used throughout the demo\n  - MultiStatusWidget (uses a 'Sensors' cell array, not the scalar\n    Sensor / Tag base properties)\n  - ChipBarWidget (per-chip StatusFcn closures)\n  - Any widget driven by ValueFcn / DataFcn / StatusFcn\n\nThose widgets rendered once with their first value and then stayed\nfrozen because:\n  Dirty flag is cleared to false at the end of every tick (line 1015).\n  The guarded markDirty on the next tick never re-fired for them.\n  So the 'if w.Dirty && ...' gate at line 967 was never satisfied.\n\nMark every widget dirty every tick; the widget-local refresh() still\ndecides whether anything actually needs redrawing. Trivial widgets\n(text, divider, image) absorb the call as cheap no-ops.\n\nRegression suite: 80/80 green (one run flaked on the known Octave\ntest_toolbar segfault; re-ran clean).\n\n* fix(demo): scale MonitorTag.MinDuration to datenum time base\n\nMonitorTag.applyDebounce_ measures run duration in parent-X native\nunits. plantConfig expresses MinDuration in seconds (1 / 2 / 3), which\nwas correct while the data generator emitted posix seconds as the\ntime base. After the datenum switch, parent-X is in days — so a\nconfig value of '1 second' was being treated as '1 day' of debounce,\nand every 3-second breach (3.5e-5 days) was quietly zeroed out by the\ndebounce filter before it could fire the monitor.\n\nDivide each MinDuration by 86400 when constructing the MonitorTags in\nregisterPlantTags, so the demo's monitors keep human-readable seconds\nin plantConfig while the instantiated tags use the correct datenum\nunits on the wire. Criticality and AlarmOff predicates are unaffected\n(the AlarmOff condition is evaluated on Y, not on X).\n\nRegression suite: 80/80 green.\n\n* fix: address PR #68 code review findings\n\nBlockers\n  A1 IconCardWidget.deriveStateFromThreshold returned 'active' for\n     healthy monitor-kind / CompositeThreshold branches; resolveIconColor\n     only routes 'ok|warn|alarm|info', so those icons rendered mid-gray\n     instead of green. Replaced both occurrences with 'ok'.\n  A2 FastSenseWidget.autoScaleY_ clobbered user Y zoom on every live\n     tick. Added a YLim PostSet listener + IsSettingYLim/UserZoomedY\n     guards mirroring the existing X-zoom pattern so a mouse-scroll\n     zoom stays pinned until the user explicitly re-resets.\n  A3 MarkdownRenderer.getCSS still branched on legacy theme names\n     ('industrial','ocean' → dark CSS), so info-popup contrast didn't\n     match the aliased light theme struct. Collapsed to a single\n     dark-vs-everything-else test matching the trimmed catalog.\n\nDesign concerns\n  B1 FastSense.addLine datenum auto-promotion now respects an explicit\n     'XType','numeric' NV-pair — numeric counters that happen to land\n     in the datenum window (e.g. step counters starting at 700000)\n     can opt out. Detected by walking raw varargin since parseOpts\n     defaults XType to 'numeric' and can't distinguish\n     default-from-explicit.\n  B2 plantConfig MonitorDef field renamed to MinDurationSeconds so the\n     unit lives in the name; the datenum-unit conversion is pulled\n     into cfg.MonitorMinDurationFor (closure) and called once in\n     registerPlantTags. cfg.TimeBase now documents the demo's\n     time-base choice. Any future consumer that reads MonitorDefs\n     directly has to acknowledge the unit in the field name.\n\nNits + follow-ups\n  N1 StatusWidget label path guards isempty(obj.Sensor.Y) before\n     indexing end.\n  N3/N4 FastSenseDefaults / FastSenseToolbar docstrings updated to\n     list only 'light'/'dark' with a note that legacy names alias.\n  F2 FastSenseWidget.LiveViewMode is now a public property (default\n     'reset') forwarded to FastSense. Callers in long-running\n     deployments can set 'follow' for a sliding-window or 'preserve'\n     for frozen axes, instead of the hard-coded 'reset'.\n  F3 EventTimelineWidget severity colouring now keys off the numeric\n     ev.Severity field (1=ok/info, 2=warn, 3=alarm, per EVENT-04)\n     with a ThresholdLabel keyword fallback for pre-Severity events.\n  F4 New tests/test_fastsense_datenum_autopromote.m covers the\n     heuristic, the small-X no-promote path, the explicit-numeric\n     opt-out, the explicit-datenum opt-in, the straddle case, and\n     empty-X.\n  Examples example_themes.m and example_toolbar.m updated to use the\n  surviving 'light'/'dark' preset names.\n\nN5 (suggested dead VisibleRows assignment) was rejected on closer\nlook — the assignment at allocatePanels:334 runs AFTER TotalRows has\nbeen accumulated, so it refreshes the visible window against the\nnewly expanded total row count; ensureViewport's earlier call to\ncomputeVisibleRows uses the pre-accumulation value.\n\nRegression suite: 81/81 (new test file picked up automatically).\n\n---------\n\nCo-authored-by: Claude Opus 4.7 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-04-24T08:10:03+02:00",
+          "tree_id": "9366bd0f800c802aef2b51be979c1c3af89f7ea8",
+          "url": "https://github.com/HanSur94/FastSense/commit/26a1e499b04b766474228fd5ba0e279ae961cb97"
+        },
+        "date": 1777011412931,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample mean (1M)",
+            "value": 2.287,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(1M)",
+            "value": 0.055,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (1M)",
+            "value": 150.039,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(1M)",
+            "value": 0.795,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (1M)",
+            "value": 255.564,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(1M)",
+            "value": 3.686,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (1M)",
+            "value": 16.313,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(1M)",
+            "value": 4.369,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (5M)",
+            "value": 10.973,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(5M)",
+            "value": 0.224,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (5M)",
+            "value": 174.227,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(5M)",
+            "value": 0.832,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (5M)",
+            "value": 263.08,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(5M)",
+            "value": 4.853,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (5M)",
+            "value": 15.634,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(5M)",
+            "value": 1.412,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (10M)",
+            "value": 21.281,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std10M)",
+            "value": 0.135,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (10M)",
+            "value": 200.838,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std10M)",
+            "value": 2.159,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (10M)",
+            "value": 268.871,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std10M)",
+            "value": 3.697,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (10M)",
+            "value": 15.75,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std10M)",
+            "value": 1.079,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (50M)",
+            "value": 105.922,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std50M)",
+            "value": 0.187,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (50M)",
+            "value": 1281.194,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std50M)",
+            "value": 8.318,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (50M)",
+            "value": 269.85,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std50M)",
+            "value": 3.668,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (50M)",
+            "value": 15.6,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std50M)",
+            "value": 1.066,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (100M)",
+            "value": 210.453,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 0.322,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (100M)",
+            "value": 2364.306,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 27.384,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (100M)",
+            "value": 273.776,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 1.828,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (100M)",
+            "value": 15.551,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 1.046,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (500M)",
+            "value": 1082.476,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 36.544,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (500M)",
+            "value": 22975.587,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 1687.139,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (500M)",
+            "value": 571.794,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 307.194,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (500M)",
+            "value": 15.588,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.909,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render mean",
+            "value": 259.556,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render stdmean",
+            "value": 77.592,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick mean",
+            "value": 2.399,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick stdmean",
+            "value": 0.203,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch mean",
+            "value": 0.101,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch stdmean",
+            "value": 0.017,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange mean",
+            "value": 0.139,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange stdmean",
+            "value": 0.114,
             "unit": "ms"
           }
         ]
