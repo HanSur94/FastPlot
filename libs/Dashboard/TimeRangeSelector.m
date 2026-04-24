@@ -211,7 +211,7 @@ classdef TimeRangeSelector < handle
                 'Position', [0.045 0.1 0.94 0.85], ...
                 'XTick', [], 'YTick', [], ...
                 'Box', 'on', ...
-                'YLim', [0 1], 'XLim', obj.DataRange + [-1, 1] * 0.02 * (obj.DataRange(2) - obj.DataRange(1)));
+                'YLim', [0 1], 'XLim', obj.DataRange + [-1, 1] * 0.05 * (obj.DataRange(2) - obj.DataRange(1)));
             hold(obj.hAxes, 'on');
             envColor = [0.55 0.55 0.55];
             selColor = [0.2 0.4 0.8];
@@ -237,12 +237,12 @@ classdef TimeRangeSelector < handle
 
         function redraw_(obj)
             %redraw_  Push current DataRange/Selection to the graphics handles.
-            %   Pads the axes XLim with 2% of the span on each side so the
+            %   Pads the axes XLim with 5% of the span on each side so the
             %   selection window's edge handles remain visible even when the
             %   selection equals the full DataRange.
             if ~ishandle(obj.hAxes), return; end
             span = obj.DataRange(2) - obj.DataRange(1);
-            pad = span * 0.02;
+            pad = span * 0.05;
             set(obj.hAxes, 'XLim', [obj.DataRange(1) - pad, obj.DataRange(2) + pad]);
             xL = obj.Selection(1); xR = obj.Selection(2);
             set(obj.hSelection, 'XData', [xL xL xR xR], 'YData', [0 1 1 0]);
@@ -305,7 +305,13 @@ classdef TimeRangeSelector < handle
             if axW > 0
                 frac = (fx - axX) / axW;
             end
-            xData = obj.DataRange(1) + frac * (obj.DataRange(2) - obj.DataRange(1));
+            % Map the axes-relative fraction through the CURRENT XLim —
+            % not DataRange — because redraw_ pads the XLim by 5% on each
+            % side to keep edge handles visually accessible. Using
+            % DataRange here would misalign hit-testing with the rendered
+            % selection rectangle.
+            xl = get(obj.hAxes, 'XLim');
+            xData = xl(1) + frac * (xl(2) - xl(1));
         end
 
         function tolData = edgeTolData_(obj)
