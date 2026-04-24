@@ -760,6 +760,18 @@ classdef FastSense < handle
             end
         end
 
+        function setShowEventMarkers(obj, tf)
+            %SETSHOWEVENTMARKERS Toggle event-marker overlay post-render.
+            %   fp.SETSHOWEVENTMARKERS(true|false) flips ShowEventMarkers and
+            %   re-runs renderEventLayer_ so markers appear/disappear in
+            %   place without a full re-render. No-op if not yet rendered;
+            %   the next render() honours the new flag automatically.
+            obj.ShowEventMarkers = logical(tf);
+            if obj.IsRendered && ~isempty(obj.hAxes) && ishandle(obj.hAxes)
+                obj.renderEventLayer_();
+            end
+        end
+
         function addShaded(obj, x, y1, y2, varargin)
             %ADDSHADED Add a shaded region between two curves.
             %   fp.ADDSHADED(x, y_upper, y_lower) fills the area between
