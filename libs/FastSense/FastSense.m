@@ -2288,7 +2288,9 @@ classdef FastSense < handle
                         'ButtonDownFcn', @(src, evt) obj.onEventMarkerClick_(src, evt), ...
                         'UserData', struct('eventId', ev.Id, 'tagKey', char(tag.Key)));
                     obj.EventMarkerHandles_{end+1} = h;
-                    % Glyph overlay — clicks pass through to badge beneath
+                    % Glyph overlay — clicks pass through to badge beneath.
+                    % Clipping='off' so the glyph isn't cut when the marker
+                    % sits on the axes edge (open events at threshold peak).
                     try
                         hT = text(ev.StartTime, yVal, glyph, ...
                             'Parent', obj.hAxes, ...
@@ -2297,6 +2299,7 @@ classdef FastSense < handle
                             'FontSize', max(9, round(badgeSize * 0.55)), ...
                             'HorizontalAlignment', 'center', ...
                             'VerticalAlignment', 'middle', ...
+                            'Clipping', 'off', ...
                             'HitTest', 'off', ...
                             'PickableParts', 'none', ...
                             'HandleVisibility', 'off', ...
@@ -2311,10 +2314,14 @@ classdef FastSense < handle
                 end
             end
 
-            % uistack to top (Octave-safe)
-            if ~isempty(obj.EventMarkerHandles_)
+            % uistack to top (Octave-safe). Stack each handle individually
+            % so the glyph text ends up STRICTLY above its badge line — a
+            % combined uistack on mixed line+text handle lists can leave
+            % the text behind the adjacent signal line on some MATLAB
+            % builds (observed on R2020b/macOS).
+            for kStack = 1:numel(obj.EventMarkerHandles_)
                 try
-                    uistack([obj.EventMarkerHandles_{:}], 'top');
+                    uistack(obj.EventMarkerHandles_{kStack}, 'top');
                 catch
                     % Octave may not support uistack on line handles — ignore.
                 end

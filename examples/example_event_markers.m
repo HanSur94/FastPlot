@@ -73,9 +73,10 @@ function example_event_markers
     d.onLiveTick(); tickAll(d); drawnow;
 
     % Assign severity per event based on how far the peak exceeded the
-    % threshold. Shows the full info/warn/alarm color spectrum on screen.
-    assignSeverityByPeak(es, 'pump_a_high',      5);
-    assignSeverityByPeak(es, 'motor_b_overheat', 85);
+    % threshold. Peak is read from the parent SensorTag directly (doesn't
+    % rely on ev.PeakValue being populated by the MonitorTag stats path).
+    assignSeverityByPeak(es, 'pump_a_high',      pump,  5);
+    assignSeverityByPeak(es, 'motor_b_overheat', motor, 85);
     d.onLiveTick(); tickAll(d); drawnow;
 
     fprintf('Done. Click any marker to open the details popup.\n');
@@ -112,17 +113,33 @@ function drawThreshold(widget, value, label)
     hold(ax, 'off');
 end
 
-function assignSeverityByPeak(es, tagKey, threshold)
-    %ASSIGNSEVERITYBYPEAK Map PeakValue above threshold to Severity 1/2/3.
+function assignSeverityByPeak(es, tagKey, sensorTag, threshold)
+    %ASSIGNSEVERITYBYPEAK Map peak-over-threshold ratio to Severity 1/2/3.
+    %   Computes the peak by reading the SensorTag's Y data directly in
+    %   the window [StartTime, EndTime] — independent of ev.PeakValue
+    %   (which the MonitorTag running-stats pipeline may or may not have
+    %   populated by the time we call this).
+    %
     %   ratio = peak / threshold
     %     >= 1.5   -> 3 (alarm,  red)
     %     >= 1.1   -> 2 (warn,   orange)
     %     else     -> 1 (info,   green)
     events = es.getEventsForTag(tagKey);
+    if threshold == 0 || isempty(sensorTag); return; end
+    xs = sensorTag.X;
+    ys = sensorTag.Y;
     for k = 1:numel(events)
         ev = events(k);
-        if isempty(ev.PeakValue) || threshold == 0; continue; end
-        ratio = ev.PeakValue / threshold;
+        % Window: StartTime -> EndTime (or to end of data if still open)
+        t0 = ev.StartTime;
+        t1 = ev.EndTime;
+        if isnan(t1) || isempty(t1); t1 = xs(end); end
+        mask = xs >= t0 & xs <= t1;
+        if ~any(mask); continue; end
+        peak = max(ys(mask));
+        % Persist back to the event so the details popup shows it
+        if isempty(ev.PeakValue); ev.setStats(peak, nnz(mask), [], [], [], [], []); end
+        ratio = peak / threshold;
         if ratio >= 1.5
             ev.Severity = 3;
         elseif ratio >= 1.1
