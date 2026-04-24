@@ -145,6 +145,9 @@ classdef FastSense < handle
         PrevWBDFcn_           = []        % saved WindowButtonDownFcn during details-open
         PrevKPFcn_            = []        % saved WindowKeyPressFcn during details-open
         EventByIdMap_         = []        % containers.Map from eventId -> Event handle (built per render)
+        PrevWBMFcn_           = []        % saved WindowButtonMotionFcn during drag
+        PrevWBUFcn_           = []        % saved WindowButtonUpFcn during drag
+        DragOffsetPx_         = [0 0]     % [dx dy] mouse offset from panel origin at drag start
     end
 
     % ===================== PERFORMANCE TUNING ============================
@@ -2309,7 +2312,7 @@ classdef FastSense < handle
             pnl = uipanel('Parent', fig, ...
                 'Units', 'normalized', ...
                 'Position', pos, ...
-                'BorderType', 'line');
+                'BorderType', 'none');       % Phase 1012: no black outline
             try
                 set(pnl, 'BackgroundColor', [0.15 0.15 0.18]);
                 set(pnl, 'ForegroundColor', [0.92 0.92 0.94]);
@@ -2317,12 +2320,15 @@ classdef FastSense < handle
                 % Octave older versions may not support these properties on uipanel
             end
 
-            % Title (with event id)
-            titleStr = sprintf('Event %s', ev.Id);
+            % Title (with event id) — Enable='inactive' + ButtonDownFcn makes it
+            % a draggable handle for the whole panel (Phase 1012 "floatable").
+            titleStr = sprintf('Event %s  (drag)', ev.Id);
             uicontrol('Parent', pnl, 'Style', 'text', ...
                 'String', titleStr, ...
                 'Units', 'normalized', 'Position', [0.05 0.88 0.70 0.10], ...
-                'FontWeight', 'bold', 'HorizontalAlignment', 'left');
+                'FontWeight', 'bold', 'HorizontalAlignment', 'left', ...
+                'Enable', 'inactive', ...
+                'ButtonDownFcn', @(~,~) obj.beginDetailsDrag_());
 
             % X close button (top-right)
             uicontrol('Parent', pnl, 'Style', 'pushbutton', ...
@@ -2355,9 +2361,72 @@ classdef FastSense < handle
             if wasOpen && ~isempty(obj.hFigure) && ishandle(obj.hFigure)
                 set(obj.hFigure, 'WindowButtonDownFcn', obj.PrevWBDFcn_);
                 set(obj.hFigure, 'WindowKeyPressFcn',   obj.PrevKPFcn_);
+                % Clear any stuck drag handlers as well
+                if ~isempty(obj.PrevWBMFcn_)
+                    set(obj.hFigure, 'WindowButtonMotionFcn', obj.PrevWBMFcn_);
+                end
+                if ~isempty(obj.PrevWBUFcn_)
+                    set(obj.hFigure, 'WindowButtonUpFcn', obj.PrevWBUFcn_);
+                end
             end
             obj.PrevWBDFcn_ = [];
             obj.PrevKPFcn_  = [];
+            obj.PrevWBMFcn_ = [];
+            obj.PrevWBUFcn_ = [];
+        end
+
+        function beginDetailsDrag_(obj)
+            %BEGINDETAILSDRAG_ Start dragging the event-details uipanel.
+            %   Fired by ButtonDownFcn on the title uicontrol. Captures the
+            %   mouse->panel-origin offset, then installs motion/up handlers
+            %   on the parent figure for the duration of the drag.
+            fig = obj.hFigure;
+            if isempty(fig) || ~ishandle(fig), return; end
+            if isempty(obj.hEventDetails_) || ~ishandle(obj.hEventDetails_), return; end
+            try
+                cp = get(fig, 'CurrentPoint');               % figure pixels
+                prevUnits = get(obj.hEventDetails_, 'Units');
+                set(obj.hEventDetails_, 'Units', 'pixels');
+                pp = get(obj.hEventDetails_, 'Position');     % [x y w h] in pixels
+                set(obj.hEventDetails_, 'Units', prevUnits);
+                obj.DragOffsetPx_ = [cp(1) - pp(1), cp(2) - pp(2)];
+            catch
+                obj.DragOffsetPx_ = [0 0];
+            end
+            obj.PrevWBMFcn_ = get(fig, 'WindowButtonMotionFcn');
+            obj.PrevWBUFcn_ = get(fig, 'WindowButtonUpFcn');
+            set(fig, 'WindowButtonMotionFcn', @(~,~) obj.onDetailsDragMove_());
+            set(fig, 'WindowButtonUpFcn',     @(~,~) obj.endDetailsDrag_());
+        end
+
+        function onDetailsDragMove_(obj)
+            %ONDETAILSDRAGMOVE_ Track mouse during drag; update panel position.
+            fig = obj.hFigure;
+            if isempty(fig) || ~ishandle(fig), return; end
+            if isempty(obj.hEventDetails_) || ~ishandle(obj.hEventDetails_), return; end
+            try
+                cp = get(fig, 'CurrentPoint');
+                prevUnits = get(obj.hEventDetails_, 'Units');
+                set(obj.hEventDetails_, 'Units', 'pixels');
+                pp = get(obj.hEventDetails_, 'Position');
+                newPos = [cp(1) - obj.DragOffsetPx_(1), ...
+                          cp(2) - obj.DragOffsetPx_(2), ...
+                          pp(3), pp(4)];
+                set(obj.hEventDetails_, 'Position', newPos);
+                set(obj.hEventDetails_, 'Units', prevUnits);
+            catch
+                % swallow — keep figure responsive even if a frame fails
+            end
+        end
+
+        function endDetailsDrag_(obj)
+            %ENDDETAILSDRAG_ Restore figure motion/up handlers on mouse release.
+            fig = obj.hFigure;
+            if isempty(fig) || ~ishandle(fig), return; end
+            set(fig, 'WindowButtonMotionFcn', obj.PrevWBMFcn_);
+            set(fig, 'WindowButtonUpFcn',     obj.PrevWBUFcn_);
+            obj.PrevWBMFcn_ = [];
+            obj.PrevWBUFcn_ = [];
         end
 
         function onFigureClickForDetailsDismiss_(obj)

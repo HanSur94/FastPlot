@@ -32,6 +32,20 @@ function example_event_markers
         'EventStore', es);
     d.render();
 
+    % Overlay a visible threshold line at y=5 (the MonitorTag condition y>5).
+    % FastSense.addThreshold must be called before render(); here we're post-
+    % render, so draw a plain horizontal reference line + label directly on
+    % the axes. Persists across incremental refreshes (Phase 1000 behavior).
+    ax = d.Widgets{1}.FastSenseObj.hAxes;
+    xr = get(ax, 'XLim');
+    hold(ax, 'on');
+    line(ax, xr, [5 5], 'LineStyle', '--', 'Color', [0.95 0.40 0.25], ...
+         'LineWidth', 1.2, 'HandleVisibility', 'off', 'Tag', 'demoThreshold');
+    text(ax, xr(2), 5, '  y > 5 (MonitorTag threshold)', ...
+         'Color', [0.95 0.40 0.25], 'VerticalAlignment', 'bottom', ...
+         'HorizontalAlignment', 'right', 'Tag', 'demoThresholdLabel');
+    hold(ax, 'off');
+
     fprintf('Rising edge at t=7 -> open event should appear HOLLOW.\n');
     pause(1);
     newX1 = [6 7 8 9];
@@ -60,12 +74,24 @@ function autoscaleY(d)
     %   The Phase-1000 incremental refresh path preserves the ylim set at
     %   the initial render so repeated zooms stay stable. For a demo where
     %   data range expands dramatically during a live tick, we explicitly
-    %   reset ylim to auto after each onLiveTick.
+    %   reset ylim to auto after each onLiveTick. Also extends the demo
+    %   threshold line to the new x-range so it always spans the whole plot.
     for i = 1:numel(d.Widgets)
         w = d.Widgets{i};
         if isa(w, 'FastSenseWidget') && ~isempty(w.FastSenseObj) && ...
                 ~isempty(w.FastSenseObj.hAxes) && ishandle(w.FastSenseObj.hAxes)
-            ylim(w.FastSenseObj.hAxes, 'auto');
+            ax = w.FastSenseObj.hAxes;
+            ylim(ax, 'auto');
+            thr = findobj(ax, 'Tag', 'demoThreshold');
+            if ~isempty(thr)
+                xr = get(ax, 'XLim');
+                set(thr, 'XData', xr);
+            end
+            lbl = findobj(ax, 'Tag', 'demoThresholdLabel');
+            if ~isempty(lbl)
+                xr = get(ax, 'XLim');
+                set(lbl, 'Position', [xr(2), 5, 0]);
+            end
         end
     end
 end
