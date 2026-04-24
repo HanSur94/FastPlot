@@ -104,6 +104,9 @@ classdef DashboardEngine < handle
             if obj.ActivePage == 0
                 obj.ActivePage = 1;
             end
+            % Refresh the preview envelope (D-07). Safe before render():
+            % computePreviewEnvelope guards on TimeRangeSelector_ presence.
+            try obj.computePreviewEnvelope(); catch, end
         end
 
         function switchPage(obj, pageIdx)
@@ -158,6 +161,8 @@ classdef DashboardEngine < handle
                     obj.realizeBatch(5);
                 end
             end
+            % Refresh the preview envelope on the newly active page (D-07).
+            try obj.computePreviewEnvelope(); catch, end
         end
 
         function w = addWidget(obj, type, varargin)
@@ -911,6 +916,8 @@ classdef DashboardEngine < handle
             end
 
             obj.updateTimeLabels(tMin, tMax);
+            % Refresh the preview envelope after DataTimeRange change (D-07).
+            try obj.computePreviewEnvelope(); catch, end
         end
 
         function updateLiveTimeRange(obj)
@@ -1103,6 +1110,8 @@ classdef DashboardEngine < handle
             for i = 1:numel(ws)
                 ws{i}.Dirty = false;
             end
+            % Refresh the preview envelope on every live tick (D-07).
+            try obj.computePreviewEnvelope(); catch, end
         end
 
         function markAllDirty(obj)
@@ -1150,6 +1159,27 @@ classdef DashboardEngine < handle
         %   (Hidden, not the narrower Access = {?matlab.unittest.TestCase},
         %   so Octave parsing survives — Octave has no matlab.unittest.)
             obj.onTimeSlidersChanged();
+        end
+
+        function broadcastTimeRangeNow(obj, tStart, tEnd)
+        %BROADCASTTIMERANGENOW Test-only synchronous broadcast bypassing the
+        %   SliderDebounceTimer. Stock Octave 7 batch mode has unreliable
+        %   timer scheduling; tests should use this entry point to drive
+        %   the broadcast deterministically. Also updates the time labels
+        %   (skipping the debounced onRangeSelectorChanged path).
+            obj.updateTimeLabels(tStart, tEnd);
+            obj.broadcastTimeRange(tStart, tEnd);
+        end
+
+        function env = computePreviewEnvelopeForTest(obj, nBuckets)
+        %COMPUTEPREVIEWENVELOPEFORTEST Test-only wrapper around the
+        %   private computePreviewEnvelopeReturning_. Runs the real
+        %   aggregation and returns the envelope struct so tests can
+        %   assert shape/monotonicity without scraping the selector's
+        %   patch handles. When nBuckets is omitted, uses the method's
+        %   own width-derived default.
+            if nargin < 2, nBuckets = []; end
+            env = obj.computePreviewEnvelopeReturning_(nBuckets);
         end
     end
 
@@ -1397,6 +1427,78 @@ classdef DashboardEngine < handle
             if isempty(obj.hTimeStart), return; end
             set(obj.hTimeStart, 'String', obj.formatTimeVal(tStart));
             set(obj.hTimeEnd, 'String', obj.formatTimeVal(tEnd));
+        end
+
+        function computePreviewEnvelope(obj, nBuckets)
+        %COMPUTEPREVIEWENVELOPE Aggregate per-bucket min/max across
+        %   active-page widgets and push the result onto the selector's
+        %   envelope patch (D-07, D-08). nBuckets optional; when omitted,
+        %   defaults to ~200 based on panel axes pixel width, clamped to
+        %   [50, 400]. Silently no-ops when no selector is wired yet (e.g.
+        %   before render()).
+            if nargin < 2, nBuckets = []; end
+            obj.computePreviewEnvelopeReturning_(nBuckets);
+        end
+
+        function env = computePreviewEnvelopeReturning_(obj, nBuckets)
+        %COMPUTEPREVIEWENVELOPERETURNING_ computePreviewEnvelope + return.
+        %   Same side-effects as computePreviewEnvelope, but additionally
+        %   returns the aggregate envelope struct (xCenters, yMin, yMax)
+        %   so Hidden test accessors can verify shape/monotonicity without
+        %   scraping the selector's patch XData/YData.
+            env = [];
+            if isempty(obj.TimeRangeSelector_) || ...
+                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                return;
+            end
+            if isempty(nBuckets)
+                % Derive nBuckets from figure pixel width; clamp to [50, 400].
+                nBuckets = 200;
+                try
+                    oldU = get(obj.hFigure, 'Units');
+                    set(obj.hFigure, 'Units', 'pixels');
+                    figPx = get(obj.hFigure, 'Position');
+                    set(obj.hFigure, 'Units', oldU);
+                    axWpx = figPx(3) * 0.94;
+                    nBuckets = max(50, min(400, floor(axWpx / 2)));
+                catch
+                end
+            end
+            ws = obj.activePageWidgets();
+            if isempty(ws)
+                obj.TimeRangeSelector_.setEnvelope([], [], []);
+                env = struct('xCenters', [], 'yMin', [], 'yMax', []);
+                return;
+            end
+            aggMin = inf(1, nBuckets);
+            aggMax = -inf(1, nBuckets);
+            xCenters = [];
+            for i = 1:numel(ws)
+                try
+                    s = ws{i}.getPreviewSeries(nBuckets);
+                catch
+                    s = [];
+                end
+                if isempty(s) || ~isstruct(s), continue; end
+                if ~isfield(s, 'xCenters') || ~isfield(s, 'yMin') || ~isfield(s, 'yMax')
+                    continue;
+                end
+                if numel(s.yMin) ~= nBuckets || numel(s.yMax) ~= nBuckets
+                    continue;
+                end
+                if isempty(xCenters), xCenters = s.xCenters; end
+                aggMin = min(aggMin, s.yMin);
+                aggMax = max(aggMax, s.yMax);
+            end
+            if isempty(xCenters) || ~any(isfinite(aggMin))
+                obj.TimeRangeSelector_.setEnvelope([], [], []);
+                env = struct('xCenters', [], 'yMin', [], 'yMax', []);
+                return;
+            end
+            aggMin(~isfinite(aggMin)) = 0;
+            aggMax(~isfinite(aggMax)) = 0;
+            obj.TimeRangeSelector_.setEnvelope(xCenters, aggMin, aggMax);
+            env = struct('xCenters', xCenters, 'yMin', aggMin, 'yMax', aggMax);
         end
 
     end
