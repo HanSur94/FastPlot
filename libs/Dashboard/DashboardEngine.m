@@ -1692,17 +1692,26 @@ classdef DashboardEngine < handle
                 'Callback', @(~, ~) obj.resetTimeRange());
 
             % Single TimeRangeSelector replaces the two uicontrol sliders.
-            obj.TimeRangeSelector_ = TimeRangeSelector(obj.hTimePanel, ...
-                'OnRangeChanged', @(a, b) obj.onRangeSelectorChanged(a, b), ...
-                'Theme', theme);
+            % Guard on Octave: patch() with FaceAlpha + NaN vertex data crashes
+            % Octave's xvfb/FLTK rendering backend (segfault in Dashboard
+            % benchmarks). All callers of TimeRangeSelector_ check ~isempty(),
+            % so leaving it empty on Octave is safe. The two Octave tests that
+            % exercise this path (test_dashboard_preview_envelope,
+            % test_dashboard_range_selector_integration) skip their
+            % TimeRangeSelector-dependent assertions on Octave.
+            if exist('OCTAVE_VERSION', 'builtin') == 0
+                obj.TimeRangeSelector_ = TimeRangeSelector(obj.hTimePanel, ...
+                    'OnRangeChanged', @(a, b) obj.onRangeSelectorChanged(a, b), ...
+                    'Theme', theme);
 
-            % Legacy shims (D-10): tests still read these handles; wire
-            % them to the selector so existing `set(..., 'Value', ...)`
-            % call-sites at least find a live handle. The shim itself is
-            % not expected to accept slider-style Value writes — those
-            % tests are documented as out-of-scope for this phase.
-            obj.hTimeSliderL = obj.TimeRangeSelector_;
-            obj.hTimeSliderR = obj.TimeRangeSelector_;
+                % Legacy shims (D-10): tests still read these handles; wire
+                % them to the selector so existing `set(..., 'Value', ...)`
+                % call-sites at least find a live handle. The shim itself is
+                % not expected to accept slider-style Value writes — those
+                % tests are documented as out-of-scope for this phase.
+                obj.hTimeSliderL = obj.TimeRangeSelector_;
+                obj.hTimeSliderR = obj.TimeRangeSelector_;
+            end
         end
 
         function resetTimeRange(obj)

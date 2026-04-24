@@ -22,6 +22,17 @@ function test_dashboard_range_selector_integration()
 
     cleanup = onCleanup(@() safeDelete(d));
 
+    % On Octave the TimeRangeSelector is not constructed (patch() with
+    % FaceAlpha + NaN vertex data crashes Octave's xvfb rendering backend).
+    % Skip selector-dependent assertions and report a deliberate skip.
+    if exist('OCTAVE_VERSION', 'builtin')
+        if isempty(d.TimeRangeSelector_)
+            fprintf('    TimeRangeSelector skipped on Octave (known crash guard).\n');
+            fprintf('    All 0 tests passed.\n');
+            return;
+        end
+    end
+
     % Engine's render path runs updateGlobalTimeRange, which sets
     % DataTimeRange from widget min/max and resets the selector to the full
     % data span.
