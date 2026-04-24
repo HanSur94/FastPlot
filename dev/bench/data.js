@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777019833534,
+  "lastUpdate": 1777023120848,
   "repoUrl": "https://github.com/HanSur94/FastSense",
   "entries": {
     "FastPlot Performance": [
@@ -41995,6 +41995,310 @@ window.BENCHMARK_DATA = {
           {
             "name": "Dashboard broadcastTimeRange stdmean",
             "value": 0.137,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "50265832+HanSur94@users.noreply.github.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3bf6ed23c1bb18c7d420dcc10c56456e66ba4611",
+          "message": "Dashboard toolbar rework: mandatory info, Config dialog, live-stale banner (#72)\n\n* feat(dashboard): mandatory info btn, live-mode blue border, tooltips\n\nInfo button is now always present on the DashboardToolbar and opens a\nbuilt-in placeholder info page when no InfoFile is configured, so users\nhave a consistent entry point for dashboard documentation.\n\nThe Live togglebutton is wrapped in a uipanel whose HighlightColor\nflips to theme.InfoColor (solid blue surround) while live mode is on,\nmaking the active state visually obvious.\n\nEvery toolbar button now carries a TooltipString so hovering explains\nwhat each control does.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* refactor(dashboard): remove Edit button from toolbar\n\nThe Edit button opened the dashboard source script in the MATLAB\neditor — a workflow users already have direct access to via their IDE.\nRemoving it trims the toolbar and reclaims horizontal space.\n\nDrops hEditBtn property, onEdit method, and the now-obsolete\ntestToolbarEditButton suite test. Tooltip-coverage tests updated.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(dashboard): replace Save button with Config dialog\n\nThe toolbar Save button opened a uiputfile dialog to serialize the\ndashboard to JSON — useful programmatically but not a common\nin-session action. Replacing it with Config gives users one-click\naccess to edit every public DashboardEngine property (Name, Theme,\nLiveInterval, InfoFile, ProgressMode) with the right control type\nper property: text edit, numeric edit, or enum popup.\n\nApply writes values back to the engine and propagates visible\neffects: figure title updates on Name change, theme re-render on\nTheme change, live timer restart when LiveInterval changes during\nlive mode. Close dismisses the dialog. The dialog stays open after\nApply so users can iterate.\n\nProgrammatic d.save(path) / DashboardEngine.load(path) are unchanged.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(dashboard): don't poke private ThemeCache_ from config dialog\n\nDashboardEngine.ThemeCache_ is SetAccess=private; assigning to it\nfrom the config dialog threw at runtime. getCachedTheme() already\nself-invalidates when ThemeCachePreset_ differs from Theme, so\nsimply calling getCachedTheme() after the property write is enough\nto get a fresh theme struct.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(dashboard): restyle full chrome on theme change\n\nApplying dark mode via the config dialog re-themed widgets but left\nthe dashboard background untouched because the content-area viewport\nand canvas panels (Layout.hViewport / hCanvas) cover the figure's\nown Color and weren't being updated.\n\nNew engine method applyThemeToChrome() centralizes restyling for the\nfigure, viewport/canvas, toolbar panel + title + last-update label +\nlive-indicator panel, time panel + its labels, and the page bar. The\nconfig dialog calls it before rerenderWidgets() on theme change.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(dashboard): Browse picker, visibility flags, config tooltips\n\nConfig dialog gets three UX upgrades:\n\n1. InfoFile now has a Browse… button that pops a uigetfile(*.md)\n   dialog and writes the selected path back into the edit field.\n\n2. Two new public engine properties — ShowToolbar and ShowTimePanel\n   — render as checkboxes in the dialog. Unchecking either hides the\n   corresponding chrome and expands the content area to fill the\n   reclaimed space via new applyVisibilityAndRelayout() on the\n   engine. Useful for presenter or embed scenarios.\n\n3. Every control now carries a descriptive TooltipString explaining\n   what the setting does and any gotchas (e.g. InfoFile's relative-\n   path resolution rules).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(dashboard): drop ShowToolbar flag — unrecoverable footgun\n\nHiding the toolbar from the config dialog is a dead-end: once the\ntoolbar is gone, the Config button is gone, and the only recovery\nis editing code. Keeping ShowTimePanel (still safe because Config\nremains reachable via the toolbar) and removing ShowToolbar.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(dashboard): stale-data banner during live mode\n\nWhen a user hits Live and waits a full LiveInterval without any new\ndata arriving, it's easy to wonder whether the live tick ran at all\nor the widget just didn't update. Adding a warning banner that\nsurfaces this exact case.\n\nDetection mechanism: snapshot DataTimeRange(2) when live starts; on\neach live tick, compare the newly-computed tMax against the snapshot.\nIf tMax did not advance, show the banner; otherwise clear it.\nupdateLiveTimeRangeFrom now returns the new tMax (or NaN when no\nwidget has finite time data, in which case the banner logic skips).\n\nUI: full-width amber strip just below the toolbar, Visible='off'\nuntil needed. Text references the current LiveInterval so the user\nknows exactly what threshold was crossed.\n\nstopLive() hides the banner and resets the baseline.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(examples): demo a frozen sensor so the stale banner actually fires\n\nThe previous demo used only a ValueFcn-backed NumberWidget, which\npublishes no time-series data. updateLiveTimeRangeFrom returns NaN\nin that case, so the stale-data banner never triggers and the user\nhad no way to see the new feature.\n\nSwap in a FastSenseWidget backed by a SensorTag pre-loaded with a\nfixed X/Y range. Live ticks then observe a constant tMax and the\nbanner fires after one LiveInterval, as advertised.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(dashboard): raise stale banner above widget panels\n\nThe banner is created in render() before the viewport and widget\npanels, so those later-created children rendered on top of it in\nMATLAB — the banner was \"shown\" but visually hidden.\n\nCall uistack(hStaleBanner, 'top') when showing, wrapped in a try/catch\nsince uistack is MATLAB-only (Octave's renderer sorts differently\nand doesn't need it).\n\nAlso adds a test that confirms updateLiveTimeRangeFrom returns a\nfinite tMax with a frozen-sensor-backed FastSenseWidget — the\nprecondition the live tick needs to trigger the banner.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(dashboard): stale banner lists widgets + has close button\n\nPrevious banner said \"no new data\" but did not identify which widgets\nwere actually frozen. Useful when a dashboard has many sensors and\nyou want to know which feed is stuck.\n\nChanges:\n- Switch scalar LastTMax_ to per-widget map (title → last tMax).\n- detectStaleWidgets() returns the list of Titles whose tMax did not\n  advance on the latest live tick.\n- Banner is now a uipanel containing a text label (lists widget names,\n  collapses after 3 with \"+N more\") and a close pushbutton.\n- Clicking X dismisses the banner for the current stale state; it\n  re-appears automatically when data flows again and then stops.\n- stopLive clears both the banner and the dismissal flag.\n- Octave-safe Unicode warning prefix (falls back to \"[!]\" when the\n  runtime's default char() range can't represent U+26A0).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(examples): multi-sensor demo so stale banner lists 3+ widgets\n\nReplace the single frozen sensor with three (Temperature, Pressure,\nFlow Rate), plus the ValueFcn Random widget for contrast. The banner\nshould now name all three frozen feeds after one LiveInterval, while\ncorrectly skipping the Random widget (no time-series data).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* style(dashboard): fix mh_style issues introduced in this PR\n\nMISS_HIT mh_style flagged 8 issues across the new files:\n- whitespace_assignment on StaleBannerDismissed_ default\n- operator_after_continuation on &&/+ line starts (place operators\n  at end of preceding line per MISS_HIT convention)\n- line_length on one InfoFile tooltip string (now composed from\n  multi-line concatenation into a local)\n\nOne remaining style issue at DashboardEngine.m:1377 pre-dates this\nPR (Phase 1015 commit 26a1e49) and is intentionally left untouched.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* style: fix remaining mh_style issues across the repo\n\nThree style violations were failing the MATLAB Lint CI check\n(some pre-existing on main, not introduced here, but flagged by\nthe repo-wide mh_style run):\n\n- DashboardEngine.m — operator_after_continuation on the live-tick\n  widget-visibility guard (pre-existing; broke in a neighboring\n  block during this PR so it became visible).\n- FastSense.m — same rule on the XType argument-parsing guard\n  (pre-existing on main).\n- TestDashboardBuilder.m — double blank line left behind after\n  removing the testToolbarEditButton test earlier in this PR.\n\nmh_style, mh_lint, mh_metric all now return \"everything seems fine\"\nover libs/ tests/ examples/ (374 files).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.7 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-04-24T11:24:17+02:00",
+          "tree_id": "c5d4f6a1b5532517f2f83df77353eb89bbcb0d48",
+          "url": "https://github.com/HanSur94/FastSense/commit/3bf6ed23c1bb18c7d420dcc10c56456e66ba4611"
+        },
+        "date": 1777023119404,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample mean (1M)",
+            "value": 2.31,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(1M)",
+            "value": 0.11,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (1M)",
+            "value": 149.223,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(1M)",
+            "value": 4.828,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (1M)",
+            "value": 253.825,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(1M)",
+            "value": 9.874,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (1M)",
+            "value": 15.053,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(1M)",
+            "value": 4.052,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (5M)",
+            "value": 10.862,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(5M)",
+            "value": 0.08,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (5M)",
+            "value": 169.649,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(5M)",
+            "value": 1.17,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (5M)",
+            "value": 251.846,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(5M)",
+            "value": 1.493,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (5M)",
+            "value": 14.225,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(5M)",
+            "value": 1.331,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (10M)",
+            "value": 21.42,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std10M)",
+            "value": 0.385,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (10M)",
+            "value": 196.715,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std10M)",
+            "value": 4.238,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (10M)",
+            "value": 260.331,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std10M)",
+            "value": 3.996,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (10M)",
+            "value": 14.012,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std10M)",
+            "value": 0.778,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (50M)",
+            "value": 107.037,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std50M)",
+            "value": 0.498,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (50M)",
+            "value": 1236.533,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std50M)",
+            "value": 12.152,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (50M)",
+            "value": 263.929,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std50M)",
+            "value": 7.967,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (50M)",
+            "value": 14.394,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std50M)",
+            "value": 1.038,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (100M)",
+            "value": 211.605,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 0.732,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (100M)",
+            "value": 2472.249,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 199.127,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (100M)",
+            "value": 270.088,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 3.756,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (100M)",
+            "value": 14.374,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 1.094,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (500M)",
+            "value": 1110.863,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 39.007,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (500M)",
+            "value": 31122.583,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 13706.695,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (500M)",
+            "value": 763.279,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 624.535,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (500M)",
+            "value": 15.849,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 1.809,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render mean",
+            "value": 240.462,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render stdmean",
+            "value": 64.806,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick mean",
+            "value": 2.684,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick stdmean",
+            "value": 0.359,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch mean",
+            "value": 0.105,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch stdmean",
+            "value": 0.028,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange mean",
+            "value": 0.076,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange stdmean",
+            "value": 0.024,
             "unit": "ms"
           }
         ]
