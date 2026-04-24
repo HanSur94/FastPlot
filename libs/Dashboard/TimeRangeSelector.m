@@ -63,6 +63,10 @@ classdef TimeRangeSelector < handle
         hSelection  = []   % patch for selection rectangle
         hEdgeLeft   = []   % line: left drag handle
         hEdgeRight  = []   % line: right drag handle
+        hLabelLeft  = []   % text object attached to left edge
+        hLabelRight = []   % text object attached to right edge
+        LeftLabelText  = ''
+        RightLabelText = ''
         DataRange   = [0 1]
         Selection   = [0 1]
         DragState   = 'idle'       % 'idle' | 'panning' | 'resizeLeft' | 'resizeRight'
@@ -176,6 +180,17 @@ classdef TimeRangeSelector < handle
             tEnd   = obj.Selection(2);
         end
 
+        function setLabels(obj, leftText, rightText)
+            %setLabels  Update the inline edge labels that track the selection.
+            %   Pass empty strings to hide a side's label. The text sits at the
+            %   mid-height of the selector, inside each edge handle.
+            if nargin < 2 || isempty(leftText),  leftText  = ''; end
+            if nargin < 3 || isempty(rightText), rightText = ''; end
+            obj.LeftLabelText  = char(leftText);
+            obj.RightLabelText = char(rightText);
+            obj.redraw_();
+        end
+
         function setEnvelope(obj, xC, yMin, yMax)
             %setEnvelope  Draw the aggregate min/max preview envelope.
             %   xC, yMin, yMax must be equal-length vectors. Passing any empty
@@ -233,6 +248,21 @@ classdef TimeRangeSelector < handle
             obj.hEdgeRight = line(obj.hAxes, [NaN NaN], [0 1], ...
                 'Color', selColor, 'LineWidth', 2, ...
                 'HitTest', 'off', 'PickableParts', 'none');
+            % Edge-tracking time labels: small text objects that follow
+            % the selection edges as the user drags. Positioned at the
+            % middle of the selector height; anchored so they sit to the
+            % right of the left handle and to the left of the right handle.
+            labelColor = envColor;
+            obj.hLabelLeft = text(obj.hAxes, 0, 0.5, '', ...
+                'Color', labelColor, 'FontSize', 9, ...
+                'HorizontalAlignment', 'left', 'VerticalAlignment', 'middle', ...
+                'BackgroundColor', 'none', ...
+                'HitTest', 'off', 'PickableParts', 'none');
+            obj.hLabelRight = text(obj.hAxes, 0, 0.5, '', ...
+                'Color', labelColor, 'FontSize', 9, ...
+                'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle', ...
+                'BackgroundColor', 'none', ...
+                'HitTest', 'off', 'PickableParts', 'none');
         end
 
         function redraw_(obj)
@@ -248,6 +278,16 @@ classdef TimeRangeSelector < handle
             set(obj.hSelection, 'XData', [xL xL xR xR], 'YData', [0 1 1 0]);
             set(obj.hEdgeLeft,  'XData', [xL xL], 'YData', [0 1]);
             set(obj.hEdgeRight, 'XData', [xR xR], 'YData', [0 1]);
+            % Place edge labels just inside each selection edge so they
+            % stay visible even when the selection is at the full range.
+            if ishandle(obj.hLabelLeft)
+                set(obj.hLabelLeft, 'Position', [xL, 0.5, 0], ...
+                    'String', obj.LeftLabelText);
+            end
+            if ishandle(obj.hLabelRight)
+                set(obj.hLabelRight, 'Position', [xR, 0.5, 0], ...
+                    'String', obj.RightLabelText);
+            end
         end
 
         function installCallbacks_(obj)
