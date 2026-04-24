@@ -58,9 +58,8 @@ function teardownDemo(ctx)
     % ---- Dashboard engine (plan 02 wires this) ----
     if isfield(ctx, 'engine') && ~isempty(ctx.engine)
         try
-            % DashboardEngine uses stopLive() to halt the live timer
-            % (no plain stop() method). Try stopLive() first, fall back
-            % to stop() for forward compatibility.
+            % DashboardEngine uses stopLive() to halt the live timer and the
+            % SliderDebounceTimer introduced in Phase 1016 (PR #73).
             if ismethod(ctx.engine, 'stopLive')
                 ctx.engine.stopLive();
             elseif ismethod(ctx.engine, 'stop')
@@ -68,16 +67,30 @@ function teardownDemo(ctx)
             end
         catch
         end
+        try
+            % Explicitly invoke the destructor so SliderDebounceTimer,
+            % TimeRangeSelector, and any remaining timers are cleaned up.
+            % This is necessary because MATLAB's GC does not guarantee
+            % immediate destruction when the variable goes out of scope,
+            % and the timer-count test measures timerfindall() before ctx
+            % is cleared.
+            delete(ctx.engine);
+        catch
+        end
     end
 
     % Also sweep dashboard LiveTimer stragglers that might have leaked.
-    try
-        stragglers = timerfindall('Tag', 'DashboardEngine');
-        for i = 1:numel(stragglers)
-            try stop(stragglers(i)); catch, end
-            try delete(stragglers(i)); catch, end
+    % Both LiveTimer and SliderDebounceTimer are tagged 'DashboardEngine';
+    % LiveTagPipeline timer is tagged 'LiveTagPipeline'.
+    for sweepTag = {'DashboardEngine', 'LiveTagPipeline'}
+        try
+            stragglers = timerfindall('Tag', sweepTag{1});
+            for i = 1:numel(stragglers)
+                try stop(stragglers(i)); catch, end
+                try delete(stragglers(i)); catch, end
+            end
+        catch
         end
-    catch
     end
 
     % ---- Final: TagRegistry.clear() always runs ----

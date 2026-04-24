@@ -18,6 +18,10 @@ function test_dashboard_preview_envelope()
     addpath(fullfile(thisDir, 'suite'));  % for MockDashboardWidget
 
     % --- Case 1: Real aggregation via two FastSenseWidgets -------------------
+    % On Octave the TimeRangeSelector is not constructed (patch() with
+    % FaceAlpha + NaN vertex data crashes Octave's xvfb rendering backend),
+    % so computePreviewEnvelopeForTest returns [] instead of a struct.
+    % Skip the struct-shape assertions on Octave and report a deliberate skip.
     x  = linspace(0, 100, 2000);
     y1 = sin(x * 0.1);
     y2 = cos(x * 0.1);
@@ -27,25 +31,29 @@ function test_dashboard_preview_envelope()
     d.render();
     env = d.computePreviewEnvelopeForTest(10);
 
-    assert(isstruct(env), 'Case 1: computePreviewEnvelopeForTest did not return a struct');
-    assert(isfield(env, 'xCenters'), 'Case 1: env missing field xCenters');
-    assert(isfield(env, 'yMin'),     'Case 1: env missing field yMin');
-    assert(isfield(env, 'yMax'),     'Case 1: env missing field yMax');
-    assert(numel(env.xCenters) == 10, ...
-        sprintf('Case 1: numel(xCenters)=%d expected 10', numel(env.xCenters)));
-    assert(numel(env.yMin) == 10, ...
-        sprintf('Case 1: numel(yMin)=%d expected 10', numel(env.yMin)));
-    assert(numel(env.yMax) == 10, ...
-        sprintf('Case 1: numel(yMax)=%d expected 10', numel(env.yMax)));
-    assert(all(env.yMax >= env.yMin - 1e-9), 'Case 1: monotonicity violated (yMax < yMin)');
-    assert(all(env.yMin >= -1e-9 & env.yMin <= 1 + 1e-9), ...
-        'Case 1: yMin outside normalized [0,1]');
-    assert(all(env.yMax >= -1e-9 & env.yMax <= 1 + 1e-9), ...
-        'Case 1: yMax outside normalized [0,1]');
-    % Shifted sine/cos implies at least some bucket has non-degenerate extent —
-    % catches the regression where aggregation produces a single-widget envelope.
-    assert(any(env.yMax - env.yMin > 1e-6), ...
-        'Case 1: envelope is degenerate (yMax == yMin in every bucket)');
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(env)
+        fprintf('    Case 1 envelope assertions skipped on Octave (TimeRangeSelector guard).\n');
+    else
+        assert(isstruct(env), 'Case 1: computePreviewEnvelopeForTest did not return a struct');
+        assert(isfield(env, 'xCenters'), 'Case 1: env missing field xCenters');
+        assert(isfield(env, 'yMin'),     'Case 1: env missing field yMin');
+        assert(isfield(env, 'yMax'),     'Case 1: env missing field yMax');
+        assert(numel(env.xCenters) == 10, ...
+            sprintf('Case 1: numel(xCenters)=%d expected 10', numel(env.xCenters)));
+        assert(numel(env.yMin) == 10, ...
+            sprintf('Case 1: numel(yMin)=%d expected 10', numel(env.yMin)));
+        assert(numel(env.yMax) == 10, ...
+            sprintf('Case 1: numel(yMax)=%d expected 10', numel(env.yMax)));
+        assert(all(env.yMax >= env.yMin - 1e-9), 'Case 1: monotonicity violated (yMax < yMin)');
+        assert(all(env.yMin >= -1e-9 & env.yMin <= 1 + 1e-9), ...
+            'Case 1: yMin outside normalized [0,1]');
+        assert(all(env.yMax >= -1e-9 & env.yMax <= 1 + 1e-9), ...
+            'Case 1: yMax outside normalized [0,1]');
+        % Shifted sine/cos implies at least some bucket has non-degenerate extent —
+        % catches the regression where aggregation produces a single-widget envelope.
+        assert(any(env.yMax - env.yMin > 1e-6), ...
+            'Case 1: envelope is degenerate (yMax == yMin in every bucket)');
+    end
 
     delete(d);
 
