@@ -72,6 +72,12 @@ function example_event_markers
     motorAppend(motor, monMotor, [14 15 16 17], [72 88 91 73]);    % double spike at t=15,16
     d.onLiveTick(); tickAll(d); drawnow;
 
+    % Assign severity per event based on how far the peak exceeded the
+    % threshold. Shows the full info/warn/alarm color spectrum on screen.
+    assignSeverityByPeak(es, 'pump_a_high',      5);
+    assignSeverityByPeak(es, 'motor_b_overheat', 85);
+    d.onLiveTick(); tickAll(d); drawnow;
+
     fprintf('Done. Click any marker to open the details popup.\n');
     fprintf('  Pump should have 1 marker (filled) at t=7.\n');
     fprintf('  Motor should have 3 markers (filled) — spikes at t=7, 11, 15.\n');
@@ -104,6 +110,27 @@ function drawThreshold(widget, value, label)
          'HorizontalAlignment', 'right', 'Tag', 'demoThresholdLabel', ...
          'UserData', value);
     hold(ax, 'off');
+end
+
+function assignSeverityByPeak(es, tagKey, threshold)
+    %ASSIGNSEVERITYBYPEAK Map PeakValue above threshold to Severity 1/2/3.
+    %   ratio = peak / threshold
+    %     >= 1.5   -> 3 (alarm,  red)
+    %     >= 1.1   -> 2 (warn,   orange)
+    %     else     -> 1 (info,   green)
+    events = es.getEventsForTag(tagKey);
+    for k = 1:numel(events)
+        ev = events(k);
+        if isempty(ev.PeakValue) || threshold == 0; continue; end
+        ratio = ev.PeakValue / threshold;
+        if ratio >= 1.5
+            ev.Severity = 3;
+        elseif ratio >= 1.1
+            ev.Severity = 2;
+        else
+            ev.Severity = 1;
+        end
+    end
 end
 
 function tickAll(d)

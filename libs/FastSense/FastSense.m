@@ -2251,7 +2251,7 @@ classdef FastSense < handle
             end
             badgeSize = sz * 2.6;                 % badge (circle) marker size
             edgeColor = [0.82 0.84 0.88];         % soft grey ring
-            glyph     = char(10226);              % U+27F2 anticlockwise gapped circle arrow (fallback below if font lacks it)
+            glyph     = '!';                       % exclamation mark — universal warning glyph, font-safe
 
             % One badge + glyph per event
             for i = 1:numel(obj.Tags_)
