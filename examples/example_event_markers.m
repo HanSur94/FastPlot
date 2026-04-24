@@ -39,6 +39,7 @@ function example_event_markers
     parent.updateData([parent.X, newX1], [parent.Y, newY1]);  % SensorTag: full replace
     mon.appendData(newX1, newY1);                              % MonitorTag: incremental
     d.onLiveTick();
+    autoscaleY(d);
     drawnow;
 
     fprintf('Falling edge at t=12 -> marker should become FILLED.\n');
@@ -48,7 +49,23 @@ function example_event_markers
     parent.updateData([parent.X, newX2], [parent.Y, newY2]);
     mon.appendData(newX2, newY2);
     d.onLiveTick();
+    autoscaleY(d);
     drawnow;
 
     fprintf('Click any marker to open the details panel; ESC / click-outside / X button to dismiss.\n');
+end
+
+function autoscaleY(d)
+    %AUTOSCALEY Force ylim='auto' on every FastSenseWidget's inner axes.
+    %   The Phase-1000 incremental refresh path preserves the ylim set at
+    %   the initial render so repeated zooms stay stable. For a demo where
+    %   data range expands dramatically during a live tick, we explicitly
+    %   reset ylim to auto after each onLiveTick.
+    for i = 1:numel(d.Widgets)
+        w = d.Widgets{i};
+        if isa(w, 'FastSenseWidget') && ~isempty(w.FastSenseObj) && ...
+                ~isempty(w.FastSenseObj.hAxes) && ishandle(w.FastSenseObj.hAxes)
+            ylim(w.FastSenseObj.hAxes, 'auto');
+        end
+    end
 end
