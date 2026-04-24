@@ -230,7 +230,7 @@ classdef TimeRangeSelector < handle
                 0.70 0.20 0.50    % purple
                 0.85 0.70 0.20    % mustard
                 0.30 0.70 0.70    % teal
-                0.70 0.30 0.30 ]; % brick
+                0.70 0.30 0.30]; % brick
             handles = [];
             for i = 1:numel(lines)
                 L = lines{i};
