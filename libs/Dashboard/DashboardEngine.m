@@ -52,11 +52,12 @@ classdef DashboardEngine < handle
         TimePanelHeight = 0.06
         DataTimeRange   = [0 1]    % [tMin tMax] across all widget data
         hTimePanel      = []
-        hTimeSliderL    = []       % Left (start) slider
-        hTimeSliderR    = []       % Right (end) slider
+        hTimeSliderL    = []       % Shim handle — points at TimeRangeSelector_ (D-10)
+        hTimeSliderR    = []       % Shim handle — points at TimeRangeSelector_ (D-10)
         hTimeStart      = []
         hTimeEnd        = []
         SliderDebounceTimer = []   % MATLAB timer for coalescing rapid slider events
+        TimeRangeSelector_  = []   % TimeRangeSelector handle (replaces dual sliders)
         Progress_           = []   % DashboardProgress instance (active during render)
     end
 
@@ -900,10 +901,13 @@ classdef DashboardEngine < handle
             end
             obj.DataTimeRange = [tMin, tMax];
 
-            % Reset sliders to full range
-            if ~isempty(obj.hTimeSliderL) && ishandle(obj.hTimeSliderL)
-                set(obj.hTimeSliderL, 'Value', 0);
-                set(obj.hTimeSliderR, 'Value', 1);
+            % Reset selection to full range via the selector.
+            % Guard on type (not ishandle) — hTimeSliderL now points at a
+            % TimeRangeSelector which ishandle() returns false for under
+            % stock Octave 7.
+            if ~isempty(obj.TimeRangeSelector_) && ...
+                    isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                obj.TimeRangeSelector_.setDataRange(tMin, tMax);
             end
 
             obj.updateTimeLabels(tMin, tMax);
@@ -1082,15 +1086,16 @@ classdef DashboardEngine < handle
                 obj.Toolbar.setLastUpdateTime(obj.LastUpdateTime);
             end
 
-            % Re-apply current slider positions to the updated time range
-            % Use direct broadcastTimeRange (not debounced) since live tick is already rate-limited
-            if ~isempty(obj.hTimeSliderL) && ishandle(obj.hTimeSliderL)
-                valL = get(obj.hTimeSliderL, 'Value');
-                valR = get(obj.hTimeSliderR, 'Value');
-                tr = obj.DataTimeRange;
-                span = tr(2) - tr(1);
-                tStart = tr(1) + valL * span;
-                tEnd   = tr(1) + valR * span;
+            % Re-apply current selection to the updated data range (D-06).
+            % Use isa(...) guard, not ishandle() — hTimeSliderL now points
+            % at a TimeRangeSelector which ishandle() returns false for
+            % under stock Octave 7. Broadcast is direct (not debounced)
+            % since the live tick is already rate-limited.
+            if ~isempty(obj.TimeRangeSelector_) && ...
+                    isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                obj.TimeRangeSelector_.setDataRange( ...
+                    obj.DataTimeRange(1), obj.DataTimeRange(2));
+                [tStart, tEnd] = obj.TimeRangeSelector_.getSelection();
                 obj.broadcastTimeRange(tStart, tEnd);
             end
 
@@ -1116,6 +1121,17 @@ classdef DashboardEngine < handle
         end
 
         function delete(obj)
+            % Tear down the selector first so its figure-level callback
+            % restore happens before the figure/panel potentially go away.
+            if ~isempty(obj.TimeRangeSelector_) && ...
+                    isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                try delete(obj.TimeRangeSelector_); catch, end
+                obj.TimeRangeSelector_ = [];
+            end
+            % Clear the shim references so downstream cleanup doesn't try
+            % to set() anything on a now-deleted selector handle.
+            obj.hTimeSliderL = [];
+            obj.hTimeSliderR = [];
             if ~isempty(obj.SliderDebounceTimer)
                 try stop(obj.SliderDebounceTimer); catch, end
                 try delete(obj.SliderDebounceTimer); catch, end
@@ -1275,9 +1291,11 @@ classdef DashboardEngine < handle
         function createTimePanel(obj, theme)
             tH = obj.TimePanelHeight;
 
-            % Simple uipanel + dual sliders. NavigatorOverlay doesn't
-            % work reliably in dashboard context (axes interaction
-            % handlers, z-order, uipanel isolation). Sliders just work.
+            % Bottom time panel now hosts a single TimeRangeSelector with a
+            % data-preview envelope behind a draggable selection rectangle
+            % (phase 1016, D-01/D-02). The legacy dual uicontrol sliders
+            % have been replaced; hTimeSliderL / hTimeSliderR survive as
+            % shims pointing at the selector handle (D-10).
             obj.hTimePanel = uipanel('Parent', obj.hFigure, ...
                 'Units', 'normalized', ...
                 'Position', [0, 0, 1, tH], ...
@@ -1307,11 +1325,12 @@ classdef DashboardEngine < handle
                 'BackgroundColor', theme.ToolbarBackground, ...
                 'HorizontalAlignment', 'right');
 
-            % "From" / "To" labels
+            % "From:" aide — nudged to the far left so it never overlaps
+            % the selector axes at [0.045 0.1 0.94 0.85].
             uicontrol('Parent', obj.hTimePanel, ...
                 'Style', 'text', ...
                 'Units', 'normalized', ...
-                'Position', [0.005 0.05 0.04 0.45], ...
+                'Position', [0.005 0.1 0.04 0.4], ...
                 'String', 'From:', ...
                 'FontSize', 8, ...
                 'ForegroundColor', theme.ToolbarFontColor * 0.7 + ...
@@ -1319,10 +1338,11 @@ classdef DashboardEngine < handle
                 'BackgroundColor', theme.ToolbarBackground, ...
                 'HorizontalAlignment', 'left');
 
+            % "To:" aide — far right, symmetric with the From: label.
             uicontrol('Parent', obj.hTimePanel, ...
                 'Style', 'text', ...
                 'Units', 'normalized', ...
-                'Position', [0.50 0.05 0.03 0.45], ...
+                'Position', [0.96 0.1 0.03 0.4], ...
                 'String', 'To:', ...
                 'FontSize', 8, ...
                 'ForegroundColor', theme.ToolbarFontColor * 0.7 + ...
@@ -1330,48 +1350,38 @@ classdef DashboardEngine < handle
                 'BackgroundColor', theme.ToolbarBackground, ...
                 'HorizontalAlignment', 'left');
 
-            % Left slider (range start): 0 = data start, 1 = data end
-            obj.hTimeSliderL = uicontrol('Parent', obj.hTimePanel, ...
-                'Style', 'slider', ...
-                'Units', 'normalized', ...
-                'Position', [0.045 0.1 0.45 0.42], ...
-                'Min', 0, 'Max', 1, 'Value', 0, ...
-                'SliderStep', [0.01 0.1], ...
-                'Callback', @(src,~) obj.onTimeSlidersChanged());
+            % Single TimeRangeSelector replaces the two uicontrol sliders.
+            obj.TimeRangeSelector_ = TimeRangeSelector(obj.hTimePanel, ...
+                'OnRangeChanged', @(a, b) obj.onRangeSelectorChanged(a, b), ...
+                'Theme', theme);
 
-            % Right slider (range end): 0 = data start, 1 = data end
-            obj.hTimeSliderR = uicontrol('Parent', obj.hTimePanel, ...
-                'Style', 'slider', ...
-                'Units', 'normalized', ...
-                'Position', [0.535 0.1 0.45 0.42], ...
-                'Min', 0, 'Max', 1, 'Value', 1, ...
-                'SliderStep', [0.01 0.1], ...
-                'Callback', @(src,~) obj.onTimeSlidersChanged());
+            % Legacy shims (D-10): tests still read these handles; wire
+            % them to the selector so existing `set(..., 'Value', ...)`
+            % call-sites at least find a live handle. The shim itself is
+            % not expected to accept slider-style Value writes — those
+            % tests are documented as out-of-scope for this phase.
+            obj.hTimeSliderL = obj.TimeRangeSelector_;
+            obj.hTimeSliderR = obj.TimeRangeSelector_;
         end
 
         function onTimeSlidersChanged(obj)
-            valL = get(obj.hTimeSliderL, 'Value');
-            valR = get(obj.hTimeSliderR, 'Value');
-
-            % Enforce left < right
-            if valL >= valR
-                valR = min(1, valL + 0.01);
-                if valL >= valR
-                    valL = valR - 0.01;
-                    set(obj.hTimeSliderL, 'Value', valL);
-                end
-                set(obj.hTimeSliderR, 'Value', valR);
+        %ONTIMESLIDERSCHANGED Legacy test entry point (D-10).
+        %   Reads the current selection from the TimeRangeSelector and
+        %   routes it through onRangeSelectorChanged so tests see the
+        %   same 100 ms-debounced broadcast pipeline as live drag events.
+            if isempty(obj.TimeRangeSelector_) || ...
+                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                return;
             end
+            [tStart, tEnd] = obj.TimeRangeSelector_.getSelection();
+            obj.onRangeSelectorChanged(tStart, tEnd);
+        end
 
-            tr = obj.DataTimeRange;
-            span = tr(2) - tr(1);
-            tStart = tr(1) + valL * span;
-            tEnd   = tr(1) + valR * span;
-
-            % Update labels immediately for visual feedback
+        function onRangeSelectorChanged(obj, tStart, tEnd)
+        %ONRANGESELECTORCHANGED Callback from TimeRangeSelector.OnRangeChanged.
+        %   Plugs into the same broadcast pipeline as the legacy slider
+        %   callback, including the 100 ms SliderDebounceTimer coalescing (D-06).
             obj.updateTimeLabels(tStart, tEnd);
-
-            % Debounce the expensive broadcastTimeRange — coalesce rapid slider events
             if ~isempty(obj.SliderDebounceTimer)
                 try stop(obj.SliderDebounceTimer); catch, end
                 try delete(obj.SliderDebounceTimer); catch, end
