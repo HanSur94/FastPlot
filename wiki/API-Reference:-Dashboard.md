@@ -233,6 +233,23 @@ TRIGGERTIMESLIDERSCHANGEDFORTEST Test-only hook to invoke the slider
   (Hidden, not the narrower Access = {?matlab.unittest.TestCase},
   so Octave parsing survives — Octave has no matlab.unittest.)
 
+#### `broadcastTimeRangeNow(obj, tStart, tEnd)`
+
+BROADCASTTIMERANGENOW Test-only synchronous broadcast bypassing the
+  SliderDebounceTimer. Stock Octave 7 batch mode has unreliable
+  timer scheduling; tests should use this entry point to drive
+  the broadcast deterministically. Also updates the time labels
+  (skipping the debounced onRangeSelectorChanged path).
+
+#### `env = computePreviewEnvelopeForTest(obj, nBuckets)`
+
+COMPUTEPREVIEWENVELOPEFORTEST Test-only wrapper around the
+  private computePreviewEnvelopeReturning_. Runs the real
+  aggregation and returns the envelope struct so tests can
+  assert shape/monotonicity without scraping the selector's
+  patch handles. When nBuckets is omitted, uses the method's
+  own width-derived default.
+
 #### `str = formatTimeVal(~, t)`
 
 FORMATTIMEVAL Format a numeric time value as a human-readable string.
@@ -383,6 +400,14 @@ Override in subclasses to respond to global time changes.
 
 Override in subclasses to report data time range.
 
+#### `series = getPreviewSeries(~, ~)`
+
+GETPREVIEWSERIES Optional preview data for the time-range envelope.
+  series = getPreviewSeries(obj, nBuckets) returns a struct with
+  fields xCenters, yMin, yMax — each a 1xnBuckets row vector;
+  yMin/yMax MUST be normalized to [0,1] within the widget's own
+  y-range. Base returns [] to opt out of the preview envelope.
+
 #### `lines = asciiRender(obj, width, height)`
 
 ASCIIRENDER Return ASCII representation of this widget.
@@ -482,6 +507,15 @@ detach this widget from global time.
 
 Return cached min/max in O(1). Cache is kept up to date by
 updateTimeRangeCache() which is called from render/refresh/update.
+
+#### `series = getPreviewSeries(obj, nBuckets)`
+
+GETPREVIEWSERIES Per-bucket min/max preview for the dashboard envelope.
+  series = getPreviewSeries(obj, nBuckets) returns a struct with
+  fields xCenters, yMin, yMax — each a 1xnBuckets row vector; yMin
+  and yMax are normalized into [0,1] across the widget's own
+  current y-range. Returns [] when no data is bound or when the
+  sample count is too low to downsample meaningfully.
 
 #### `t = getType(~)`
 
@@ -903,9 +937,9 @@ obj = DashboardLayout(varargin)
 | Columns | `24` |  |
 | TotalRows | `4` |  |
 | ContentArea | `[0 0 1 1]` |  |
-| Padding | `[0.02 0.02 0.02 0.02]` |  |
-| GapH | `0.008` |  |
-| GapV | `0.015` |  |
+| Padding | `[0 0 0 0]` |  |
+| GapH | `0` |  |
+| GapV | `0` |  |
 | RowHeight | `0.22` |  |
 | ScrollbarWidth | `0.015` |  |
 | OnScrollCallback | `[]` | function handle: @(topRow, bottomRow) |
@@ -1760,4 +1794,117 @@ TOSTRUCT Serialize widget to a struct for JSON export.
 #### `SparklineCardWidget.obj = fromStruct(s)`
 
 FROMSTRUCT Deserialize a SparklineCardWidget from a struct.
+
+---
+
+## `TimeRangeSelector` --- Single-window time-range selector with data-preview envelope.
+
+> Inherits from: `handle`
+
+selector = TimeRangeSelector(hPanel) attaches a time-range selector to a
+  uipanel. The selector owns its own axes inside the panel and draws:
+
+      * an (optional) aggregate min/max envelope patch behind the selection,
+      * a semi-transparent selection rectangle that can be panned by dragging
+        its middle and resized by dragging either of its two edge handles,
+      * two line handles at the left and right edges of the selection window.
+
+  Interaction uses figure-level WindowButton{Down,Motion,Up}Fcn. Any previously
+  installed callbacks are saved on construction and restored on delete().
+
+  Usage (the contract plan 03 uses to wire this into DashboardEngine):
+
+      selector = TimeRangeSelector(hPanel, ...
+          'OnRangeChanged', @(tStart, tEnd) onRangeChanged(tStart, tEnd), ...
+          'Theme',          themeStruct);
+      selector.setDataRange(tMin, tMax);        % full extent user can scrub
+      selector.setSelection(tStart, tEnd);      % fires OnRangeChanged
+      selector.setEnvelope(xC, yMin, yMax);     % optional preview
+      [tS, tE] = selector.getSelection();
+      delete(selector);                         % restores figure callbacks
+
+  Properties (public, configurable):
+      OnRangeChanged  Function handle @(tStart, tEnd). May be [].
+      Theme           Theme struct (or []).
+      MinWidthFrac    Minimum selection width as fraction of DataRange span.
+      EdgeTolPx       Pixel tolerance for edge hit-testing.
+
+  Properties (read-only, set internally):
+      hPanel, hFigure, hAxes, hEnvelope, hSelection, hEdgeLeft, hEdgeRight
+      DataRange       1x2 [tMin tMax].
+      Selection       1x2 [tStart tEnd].
+      DragState       'idle' | 'panning' | 'resizeLeft' | 'resizeRight'.
+
+  Methods:
+      setDataRange(tMin, tMax)         Set full extent; rescales selection.
+      setSelection(tStart, tEnd)       Set/clamp/reorder selection; fires callback.
+      getSelection()                   Return [tStart, tEnd].
+      setEnvelope(xC, yMin, yMax)      Update or hide aggregate envelope.
+      delete()                         Restore saved figure callbacks.
+
+  Compatible with MATLAB R2020b+ and Octave 7+ (D-11): uses only axes, patch,
+  line, uipanel primitives and WindowButton{Down,Motion,Up}Fcn — no
+  matlab.graphics.*, no uifigure/uiaxes, no addlistener on primitive properties.
+
+### Constructor
+
+```matlab
+obj = TimeRangeSelector(hPanel, varargin)
+```
+
+TimeRangeSelector  Construct a selector attached to a uipanel.
+
+### Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| OnRangeChanged | `[]` | function handle @(tStart, tEnd) |
+| Theme | `[]` | struct from DashboardTheme, or [] |
+| MinWidthFrac | `0.005` | minimum selection width as fraction of DataRange span |
+| EdgeTolPx | `10` | pixel tolerance for edge hit-test |
+
+### Methods
+
+#### `setDataRange(obj, tMin, tMax)`
+
+setDataRange  Set the full extent the user can scrub over.
+  The current selection is rescaled proportionally so that a
+  50%-selected window remains 50% wide after the change.
+  Programmatic — does NOT fire OnRangeChanged; only user
+  drag interactions do.
+
+#### `setSelection(obj, tStart, tEnd)`
+
+setSelection  Update the selection window, clamping and reordering.
+  Swapped inputs (tStart > tEnd) are reordered. Values outside
+  DataRange are clamped. Widths smaller than MinWidthFrac * span
+  are widened around the requested midpoint. Fires OnRangeChanged
+  with the final [tStart, tEnd] (if the callback is set).
+Reorder swapped bounds (tStart < tEnd).
+
+#### `[tStart, tEnd] = getSelection(obj)`
+
+getSelection  Return the current selection as [tStart, tEnd].
+
+#### `setLabels(obj, leftText, rightText)`
+
+setLabels  Update the inline edge labels that track the selection.
+  Pass empty strings to hide a side's label. The text sits at the
+  mid-height of the selector, inside each edge handle.
+
+#### `setEnvelope(obj, xC, yMin, yMax)`
+
+setEnvelope  (Legacy) Draw the aggregate min/max preview envelope.
+  Kept for backward compat with tests. New code should prefer
+  setPreviewLines for per-widget line previews.
+
+#### `setPreviewLines(obj, lines)`
+
+setPreviewLines  Draw one downsampled line per widget preview.
+  lines is a cell array of structs, each with fields x and y
+  (equal-length row vectors; y already normalized to [0,1]).
+  Each line is rendered with a distinct color from a fixed
+  palette, placed behind the selection rectangle so drag
+  interactions remain unaffected.
+Clear previous preview lines.
 
