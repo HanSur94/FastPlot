@@ -237,10 +237,11 @@ classdef DashboardConfigDialog < handle
                 end
             end
 
-            % Theme → invalidate cache, restyle chrome, rerender widgets
+            % Theme → restyle chrome, rerender widgets.
+            % getCachedTheme() auto-invalidates when ThemeCachePreset_ != Theme,
+            % so no manual cache clear is needed here.
             if ~strcmp(eng.Theme, oldTheme)
                 if ~isempty(eng.hFigure) && ishandle(eng.hFigure)
-                    eng.ThemeCache_ = [];
                     theme = eng.getCachedTheme();
                     set(eng.hFigure, 'Color', theme.DashboardBackground);
                     if ~isempty(eng.Toolbar)
