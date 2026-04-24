@@ -141,6 +141,10 @@ classdef FastSense < handle
         MetadataFileDate  = 0         % last known metadata file datenum
         Tags_ = {}                    % cell of Tag handles added via addTag (for event overlay)
         EventMarkerHandles_ = {}      % cell of line handles for cleanup
+        hEventDetails_        = []        % uipanel handle for the click-details surface (Phase 1012)
+        PrevWBDFcn_           = []        % saved WindowButtonDownFcn during details-open
+        PrevKPFcn_            = []        % saved WindowKeyPressFcn during details-open
+        EventByIdMap_         = []        % containers.Map from eventId -> Event handle (built per render)
     end
 
     % ===================== PERFORMANCE TUNING ============================
@@ -2163,6 +2167,15 @@ classdef FastSense < handle
                 obj.writeExportMAT_(filepath, S);
             end
         end
+
+        function refreshEventLayer(obj)
+            %REFRESHEVENTLAYER Public thin wrapper — rebuild the event marker layer.
+            %   Calls the private renderEventLayer_ so external consumers
+            %   (e.g. FastSenseWidget.refresh()) can trigger a marker rebuild
+            %   without exposing the implementation method directly.
+            if ~obj.IsRendered, return; end
+            obj.renderEventLayer_();
+        end
     end
 
     % ======================== HIDDEN PUBLIC METHODS =======================
@@ -2191,10 +2204,10 @@ classdef FastSense < handle
     % downsampling pipeline, pyramid management, and link propagation.
     methods (Access = private)
         function renderEventLayer_(obj)
-            %RENDEREVENTLAYER_ Draw round markers at event timestamps (EVENT-07).
-            %   Separate render layer -- called AFTER line + threshold + marker
-            %   rendering. Single early-out at top if nothing to draw.
-            %   Batches markers by severity for performance (one line() per level).
+            %RENDEREVENTLAYER_ Draw round markers per event (EVENT-07 + Phase 1012).
+            %   Phase 1012 refactor: one line() per event so each marker carries
+            %   its own ButtonDownFcn + UserData.eventId. Open events render
+            %   hollow; closed events render filled.
             if ~obj.ShowEventMarkers || isempty(obj.Tags_)
                 return;
             end
@@ -2209,16 +2222,23 @@ classdef FastSense < handle
                 end
             end
             if isempty(es), return; end
-            % Delete old markers
+
+            % Delete old markers (idempotent rebuild)
             for i = 1:numel(obj.EventMarkerHandles_)
                 if ishandle(obj.EventMarkerHandles_{i})
                     delete(obj.EventMarkerHandles_{i});
                 end
             end
             obj.EventMarkerHandles_ = {};
-            % Collect markers by severity (1=ok, 2=warn, 3=alarm)
-            xBySev = {[], [], []};
-            yBySev = {[], [], []};
+            obj.EventByIdMap_ = containers.Map('KeyType', 'char', 'ValueType', 'any');
+
+            % Resolve marker size from theme (fallback to 8)
+            sz = 8;
+            if isstruct(obj.Theme) && isfield(obj.Theme, 'EventMarkerSize')
+                sz = obj.Theme.EventMarkerSize;
+            end
+
+            % One line() per event
             for i = 1:numel(obj.Tags_)
                 tag = obj.Tags_{i};
                 events = es.getEventsForTag(char(tag.Key));
@@ -2228,22 +2248,46 @@ classdef FastSense < handle
                     sev = max(1, min(3, ev.Severity));
                     yVal = tag.valueAt(ev.StartTime);
                     if isnan(yVal), continue; end
-                    xBySev{sev}(end+1) = ev.StartTime;
-                    yBySev{sev}(end+1) = yVal;
-                end
-            end
-            % Draw one line() per severity level
-            for s = 1:3
-                if ~isempty(xBySev{s})
-                    c = obj.severityToColor_(s);
-                    h = line(xBySev{s}, yBySev{s}, ...
+                    c = obj.severityToColor_(sev);
+                    if ev.IsOpen
+                        faceColor = 'none';   % hollow
+                    else
+                        faceColor = c;         % filled
+                    end
+                    h = line(ev.StartTime, yVal, ...
                         'Parent', obj.hAxes, ...
-                        'Marker', 'o', 'MarkerSize', 8, ...
-                        'MarkerFaceColor', c, 'MarkerEdgeColor', c, ...
-                        'LineStyle', 'none', 'HandleVisibility', 'off');
+                        'Marker', 'o', 'MarkerSize', sz, ...
+                        'MarkerFaceColor', faceColor, 'MarkerEdgeColor', c, ...
+                        'LineStyle', 'none', ...
+                        'HandleVisibility', 'off', ...
+                        'HitTest', 'on', ...
+                        'PickableParts', 'visible', ...
+                        'ButtonDownFcn', @(src, evt) obj.onEventMarkerClick_(src, evt), ...
+                        'UserData', struct('eventId', ev.Id, 'tagKey', char(tag.Key)));
                     obj.EventMarkerHandles_{end+1} = h;
+                    if ~isempty(ev.Id)
+                        obj.EventByIdMap_(ev.Id) = ev;
+                    end
                 end
             end
+
+            % uistack to top (Octave-safe)
+            if ~isempty(obj.EventMarkerHandles_)
+                try
+                    uistack([obj.EventMarkerHandles_{:}], 'top');
+                catch
+                    % Octave may not support uistack on line handles — ignore.
+                end
+            end
+        end
+
+        function onEventMarkerClick_(obj, src, ~)
+            %ONEVENTMARKERCLICK_ ButtonDownFcn dispatcher for event markers.
+            ud = get(src, 'UserData');
+            if isempty(ud) || ~isfield(ud, 'eventId'), return; end
+            if isempty(obj.EventByIdMap_) || ~obj.EventByIdMap_.isKey(ud.eventId), return; end
+            ev = obj.EventByIdMap_(ud.eventId);
+            obj.openEventDetails_(ev);
         end
 
         function c = severityToColor_(obj, severity)
