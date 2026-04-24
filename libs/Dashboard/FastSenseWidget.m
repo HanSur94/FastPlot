@@ -19,12 +19,23 @@ classdef FastSenseWidget < DashboardWidget
         YLabel       = ''    % Y-axis label (auto-set from Sensor if empty)
         YLimits             = []    % Fixed Y-axis range [min max]; empty = auto-scale
         ShowThresholdLabels = false % show inline name labels on threshold lines
+        % Forwarded to FastSense.LiveViewMode on render:
+        %   'reset'    — window covers the full X range every tick (default:
+        %                matches dashboard-demo expectation that users see
+        %                every sample since session start)
+        %   'follow'   — window of current width tracks the latest sample
+        %                (use for long-running deployments where the full
+        %                range would exhaust memory / downsampling budget)
+        %   'preserve' — frozen at the initial X range (legacy behaviour)
+        LiveViewMode = 'reset'
     end
     %   (Tag property now lives on the DashboardWidget base class — Plan 1009-02.)
 
     properties (SetAccess = private)
         FastSenseObj  = []
         IsSettingTime = false  % guard to distinguish programmatic vs user xlim change
+        IsSettingYLim = false  % guard so autoScaleY_ does not flip UserZoomedY
+        UserZoomedY   = false  % true after user mouse-zooms Y; suspends autoScaleY_
         CachedXMin    = inf    % cached minimum of X data for O(1) getTimeRange()
         CachedXMax    = -inf   % cached maximum of X data for O(1) getTimeRange()
         LastTagRef    = []     % Tag handle snapshot for cache-invalidation
@@ -71,6 +82,15 @@ classdef FastSenseWidget < DashboardWidget
             obj.FastSenseObj = fp;
             fp.ShowThresholdLabels = obj.ShowThresholdLabels;
 
+            % Slide the X window as new samples arrive on updateData().
+            % Forwarded from the widget-level LiveViewMode property so
+            % callers can swap between 'reset' (default: window grows to
+            % cover all samples — best for short demos), 'follow' (fixed-
+            % width window tracking the latest sample — best for long-
+            % running deployments), and 'preserve' (frozen at the initial
+            % X range — legacy behaviour).
+            fp.LiveViewMode = obj.LiveViewMode;
+
             % Bind data — Tag-first dispatch (v2.0).
             if ~isempty(obj.Tag)
                 fp.addTag(obj.Tag);
@@ -85,6 +105,18 @@ classdef FastSenseWidget < DashboardWidget
                 fp.addLine(obj.XData, obj.YData);
             end
 
+            % Datenum auto-promotion happens inside FastSense.addLine when
+            % the probed X values sit in the MATLAB datenum range
+            % (697000..769000 ≈ 1910-2100). No explicit XType handoff
+            % needed here.
+
+            % Apply thresholds — must be BEFORE fp.render() (FastSense
+            % rejects addThreshold calls after render). Accepted forms:
+            %   'auto'                     — no-op (default)
+            %   numeric scalar/vector      — one upper threshold per value
+            %   cell of structs            — {struct('Value',..,'Direction',..,'Label',..), ...}
+            applyThresholds_(fp, obj.Thresholds);
+
             % Set title and axis labels
             if ~isempty(obj.Title)
                 title(ax, obj.Title, 'Color', get(ax, 'XColor'));
@@ -98,12 +130,28 @@ classdef FastSenseWidget < DashboardWidget
 
             fp.render();
 
-            % Reformat time-axis ticks to HH:MM:SS / MM:SS for readability.
-            obj.formatTimeAxis_(ax);
+            % Reformat time-axis ticks to HH:MM:SS / MM:SS for readability
+            % (main branch addition from #66 / datetime axis migration).
+            try obj.formatTimeAxis_(ax); catch, end
 
-            % Apply fixed Y-axis limits if configured
+            % Apply fixed Y-axis limits if configured; otherwise expand the
+            % auto-computed range so threshold lines stay visible even when
+            % the initial data range is narrower than the threshold value.
             if ~isempty(obj.YLimits) && numel(obj.YLimits) == 2
                 ylim(ax, obj.YLimits);
+            else
+                yInit = [];
+                try
+                    if ~isempty(obj.Tag)
+                        [~, yInit] = obj.Tag.getXY();
+                    elseif ~isempty(obj.YData)
+                        yInit = obj.YData;
+                    end
+                catch
+                end
+                if ~isempty(yInit)
+                    obj.autoScaleY_(yInit);
+                end
             end
 
             % Update time range cache and data-source identity snapshots
@@ -113,6 +161,12 @@ classdef FastSenseWidget < DashboardWidget
             % Listen for manual zoom/pan to disable global time for this widget
             try
                 addlistener(ax, 'XLim', 'PostSet', @(~,~) obj.onXLimChanged());
+            catch
+            end
+            % Listen for manual Y zoom so autoScaleY_ stops fighting the
+            % user after a scroll / drag / programmatic ylim.
+            try
+                addlistener(ax, 'YLim', 'PostSet', @(~,~) obj.onYLimChanged());
             catch
             end
         end
@@ -134,6 +188,7 @@ classdef FastSenseWidget < DashboardWidget
                 try
                     [x, y] = obj.Tag.getXY();
                     obj.FastSenseObj.updateData(1, x, y);
+                    obj.autoScaleY_(y);
                     obj.updateTimeRangeCache();
                     obj.formatTimeAxis_(obj.FastSenseObj.hAxes);
                     return;
@@ -156,6 +211,7 @@ classdef FastSenseWidget < DashboardWidget
                 try
                     [x, y] = obj.Tag.getXY();
                     obj.FastSenseObj.updateData(1, x, y);
+                    obj.autoScaleY_(y);
                     obj.updateTimeRangeCache();
                     obj.formatTimeAxis_(obj.FastSenseObj.hAxes);
                     return;
@@ -164,6 +220,75 @@ classdef FastSenseWidget < DashboardWidget
                 end
             end
             obj.refresh();
+        end
+
+        function autoScaleY_(obj, y)
+        %AUTOSCALEY_ Rescale the Y axis to cover current data + thresholds.
+        %   FastSense locks YLim to manual mode at first render, so new
+        %   samples outside the initial range would fall off the chart.
+        %   This helper recomputes the Y extent every tick (including any
+        %   threshold values so MonitorTag lines stay visible) and updates
+        %   the axes. Skipped when:
+        %     - the widget has a user-pinned YLimits NV-pair, or
+        %     - the user manually zoomed Y via mouse (UserZoomedY),
+        %   so we never fight an explicit human interaction.
+            if ~isempty(obj.YLimits)
+                return;
+            end
+            if obj.UserZoomedY
+                return;
+            end
+            if isempty(obj.FastSenseObj) || ~obj.FastSenseObj.IsRendered
+                return;
+            end
+            ax = obj.FastSenseObj.hAxes;
+            if isempty(ax) || ~ishandle(ax)
+                return;
+            end
+            if isempty(y)
+                return;
+            end
+            yMin = min(y(:));
+            yMax = max(y(:));
+            if iscell(obj.Thresholds)
+                for i = 1:numel(obj.Thresholds)
+                    e = obj.Thresholds{i};
+                    if isstruct(e) && isfield(e, 'Value') && isfinite(e.Value)
+                        yMin = min(yMin, e.Value);
+                        yMax = max(yMax, e.Value);
+                    end
+                end
+            elseif isnumeric(obj.Thresholds) && ~isempty(obj.Thresholds)
+                yMin = min(yMin, min(obj.Thresholds(:)));
+                yMax = max(yMax, max(obj.Thresholds(:)));
+            end
+            if ~isfinite(yMin) || ~isfinite(yMax)
+                return;
+            end
+            if yMax > yMin
+                pad = (yMax - yMin) * 0.08;
+            else
+                pad = max(abs(yMax) * 0.1, 1);
+            end
+            obj.IsSettingYLim = true;
+            try
+                set(ax, 'YLim', [yMin - pad, yMax + pad]);
+            catch
+            end
+            obj.IsSettingYLim = false;
+        end
+
+        function onYLimChanged(obj)
+        %ONYLIMCHANGED Detach widget from automatic Y rescale after user zoom.
+        %   Fired by the YLim PostSet listener. When the YLim change came
+        %   from inside autoScaleY_ (IsSettingYLim==true) we ignore it; any
+        %   other source — mouse scroll, drag, zoom toolbar, programmatic
+        %   ylim() from user code — counts as a manual override and
+        %   latches UserZoomedY so live ticks stop fighting the user.
+            if obj.IsSettingYLim
+                return;
+            end
+            obj.UserZoomedY = true;
         end
 
         function setTimeRange(obj, tStart, tEnd)
@@ -446,6 +571,46 @@ classdef FastSenseWidget < DashboardWidget
             end
             if isfield(s, 'showThresholdLabels')
                 obj.ShowThresholdLabels = s.showThresholdLabels;
+            end
+        end
+    end
+end
+
+function applyThresholds_(fp, spec)
+    %APPLYTHRESHOLDS_ Push a Thresholds spec into a FastSense instance.
+    %   Accepts 'auto' / [] (no-op), numeric scalar/vector (upper lines),
+    %   or a cell of structs with fields Value / Direction / Label.
+    if isempty(spec)
+        return;
+    end
+    if ischar(spec) || (isstring(spec) && isscalar(spec))
+        % 'auto' (or any other string) means "no thresholds wired".
+        return;
+    end
+    if isnumeric(spec)
+        for i = 1:numel(spec)
+            fp.addThreshold(spec(i), 'Direction', 'upper');
+        end
+        return;
+    end
+    if iscell(spec)
+        for i = 1:numel(spec)
+            e = spec{i};
+            if ~isstruct(e) || ~isfield(e, 'Value')
+                continue;
+            end
+            dir = 'upper';
+            if isfield(e, 'Direction') && ~isempty(e.Direction)
+                dir = e.Direction;
+            end
+            lbl = '';
+            if isfield(e, 'Label') && ~isempty(e.Label)
+                lbl = e.Label;
+            end
+            if isempty(lbl)
+                fp.addThreshold(e.Value, 'Direction', dir);
+            else
+                fp.addThreshold(e.Value, 'Direction', dir, 'Label', lbl);
             end
         end
     end

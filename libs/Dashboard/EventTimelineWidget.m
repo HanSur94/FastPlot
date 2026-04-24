@@ -300,11 +300,16 @@ classdef EventTimelineWidget < DashboardWidget
                 if ~isempty(ev.ThresholdLabel)
                     lbl = [ev.SensorName ' — ' ev.ThresholdLabel];
                 end
-                % Color based on direction/severity hint in label
-                if ~isempty(strfind(lower(ev.ThresholdLabel), 'alarm'))
+                % Colour routing is driven by the numeric Severity field
+                % (1=ok/info, 2=warn, 3=alarm; see Event.m EVENT-04) with
+                % a ThresholdLabel keyword fallback for events authored
+                % before Severity existed.
+                clr = warnColor;
+                if isfield(ev, 'Severity') && ~isempty(ev.Severity) && ev.Severity >= 3
                     clr = alarmColor;
-                else
-                    clr = warnColor;
+                elseif ~isfield(ev, 'Severity') && ~isempty(ev.ThresholdLabel) && ...
+                        ~isempty(strfind(lower(ev.ThresholdLabel), 'alarm'))
+                    clr = alarmColor;
                 end
                 evts(end+1) = struct('startTime', ev.StartTime, ...
                     'endTime', ev.EndTime, 'label', lbl, 'color', clr); %#ok<AGROW>

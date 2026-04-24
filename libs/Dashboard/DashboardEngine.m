@@ -272,6 +272,9 @@ classdef DashboardEngine < handle
             obj.Layout.ContentArea = [0, obj.TimePanelHeight, ...
                 1, 1 - toolbarH - pageBarH - obj.TimePanelHeight];
             obj.Layout.DetachCallback = @(w) obj.detachWidget(w);
+            % Create viewport once up front — additive allocatePanels calls below
+            % will reuse it rather than destroying and recreating it each time.
+            obj.Layout.ensureViewport(obj.hFigure, themeStruct);
             obj.Layout.allocatePanels(obj.hFigure, obj.activePageWidgets(), themeStruct);
             obj.Layout.OnScrollCallback = @(r1, r2) obj.onScrollRealize(r1, r2);
 
@@ -1028,10 +1031,25 @@ classdef DashboardEngine < handle
             % (PostSet listeners on Sensor.X/Y do not fire reliably in Octave for indexed assignment)
             for i = 1:numel(ws)
                 w = ws{i};
-                if ~isempty(w.Sensor) || ~isempty(w.Tag)
-                    w.markDirty();
+                % Mark every widget dirty on every live tick. The previous
+                % guard (`~isempty(w.Sensor) || ~isempty(w.Tag)`) skipped
+                % Threshold-bound widgets (MonitorTag-backed StatusWidget /
+                % IconCardWidget), Sensors-plural MultiStatusWidget,
+                % ChipBarWidget (per-chip StatusFcn), and any widget using
+                % StatusFcn / ValueFcn / DataFcn — so their dots / labels
+                % never moved once the initial render was done. Tick
+                % everything; the widget-local refresh() decides whether
+                % anything actually needs redrawing.
+                w.markDirty();
+                % Dead-handle recovery: panel was destroyed (e.g. by a layout bug or
+                % figure-close race). Drop Realized so the next scroll-realize pass
+                % can rebuild it, and skip this tick.
+                if ~isempty(w.hPanel) && ~ishandle(w.hPanel)
+                    w.markUnrealized();
+                    continue;
                 end
-                if w.Dirty && w.Realized && obj.Layout.isWidgetVisible(w.Position)
+                if w.Dirty && w.Realized && ~isempty(w.hPanel) && ishandle(w.hPanel) ...
+                        && obj.Layout.isWidgetVisible(w.Position)
                     try
                         if isa(w, 'FastSenseWidget')
                             w.update();
@@ -1371,9 +1389,28 @@ classdef DashboardEngine < handle
             set(obj.hTimeEnd, 'String', obj.formatTimeVal(tEnd));
         end
 
+    end
+
+    methods (Access = public)
+
         function str = formatTimeVal(~, t)
-            % Detect datenum (modern dates are > 700000)
-            if t > 700000
+        %FORMATTIMEVAL Format a numeric time value as a human-readable string.
+        %   Supports three numeric ranges:
+        %     posix epoch seconds (9e8 < t < 5e9) — converts via datenum(1970,...)+t/86400
+        %     MATLAB datenum (t > 700000, not posix) — uses datestr directly
+        %     raw numeric (t <= 700000) — formats as s/m/h/d suffix
+        %
+        %   The posix bracket is evaluated BEFORE the datenum bracket because
+        %   posix seconds for modern dates (year 2001-2128) are also > 700000
+        %   and would be wrongly interpreted as datenums without this ordering.
+            % Order matters: posix epoch seconds (year 2000-2128) are > 700000,
+            % so the posix bracket must be evaluated BEFORE the datenum bracket.
+            if t > 9e8 && t < 5e9
+                % Posix epoch seconds (year ~2000 - 2128)
+                str = datestr(datenum(1970, 1, 1, 0, 0, 0) + t / 86400, ...
+                              'yyyy-mm-dd HH:MM');
+            elseif t > 700000
+                % MATLAB datenum (days since year 0000)
                 if t > 730000
                     str = datestr(t, 'yyyy-mm-dd HH:MM');
                 else
@@ -1392,6 +1429,10 @@ classdef DashboardEngine < handle
                 end
             end
         end
+
+    end
+
+    methods (Access = private)
 
         function onLiveTimerError(obj, ~, eventData)
         %ONLIVETIMERROR Handle errors that escape onLiveTick.
