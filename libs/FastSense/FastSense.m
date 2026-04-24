@@ -2411,7 +2411,13 @@ classdef FastSense < handle
                 try hold(obj.hAxes, 'off'); catch; end
             end
         end
+    end
 
+    % Event-details popup lifecycle: Hidden so TestFastSenseEventClick can
+    % dispatch open/close/key/save directly. Not listed in methods(obj) for
+    % end users but accessible from anywhere (MATLAB protected-for-tests is
+    % not a thing — see the comments in the Hidden block above).
+    methods (Hidden)
         function openEventDetails_(obj, ev)
             %OPENEVENTDETAILS_ Open a separate floating figure with event fields.
             %   Phase 1012 refit: standalone figure (OS-native drag/close), light
@@ -2612,7 +2618,9 @@ classdef FastSense < handle
                 obj.closeEventDetails_();
             end
         end
+    end
 
+    methods (Access = private)
         function c = severityToColor_(obj, severity)
             %SEVERITYTOCOLOR_ Map severity level to RGB color.
             %   Uses DashboardTheme status colors if available in obj.Theme;
