@@ -1140,6 +1140,14 @@ classdef DashboardEngine < handle
                 '(live tick fired, but widget data did not advance)'], ...
                 intervalStr);
             set(obj.hStaleBanner, 'String', msg, 'Visible', 'on');
+            % Widget panels are created after the banner, so they render on top
+            % by default. Raise the banner to the front so it is actually seen.
+            try
+                uistack(obj.hStaleBanner, 'top');
+            catch
+                % uistack is MATLAB-only; Octave figures the z-order differently
+                % but keeping the banner Visible suffices for Octave's renderer.
+            end
         end
 
         function hideStaleBanner(obj)
