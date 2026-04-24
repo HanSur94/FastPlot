@@ -406,8 +406,8 @@ classdef FastSenseWidget < DashboardWidget
 
                 % Determine y-range: prefer current axes YLim; fallback to data.
                 yRange = [];
-                if ~isempty(obj.FastSenseObj) && ~isempty(obj.FastSenseObj.hAxes) ...
-                        && ishandle(obj.FastSenseObj.hAxes)
+                if ~isempty(obj.FastSenseObj) && ~isempty(obj.FastSenseObj.hAxes) && ...
+                        ishandle(obj.FastSenseObj.hAxes)
                     try
                         yl = get(obj.FastSenseObj.hAxes, 'YLim');
                         if numel(yl) == 2 && all(isfinite(yl)) && yl(2) > yl(1)

@@ -224,13 +224,13 @@ classdef TimeRangeSelector < handle
             set(obj.hEnvelope, 'Visible', 'off');
             if isempty(lines), return; end
             palette = [ ...
-                0.00 0.45 0.70;    % blue
-                0.90 0.40 0.20;    % orange
-                0.20 0.60 0.20;    % green
-                0.70 0.20 0.50;    % purple
-                0.85 0.70 0.20;    % mustard
-                0.30 0.70 0.70;    % teal
-                0.70 0.30 0.30];   % brick
+                0.00 0.45 0.70    % blue
+                0.90 0.40 0.20    % orange
+                0.20 0.60 0.20    % green
+                0.70 0.20 0.50    % purple
+                0.85 0.70 0.20    % mustard
+                0.30 0.70 0.70    % teal
+                0.70 0.30 0.30 ]; % brick
             handles = [];
             for i = 1:numel(lines)
                 L = lines{i};
