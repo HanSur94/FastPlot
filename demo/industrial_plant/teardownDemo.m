@@ -80,13 +80,17 @@ function teardownDemo(ctx)
     end
 
     % Also sweep dashboard LiveTimer stragglers that might have leaked.
-    try
-        stragglers = timerfindall('Tag', 'DashboardEngine');
-        for i = 1:numel(stragglers)
-            try stop(stragglers(i)); catch, end
-            try delete(stragglers(i)); catch, end
+    % Both LiveTimer and SliderDebounceTimer are tagged 'DashboardEngine';
+    % LiveTagPipeline timer is tagged 'LiveTagPipeline'.
+    for sweepTag = {'DashboardEngine', 'LiveTagPipeline'}
+        try
+            stragglers = timerfindall('Tag', sweepTag{1});
+            for i = 1:numel(stragglers)
+                try stop(stragglers(i)); catch, end
+                try delete(stragglers(i)); catch, end
+            end
+        catch
         end
-    catch
     end
 
     % ---- Final: TagRegistry.clear() always runs ----
