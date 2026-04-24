@@ -43,7 +43,6 @@ classdef DashboardConfigDialog < handle
             oldTheme      = obj.Engine.Theme;
             oldName       = obj.Engine.Name;
             oldLive       = obj.Engine.LiveInterval;
-            oldShowTb     = obj.Engine.ShowToolbar;
             oldShowTp     = obj.Engine.ShowTimePanel;
 
             for i = 1:numel(obj.PropSpecs)
@@ -57,7 +56,7 @@ classdef DashboardConfigDialog < handle
                         'Dashboard Config');
                 end
             end
-            obj.propagateChanges(oldTheme, oldName, oldLive, oldShowTb, oldShowTp);
+            obj.propagateChanges(oldTheme, oldName, oldLive, oldShowTp);
         end
     end
 
@@ -107,7 +106,7 @@ classdef DashboardConfigDialog < handle
 
         function tf = isKnownBoolProp(obj, name) %#ok<INUSL>
         %ISKNOWNBOOLPROP True when the named property is a logical toggle we expose.
-            tf = ismember(name, {'ShowToolbar', 'ShowTimePanel'});
+            tf = ismember(name, {'ShowTimePanel'});
         end
 
         function m = tooltipMap(obj) %#ok<MANU>
@@ -118,7 +117,6 @@ classdef DashboardConfigDialog < handle
                 'LiveInterval',  'Seconds between live-mode refresh ticks.', ...
                 'InfoFile',      'Path to a Markdown file opened by the Info button. Empty = built-in placeholder. Relative paths resolve against the loaded .json directory (or pwd if unsaved).', ...
                 'ProgressMode',  'Render-progress bar visibility: ''auto'' = only for slow renders, ''on'' = always, ''off'' = never.', ...
-                'ShowToolbar',   'Show the top toolbar. Uncheck for presenter or embed mode; the content area expands to fill.', ...
                 'ShowTimePanel', 'Show the bottom time-slider panel. Uncheck when widgets manage their own time range.');
         end
 
@@ -302,7 +300,7 @@ classdef DashboardConfigDialog < handle
             end
         end
 
-        function propagateChanges(obj, oldTheme, oldName, oldLive, oldShowTb, oldShowTp)
+        function propagateChanges(obj, oldTheme, oldName, oldLive, oldShowTp)
         %PROPAGATECHANGES Reflect engine changes back into the live figure.
             eng = obj.Engine;
 
@@ -338,9 +336,8 @@ classdef DashboardConfigDialog < handle
                 eng.startLive();
             end
 
-            % Chrome visibility toggles → hide/show panels + re-layout widgets
-            if ~isequal(logical(eng.ShowToolbar), logical(oldShowTb)) ...
-                    || ~isequal(logical(eng.ShowTimePanel), logical(oldShowTp))
+            % Time-panel visibility toggle → hide/show + re-layout widgets
+            if ~isequal(logical(eng.ShowTimePanel), logical(oldShowTp))
                 eng.applyVisibilityAndRelayout();
             end
         end

@@ -148,36 +148,31 @@ function test_dashboard_config_dialog()
         nFailed = nFailed + 1;
     end
 
-    % testVisibilityFlagsTogglePanels
+    % testShowTimePanelToggle
     try
         d = DashboardEngine('VisTest');
         d.addWidget('number', 'Title', 'T', 'Position', [1 1 6 2], 'StaticValue', 1);
         d.render();
         set(d.hFigure, 'Visible', 'off');
 
-        assert(strcmp(get(d.Toolbar.hPanel, 'Visible'), 'on'), ...
-            'toolbar should start visible');
         assert(strcmp(get(d.hTimePanel, 'Visible'), 'on'), ...
             'time panel should start visible');
 
-        d.ShowToolbar = false;
         d.ShowTimePanel = false;
         d.applyVisibilityAndRelayout();
 
-        assert(strcmp(get(d.Toolbar.hPanel, 'Visible'), 'off'), ...
-            'toolbar should be hidden');
         assert(strcmp(get(d.hTimePanel, 'Visible'), 'off'), ...
             'time panel should be hidden');
 
-        % Content area should now span the full figure height
+        % Content area y-offset should be 0 (no time panel reserve at bottom)
         ca = d.Layout.ContentArea;
-        assert(abs(ca(2) - 0) < 1e-9 && abs(ca(4) - 1) < 1e-9, ...
-            sprintf('content area should fill full height, got [%g %g %g %g]', ca));
+        assert(abs(ca(2) - 0) < 1e-9, ...
+            sprintf('content area y-offset should be 0, got %g', ca(2)));
 
         close(d.hFigure);
         nPassed = nPassed + 1;
     catch err
-        fprintf('    FAIL testVisibilityFlagsTogglePanels: %s\n', err.message);
+        fprintf('    FAIL testShowTimePanelToggle: %s\n', err.message);
         nFailed = nFailed + 1;
     end
 

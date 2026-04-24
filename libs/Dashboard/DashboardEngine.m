@@ -25,7 +25,6 @@ classdef DashboardEngine < handle
         LiveInterval  = 5
         InfoFile      = ''
         ProgressMode  = 'auto'   % 'auto' | 'on' | 'off' — render progress bar visibility
-        ShowToolbar   = true     % hide the top toolbar for presenter/embed mode
         ShowTimePanel = true     % hide the bottom time slider panel
     end
 
@@ -909,11 +908,7 @@ classdef DashboardEngine < handle
             end
             timeH = obj.TimePanelHeight;
 
-            if obj.ShowToolbar
-                tbVis = 'on';  effToolbarH = toolbarH;
-            else
-                tbVis = 'off'; effToolbarH = 0;
-            end
+            effToolbarH = toolbarH;  % toolbar is always visible (config lives there)
             if obj.ShowTimePanel
                 tpVis = 'on';  effTimeH = timeH;
             else
@@ -921,10 +916,6 @@ classdef DashboardEngine < handle
             end
             effPageBarH = pageBarH;  % page bar follows multi-page state, not a flag
 
-            if ~isempty(obj.Toolbar) && ~isempty(obj.Toolbar.hPanel) ...
-                    && ishandle(obj.Toolbar.hPanel)
-                set(obj.Toolbar.hPanel, 'Visible', tbVis);
-            end
             if ~isempty(obj.hTimePanel) && ishandle(obj.hTimePanel)
                 set(obj.hTimePanel, 'Visible', tpVis);
             end
