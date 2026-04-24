@@ -141,13 +141,17 @@ classdef FastSense < handle
         MetadataFileDate  = 0         % last known metadata file datenum
         Tags_ = {}                    % cell of Tag handles added via addTag (for event overlay)
         EventMarkerHandles_ = {}      % cell of line handles for cleanup
-        hEventDetails_        = []        % uipanel handle for the click-details surface (Phase 1012)
         PrevWBDFcn_           = []        % saved WindowButtonDownFcn during details-open
         PrevKPFcn_            = []        % saved WindowKeyPressFcn during details-open
         EventByIdMap_         = []        % containers.Map from eventId -> Event handle (built per render)
         PrevWBMFcn_           = []        % saved WindowButtonMotionFcn during drag
         PrevWBUFcn_           = []        % saved WindowButtonUpFcn during drag
         DragOffsetPx_         = [0 0]     % [dx dy] mouse offset from panel origin at drag start
+    end
+
+    % Phase 1012 event-details popup handle — test-readable
+    properties (SetAccess = private)
+        hEventDetails_ = []               % popup figure handle (empty when no popup open)
     end
 
     % ===================== PERFORMANCE TUNING ============================
