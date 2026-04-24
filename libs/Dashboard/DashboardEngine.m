@@ -1339,6 +1339,21 @@ classdef DashboardEngine < handle
             obj.hTimeStart = [];
             obj.hTimeEnd   = [];
 
+            % Reset button on the far left of the time panel — restores
+            % the selection to the full DataTimeRange. Double-clicking the
+            % selection patch does the same, but a visible button is more
+            % discoverable.
+            uicontrol('Parent', obj.hTimePanel, ...
+                'Style', 'pushbutton', ...
+                'Units', 'normalized', ...
+                'Position', [0.003 0.15 0.035 0.7], ...
+                'String', 'Reset', ...
+                'FontSize', 9, ...
+                'TooltipString', 'Reset the time window to the full data range', ...
+                'ForegroundColor', theme.ToolbarFontColor, ...
+                'BackgroundColor', theme.ToolbarBackground, ...
+                'Callback', @(~, ~) obj.resetTimeRange());
+
             % Single TimeRangeSelector replaces the two uicontrol sliders.
             obj.TimeRangeSelector_ = TimeRangeSelector(obj.hTimePanel, ...
                 'OnRangeChanged', @(a, b) obj.onRangeSelectorChanged(a, b), ...
@@ -1351,6 +1366,21 @@ classdef DashboardEngine < handle
             % tests are documented as out-of-scope for this phase.
             obj.hTimeSliderL = obj.TimeRangeSelector_;
             obj.hTimeSliderR = obj.TimeRangeSelector_;
+        end
+
+        function resetTimeRange(obj)
+        %RESETTIMERANGE Restore the selection to the full DataTimeRange.
+        %   Wired to the "Reset" button on the time panel; also reachable
+        %   via double-click on the selection patch inside the selector.
+            if isempty(obj.TimeRangeSelector_) || ...
+                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                return;
+            end
+            tr = obj.DataTimeRange;
+            obj.TimeRangeSelector_.setSelection(tr(1), tr(2));
+            % setSelection fires OnRangeChanged, which debounces through
+            % SliderDebounceTimer into broadcastTimeRange — restoring xlim
+            % on every widget. No extra plumbing needed.
         end
 
         function onTimeSlidersChanged(obj)
