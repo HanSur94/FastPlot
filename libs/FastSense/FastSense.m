@@ -2304,25 +2304,28 @@ classdef FastSense < handle
 
         function openEventDetails_(obj, ev)
             %OPENEVENTDETAILS_ Open a separate floating figure with event fields.
-            %   Phase 1012 refit: uses a standalone figure (not a uipanel) so the
-            %   OS provides native drag, native close button, and no uipanel
-            %   border rendering quirks. ESC still dismisses via WindowKeyPressFcn
-            %   on the popup figure.
+            %   Phase 1012 refit: standalone figure (OS-native drag/close), light
+            %   theme with standard font, read-only field list on top and an
+            %   editable Notes box at the bottom. Saving the notes mutates
+            %   ev.Notes (handle persists across the MATLAB session) and calls
+            %   EventStore.save() when a FilePath is configured (disk persistence).
             obj.closeEventDetails_();  % idempotent guard
             if isempty(obj.hFigure) || ~ishandle(obj.hFigure), return; end
 
-            % Position popup centered on screen. Simple and predictable;
-            % user can drag it anywhere they like afterwards.
-            popupW = 360;
-            popupH = 380;
+            % Position popup centered on screen.
+            popupW = 420;
+            popupH = 520;
             try
-                ss = get(0, 'ScreenSize');   % [x y w h] in pixels
+                ss = get(0, 'ScreenSize');
                 popupX = max(0, round(ss(3)/2 - popupW/2));
                 popupY = max(0, round(ss(4)/2 - popupH/2));
             catch
                 popupX = 200;
                 popupY = 200;
             end
+
+            bg = [1 1 1];                 % light background
+            fg = [0.10 0.10 0.12];        % near-black text
 
             popupFig = figure( ...
                 'Name',            sprintf('Event %s', ev.Id), ...
@@ -2331,25 +2334,100 @@ classdef FastSense < handle
                 'ToolBar',         'none', ...
                 'DockControls',    'off', ...
                 'Resize',          'on', ...
-                'Color',           [0.15 0.15 0.18], ...
+                'Color',           bg, ...
                 'Position',        [popupX popupY popupW popupH], ...
                 'CloseRequestFcn', @(~,~) obj.closeEventDetails_(), ...
                 'WindowKeyPressFcn', @(~,evt) obj.onKeyPressForDetailsDismiss_(evt));
 
-            % Field dump (the only widget inside — fills the whole figure,
-            % BackgroundColor matches figure so no visible border)
+            % Read-only field list (top 60% of the popup)
             txt = obj.formatEventFields_(ev);
             uicontrol('Parent', popupFig, 'Style', 'edit', ...
                 'Max', 100, 'Min', 0, ...
                 'Enable', 'inactive', ...
                 'HorizontalAlignment', 'left', ...
-                'Units', 'normalized', 'Position', [0.02 0.02 0.96 0.96], ...
+                'Units', 'normalized', 'Position', [0.03 0.39 0.94 0.58], ...
                 'String', txt, ...
-                'FontName', 'Courier', 'FontSize', 11, ...
-                'BackgroundColor', [0.15 0.15 0.18], ...
-                'ForegroundColor', [0.92 0.92 0.94]);
+                'FontSize', 11, ...
+                'BackgroundColor', bg, 'ForegroundColor', fg);
+
+            % Notes label
+            uicontrol('Parent', popupFig, 'Style', 'text', ...
+                'String', 'Notes', ...
+                'Units', 'normalized', 'Position', [0.03 0.34 0.94 0.04], ...
+                'FontSize', 11, 'FontWeight', 'bold', ...
+                'HorizontalAlignment', 'left', ...
+                'BackgroundColor', bg, 'ForegroundColor', fg);
+
+            % Editable notes textarea (middle)
+            hNotes = uicontrol('Parent', popupFig, 'Style', 'edit', ...
+                'Max', 100, 'Min', 0, ...
+                'HorizontalAlignment', 'left', ...
+                'Units', 'normalized', 'Position', [0.03 0.10 0.94 0.24], ...
+                'String', ev.Notes, ...
+                'FontSize', 11, ...
+                'BackgroundColor', [0.98 0.98 0.98], ...
+                'ForegroundColor', fg);
+
+            % Save button
+            uicontrol('Parent', popupFig, 'Style', 'pushbutton', ...
+                'String', 'Save notes', ...
+                'Units', 'normalized', 'Position', [0.62 0.02 0.35 0.07], ...
+                'FontSize', 11, ...
+                'Callback', @(~,~) obj.saveEventNotes_(ev, hNotes));
+
+            % Status text (left of Save button) — shows "Saved" confirmation
+            hStatus = uicontrol('Parent', popupFig, 'Style', 'text', ...
+                'String', '', ...
+                'Units', 'normalized', 'Position', [0.03 0.02 0.55 0.06], ...
+                'FontSize', 10, 'FontAngle', 'italic', ...
+                'HorizontalAlignment', 'left', ...
+                'BackgroundColor', bg, ...
+                'ForegroundColor', [0.2 0.55 0.3]);
+            set(popupFig, 'UserData', struct('hNotes', hNotes, 'hStatus', hStatus));
 
             obj.hEventDetails_ = popupFig;
+        end
+
+        function saveEventNotes_(obj, ev, hNotesControl)
+            %SAVEEVENTNOTES_ Commit the Notes textarea to ev.Notes and persist.
+            %   Mutates the Event handle (in-session persistence) and calls
+            %   obj.EventStore.save() when available so notes survive MATLAB
+            %   restarts. Updates the status label to confirm.
+            try
+                newNotes = get(hNotesControl, 'String');
+                if iscell(newNotes)
+                    newNotes = strjoin(newNotes, sprintf('\n'));
+                end
+                ev.Notes = newNotes;
+                % Persist to disk when EventStore has a FilePath
+                persisted = false;
+                if ~isempty(obj.EventStore) && isa(obj.EventStore, 'EventStore')
+                    try
+                        obj.EventStore.save();
+                        persisted = ~isempty(obj.EventStore.FilePath);
+                    catch
+                        persisted = false;
+                    end
+                end
+                if ~isempty(obj.hEventDetails_) && ishandle(obj.hEventDetails_)
+                    ud = get(obj.hEventDetails_, 'UserData');
+                    if isstruct(ud) && isfield(ud, 'hStatus') && ishandle(ud.hStatus)
+                        if persisted
+                            set(ud.hStatus, 'String', sprintf('Saved to %s', obj.EventStore.FilePath));
+                        else
+                            set(ud.hStatus, 'String', 'Saved in memory (no FilePath set on EventStore)');
+                        end
+                    end
+                end
+            catch err
+                if ~isempty(obj.hEventDetails_) && ishandle(obj.hEventDetails_)
+                    ud = get(obj.hEventDetails_, 'UserData');
+                    if isstruct(ud) && isfield(ud, 'hStatus') && ishandle(ud.hStatus)
+                        set(ud.hStatus, 'String', sprintf('Save failed: %s', err.message), ...
+                            'ForegroundColor', [0.8 0.2 0.2]);
+                    end
+                end
+            end
         end
 
         function closeEventDetails_(obj)
@@ -3737,10 +3815,8 @@ classdef FastSense < handle
             meanStr= ''; if ~isempty(ev.MeanValue),  meanStr = sprintf('%g', ev.MeanValue);  end
             rmsStr = ''; if ~isempty(ev.RmsValue),   rmsStr  = sprintf('%g', ev.RmsValue);   end
             stdStr = ''; if ~isempty(ev.StdValue),   stdStr  = sprintf('%g', ev.StdValue);   end
-            notesStr = '';
-            if isprop(ev, 'Notes') && ~isempty(ev.Notes)
-                notesStr = ev.Notes;
-            end
+            % Notes are edited separately in the details popup — not included
+            % in this read-only field dump (Phase 1012 cleanup).
             linesCells = { ...
                 sprintf('StartTime:      %g', ev.StartTime), ...
                 sprintf('EndTime:        %s', endStr), ...
@@ -3754,8 +3830,7 @@ classdef FastSense < handle
                 sprintf('Severity:       %d', ev.Severity), ...
                 sprintf('Category:       %s', ev.Category), ...
                 sprintf('TagKeys:        %s', tagStr), ...
-                sprintf('ThresholdLabel: %s', ev.ThresholdLabel), ...
-                sprintf('Notes:          %s', notesStr) };
+                sprintf('ThresholdLabel: %s', ev.ThresholdLabel) };
             txt = strjoin(linesCells, char(10));  % LF
         end
     end

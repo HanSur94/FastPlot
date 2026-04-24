@@ -21,7 +21,18 @@ function example_event_markers
     parent.updateData([0 1 2 3 4 5], [1 1 1 1 1 1]);
 
     % 2. EventStore + MonitorTag with a threshold at y > 5
-    es = EventStore('');
+    %    Provide a FilePath so notes edited in the details popup survive
+    %    a MATLAB restart (re-run the example and the notes will reload).
+    storePath = fullfile(tempdir, 'phase1012_demo_events.mat');
+    es = EventStore(storePath);
+    if isfile(storePath)
+        try
+            prior = EventStore.loadFile(storePath);
+            if ~isempty(prior); es.append(prior); end
+        catch
+            % ignore corrupt prior file — continue with an empty store
+        end
+    end
     mon = MonitorTag('pump_a_high', parent, @(x, y) y > 5, 'EventStore', es);
 
     % 3. Build a dashboard with a FastSenseWidget wired to ShowEventMarkers

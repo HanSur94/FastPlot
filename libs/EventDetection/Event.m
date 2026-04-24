@@ -26,6 +26,7 @@ classdef Event < handle
         Category  = ''       % char: alarm|maintenance|process_change|manual_annotation (EVENT-05)
         Id        = ''       % char: unique id assigned by EventStore.append (EVENT-02)
         IsOpen    = false    % logical: true while event is still open (EndTime = NaN) — Phase 1012
+        Notes     = ''       % char: free-form user annotation edited via details popup — Phase 1012
     end
 
     properties (Constant)
