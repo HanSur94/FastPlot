@@ -2311,14 +2311,17 @@ classdef FastSense < handle
             obj.closeEventDetails_();  % idempotent guard
             if isempty(obj.hFigure) || ~ishandle(obj.hFigure), return; end
 
-            % Position popup near the main figure (top-right offset).
-            mainPos = get(obj.hFigure, 'Position');   % [x y w h] in pixels (default)
-            popupW  = 360;
-            popupH  = 380;
-            popupX  = mainPos(1) + mainPos(3) + 20;   % to the right of main figure
-            popupY  = mainPos(2) + mainPos(4) - popupH;
-            if popupX + popupW > obj.screenWidth_()
-                popupX = max(0, mainPos(1) - popupW - 20);  % flip to the left
+            % Position popup centered on screen. Simple and predictable;
+            % user can drag it anywhere they like afterwards.
+            popupW = 360;
+            popupH = 380;
+            try
+                ss = get(0, 'ScreenSize');   % [x y w h] in pixels
+                popupX = max(0, round(ss(3)/2 - popupW/2));
+                popupY = max(0, round(ss(4)/2 - popupH/2));
+            catch
+                popupX = 200;
+                popupY = 200;
             end
 
             popupFig = figure( ...
@@ -2369,15 +2372,6 @@ classdef FastSense < handle
             end
         end
 
-        function w = screenWidth_(~)
-            %SCREENWIDTH_ Return pixel width of the primary display (for popup placement).
-            try
-                su = get(0, 'ScreenSize');   % [x y w h]
-                w  = su(3);
-            catch
-                w = 1920;  % safe fallback
-            end
-        end
 
         function c = severityToColor_(obj, severity)
             %SEVERITYTOCOLOR_ Map severity level to RGB color.
