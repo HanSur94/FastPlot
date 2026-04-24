@@ -242,21 +242,7 @@ classdef DashboardConfigDialog < handle
             % so no manual cache clear is needed here.
             if ~strcmp(eng.Theme, oldTheme)
                 if ~isempty(eng.hFigure) && ishandle(eng.hFigure)
-                    theme = eng.getCachedTheme();
-                    set(eng.hFigure, 'Color', theme.DashboardBackground);
-                    if ~isempty(eng.Toolbar)
-                        if ~isempty(eng.Toolbar.hPanel) ...
-                                && ishandle(eng.Toolbar.hPanel)
-                            set(eng.Toolbar.hPanel, ...
-                                'BackgroundColor', theme.ToolbarBackground);
-                        end
-                        if ~isempty(eng.Toolbar.hTitleText) ...
-                                && ishandle(eng.Toolbar.hTitleText)
-                            set(eng.Toolbar.hTitleText, ...
-                                'BackgroundColor', theme.ToolbarBackground, ...
-                                'ForegroundColor', theme.ToolbarFontColor);
-                        end
-                    end
+                    eng.applyThemeToChrome();
                     try
                         eng.rerenderWidgets();
                     catch

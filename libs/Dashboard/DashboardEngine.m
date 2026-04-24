@@ -893,6 +893,77 @@ classdef DashboardEngine < handle
             obj.Layout.ContentArea = contentArea;
         end
 
+        function applyThemeToChrome(obj)
+        %APPLYTHEMETOCHROME Restyle figure + non-widget chrome using the current Theme.
+        %   Widget panels are NOT touched here — call rerenderWidgets() after
+        %   this method to recreate widget content with the new theme.
+            if isempty(obj.hFigure) || ~ishandle(obj.hFigure)
+                return;
+            end
+            theme = obj.getCachedTheme();
+
+            set(obj.hFigure, 'Color', theme.DashboardBackground);
+
+            % Content-area viewport + canvas
+            if ~isempty(obj.Layout) && ~isempty(obj.Layout.hViewport) ...
+                    && ishandle(obj.Layout.hViewport)
+                set(obj.Layout.hViewport, ...
+                    'BackgroundColor', theme.DashboardBackground);
+            end
+            if ~isempty(obj.Layout) && ~isempty(obj.Layout.hCanvas) ...
+                    && ishandle(obj.Layout.hCanvas)
+                set(obj.Layout.hCanvas, ...
+                    'BackgroundColor', theme.DashboardBackground);
+            end
+
+            % Toolbar panel + title + last-update label
+            if ~isempty(obj.Toolbar)
+                tb = obj.Toolbar;
+                if ~isempty(tb.hPanel) && ishandle(tb.hPanel)
+                    set(tb.hPanel, 'BackgroundColor', theme.ToolbarBackground);
+                end
+                if ~isempty(tb.hTitleText) && ishandle(tb.hTitleText)
+                    set(tb.hTitleText, ...
+                        'BackgroundColor', theme.ToolbarBackground, ...
+                        'ForegroundColor', theme.ToolbarFontColor);
+                end
+                if ~isempty(tb.hLastUpdate) && ishandle(tb.hLastUpdate)
+                    set(tb.hLastUpdate, ...
+                        'BackgroundColor', theme.ToolbarBackground, ...
+                        'ForegroundColor', theme.ToolbarFontColor * 0.6 ...
+                            + theme.ToolbarBackground * 0.4);
+                end
+                if ~isempty(tb.hLivePanel) && ishandle(tb.hLivePanel)
+                    set(tb.hLivePanel, 'BackgroundColor', theme.ToolbarBackground);
+                    % Preserve blue accent when live is active; otherwise blend in.
+                    if obj.IsLive
+                        set(tb.hLivePanel, 'HighlightColor', theme.InfoColor);
+                    else
+                        set(tb.hLivePanel, 'HighlightColor', theme.ToolbarBackground);
+                    end
+                end
+            end
+
+            % Time control panel + its labels
+            if ~isempty(obj.hTimePanel) && ishandle(obj.hTimePanel)
+                set(obj.hTimePanel, ...
+                    'BackgroundColor', theme.ToolbarBackground, ...
+                    'ForegroundColor', theme.WidgetBorderColor);
+            end
+            for h = [obj.hTimeStart, obj.hTimeEnd]
+                if ~isempty(h) && ishandle(h)
+                    set(h, ...
+                        'BackgroundColor', theme.ToolbarBackground, ...
+                        'ForegroundColor', theme.ToolbarFontColor);
+                end
+            end
+
+            % Page bar (visible or placeholder)
+            if ~isempty(obj.hPageBar) && ishandle(obj.hPageBar)
+                set(obj.hPageBar, 'BackgroundColor', theme.ToolbarBackground);
+            end
+        end
+
         function rerenderWidgets(obj)
         %RERENDERWIDGETS Delete all widget panels and recreate them.
             theme = obj.getCachedTheme();
