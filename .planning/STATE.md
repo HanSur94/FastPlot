@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Tag-Based Domain Model
-status: verifying
-stopped_at: Completed 1011-05-PLAN.md (FINAL PLAN)
-last_updated: "2026-04-17T10:06:59.046Z"
-last_activity: 2026-04-17
+status: executing
+stopped_at: Completed 1012-01-PLAN.md
+last_updated: "2026-04-24T07:46:08.250Z"
+last_activity: 2026-04-24
 progress:
   total_phases: 15
-  completed_phases: 14
-  total_plans: 47
-  completed_plans: 47
+  completed_phases: 8
+  total_plans: 30
+  completed_plans: 28
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Users can organize complex dashboards into navigable sections and pop out any widget for detailed analysis without losing the dashboard context.
-**Current focus:** Phase 1011 — Cleanup — delete legacy
+**Current focus:** Phase 1012 — live-event-markers-and-click-to-details-on-fastsense-and-fastsensewidget
 
 ## Current Position
 
-Phase: 1011
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-17
+Phase: 1012 (live-event-markers-and-click-to-details-on-fastsense-and-fastsensewidget) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-24
 
 Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 
@@ -117,6 +117,7 @@ Progress: [░░░░░░░░░░] 0% (0/8 v2.0 phases complete)
 | Phase 1011 P03 | 15min | 2 tasks | 21 files |
 | Phase 1011 P04 | 962 | 2 tasks | 100 files |
 | Phase 1011 P05 | 22min | 2 tasks | 13 files |
+| Phase 1012 P01 | 15 | 4 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -237,6 +238,8 @@ Recent decisions affecting current work:
 - [Phase 1011]: SensorTag X/Y via constructor args or updateData(); test method names renamed to avoid grep false positives
 - [Phase 1011]: Golden test uses MonitorTag+EventStore (not EventDetector.detect) for event detection -- Threshold class deleted
 - [Phase 1011]: IncrementalEventDetector.process() and EventConfig.addSensor() stubbed as dead code after legacy pipeline deletion
+- [Phase 1012]: Event.close() instance method chosen over public EndTime setter — encapsulates all private field mutation (D1 SSOT); EventStore.closeEvent delegates to ev.close()
+- [Phase 1012]: EventStore:alreadyClosed is a distinct error from EventStore:unknownEventId — callers can distinguish not-found from found-but-already-done
 
 ### Roadmap Evolution
 
@@ -270,6 +273,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T10:00:38.507Z
-Stopped at: Completed 1011-05-PLAN.md (FINAL PLAN)
+Last session: 2026-04-24T07:46:08.228Z
+Stopped at: Completed 1012-01-PLAN.md
 Resume file: None
