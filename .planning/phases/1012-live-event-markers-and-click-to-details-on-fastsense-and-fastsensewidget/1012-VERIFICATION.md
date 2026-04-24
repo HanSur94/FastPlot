@@ -1,8 +1,9 @@
 ---
 phase: 1012-live-event-markers-and-click-to-details-on-fastsense-and-fastsensewidget
 verified: 2026-04-24T10:00:00Z
-status: human_needed
-score: 8/8 must-haves verified (8 automated passed; 4 manual items remain)
+status: passed
+score: 8/8 must-haves verified; 4/4 manual items passed in interactive UAT
+human_uat: [1012-HUMAN-UAT.md] (resolved)
 re_verification: true
 re_verification_date: 2026-04-24T10:05:00Z
 re_verification_note: "Gap on Truth 8 closed inline in commit 374efce — updated tests/test_monitortag_streaming.m Scenario 2 to match Phase 1012 open-event semantics (IsOpen=true, EndTime=NaN on recompute_; closeEvent updates in place — 1 event total, not 2). Octave run: 'All 7 streaming tests passed.' All 8 filesystem + runtime must_haves now verified. Status advanced from gaps_found to human_needed per the 4 manual items below."
