@@ -76,7 +76,10 @@ function test_fastsense_widget_event_markers
             pnl = uipanel('Parent', f);
             w.render(pnl);
             assert(w.FastSenseObj.ShowEventMarkers == w.ShowEventMarkers);
-            assert(w.FastSenseObj.EventStore == es);
+            % Octave has no overloaded == for handle classes; compare
+            % identity via class + property readback instead.
+            assert(isa(w.FastSenseObj.EventStore, 'EventStore'));
+            assert(strcmp(w.FastSenseObj.EventStore.FilePath, es.FilePath));
             delete(f);
             nPassed = nPassed + 1;
         catch err

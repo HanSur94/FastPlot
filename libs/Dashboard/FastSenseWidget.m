@@ -200,7 +200,18 @@ classdef FastSenseWidget < DashboardWidget
 
             if isempty(obj.Tag), return; end
             if isempty(obj.hPanel) || ~ishandle(obj.hPanel), return; end
-            tagUnchanged = ~isempty(obj.LastTagRef) && obj.Tag == obj.LastTagRef;
+            % Handle identity: MATLAB overloads == for handle subclasses;
+            % Octave does not, so fall back to Key-equality (Phase 1006
+            % precedent) — semantically equivalent for the refresh fast-path
+            % because the only way two tags share a Key is if they were
+            % registered through TagRegistry under the same name.
+            try
+                tagUnchanged = ~isempty(obj.LastTagRef) && obj.Tag == obj.LastTagRef;
+            catch
+                tagUnchanged = ~isempty(obj.LastTagRef) && ...
+                               isa(obj.LastTagRef, 'Tag') && ...
+                               strcmp(char(obj.Tag.Key), char(obj.LastTagRef.Key));
+            end
             fpValid = ~isempty(obj.FastSenseObj) && ...
                       obj.FastSenseObj.IsRendered && ...
                       ~isempty(obj.FastSenseObj.hAxes) && ...

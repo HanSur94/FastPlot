@@ -2242,6 +2242,17 @@ classdef FastSense < handle
                 xMax = obj.Lines(i).X(end);
             end
         end
+
+        function onEventMarkerClick_(obj, src, ~)
+            %ONEVENTMARKERCLICK_ ButtonDownFcn dispatcher for event markers.
+            %   Hidden public so TestFastSenseEventClick can call it for
+            %   direct-dispatch testing of the click -> details-popup path.
+            ud = get(src, 'UserData');
+            if isempty(ud) || ~isfield(ud, 'eventId'), return; end
+            if isempty(obj.EventByIdMap_) || ~obj.EventByIdMap_.isKey(ud.eventId), return; end
+            ev = obj.EventByIdMap_(ud.eventId);
+            obj.openEventDetails_(ev);
+        end
     end
 
     % ======================== PRIVATE METHODS ============================
@@ -2399,15 +2410,6 @@ classdef FastSense < handle
             if ~prevHoldWasOn && ishandle(obj.hAxes)
                 try hold(obj.hAxes, 'off'); catch; end
             end
-        end
-
-        function onEventMarkerClick_(obj, src, ~)
-            %ONEVENTMARKERCLICK_ ButtonDownFcn dispatcher for event markers.
-            ud = get(src, 'UserData');
-            if isempty(ud) || ~isfield(ud, 'eventId'), return; end
-            if isempty(obj.EventByIdMap_) || ~obj.EventByIdMap_.isKey(ud.eventId), return; end
-            ev = obj.EventByIdMap_(ud.eventId);
-            obj.openEventDetails_(ev);
         end
 
         function openEventDetails_(obj, ev)
@@ -2610,7 +2612,6 @@ classdef FastSense < handle
                 obj.closeEventDetails_();
             end
         end
-
 
         function c = severityToColor_(obj, severity)
             %SEVERITYTOCOLOR_ Map severity level to RGB color.
@@ -3944,10 +3945,12 @@ classdef FastSense < handle
         end
     end
 
-    % ======================== PROTECTED METHODS ===========================
-    % Access = protected for test harness only — formatEventFields_ header
-    % documents the exact test scenario that requires this visibility.
-    methods (Access = protected)
+    % ======================== HIDDEN METHODS ==============================
+    % Hidden = callable from outside the class but not listed in methods(obj).
+    % TestFastSenseEventClick calls formatEventFields_ directly;
+    % buildEventFieldsTable_ is an internal helper used by openEventDetails_
+    % but also test-friendly via the same Hidden access.
+    methods (Hidden)
         function tbl = buildEventFieldsTable_(~, ev)
             %BUILDEVENTFIELDSTABLE_ Nx2 cell array for the uitable in the
             %   details popup. Columns are {Field, Value}. Empty statistics
@@ -4024,7 +4027,7 @@ classdef FastSense < handle
             sections{end+1} = formatSection('TIMING', { ...
                 'Start',    sprintf('%g', ev.StartTime); ...
                 'End',      endStr; ...
-                'Duration', durStr; ...
+                'Duration', durStr ...
             }, LABW);
 
             % ---- STATISTICS (skip rows with empty values) ----
@@ -4051,7 +4054,7 @@ classdef FastSense < handle
             catStr = ev.Category; if isempty(catStr); catStr = '—'; end
             sections{end+1} = formatSection('CLASSIFICATION', { ...
                 'Severity', sevStr; ...
-                'Category', catStr; ...
+                'Category', catStr ...
             }, LABW);
 
             % ---- TAGS (one per row) ----
