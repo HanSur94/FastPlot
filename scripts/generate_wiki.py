@@ -208,6 +208,15 @@ Generate an index page listing all example scripts.
 # Change detection
 # ---------------------------------------------------------------------------
 
+def _all_eligible_pages() -> list[dict]:
+    """Return PAGE_MAP entries that are not excluded from generation."""
+    return [
+        p for p in PAGE_MAP
+        if p["filename"] not in EXCLUDED_PAGES
+        and not any(p["filename"].startswith(pfx) for pfx in EXCLUDED_PREFIXES)
+    ]
+
+
 def detect_affected_pages(changed_files: list[str]) -> list[dict]:
     """Map changed source files to wiki pages that need regeneration."""
     if not changed_files:
@@ -216,6 +225,7 @@ def detect_affected_pages(changed_files: list[str]) -> list[dict]:
     # Determine which source dirs were touched
     touched_dirs: set[str] = set()
     touched_examples = False
+    touched_generator = False
 
     for f in changed_files:
         p = Path(f)
@@ -229,6 +239,13 @@ def detect_affected_pages(changed_files: list[str]) -> list[dict]:
             touched_dirs.add(parts[1])
         if len(parts) >= 1 and parts[0] == "examples":
             touched_examples = True
+        # The workflow lists generate_wiki.py as a regen trigger, so a change
+        # to the generator itself must regenerate every eligible page.
+        if p.as_posix() == "scripts/generate_wiki.py":
+            touched_generator = True
+
+    if touched_generator:
+        return _all_eligible_pages()
 
     affected = []
     for page in PAGE_MAP:
@@ -542,11 +559,7 @@ def main():
 
     # Determine pages to regenerate
     if args.all:
-        pages = [
-            p for p in PAGE_MAP
-            if p["filename"] not in EXCLUDED_PAGES
-            and not any(p["filename"].startswith(pfx) for pfx in EXCLUDED_PREFIXES)
-        ]
+        pages = _all_eligible_pages()
         print(f"Full refresh: regenerating all {len(pages)} pages")
     else:
         pages = detect_affected_pages(args.changed_files)

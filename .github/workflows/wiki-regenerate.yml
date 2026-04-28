@@ -46,9 +46,21 @@ jobs:
 
       - name: Determine changed files
         id: changed
+        env:
+          INPUT_MODE: ${{ inputs.mode }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          MODE="${{ inputs.mode || (github.event_name == 'schedule' && 'all' || 'changed') }}"
+          # `inputs.mode` can arrive empty (e.g. `gh workflow run` without --field),
+          # so the workflow `default:` does not always apply. Treat any manual
+          # dispatch or schedule as a full regen unless the user picked otherwise.
+          if [ -n "${INPUT_MODE:-}" ]; then
+            MODE="$INPUT_MODE"
+          elif [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            MODE="all"
+          else
+            MODE="changed"
+          fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
 
           if [ "$MODE" = "all" ]; then
