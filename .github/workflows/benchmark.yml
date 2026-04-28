@@ -29,6 +29,11 @@ jobs:
     container: gnuoctave/octave:11.1.0
     env:
       FASTSENSE_SKIP_BUILD: "1"
+      # Pin BLAS thread pools to single-threaded — eliminates contention with
+      # neighboring tenants on shared GitHub runners. Trades absolute throughput
+      # for reproducibility; benchmarks track relative regressions, not raw speed.
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
     steps:
       - uses: actions/checkout@v6
 
