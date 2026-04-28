@@ -210,6 +210,70 @@ classdef TestDashboardEventsToggle < matlab.unittest.TestCase
             testCase.verifyFalse(isequal(m.EventStore, esRegistry));
         end
 
+        function testRegistryDefaultFastSense(testCase)
+            % Phase 1017: FastSense.renderEventLayer_ falls back to registry default
+            % when bound tag's EventStore is empty.
+            TagRegistry.clear();
+            EventBinding.clear();
+            tempPath = [tempname, '.mat'];
+            cleanup = onCleanup(@() deleteIfExists(tempPath)); %#ok<NASGU>
+            es = EventStore(tempPath);
+            TagRegistry.setEventStore(es);
+            s = SensorTag('s');
+            s.updateData([1 2 3 4 5], [1 1 20 20 1]);
+            m = MonitorTag('s.high', s, @(x, y) y > 5);
+            m.appendData([1 2 3 4 5], [1 1 20 20 1]);
+            % Assert the dual-key emission landed in the registry-default es.
+            byParent = es.getEventsForTag('s');
+            testCase.verifyNotEmpty(byParent);
+            % Render a FastSense and verify it does not throw on the registry path.
+            fig = figure('Visible', 'off');
+            cleanupFig = onCleanup(@() closeIfValid(fig)); %#ok<NASGU>
+            fp = FastSense(axes(fig));
+            fp.addTag(s);
+            fp.ShowEventMarkers = true;
+            fp.render();  % must not error; registry tail provides the store.
+        end
+
+        function testRegistryDefaultFastSenseWidget(testCase)
+            % Phase 1017: FastSenseWidget forwards registry-default store to inner FastSense.
+            TagRegistry.clear();
+            EventBinding.clear();
+            tempPath = [tempname, '.mat'];
+            cleanup = onCleanup(@() deleteIfExists(tempPath)); %#ok<NASGU>
+            es = EventStore(tempPath);
+            TagRegistry.setEventStore(es);
+            s = SensorTag('s');
+            s.updateData([1 2 3], [1 1 1]);
+            d = DashboardEngine('test');
+            cleanupD = onCleanup(@() closeIfValid(d.hFigure)); %#ok<NASGU>
+            d.addWidget('fastsense', 'Tag', s, 'ShowEventMarkers', true);
+            d.render();
+            w = d.Widgets{1};
+            testCase.verifyTrue(isequal(w.FastSenseObj.EventStore, es));
+        end
+
+        function testFastSenseWidgetExplicitWinsOverRegistry(testCase)
+            % Phase 1017: explicit 'EventStore' NV-pair wins over registry default.
+            TagRegistry.clear();
+            EventBinding.clear();
+            p1 = [tempname, '.mat']; p2 = [tempname, '.mat'];
+            cleanup = onCleanup(@() cellfun(@deleteIfExists, {p1, p2})); %#ok<NASGU>
+            esRegistry = EventStore(p1);
+            esExplicit = EventStore(p2);
+            TagRegistry.setEventStore(esRegistry);
+            s = SensorTag('s');
+            s.updateData([1 2 3], [1 1 1]);
+            d = DashboardEngine('test');
+            cleanupD = onCleanup(@() closeIfValid(d.hFigure)); %#ok<NASGU>
+            d.addWidget('fastsense', 'Tag', s, 'ShowEventMarkers', true, ...
+                'EventStore', esExplicit);
+            d.render();
+            w = d.Widgets{1};
+            testCase.verifyTrue(isequal(w.FastSenseObj.EventStore, esExplicit));
+            testCase.verifyFalse(isequal(w.FastSenseObj.EventStore, esRegistry));
+        end
+
         function testMonitorTagDualKeyEmission(testCase)
             % Phase 1017: events emitted by MonitorTag are reachable by parent.Key
             % AND monitor.Key via EventStore.getEventsForTag.
@@ -265,5 +329,14 @@ function closeFigSafe(h)
         end
     catch
         % teardown best-effort
+    end
+end
+
+function closeIfValid(h)
+    if ~isempty(h) && ishandle(h)
+        try
+            close(h);
+        catch
+        end
     end
 end

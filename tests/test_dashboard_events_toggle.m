@@ -338,6 +338,87 @@ function test_dashboard_events_toggle()
         fprintf('    FAIL testMonitorTagDualKeyEmission: %s\n', err.message);
     end
 
+    % --- Test 17: FastSense registry-default fallback renders without error ---
+    try
+        TagRegistry.clear();
+        EventBinding.clear();
+        tempPath = [tempname(), '.mat'];
+        es = EventStore(tempPath);
+        TagRegistry.setEventStore(es);
+        s = SensorTag('s');
+        s.updateData([1 2 3 4 5], [1 1 20 20 1]);
+        m = MonitorTag('s.high', s, @(x, y) y > 5);
+        m.appendData([1 2 3 4 5], [1 1 20 20 1]);
+        byParent = es.getEventsForTag('s');
+        assert(~isempty(byParent), 'parent key lookup returned empty');
+        fig = figure('visible', 'off');
+        ax = axes('Parent', fig);
+        fp = FastSense('Parent', ax);
+        fp.addTag(s);
+        fp.ShowEventMarkers = true;
+        fp.render();  % must not error; registry tail provides the store
+        close(fig);
+        if exist(tempPath, 'file'); delete(tempPath); end
+        nPassed = nPassed + 1;
+        fprintf('    PASS testRegistryDefaultFastSense\n');
+    catch err
+        nFailed = nFailed + 1;
+        fprintf('    FAIL testRegistryDefaultFastSense: %s\n', err.message);
+        try close(fig); catch; end
+    end
+
+    % --- Test 18: FastSenseWidget forwards registry-default store to inner FastSense ---
+    try
+        TagRegistry.clear();
+        EventBinding.clear();
+        tempPath = [tempname(), '.mat'];
+        es = EventStore(tempPath);
+        TagRegistry.setEventStore(es);
+        s = SensorTag('s');
+        s.updateData([1 2 3], [1 1 1]);
+        d = DashboardEngine('test');
+        d.addWidget('fastsense', 'Tag', s, 'ShowEventMarkers', true);
+        d.render();
+        w = d.Widgets{1};
+        assert(isequal(w.FastSenseObj.EventStore, es), 'registry default not forwarded');
+        if isfield(d, 'hFigure') && ~isempty(d.hFigure) && ishandle(d.hFigure); close(d.hFigure); end
+        if exist(tempPath, 'file'); delete(tempPath); end
+        nPassed = nPassed + 1;
+        fprintf('    PASS testRegistryDefaultFastSenseWidget\n');
+    catch err
+        nFailed = nFailed + 1;
+        fprintf('    FAIL testRegistryDefaultFastSenseWidget: %s\n', err.message);
+        try if isfield(d, 'hFigure') && ~isempty(d.hFigure) && ishandle(d.hFigure); close(d.hFigure); end; catch; end
+    end
+
+    % --- Test 19: explicit EventStore NV-pair wins over registry default ---
+    try
+        TagRegistry.clear();
+        EventBinding.clear();
+        p1 = [tempname(), '.mat']; p2 = [tempname(), '.mat'];
+        esRegistry = EventStore(p1);
+        esExplicit = EventStore(p2);
+        TagRegistry.setEventStore(esRegistry);
+        s = SensorTag('s');
+        s.updateData([1 2 3], [1 1 1]);
+        d = DashboardEngine('test');
+        d.addWidget('fastsense', 'Tag', s, 'ShowEventMarkers', true, ...
+            'EventStore', esExplicit);
+        d.render();
+        w = d.Widgets{1};
+        assert(isequal(w.FastSenseObj.EventStore, esExplicit), 'explicit EventStore should win over registry');
+        assert(~isequal(w.FastSenseObj.EventStore, esRegistry), 'registry default should NOT override explicit');
+        if isfield(d, 'hFigure') && ~isempty(d.hFigure) && ishandle(d.hFigure); close(d.hFigure); end
+        if exist(p1, 'file'); delete(p1); end
+        if exist(p2, 'file'); delete(p2); end
+        nPassed = nPassed + 1;
+        fprintf('    PASS testFastSenseWidgetExplicitWinsOverRegistry\n');
+    catch err
+        nFailed = nFailed + 1;
+        fprintf('    FAIL testFastSenseWidgetExplicitWinsOverRegistry: %s\n', err.message);
+        try if isfield(d, 'hFigure') && ~isempty(d.hFigure) && ishandle(d.hFigure); close(d.hFigure); end; catch; end
+    end
+
     fprintf('    %d passed, %d failed.\n', nPassed, nFailed);
     if nFailed > 0
         error('test_dashboard_events_toggle:fail', ...
