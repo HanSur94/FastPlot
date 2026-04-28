@@ -22,6 +22,7 @@ obj = DashboardEngine(name, varargin)
 | InfoFile | `''` |  |
 | ProgressMode | `'auto'` | 'auto' \| 'on' \| 'off' — render progress bar visibility |
 | ShowTimePanel | `true` | hide the bottom time slider panel |
+| EventMarkersVisible | `true` | global toggle for event markers across all widgets (runtime UI state, not serialized) |
 
 ### Methods
 
@@ -31,6 +32,16 @@ ADDPAGE Add a named page and make it the active page for addWidget.
   pg = d.addPage('Overview') creates a DashboardPage and appends it to Pages.
   Sets ActivePage to the last-added page index.
   When Pages is non-empty, addWidget routes to the active page.
+
+#### `setEventMarkersVisible(obj, tf)`
+
+SETEVENTMARKERSVISIBLE Globally show/hide event markers on every widget.
+  Iterates every widget (across all pages in multi-page mode)
+  and calls setEventMarkersVisible(tf) on any widget that
+  implements it. Unsupported widgets are silently skipped.
+  Also updates the toolbar indicator if a Toolbar is present.
+  Default state on dashboard create is true so existing
+  scripts are unaffected.
 
 #### `switchPage(obj, pageIdx)`
 
@@ -484,6 +495,14 @@ UPDATE Incrementally update Tag data without full axes rebuild.
   Uses FastSenseObj.updateData() to replace data and re-downsample,
   avoiding the expensive delete/recreate cycle of refresh().
   Falls back to refresh() if FastSenseObj is not in a renderable state.
+
+#### `setEventMarkersVisible(obj, tf)`
+
+SETEVENTMARKERSVISIBLE Pass-through to FastSense event-marker toggle.
+  No-op when no FastSense instance exists yet (pre-render).
+  When rendered, delegates to FastSense.setShowEventMarkers
+  which re-draws the overlay in place without disturbing
+  zoom state or live refresh cadence.
 
 #### `autoScaleY_(obj, y)`
 
@@ -1096,6 +1115,22 @@ SETLASTUPDATETIME Update the last-update label with a timestamp.
 #### `setLiveActiveIndicator(obj, isActive)`
 
 SETLIVEACTIVEINDICATOR Show a blue surround when live mode is active.
+
+#### `onEventsToggle(obj, src)`
+
+ONEVENTSTOGGLE Fire engine-level event-marker toggle from button state.
+  Engine.setEventMarkersVisible already calls back into
+  setEventsActiveIndicator, but call it directly here too in
+  case the engine's call path skips the toolbar (e.g. tests
+  that temporarily reassign Engine.Toolbar).
+
+#### `setEventsActiveIndicator(obj, isActive)`
+
+SETEVENTSACTIVEINDICATOR Blue border when event markers are visible.
+  Matches the Live button's visual treatment so the toolbar
+  reads consistently. Keeps the button label constant — the
+  border colour is the active indicator; the tooltip explains
+  the function.
 
 #### `onConfig(obj)`
 

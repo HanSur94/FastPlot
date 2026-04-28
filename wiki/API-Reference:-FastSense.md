@@ -113,6 +113,15 @@ ADDMARKER Add custom event markers at specific positions.
   fp.ADDMARKER(x, y, 'Marker', 'v', 'MarkerSize', 8, 'Color', [1 0 0])
   plots red downward-pointing triangles of size 8.
 
+#### `setShowEventMarkers(obj, tf)`
+
+SETSHOWEVENTMARKERS Toggle event-marker overlay post-render.
+  fp.SETSHOWEVENTMARKERS(true|false) flips ShowEventMarkers and
+  either deletes existing markers (tf=false) or re-runs
+  renderEventLayer_ (tf=true) so markers appear/disappear in
+  place without a full re-render. No-op if not yet rendered;
+  the next render() honours the new flag automatically.
+
 #### `addShaded(obj, x, y1, y2, varargin)`
 
 ADDSHADED Add a shaded region between two curves.
