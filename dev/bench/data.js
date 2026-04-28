@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777370620047,
+  "lastUpdate": 1777372338615,
   "repoUrl": "https://github.com/HanSur94/FastSense",
   "entries": {
     "FastPlot Performance": [
@@ -47119,6 +47119,310 @@ window.BENCHMARK_DATA = {
           {
             "name": "Dashboard broadcastTimeRange stdmean",
             "value": 0.027,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "50265832+HanSur94@users.noreply.github.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0066c3071ff3be09e1d45877662712f20988bc9e",
+          "message": "fix(dashboard): guard ChipBarWidget.relayout_ against re-entrancy and deleted handles (#88)\n\nChipBarWidget.render() bound the panel SizeChangedFcn to relayout_ before\nperforming two operations that synchronously fire SizeChangedFcn: a Units\npixels<->normalized flip used to measure the panel, and an axes('Parent', ...)\nparented to the panel. Each fire entered relayout_, which deletes the panel's\naxes children and recursively re-entered render(). The recursion left obj.hAx\npointing to a deleted handle by the time the outer render reached\ntext(obj.hAx, ...) at line 117 -- the crash reported during run_demo.\n\nAdd a private inRender_ boolean lock plus an onCleanup-managed reset so\nrelayout_ short-circuits while render is on the stack. Also tighten the\npanel-handle check in relayout_ to use isvalid in addition to ishandle so\ndashboard teardown doesn't trigger re-render against a mid-destruction panel.\n\nSix sibling widgets (IconCardWidget, SparklineCardWidget, MultiStatusWidget,\nStatusWidget, TextWidget, NumberWidget) share the same unguarded relayout_\nshape but only ChipBarWidget surfaces the bug because only it does the\nin-render Units flip. They are left untouched per the constraint to fix the\nreported crash minimally.\n\nCo-authored-by: Claude Opus 4.7 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-04-28T12:26:15+02:00",
+          "tree_id": "8eec3618084248e24c25e85330f0d4d0dccc287a",
+          "url": "https://github.com/HanSur94/FastSense/commit/0066c3071ff3be09e1d45877662712f20988bc9e"
+        },
+        "date": 1777372337551,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample mean (1M)",
+            "value": 1.815,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(1M)",
+            "value": 0.037,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (1M)",
+            "value": 151.472,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(1M)",
+            "value": 0.95,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (1M)",
+            "value": 250.661,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(1M)",
+            "value": 1.662,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (1M)",
+            "value": 14.665,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(1M)",
+            "value": 3.514,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (5M)",
+            "value": 10.162,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(5M)",
+            "value": 0.794,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (5M)",
+            "value": 172.822,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(5M)",
+            "value": 0.114,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (5M)",
+            "value": 260.97,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(5M)",
+            "value": 2.724,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (5M)",
+            "value": 14.228,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(5M)",
+            "value": 0.462,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (10M)",
+            "value": 19.549,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std10M)",
+            "value": 1.048,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (10M)",
+            "value": 194.864,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std10M)",
+            "value": 2.686,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (10M)",
+            "value": 271.268,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std10M)",
+            "value": 4.439,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (10M)",
+            "value": 14.949,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std10M)",
+            "value": 0.632,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (50M)",
+            "value": 97.293,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std50M)",
+            "value": 1.917,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (50M)",
+            "value": 1157.96,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std50M)",
+            "value": 18.649,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (50M)",
+            "value": 263.372,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std50M)",
+            "value": 0.462,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (50M)",
+            "value": 14.025,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std50M)",
+            "value": 0.963,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (100M)",
+            "value": 187.037,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 0.093,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (100M)",
+            "value": 2113.34,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 32.501,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (100M)",
+            "value": 274.357,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 6.126,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (100M)",
+            "value": 15.25,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.313,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (500M)",
+            "value": 988.147,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 35.989,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (500M)",
+            "value": 23661.323,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 3518.633,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (500M)",
+            "value": 763.063,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 617.302,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (500M)",
+            "value": 17.82,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 1.93,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render mean",
+            "value": 327.118,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render stdmean",
+            "value": 68.577,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick mean",
+            "value": 3.059,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick stdmean",
+            "value": 0.315,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch mean",
+            "value": 0.169,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch stdmean",
+            "value": 0.038,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange mean",
+            "value": 0.096,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange stdmean",
+            "value": 0.032,
             "unit": "ms"
           }
         ]
