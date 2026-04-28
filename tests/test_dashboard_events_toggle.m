@@ -190,6 +190,89 @@ function test_dashboard_events_toggle()
         try close(d.hFigure); catch; end
     end
 
+    % --- Test 9: TagRegistry.setEventStore / getEventStore round-trip ---
+    try
+        TagRegistry.clear();
+        EventBinding.clear();
+        tempPath = [tempname(), '.mat'];
+        s = EventStore(tempPath);
+        TagRegistry.setEventStore(s);
+        got = TagRegistry.getEventStore();
+        assert(isequal(got, s), 'getEventStore should return the store just set');
+        if exist(tempPath, 'file'); delete(tempPath); end
+        nPassed = nPassed + 1;
+        fprintf('    PASS testTagRegistryEventStoreRoundTrip\n');
+    catch err
+        nFailed = nFailed + 1;
+        fprintf('    FAIL testTagRegistryEventStoreRoundTrip: %s\n', err.message);
+    end
+
+    % --- Test 10: getEventStore returns [] before any set (empty default) ---
+    try
+        TagRegistry.clear();
+        EventBinding.clear();
+        assert(isempty(TagRegistry.getEventStore()), ...
+            'getEventStore should return [] before any setEventStore call');
+        nPassed = nPassed + 1;
+        fprintf('    PASS testTagRegistryEventStoreEmptyDefault\n');
+    catch err
+        nFailed = nFailed + 1;
+        fprintf('    FAIL testTagRegistryEventStoreEmptyDefault: %s\n', err.message);
+    end
+
+    % --- Test 11: setEventStore second call overwrites first ---
+    try
+        TagRegistry.clear();
+        EventBinding.clear();
+        p1 = [tempname(), '.mat']; p2 = [tempname(), '.mat'];
+        s1 = EventStore(p1); s2 = EventStore(p2);
+        TagRegistry.setEventStore(s1);
+        TagRegistry.setEventStore(s2);
+        assert(isequal(TagRegistry.getEventStore(), s2), ...
+            'getEventStore should return s2 after overwrite');
+        if exist(p1, 'file'); delete(p1); end
+        if exist(p2, 'file'); delete(p2); end
+        nPassed = nPassed + 1;
+        fprintf('    PASS testTagRegistryEventStoreOverwrite\n');
+    catch err
+        nFailed = nFailed + 1;
+        fprintf('    FAIL testTagRegistryEventStoreOverwrite: %s\n', err.message);
+    end
+
+    % --- Test 12: TagRegistry.clear() resets EventStore slot ---
+    try
+        TagRegistry.clear();
+        EventBinding.clear();
+        tempPath = [tempname(), '.mat'];
+        TagRegistry.setEventStore(EventStore(tempPath));
+        TagRegistry.clear();
+        assert(isempty(TagRegistry.getEventStore()), ...
+            'getEventStore should return [] after clear()');
+        if exist(tempPath, 'file'); delete(tempPath); end
+        nPassed = nPassed + 1;
+        fprintf('    PASS testTagRegistryClearResetsEventStore\n');
+    catch err
+        nFailed = nFailed + 1;
+        fprintf('    FAIL testTagRegistryClearResetsEventStore: %s\n', err.message);
+    end
+
+    % --- Test 13: setEventStore([]) clears slot explicitly ---
+    try
+        TagRegistry.clear();
+        EventBinding.clear();
+        tempPath = [tempname(), '.mat'];
+        TagRegistry.setEventStore(EventStore(tempPath));
+        TagRegistry.setEventStore([]);
+        assert(isempty(TagRegistry.getEventStore()), ...
+            'getEventStore should return [] after setEventStore([])');
+        if exist(tempPath, 'file'); delete(tempPath); end
+        nPassed = nPassed + 1;
+        fprintf('    PASS testTagRegistryEventStoreSetEmptyClears\n');
+    catch err
+        nFailed = nFailed + 1;
+        fprintf('    FAIL testTagRegistryEventStoreSetEmptyClears: %s\n', err.message);
+    end
+
     fprintf('    %d passed, %d failed.\n', nPassed, nFailed);
     if nFailed > 0
         error('test_dashboard_events_toggle:fail', ...

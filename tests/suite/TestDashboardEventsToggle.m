@@ -126,6 +126,68 @@ classdef TestDashboardEventsToggle < matlab.unittest.TestCase
             borderOn = get(d.Toolbar.hEventsPanel, 'HighlightColor');
             testCase.verifyLessThan(max(abs(borderOn - theme.InfoColor)), 1e-6);
         end
+
+        function testTagRegistryEventStoreRoundTrip(testCase)
+            % Phase 1017: setEventStore/getEventStore handle round-trip.
+            TagRegistry.clear();
+            EventBinding.clear();
+            tempPath = [tempname, '.mat'];
+            cleanup = onCleanup(@() deleteIfExists(tempPath)); %#ok<NASGU>
+            s = EventStore(tempPath);
+            TagRegistry.setEventStore(s);
+            got = TagRegistry.getEventStore();
+            testCase.verifyTrue(isequal(got, s));
+        end
+
+        function testTagRegistryEventStoreEmptyDefault(testCase)
+            % Phase 1017: getEventStore() returns [] before any setEventStore call.
+            TagRegistry.clear();
+            EventBinding.clear();
+            testCase.verifyEmpty(TagRegistry.getEventStore());
+        end
+
+        function testTagRegistryEventStoreOverwrite(testCase)
+            % Phase 1017: second setEventStore overwrites first.
+            TagRegistry.clear();
+            EventBinding.clear();
+            p1 = [tempname, '.mat']; p2 = [tempname, '.mat'];
+            cleanup = onCleanup(@() cellfun(@deleteIfExists, {p1, p2})); %#ok<NASGU>
+            s1 = EventStore(p1); s2 = EventStore(p2);
+            TagRegistry.setEventStore(s1);
+            TagRegistry.setEventStore(s2);
+            testCase.verifyTrue(isequal(TagRegistry.getEventStore(), s2));
+        end
+
+        function testTagRegistryClearResetsEventStore(testCase)
+            % Phase 1017: clear() wipes the registry-default EventStore slot.
+            TagRegistry.clear();
+            EventBinding.clear();
+            tempPath = [tempname, '.mat'];
+            cleanup = onCleanup(@() deleteIfExists(tempPath)); %#ok<NASGU>
+            TagRegistry.setEventStore(EventStore(tempPath));
+            TagRegistry.clear();
+            testCase.verifyEmpty(TagRegistry.getEventStore());
+        end
+
+        function testTagRegistryEventStoreSetEmptyClears(testCase)
+            % Phase 1017: setEventStore([]) clears the slot explicitly.
+            TagRegistry.clear();
+            EventBinding.clear();
+            tempPath = [tempname, '.mat'];
+            cleanup = onCleanup(@() deleteIfExists(tempPath)); %#ok<NASGU>
+            TagRegistry.setEventStore(EventStore(tempPath));
+            TagRegistry.setEventStore([]);
+            testCase.verifyEmpty(TagRegistry.getEventStore());
+        end
+    end
+end
+
+function deleteIfExists(p)
+    if ischar(p) && exist(p, 'file') == 2
+        try
+            delete(p);
+        catch
+        end
     end
 end
 
