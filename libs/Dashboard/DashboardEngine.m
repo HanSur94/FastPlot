@@ -114,6 +114,7 @@ classdef DashboardEngine < handle
             % Refresh the preview envelope (D-07). Safe before render():
             % computePreviewEnvelope guards on TimeRangeSelector_ presence.
             try obj.computePreviewEnvelope(); catch, end
+            try obj.computeEventMarkers();    catch, end
         end
 
         function switchPage(obj, pageIdx)
@@ -170,6 +171,7 @@ classdef DashboardEngine < handle
             end
             % Refresh the preview envelope on the newly active page (D-07).
             try obj.computePreviewEnvelope(); catch, end
+            try obj.computeEventMarkers();    catch, end
         end
 
         function w = addWidget(obj, type, varargin)
@@ -1094,6 +1096,7 @@ classdef DashboardEngine < handle
             obj.updateTimeLabels(tMin, tMax);
             % Refresh the preview envelope after DataTimeRange change (D-07).
             try obj.computePreviewEnvelope(); catch, end
+            try obj.computeEventMarkers();    catch, end
         end
 
         function updateLiveTimeRange(obj)
@@ -1438,6 +1441,7 @@ classdef DashboardEngine < handle
             end
             % Refresh the preview envelope on every live tick (D-07).
             try obj.computePreviewEnvelope(); catch, end
+            try obj.computeEventMarkers();    catch, end
         end
 
         function markAllDirty(obj)
@@ -1846,6 +1850,44 @@ classdef DashboardEngine < handle
             aggMax(~isfinite(aggMax)) = 0;
             obj.TimeRangeSelector_.setPreviewLines(linesList);
             env = struct('xCenters', xCenters, 'yMin', aggMin, 'yMax', aggMax);
+        end
+
+        function computeEventMarkers(obj)
+        %COMPUTEEVENTMARKERS Aggregate event times across active-page widgets
+        %   and push them onto the TimeRangeSelector's marker overlay.
+        %   Mirrors computePreviewEnvelope's guard + iteration pattern: no-op
+        %   before render or when no widgets expose events. A failing widget
+        %   does not block siblings (each call is wrapped in try/catch).
+            % Guard mirrors computePreviewEnvelopeReturning_ for parity.
+            % We deliberately do NOT use isvalid() here because Octave 7+11
+            % does not implement isvalid() for non-timer handle objects;
+            % adding it would silently drop markers via the outer try/catch.
+            if isempty(obj.TimeRangeSelector_) || ...
+                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                return;
+            end
+            ws = obj.activePageWidgets();
+            allTimes = [];
+            for i = 1:numel(ws)
+                tVec = [];
+                try
+                    tVec = ws{i}.getEventTimes();
+                catch err
+                    warning('DashboardEngine:getEventTimesFailed', ...
+                        'Widget %d getEventTimes failed: %s', i, err.message);
+                    tVec = [];
+                end
+                if ~isempty(tVec)
+                    allTimes = [allTimes, tVec(:).']; %#ok<AGROW>
+                end
+            end
+            if ~isempty(allTimes)
+                allTimes = allTimes(isfinite(allTimes));
+                % unique() returns a sorted ascending row in both MATLAB and
+                % Octave 7+, so an explicit sort() is redundant here.
+                allTimes = unique(allTimes);
+            end
+            obj.TimeRangeSelector_.setEventMarkers(allTimes);
         end
 
     end
