@@ -25,6 +25,10 @@ function run_ci_benchmark()
         install();
     end
 
+    % Global warmup — pay one-time costs (class loading, MEX dlopen, BLAS
+    % thread pool spin-up, xvfb graphics backend init) before any timed work.
+    warmup_();
+
     sizes  = [1e6, 5e6, 10e6, 50e6, 100e6, 500e6];
     labels = {'1M', '5M', '10M', '50M', '100M', '500M'};
 
@@ -59,6 +63,7 @@ function run_ci_benchmark()
         fprintf('  Data ready (%.0f MB)\n', n * 16 / 1e6);
 
         % --- Downsample benchmark ---
+        minmax_downsample(x, y, 2000);   % untimed warmup
         t_ds = zeros(1, N_RUNS);
         for r = 1:N_RUNS
             tic;
@@ -70,6 +75,12 @@ function run_ci_benchmark()
         results = add_result(results, sprintf('Downsample mean (%s)', lbl), 'ms', t_ds * 1000);
 
         % --- Instantiation benchmark ---
+        % Untimed warmup
+        fp = FastSense();
+        fp.addLine(x, y, 'DisplayName', 'Sensor');
+        fp.addThreshold(1.5, 'Direction', 'upper', 'ShowViolations', true);
+        fp.addThreshold(-1.5, 'Direction', 'lower', 'ShowViolations', true);
+        close all force;
         t_init = zeros(1, N_INIT);
         for r = 1:N_INIT
             tic;
@@ -83,6 +94,14 @@ function run_ci_benchmark()
         results = add_result(results, sprintf('Instantiation mean (%s)', lbl), 'ms', t_init * 1000);
 
         % --- Render benchmark ---
+        % Untimed warmup
+        fp = FastSense();
+        fp.addLine(x, y, 'DisplayName', 'Sensor');
+        fp.addThreshold(1.5, 'Direction', 'upper', 'ShowViolations', true);
+        fp.addThreshold(-1.5, 'Direction', 'lower', 'ShowViolations', true);
+        fp.render();
+        drawnow;
+        close all force;
         t_render = zeros(1, N_INIT);
         for r = 1:N_INIT
             fp = FastSense();
@@ -135,6 +154,12 @@ function run_ci_benchmark()
     N_INIT = 3;
 
     % a. Dashboard creation + render
+    % Untimed warmup
+    [d_tmp, ~, ~] = build_bench_dashboard_();
+    d_tmp.render();
+    drawnow;
+    close all force;
+    clear d_tmp;
     t_dash = zeros(1, N_INIT);
     for r = 1:N_INIT
         [d_tmp, ~, ~] = build_bench_dashboard_();
@@ -264,16 +289,39 @@ end
 
 function results = add_result(results, name, unit, samples)
 %ADD_RESULT Compute stats and add to results list.
-    m   = mean(samples);
+    % Use median as the tracked statistic — far more robust to single-iteration
+    % outliers on shared GitHub runners than mean. Metric label keeps the
+    % "mean" wording so github-action-benchmark history remains continuous.
+    m   = median(samples);
     s   = std(samples);
     rms = sqrt(mean(samples.^2));
 
-    fprintf('  %-30s  mean=%.2f %s  std=%.2f %s  rms=%.2f %s  (n=%d)\n', ...
+    fprintf('  %-30s  median=%.2f %s  std=%.2f %s  rms=%.2f %s  (n=%d)\n', ...
         name, m, unit, s, unit, rms, unit, numel(samples));
 
-    % Report mean as the tracked value (for regression detection)
+    % Report median (under historical "mean" label) as the tracked value
     results{end+1} = struct('name', name, 'unit', unit, 'value', m);
     % Also report std as a separate metric
     results{end+1} = struct('name', [name(1:end-5) ' std' name(end-3:end)], ...
         'unit', unit, 'value', s);
+end
+
+function warmup_()
+%WARMUP_ One-time prewarm to absorb cold-start costs before any timed work.
+%   Loads classes, prewarms MEX kernels, and forces graphics-backend init so
+%   the first timed iteration of each benchmark block doesn't pay these costs.
+    % Class loading (parses classdef and resolves dependencies)
+    DashboardEngine('warmup_dashboard');
+    close all force;
+
+    % MEX dlopen + first-touch
+    xw = linspace(0, 1, 1e5);
+    yw = sin(xw);
+    minmax_downsample(xw, yw, 1000);
+
+    % Graphics backend (xvfb cold start can be 200-500 ms)
+    f = figure('Visible', 'off');
+    plot(xw, yw);
+    drawnow;
+    close(f);
 end
