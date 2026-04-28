@@ -91,23 +91,20 @@ jobs:
         with:
           command: "assert(strcmp(mexext(), '${{ matrix.mexext }}'), sprintf('Expected %s, got %s', '${{ matrix.mexext }}', mexext()));"
 
-      # Compile via build_mex() directly, NOT install(). install() applies
-      # a needs_build cache check that has bitten us on Windows MATLAB:
-      # if any probe path matches (or path resolution gets weird in the
-      # run-matlab-command temp cwd), install() exits before compiling
-      # and produces an empty artifact. build_mex() is unconditional.
+      # Compile via `matlab -batch`, NOT matlab-actions/run-command. On
+      # Windows the run-command wrapper does not pipe MATLAB stdout back
+      # to the workflow log — the step looks like it succeeds in 5s
+      # with zero output, then upload-artifact errors out because no
+      # binaries were produced. -batch streams stdout/stderr cleanly
+      # and propagates a non-zero exit if MATLAB throws.
+      #
+      # Also: build_mex() directly instead of install(). install()
+      # applies a needs_build cache that's a user-facing convenience;
+      # CI should compile unconditionally.
       - name: Compile via build_mex()
-        uses: matlab-actions/run-command@v3
-        with:
-          command: |
-            fprintf('--- runner diagnostics ---\n');
-            fprintf('cwd:     %s\n', pwd);
-            fprintf('mexext:  %s\n', mexext());
-            fprintf('arch:    %s\n', computer('arch'));
-            addpath(fullfile(pwd, 'libs', 'FastSense'));
-            fprintf('build_mex on path: %s\n', which('build_mex'));
-            fprintf('--- compiling ---\n');
-            build_mex();
+        shell: bash
+        run: |
+          matlab -batch "fprintf('--- runner diagnostics ---\n'); fprintf('cwd:     %s\n', pwd); fprintf('mexext:  %s\n', mexext()); fprintf('arch:    %s\n', computer('arch')); addpath(fullfile(pwd, 'libs', 'FastSense')); fprintf('build_mex on path: %s\n', which('build_mex')); fprintf('--- compiling ---\n'); build_mex();"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
