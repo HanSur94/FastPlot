@@ -8,6 +8,15 @@ function test_dashboard_engine_event_markers()
     addpath(fullfile(fileparts(mfilename('fullpath')), 'suite'));
     install();
 
+    % CI guard: stock Octave (9.x in CI, no Qt display) cannot construct
+    % a TimeRangeSelector — DashboardEngine.render swallows the failure
+    % and leaves TimeRangeSelector_ empty. The class-based MATLAB suite
+    % covers these assertions; here we skip rather than crash.
+    if ~probeTimeRangeSelectorAvailable()
+        fprintf('    test_dashboard_engine_event_markers skipped: TimeRangeSelector unavailable on this runtime.\n');
+        return;
+    end
+
     nPassed = 0;
     nPassed = nPassed + runCase(@() case_render(),                    'render');
     nPassed = nPassed + runCase(@() case_switch_page(),               'switch_page');
@@ -174,5 +183,29 @@ function closeDashboard(d)
             close(d.hFigure);
         end
     catch
+    end
+end
+
+function tf = probeTimeRangeSelectorAvailable()
+    %probeTimeRangeSelectorAvailable  Does this runtime construct a
+    %   TimeRangeSelector via DashboardEngine.render? Returns false when
+    %   the engine swallows a graphics-stack failure and leaves the
+    %   selector handle empty (typical for stock Octave 9 in CI).
+    tf = false;
+    try
+        d = DashboardEngine('EvtMarkProbe');
+        d.addWidget('number', 'Title', 'N', 'ValueFcn', @() 1, ...
+            'Position', [1 1 6 1]);
+        d.render();
+        tf = ~isempty(d.TimeRangeSelector_) && ...
+             isa(d.TimeRangeSelector_, 'TimeRangeSelector');
+        try
+            if ~isempty(d.hFigure) && ishandle(d.hFigure)
+                close(d.hFigure);
+            end
+        catch
+        end
+    catch
+        tf = false;
     end
 end

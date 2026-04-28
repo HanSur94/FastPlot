@@ -91,9 +91,11 @@ classdef TestTimeRangeSelectorEventMarkers < matlab.unittest.TestCase
             sel.setEventMarkers(50);
             testCase.verifyEqual(numel(sel.hEventMarkers), 1);
             h = sel.hEventMarkers(1);
-            testCase.verifyEqual(get(h, 'HitTest'), 'off', ...
+            % MATLAB R2020b+ returns matlab.lang.OnOffSwitchState enum from
+            % get(...,'HitTest'); Octave returns char. Normalize via char().
+            testCase.verifyEqual(char(get(h, 'HitTest')), 'off', ...
                 'Event markers must not intercept mouse clicks.');
-            testCase.verifyEqual(get(h, 'PickableParts'), 'none', ...
+            testCase.verifyEqual(char(get(h, 'PickableParts')), 'none', ...
                 'Event markers must be non-pickable.');
         end
 
