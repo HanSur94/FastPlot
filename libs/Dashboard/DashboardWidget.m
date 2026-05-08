@@ -155,6 +155,18 @@ classdef DashboardWidget < handle
             t = [];
         end
 
+        function children = getNestedWidgets(~)
+        %GETNESTEDWIDGETS Optional list of nested DashboardWidgets for engine traversal.
+        %   children = getNestedWidgets(obj) returns a cell array of
+        %   DashboardWidget subclasses that this widget logically contains
+        %   (e.g., a GroupWidget's Children + Tabs widgets). The
+        %   DashboardEngine uses this to flatten the active-page widget
+        %   tree when collecting preview series and event markers so that
+        %   data/events inside container widgets contribute to the slider
+        %   overlay. Base returns {} — leaf widgets are not containers.
+            children = {};
+        end
+
         function lines = asciiRender(obj, width, height)
         %ASCIIRENDER Return ASCII representation of this widget.
         %   lines = asciiRender(obj, width, height) returns a cell array

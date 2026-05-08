@@ -1727,6 +1727,43 @@ classdef DashboardEngine < handle
             end
         end
 
+        function flat = flattenWidgetsForPreview_(obj, widgets, depth)
+        %FLATTENWIDGETSFORPREVIEW_ Depth-first flatten of a widget list.
+        %   Unwraps any container widget that returns a non-empty
+        %   getNestedWidgets() cell. Used by computePreviewEnvelopeReturning_
+        %   and computeEventMarkers so nested FastSenseWidgets inside a
+        %   GroupWidget contribute to the slider preview / marker overlay
+        %   (260508-l2k).
+        %
+        %   Order: input order, with each container's leaves spliced in
+        %   at the container's position. Defensive depth cap of 10 stops
+        %   pathological recursion (GroupWidget enforces maxDepth=2 at
+        %   addChild, but the flatten is engine-level and should not
+        %   assume well-formedness). getNestedWidgets() failures fall
+        %   back to leaf treatment via try/catch — matches the engine's
+        %   existing per-widget defensive iteration pattern.
+            if nargin < 3, depth = 0; end
+            flat = {};
+            if depth >= 10
+                flat = widgets;
+                return;
+            end
+            for i = 1:numel(widgets)
+                w = widgets{i};
+                nested = {};
+                try
+                    nested = w.getNestedWidgets();
+                catch
+                    nested = {};
+                end
+                if isempty(nested)
+                    flat = [flat, {w}]; %#ok<AGROW>
+                else
+                    flat = [flat, obj.flattenWidgetsForPreview_(nested, depth + 1)]; %#ok<AGROW>
+                end
+            end
+        end
+
         function renderPageBar(obj, themeStruct)
         %RENDERPAGEBAR Create the PageBar uipanel with one button per page.
         %   Called from render() when numel(Pages) > 1. Y accounts for the
@@ -1879,13 +1916,14 @@ classdef DashboardEngine < handle
 
         function computePreviewEnvelope(obj, nBuckets)
         %COMPUTEPREVIEWENVELOPE Aggregate per-bucket min/max across the
-        %   currently active page's widgets and push the result onto the
-        %   selector's envelope patch (D-07, D-08). Multi-page dashboards
-        %   therefore reflect only the active tab — switchPage() recomputes
-        %   the envelope so navigation stays in sync. nBuckets optional; when
-        %   omitted, defaults to ~200 based on panel axes pixel width, clamped
-        %   to [50, 400]. Silently no-ops when no selector is wired yet (e.g.
-        %   before render()).
+        %   currently active page's widgets (including nested GroupWidget
+        %   children) and push the result onto the selector's envelope
+        %   patch (D-07, D-08). Multi-page dashboards therefore reflect
+        %   only the active tab — switchPage() recomputes the envelope so
+        %   navigation stays in sync. nBuckets optional; when omitted,
+        %   defaults to ~200 based on panel axes pixel width, clamped to
+        %   [50, 400]. Silently no-ops when no selector is wired yet
+        %   (e.g. before render()).
             if nargin < 2, nBuckets = []; end
             obj.computePreviewEnvelopeReturning_(nBuckets);
         end
@@ -1914,7 +1952,7 @@ classdef DashboardEngine < handle
                 catch
                 end
             end
-            ws = obj.activePageWidgets();
+            ws = obj.flattenWidgetsForPreview_(obj.activePageWidgets());
             if isempty(ws)
                 obj.TimeRangeSelector_.setPreviewLines({});
                 env = struct('xCenters', [], 'yMin', [], 'yMax', []);
@@ -1987,10 +2025,11 @@ classdef DashboardEngine < handle
 
         function computeEventMarkers(obj)
         %COMPUTEEVENTMARKERS Aggregate event markers across the currently
-        %   active page's widgets and push them onto the TimeRangeSelector's
-        %   marker overlay. Multi-page dashboards therefore reflect only the
-        %   active tab — switchPage() recomputes the marker overlay so
-        %   navigation stays in sync.
+        %   active page's widgets (including nested GroupWidget children)
+        %   and push them onto the TimeRangeSelector's marker overlay.
+        %   Multi-page dashboards therefore reflect only the active tab —
+        %   switchPage() recomputes the marker overlay so navigation stays
+        %   in sync.
         %
         %   Mirrors computePreviewEnvelope's guard + iteration pattern:
         %   no-op before render or when no widgets expose events. A failing
@@ -2022,7 +2061,7 @@ classdef DashboardEngine < handle
                 obj.TimeRangeSelector_.setEventMarkers([]);
                 return;
             end
-            ws = obj.activePageWidgets();
+            ws = obj.flattenWidgetsForPreview_(obj.activePageWidgets());
 
             % Accumulators (parallel arrays — keep allocation-free until
             % the dedup pass at the end). Severity defaults to 1 (OK) for
