@@ -9,14 +9,14 @@
 - ✅ **v2.0 Tag-Based Domain Model** — Phases 1004-1011 (shipped 2026-04-17)
 - 📋 **v2.1 Tag-API Tech Debt Cleanup** — Phases 1012-1017 (carry-forward, parallel — not active)
 - ✅ **v3.0 FastSense Companion** — Phases 1018-1023 + 1023.1 gap closure (shipped 2026-04-30)
-- 🚧 **Pending milestone** — Phases 1024-1028 (promoted from backlog 2026-05-08, awaiting milestone scoping)
+- 🚧 **Pending milestone** — Phases 1025-1028 (promoted from backlog 2026-05-08, awaiting milestone scoping; 1024 closed via quick task 260508-d7k)
 
 ## Phases
 
 <details open>
-<summary>🚧 Pending milestone (Phases 1024-1028) — promoted from backlog 2026-05-08</summary>
+<summary>🚧 Pending milestone (Phases 1025-1028) — promoted from backlog 2026-05-08</summary>
 
-- [ ] Phase 1024: Fix companion app dark mode
+- [x] Phase 1024: Fix companion app dark mode — closed via quick task [260508-d7k](./quick/260508-d7k-fix-companion-app-dark-mode-switching-th/) (2026-05-08)
 - [ ] Phase 1025: FastSense hover crosshair + datatip
 - [ ] Phase 1026: Dashboard time slider preview
 - [ ] Phase 1027: Companion detachable log window
@@ -109,7 +109,7 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 | 1022. Ad-Hoc Plot Composer | v3.0 | 3/3 | Complete   | 2026-04-30 |
 | 1023. Industrial Plant Demo Integration | v3.0 | 2/2 | Complete | 2026-04-30 |
 | 1023.1. Cross-Phase Wiring Fixes | v3.0 | gap-closure | Complete | 2026-04-30 |
-| 1024. Fix companion app dark mode | pending | 0/? | Not started | — |
+| 1024. Fix companion app dark mode | pending | quick-task | Complete (via 260508-d7k) | 2026-05-08 |
 | 1025. FastSense hover crosshair + datatip | pending | 0/? | Not started | — |
 | 1026. Dashboard time slider preview | pending | 0/? | Not started | — |
 | 1027. Companion detachable log window | pending | 0/? | Not started | — |
@@ -117,13 +117,15 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 
 ## Phase Details (Pending Milestone)
 
-### Phase 1024: Fix companion app dark mode
+### Phase 1024: Fix companion app dark mode — CLOSED
 
-**Goal:** Some UI elements in the FastSense Companion app are not respecting dark mode — notably the log panel. Audit all companion UI surfaces and ensure consistent dark theming.
+**Status:** Closed 2026-05-08 via quick task [260508-d7k](./quick/260508-d7k-fix-companion-app-dark-mode-switching-th/).
+
+**Root cause:** `applyThemeToChildren_` walker silently skipped widget classes without an explicit `case`. `uilistbox` (TagCatalogPane Row 7 — the tag list) was the visible casualty.
+
+**Fix:** Added 8 widget cases to the walker (`ListBox`, `TextArea`, `CheckBox`, `NumericEditField`, `StateButton`, `ToggleButton`, `RadioButton`, `ButtonGroup`). Regression test asserts dark→light→dark flip across all classes.
 
 **Promoted from:** Backlog 999.1 (2026-05-08)
-**Requirements:** TBD
-**Plans:** 0 plans
 
 ### Phase 1025: FastSense hover crosshair + datatip
 
