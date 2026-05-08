@@ -418,6 +418,12 @@ classdef TimeRangeSelector < handle
                 'Box', 'on', ...
                 'YLim', [0 1], 'XLim', obj.DataRange + [-1, 1] * 0.05 * (obj.DataRange(2) - obj.DataRange(1)));
             hold(obj.hAxes, 'on');
+            % Suppress the hover-triggered axes toolbar (zoom/pan/restore icons)
+            % and built-in interactivity — the slider has its own drag/resize
+            % gestures and the floating toolbar fights them visually. R2018b+;
+            % both APIs are no-ops on Octave.
+            try, disableDefaultInteractivity(obj.hAxes); catch, end
+            try, obj.hAxes.Toolbar.Visible = 'off'; catch, end
             envColor = [0.55 0.55 0.55];
             selColor = [0.2 0.4 0.8];
             if isstruct(obj.Theme)
