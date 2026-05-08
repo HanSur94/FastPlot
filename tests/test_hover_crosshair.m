@@ -12,6 +12,11 @@ function test_hover_crosshair()
 
     addpath(fullfile(fileparts(mfilename('fullpath')), '..')); install();
 
+    if exist('OCTAVE_VERSION', 'builtin') ~= 0
+        fprintf('    SKIPPED on Octave (HoverCrosshair uses isvalid which is not implemented).\n');
+        return;
+    end
+
     if ~canCreateFigure_()
         fprintf('    SKIPPED (headless: cannot create figure)\n');
         return;
