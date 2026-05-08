@@ -193,11 +193,20 @@ classdef DashboardEngine < handle
                 for pgIdx = 1:numel(obj.Pages)
                     pgWidgets = obj.Pages{pgIdx}.Widgets;
                     for wi = 1:numel(pgWidgets)
-                        if ~isempty(pgWidgets{wi}.hPanel) && ishandle(pgWidgets{wi}.hPanel)
+                        % Toggle visibility on the OUTER cell panel so the
+                        % WidgetButtonBar (a sibling of the WidgetContentPanel)
+                        % is hidden alongside widget content. Fall back to
+                        % hPanel for widgets that haven't been realized yet
+                        % (hCellPanel is set during realizeWidget).
+                        cellH = pgWidgets{wi}.hCellPanel;
+                        if isempty(cellH) || ~ishandle(cellH)
+                            cellH = pgWidgets{wi}.hPanel;
+                        end
+                        if ~isempty(cellH) && ishandle(cellH)
                             if pgIdx == obj.ActivePage
-                                set(pgWidgets{wi}.hPanel, 'Visible', 'on');
+                                set(cellH, 'Visible', 'on');
                             else
-                                set(pgWidgets{wi}.hPanel, 'Visible', 'off');
+                                set(cellH, 'Visible', 'off');
                             end
                         end
                     end
@@ -378,7 +387,11 @@ classdef DashboardEngine < handle
                     end
                     pgWidgets = obj.Pages{pgIdx}.Widgets;
                     obj.Layout.allocatePanels(obj.hFigure, pgWidgets, themeStruct);
-                    % Hide panels for non-active pages
+                    % Hide panels for non-active pages. allocatePanels has
+                    % only just assigned the cell panel to widget.hPanel
+                    % (hCellPanel is still empty until realizeWidget fires
+                    % on tab-switch), so toggling hPanel here hides the
+                    % cell — correct.
                     for wi = 1:numel(pgWidgets)
                         if ~isempty(pgWidgets{wi}.hPanel) && ishandle(pgWidgets{wi}.hPanel)
                             set(pgWidgets{wi}.hPanel, 'Visible', 'off');
