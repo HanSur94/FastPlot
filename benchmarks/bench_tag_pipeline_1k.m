@@ -52,9 +52,9 @@ function result = bench_tag_pipeline_1k(varargin)
     %
     %   Gate:
     %     If called WITHOUT '--smoke', asserts result.tickMin < GATE_THRESHOLD_SECONDS.
-    %     Wave 0: GATE_THRESHOLD_SECONDS = inf (no gate yet); Task 5 of plan
-    %     1028-01 replaces this with the measured baseline * 1.10 once CI
-    %     captures the baseline numbers (per D-03 profile-first).
+    %     Wave 0 baseline-derived threshold = 4.8019 s (= measured Octave Linux
+    %     NoIO tickMin 4365.4 ms × 1.10 jitter margin per D-03). See the
+    %     constant declaration below and 1028-VERIFICATION.md for provenance.
     %
     %   See also: LiveTagPipeline, SensorTag, StateTag, MonitorTag, CompositeTag,
     %             TagRegistry, bench_monitortag_tick, bench_compositetag_merge.
@@ -92,8 +92,18 @@ function result = bench_tag_pipeline_1k(varargin)
     end
     isNoIO = strcmpi(mode, 'NoIO');
 
-    % --------- Gate threshold (Wave 0: inf; Task 5 sets the real number) ---------
-    GATE_THRESHOLD_SECONDS = inf;   % Set in Wave 0 Task 5 per D-03
+    % --------- Gate threshold (set in Wave 0 Task 5 per D-03) ---------
+    %   Baseline: Octave Linux x86_64 (gnuoctave/octave:11.1.0) NoIO tickMin
+    %   = 4365.4 ms. Threshold = baseline * 1.10 = 4801.9 ms = 4.8019 s.
+    %   Source: GHA run 25558613735 / artifact bench-tag-pipeline-1k-results.
+    %   Recorded in 1028-VERIFICATION.md.
+    %
+    %   NOTE: This baseline is ~17-55x larger than RESEARCH §"Expected
+    %   baseline ranges" predicted (80-250 ms NoIO Octave). The discrepancy
+    %   is documented in 1028-VERIFICATION.md §"Discrepancy with RESEARCH";
+    %   Wave 1 plan 02 must capture a real tBreakdown profile before
+    %   choosing kernel priorities.
+    GATE_THRESHOLD_SECONDS = 4.8019;
 
     % --------- Topology constants (HARD per RESEARCH §1000-Tag Harness Design) ---------
     nSensors   = 700;
