@@ -618,8 +618,8 @@ classdef DashboardLayout < handle
             isInteractive = false;
             try
                 isInteractive = usejava('desktop');
-                if exist('batchStartupOptionUsed', 'builtin') == 5 ...
-                        && batchStartupOptionUsed
+                if exist('batchStartupOptionUsed', 'builtin') == 5 && ...
+                        batchStartupOptionUsed
                     isInteractive = false;
                 end
             catch
