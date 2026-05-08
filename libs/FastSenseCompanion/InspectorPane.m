@@ -204,11 +204,8 @@ classdef InspectorPane < handle
                 end
                 if ~isempty(obj.hPanel_) && isvalid(obj.hPanel_)
                     obj.hPanel_.BackgroundColor = t.WidgetBackground;
-                    if isprop(obj.hPanel_, 'BorderColor')
-                        obj.hPanel_.BorderColor = t.WidgetBorderColor;
-                    elseif isprop(obj.hPanel_, 'HighlightColor')
-                        obj.hPanel_.HighlightColor = t.WidgetBorderColor;
-                    end
+                    % BorderColor is R2021a+ uifigure-uipanel; tolerated on R2020b.
+                    try, obj.hPanel_.BorderColor = t.WidgetBorderColor; catch, end
                 end
                 obj.setState(obj.State_, obj.Payload_);
             catch err
@@ -449,13 +446,9 @@ classdef InspectorPane < handle
             obj.hSparkPanel_ = uipanel(g);
             obj.hSparkPanel_.Layout.Row = 3; obj.hSparkPanel_.Layout.Column = 1;
             obj.hSparkPanel_.BackgroundColor = t.WidgetBackground;
-            if isprop(obj.hSparkPanel_, 'BorderColor')
-                obj.hSparkPanel_.BorderColor = t.WidgetBorderColor;
-                obj.hSparkPanel_.BorderType  = 'line';
-            elseif isprop(obj.hSparkPanel_, 'HighlightColor')
-                obj.hSparkPanel_.HighlightColor = t.WidgetBorderColor;
-                obj.hSparkPanel_.BorderType     = 'line';
-            end
+            % BorderColor is R2021a+ uifigure-uipanel; tolerated on R2020b.
+            try, obj.hSparkPanel_.BorderColor = t.WidgetBorderColor; catch, end
+            try, obj.hSparkPanel_.BorderType  = 'line';              catch, end
 
             obj.hRangeLbl_ = uilabel(g);
             obj.hRangeLbl_.Layout.Row = 4; obj.hRangeLbl_.Layout.Column = 1;
