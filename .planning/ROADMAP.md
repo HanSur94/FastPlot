@@ -143,3 +143,13 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.5: Tag update perf — MEX + SIMD (BACKLOG)
+
+**Goal:** Profile and accelerate the tag update path (SensorTag/StateTag/MonitorTag/CompositeTag streaming + recompute). Identify hot spots and replace with C MEX kernels using SIMD (AVX2 / NEON) where it pays off, consistent with existing FastSense MEX patterns.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
