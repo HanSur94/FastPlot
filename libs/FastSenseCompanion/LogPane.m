@@ -324,9 +324,11 @@ classdef LogPane < handle
                 return;
             end
             try
+                t = themeStruct;
+                % Walker updates descendants but not the root layout itself.
+                obj.hRoot_.BackgroundColor = t.WidgetBackground;
                 applyThemeToChildren_(obj.hRoot_, themeStruct);
                 % Re-apply LogPane-specific accents that the generic walker overwrites.
-                t = themeStruct;
                 % "Updated: HH:MM:SS" uses the subdued PlaceholderTextColor, not
                 % the default ForegroundColor the walker assigns to all labels.
                 if ~isempty(obj.hLastUpdateLbl_) && isvalid(obj.hLastUpdateLbl_)
