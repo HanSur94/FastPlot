@@ -829,15 +829,18 @@ classdef DashboardEngine < handle
                     system(['xdg-open "' obj.InfoTempFile '"']);
                 end
             else
-                % web() launches MATLAB's Java-backed help browser. On
-                % headless CI runners (no DISPLAY, no JVM desktop) it can
-                % segfault MATLAB R2020b — observed crashing TestDashboardInfo
-                % in CI for days. Skip the browser launch in those
-                % conditions; the InfoTempFile is still written and
-                % verifiable from tests.
-                hasDisplay = ~isempty(getenv('DISPLAY')) || ispc || ismac;
-                hasDesktop = usejava('jvm') && usejava('desktop');
-                if hasDisplay && hasDesktop
+                % Only open the browser tab when running in an interactive desktop
+                % MATLAB session. Calling web() inside `-batch -nodisplay` on Linux
+                % CI destabilises the JVM/MEX loader and segfaults the runner
+                % (see TestDashboardInfo failure, GitHub Actions run 25550691546).
+                % The temp HTML file is already on disk above, which is what the
+                % TestDashboardInfo suite verifies.
+                interactive = usejava('desktop');
+                if interactive && exist('batchStartupOptionUsed', 'builtin') && ...
+                        batchStartupOptionUsed()
+                    interactive = false;
+                end
+                if interactive
                     web(obj.InfoTempFile, '-new');
                 end
             end
