@@ -107,7 +107,7 @@ function case_small_dataset_adaptive_buckets()
 
     % Direct unit assertion: getPreviewSeries with nBuckets=200 must
     % return a non-empty struct (adaptive path engaged).
-    ws = d.activePageWidgets();
+    ws = d.Widgets;
     s = ws{1}.getPreviewSeries(200);
     assert(~isempty(s), 'getPreviewSeries(200) returned [] on 50-sample widget');
     assert(isstruct(s) && isfield(s, 'xCenters'), ...

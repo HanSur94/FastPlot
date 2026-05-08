@@ -27,6 +27,7 @@ classdef DashboardEngine < handle
         ProgressMode  = 'auto'   % 'auto' | 'on' | 'off' — render progress bar visibility
         ShowTimePanel = true     % hide the bottom time slider panel
         EventMarkersVisible = true  % global toggle for event markers across all widgets (runtime UI state, not serialized)
+        DebugPreview_ = false    % 260508-das — opt-in: surface preview/marker pipeline failures as warnings
     end
 
     properties (SetAccess = private)
@@ -114,8 +115,12 @@ classdef DashboardEngine < handle
             end
             % Refresh the preview envelope (D-07). Safe before render():
             % computePreviewEnvelope guards on TimeRangeSelector_ presence.
-            try obj.computePreviewEnvelope(); catch, end
-            try obj.computeEventMarkers();    catch, end
+            try obj.computePreviewEnvelope(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
+            end
+            try obj.computeEventMarkers();    catch err
+                if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
+            end
         end
 
         function setEventMarkersVisible(obj, tf)
@@ -198,8 +203,12 @@ classdef DashboardEngine < handle
                 end
             end
             % Refresh the preview envelope on the newly active page (D-07).
-            try obj.computePreviewEnvelope(); catch, end
-            try obj.computeEventMarkers();    catch, end
+            try obj.computePreviewEnvelope(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
+            end
+            try obj.computeEventMarkers();    catch err
+                if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
+            end
         end
 
         function w = addWidget(obj, type, varargin)
@@ -1123,8 +1132,12 @@ classdef DashboardEngine < handle
 
             obj.updateTimeLabels(tMin, tMax);
             % Refresh the preview envelope after DataTimeRange change (D-07).
-            try obj.computePreviewEnvelope(); catch, end
-            try obj.computeEventMarkers();    catch, end
+            try obj.computePreviewEnvelope(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
+            end
+            try obj.computeEventMarkers();    catch err
+                if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
+            end
         end
 
         function updateLiveTimeRange(obj)
@@ -1468,8 +1481,12 @@ classdef DashboardEngine < handle
                 ws{i}.Dirty = false;
             end
             % Refresh the preview envelope on every live tick (D-07).
-            try obj.computePreviewEnvelope(); catch, end
-            try obj.computeEventMarkers();    catch, end
+            try obj.computePreviewEnvelope(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
+            end
+            try obj.computeEventMarkers();    catch err
+                if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
+            end
         end
 
         function markAllDirty(obj)
@@ -1842,9 +1859,18 @@ classdef DashboardEngine < handle
                 env = struct('xCenters', [], 'yMin', [], 'yMax', []);
                 return;
             end
+            % 260508-das: widgets may return adaptive bucket counts that
+            % differ from nBuckets (e.g., a 50-sample widget returns 25
+            % buckets even when the caller asks for 200). We collect each
+            % series as-is and only build the legacy aggregate envelope
+            % from series that match the requested nBuckets — the
+            % aggregate is read by computePreviewEnvelopeForTest tests
+            % and must stay shape-stable, but the UI lines (linesList)
+            % accept any non-empty series.
             aggMin = inf(1, nBuckets);
             aggMax = -inf(1, nBuckets);
             xCenters = [];
+            haveAggSeries = false;
             linesList = {};
             for i = 1:numel(ws)
                 try
@@ -1856,27 +1882,45 @@ classdef DashboardEngine < handle
                 if ~isfield(s, 'xCenters') || ~isfield(s, 'yMin') || ~isfield(s, 'yMax')
                     continue;
                 end
-                if numel(s.yMin) ~= nBuckets || numel(s.yMax) ~= nBuckets
+                if isempty(s.xCenters) || isempty(s.yMin) || isempty(s.yMax)
                     continue;
                 end
-                if isempty(xCenters), xCenters = s.xCenters; end
-                % Aggregate min/max kept so computePreviewEnvelopeForTest
-                % can still return an envelope struct for existing tests.
-                aggMin = min(aggMin, s.yMin);
-                aggMax = max(aggMax, s.yMax);
+                if numel(s.xCenters) ~= numel(s.yMin) || numel(s.yMin) ~= numel(s.yMax)
+                    continue;
+                end
                 % Per-widget line: midpoint of bucket, already normalized
-                % to [0,1] by the widget (D-08).
+                % to [0,1] by the widget (D-08). Accepted at any bucket
+                % count >= 1.
                 yMid = (s.yMin + s.yMax) / 2;
                 linesList{end + 1} = struct('x', s.xCenters, 'y', yMid); %#ok<AGROW>
+                % Legacy aggregate envelope: only fold in series that
+                % match nBuckets exactly. Existing test_dashboard_preview_envelope
+                % expects a fixed-shape envelope when widgets honour
+                % the requested bucket count.
+                if numel(s.yMin) == nBuckets && numel(s.yMax) == nBuckets
+                    if ~haveAggSeries
+                        xCenters = s.xCenters;
+                        haveAggSeries = true;
+                    end
+                    aggMin = min(aggMin, s.yMin);
+                    aggMax = max(aggMax, s.yMax);
+                end
             end
-            if isempty(xCenters) || ~any(isfinite(aggMin))
+            if isempty(linesList)
                 obj.TimeRangeSelector_.setPreviewLines({});
+                env = struct('xCenters', [], 'yMin', [], 'yMax', []);
+                return;
+            end
+            obj.TimeRangeSelector_.setPreviewLines(linesList);
+            if ~haveAggSeries
+                % No widget produced exactly nBuckets buckets — return an
+                % empty envelope but keep the per-widget lines we drew.
                 env = struct('xCenters', [], 'yMin', [], 'yMax', []);
                 return;
             end
             aggMin(~isfinite(aggMin)) = 0;
             aggMax(~isfinite(aggMax)) = 0;
-            obj.TimeRangeSelector_.setPreviewLines(linesList);
+            % setPreviewLines already called above with the full linesList.
             env = struct('xCenters', xCenters, 'yMin', aggMin, 'yMax', aggMax);
         end
 
