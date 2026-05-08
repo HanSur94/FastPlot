@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778237871689,
+  "lastUpdate": 1778237919924,
   "repoUrl": "https://github.com/HanSur94/FastSense",
   "entries": {
     "FastPlot Performance": [
@@ -61623,6 +61623,310 @@ window.BENCHMARK_DATA = {
           {
             "name": "Dashboard broadcastTimeRange stdmean",
             "value": 0.207,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "50265832+HanSur94@users.noreply.github.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c4906dfa59c3f2f01dfe8adba6a2d947b23b7e3b",
+          "message": "feat(fastsense): hover crosshair + datatip with colored bullets (999.2) (#112)\n\n* feat(260508-d8y-01): add HoverCrosshair class with chained motion handler\n\n- New libs/FastSense/HoverCrosshair.m: handle class managing per-axes\n  hover crosshair line + multi-line datatip lifecycle\n- Chains existing WindowButtonMotionFcn so toolbar crosshair and\n  NavigatorOverlay drag continue to work\n- Pixel-bounds hit-test (skips hidden tabs/panels), ~40 Hz throttle,\n  re-entrancy guard, em-dash for out-of-range / NaN y\n- Theme-consistent colors via FastSense.Theme; safe fallbacks when\n  theme is empty or partial\n- Self-cleanup via ObjectBeingDestroyed listeners on figure + axes;\n  delete() restores prior callback unconditionally\n- tests/test_hover_crosshair.m: Octave-style smoke + chain + cleanup\n  tests, gracefully skip on headless or pre-Task-2 builds\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(260508-d8y-02): wire HoverCrosshair into FastSense lifecycle\n\n- Add HoverCrosshair public property (default true) for hover crosshair + datatip\n- Add HoverCrosshair_ private property holding runtime instance\n- Constructor accepts 'HoverCrosshair' option via parseOpts\n- render() instantiates HoverCrosshair(obj) when enabled (try/catch for resilience)\n- delete() tears down HoverCrosshair_ first so chained motion handler\n  is restored before figure teardown\n- Backward compatible: opt-out via fp.HoverCrosshair=false; serialization untouched\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260508-d8y): record FastSense hover crosshair + datatip in STATE.md\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(hover-crosshair): coerce CurrentPoint to pixels regardless of fig Units\n\nDashboardEngine creates classic figures with Units='normalized', so\nget(hFigure,'CurrentPoint') returned normalized [0..1] coords while\ngetpixelposition() always returns pixels. The hit test in\nonFigureMove_ compared mismatched coordinate systems and always\nfell through to onLeave(), so hover never showed inside dashboard\nwidgets (it worked for standalone FastSense figures because those\ndefault to Units='pixels').\n\nSwitch the figure to Units='pixels' just long enough to read\nCurrentPoint, then restore. No layout impact.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(hover-crosshair): colored bullet per row in datatip\n\nEach per-line row now starts with a TeX-rendered \\bullet in that\nline's actual rendered color (read from lineRec.hLine 'Color' with\nfall-back to Options.Color), followed by the existing\n\"DisplayName: yStr\". Multi-line plots become readable at a glance:\nthe bullet matches the line, the name matches the bullet.\n\n- Tip box now uses Interpreter='tex' (set both at create-time and on\n  every refresh) so \\color[rgb]{...}\\bullet directives render.\n- New static helpers HoverCrosshair.resolveLineColor_ and\n  HoverCrosshair.escapeTeX_ keep TeX-special chars in DisplayNames\n  from breaking layout.\n- Header row (formatted x value) is unchanged — no bullet.\n\nHoverCrosshair stays default-on with opt-out via\n'HoverCrosshair', false in the FastSense constructor (already shipped\nin 289216a). All 10 targeted tests still pass.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* test(hover-crosshair): add multi-line dashboard widget test helper\n\nMultiLineFastSenseWidget hosts multiple FastSense lines on a single\nDashboardEngine widget panel — used to manually verify the colored-\nbullet hover datatip end-to-end (multi-line, in-dashboard, themed).\nNot a shipped widget; lives under tests/helpers/.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.7 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-05-08T12:50:38+02:00",
+          "tree_id": "fc56e58f0ab1d3aae2747cb7e88f3f2c26d115d1",
+          "url": "https://github.com/HanSur94/FastSense/commit/c4906dfa59c3f2f01dfe8adba6a2d947b23b7e3b"
+        },
+        "date": 1778237917971,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample mean (1M)",
+            "value": 1.171,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(1M)",
+            "value": 0.114,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (1M)",
+            "value": 154.142,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(1M)",
+            "value": 0.961,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (1M)",
+            "value": 412.814,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(1M)",
+            "value": 6.067,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (1M)",
+            "value": 14.496,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(1M)",
+            "value": 0.278,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (5M)",
+            "value": 7.603,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(5M)",
+            "value": 0.051,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (5M)",
+            "value": 177.224,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(5M)",
+            "value": 2.174,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (5M)",
+            "value": 422.662,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(5M)",
+            "value": 5.059,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (5M)",
+            "value": 14.623,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(5M)",
+            "value": 0.377,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (10M)",
+            "value": 15.219,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std10M)",
+            "value": 0.106,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (10M)",
+            "value": 196.625,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std10M)",
+            "value": 0.656,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (10M)",
+            "value": 424.821,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std10M)",
+            "value": 1.502,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (10M)",
+            "value": 14.372,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std10M)",
+            "value": 0.168,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (50M)",
+            "value": 77.835,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std50M)",
+            "value": 0.357,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (50M)",
+            "value": 1249.086,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std50M)",
+            "value": 4.375,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (50M)",
+            "value": 426.087,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std50M)",
+            "value": 5.668,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (50M)",
+            "value": 14.544,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std50M)",
+            "value": 0.128,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (100M)",
+            "value": 154.742,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 0.938,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (100M)",
+            "value": 2550.017,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 92.974,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (100M)",
+            "value": 421.244,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 4.903,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (100M)",
+            "value": 13.86,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.078,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (500M)",
+            "value": 781.677,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 19.977,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (500M)",
+            "value": 22012.695,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 132.86,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (500M)",
+            "value": 464.217,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 6.052,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (500M)",
+            "value": 13.929,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.169,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render mean",
+            "value": 243.301,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render stdmean",
+            "value": 27.585,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick mean",
+            "value": 2.535,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick stdmean",
+            "value": 2.733,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch mean",
+            "value": 0.238,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch stdmean",
+            "value": 0.751,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange mean",
+            "value": 0.139,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange stdmean",
+            "value": 0.228,
             "unit": "ms"
           }
         ]
