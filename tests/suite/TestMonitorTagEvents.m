@@ -176,6 +176,44 @@ classdef TestMonitorTagEvents < matlab.unittest.TestCase
                 'Cache-hit getXY must NOT re-emit events');
         end
 
+        function testNoDuplicateEventsOnRecomputeAfterInvalidate(testCase)
+            %TESTNODUPLICATEEVENTSONRECOMPUTEAFTERINVALIDATE
+            %   Regression: in live mode, parent.updateData fires invalidate
+            %   on the MonitorTag listener, which wipes cache_ and forces a
+            %   full recompute_ on the next getXY. recompute_ must NOT
+            %   re-emit events that were emitted on a prior recompute (which
+            %   happened the very first time the user dumped the EventStore
+            %   from the running industrial-plant demo: ~30x duplicates of
+            %   each closed event).
+            x = 1:10;
+            y = [0 0 0 10 10 10 0 0 0 0];
+            parent = SensorTag('p', 'X', x, 'Y', y);
+            store = EventStore('');
+            m = MonitorTag('m', parent, @(xx, yy) yy > 5, 'EventStore', store);
+            [~, ~] = m.getXY();
+            n1 = numel(store.getEvents());
+            testCase.verifyEqual(n1, 1, 'first getXY must emit exactly 1 event');
+
+            % Simulate parent.updateData → cascade-invalidate to monitor.
+            m.invalidate();
+
+            % Next getXY triggers a full recompute_ over the parent's
+            % unchanged history. Must NOT re-emit the same event.
+            [~, ~] = m.getXY();
+            n2 = numel(store.getEvents());
+            testCase.verifyEqual(n2, 1, ...
+                'recompute_ after invalidate must NOT duplicate already-emitted events');
+
+            % Idempotent under repeated invalidate/getXY cycles.
+            for i = 1:5
+                m.invalidate();
+                [~, ~] = m.getXY();
+            end
+            n3 = numel(store.getEvents());
+            testCase.verifyEqual(n3, 1, ...
+                'multiple invalidate/getXY cycles must not accumulate duplicates');
+        end
+
         % ---- Native parent-X units ----
 
         function testEventStartEndTimesUseNativeParentUnits(testCase)
