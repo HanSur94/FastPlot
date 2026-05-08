@@ -377,6 +377,28 @@ classdef FastSenseCompanion < handle
             catch err
                 fprintf(2, '[FastSenseCompanion] InspectorPane.detach failed: %s\n', err.message);
             end
+            % Phase 1027 — close any open detached log uifigure first, then
+            % destroy the LogPane. Order matters: the detached fig's
+            % CloseRequestFcn calls obj.setLogState_('Inline'), and we don't
+            % want that to fire mid-teardown.
+            try
+                if ~isempty(obj.hDetachedLogFig_) && isvalid(obj.hDetachedLogFig_)
+                    obj.hDetachedLogFig_.CloseRequestFcn = '';
+                    delete(obj.hDetachedLogFig_);
+                end
+            catch err
+                fprintf(2, '[FastSenseCompanion] hDetachedLogFig cleanup failed: %s\n', err.message);
+            end
+            obj.hDetachedLogFig_ = [];
+            try
+                if ~isempty(obj.LogPane_) && isvalid(obj.LogPane_)
+                    obj.LogPane_.detach();
+                    delete(obj.LogPane_);
+                end
+            catch err
+                fprintf(2, '[FastSenseCompanion] LogPane cleanup failed: %s\n', err.message);
+            end
+            obj.LogPane_ = [];
             % Release orchestrator-level listeners. delete(cellArray) is
             % interpreted as filename-delete by MATLAB ("Name must be a
             % text scalar"). Iterate explicitly.
@@ -472,6 +494,14 @@ classdef FastSenseCompanion < handle
                 @(s, e) obj.InspectorPane_.setState(e.State, e.Payload));
             obj.Listeners_{end+1} = addlistener(obj, 'OpenAdHocPlotRequested', ...
                 @(s, e) obj.onOpenAdHocPlotRequested_(s, e));
+            % Phase 1027 — re-register LogPane.DetachRequested listener
+            % (cleared by the explicit Listeners_ reset above). LogPane and
+            % its detached uifigure (if any) survive setProject — only the
+            % listener wiring is rebuilt.
+            if ~isempty(obj.LogPane_) && isvalid(obj.LogPane_)
+                obj.Listeners_{end+1} = addlistener(obj.LogPane_, 'DetachRequested', ...
+                    @(~,~) obj.setLogState_('Detached'));
+            end
             obj.applyPlaceholderColors_();
         end
 
@@ -647,6 +677,16 @@ classdef FastSenseCompanion < handle
                 end
                 if ~isempty(obj.InspectorPane_) && isvalid(obj.InspectorPane_)
                     obj.InspectorPane_.setTheme(obj.Theme_);
+                end
+                % Phase 1027 — LogPane manages its own theming (walker skips
+                % hLogPanel_ subtree). Companion calls applyTheme directly so
+                % both inline and detached states retheme.
+                if ~isempty(obj.LogPane_) && isvalid(obj.LogPane_)
+                    obj.LogPane_.applyTheme(obj.Theme_);
+                end
+                % If the log is currently detached, retheme the uifigure host.
+                if ~isempty(obj.hDetachedLogFig_) && isvalid(obj.hDetachedLogFig_)
+                    obj.hDetachedLogFig_.Color = obj.Theme_.DashboardBackground;
                 end
                 obj.updateLiveButton_();
                 drawnow;
