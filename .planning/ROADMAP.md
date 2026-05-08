@@ -101,3 +101,15 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 | 1022. Ad-Hoc Plot Composer | v3.0 | 3/3 | Complete   | 2026-04-30 |
 | 1023. Industrial Plant Demo Integration | v3.0 | 2/2 | Complete | 2026-04-30 |
 | 1023.1. Cross-Phase Wiring Fixes | v3.0 | gap-closure | Complete | 2026-04-30 |
+
+## Backlog
+
+### Phase 999.1: Fix companion app dark mode (BACKLOG)
+
+**Goal:** Some UI elements in the FastSense Companion app are not respecting dark mode — notably the log panel. Audit all companion UI surfaces and ensure consistent dark theming.
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
