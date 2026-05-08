@@ -303,9 +303,19 @@ classdef HoverCrosshair < handle
             obj.IsBusy = true;
             cleanupGuard = onCleanup(@() obj.clearBusy_());
 
-            % Pixel-bounds hit test
+            % Pixel-bounds hit test. CurrentPoint is reported in the
+            % figure's Units, which may be 'normalized' (e.g. dashboards).
+            % getpixelposition() always returns pixels, so coerce both into
+            % pixel space by reading CurrentPoint with Units='pixels'.
             try
-                figPt = get(obj.hFigure, 'CurrentPoint');
+                prevUnits = get(obj.hFigure, 'Units');
+                if ~strcmp(prevUnits, 'pixels')
+                    set(obj.hFigure, 'Units', 'pixels');
+                    figPt = get(obj.hFigure, 'CurrentPoint');
+                    set(obj.hFigure, 'Units', prevUnits);
+                else
+                    figPt = get(obj.hFigure, 'CurrentPoint');
+                end
                 axPos = getpixelposition(obj.hAxes, true);
             catch
                 return;
