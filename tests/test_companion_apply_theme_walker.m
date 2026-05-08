@@ -82,11 +82,32 @@ function test_companion_apply_theme_walker()
         hRadio = tryMakeWidget(@() uiradiobutton(hBgRadio));
     end
 
+    % --- Phase 1027: LogPaneRoot skip-rule test fixture ---
+    % A uipanel tagged 'LogPaneRoot' must NOT be recursed into by the walker.
+    % We build a panel with a child label whose FontColor we set to a
+    % distinctive sentinel value; if the walker recurses, it will overwrite
+    % FontColor to theme.ForegroundColor and the test fails.
+    hLogPanelStub = uipanel(hFig);
+    hLogPanelStub.Tag = 'LogPaneRoot';
+    hLogPanelStub.BackgroundColor = [0.5 0.0 0.5]; % sentinel magenta
+    hSentinelLabel = uilabel(hLogPanelStub);
+    hSentinelLabel.Text      = 'sentinel';
+    hSentinelLabel.FontColor = [1.0 0.5 0.0];      % sentinel orange
+
     % --- Dark theme apply ---
     darkTheme  = CompanionTheme.get('dark');
     lightTheme = CompanionTheme.get('light');
 
     applyThemeToChildren_(hFig, darkTheme);
+
+    % --- Phase 1027 assertions: walker must NOT touch LogPaneRoot subtree ---
+    % BackgroundColor on the panel itself stays sentinel magenta.
+    assertColorEqual(hLogPanelStub.BackgroundColor, [0.5 0.0 0.5], ...
+        'LogPaneRoot uipanel BackgroundColor should be untouched by walker');
+    % FontColor on the child label stays sentinel orange (NOT theme.ForegroundColor).
+    assertColorEqual(hSentinelLabel.FontColor, [1.0 0.5 0.0], ...
+        'LogPaneRoot child label FontColor should be untouched by walker');
+    nPassed = nPassed + 2;
 
     % Test 1-2: uilistbox BackgroundColor + FontColor = dark (the bug fix)
     assertColorEqual(hList.BackgroundColor, darkTheme.WidgetBackground, ...
@@ -180,6 +201,13 @@ function test_companion_apply_theme_walker()
         'uieditfield BackgroundColor regression (light)');
     nPassed = nPassed + 2;
 
+    % Phase 1027: LogPaneRoot still untouched after light apply.
+    assertColorEqual(hLogPanelStub.BackgroundColor, [0.5 0.0 0.5], ...
+        'LogPaneRoot uipanel BackgroundColor untouched after light apply');
+    assertColorEqual(hSentinelLabel.FontColor, [1.0 0.5 0.0], ...
+        'LogPaneRoot child label FontColor untouched after light apply');
+    nPassed = nPassed + 2;
+
     % --- Switch back to dark (verify not one-shot) ---
     applyThemeToChildren_(hFig, darkTheme);
 
@@ -191,6 +219,13 @@ function test_companion_apply_theme_walker()
         nPassed = nPassed + 1;
     end
     nPassed = nPassed + 1;
+
+    % Phase 1027: LogPaneRoot still untouched after second dark apply.
+    assertColorEqual(hLogPanelStub.BackgroundColor, [0.5 0.0 0.5], ...
+        'LogPaneRoot uipanel BackgroundColor untouched after second dark apply');
+    assertColorEqual(hSentinelLabel.FontColor, [1.0 0.5 0.0], ...
+        'LogPaneRoot child label FontColor untouched after second dark apply');
+    nPassed = nPassed + 2;
 
     fprintf('    All %d tests passed.\n', nPassed);
 end
