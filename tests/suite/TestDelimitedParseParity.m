@@ -55,6 +55,18 @@ end
 
 function assertParseParity_(testCase, path)
     %ASSERTPARSEPARITY_ Parse path with both implementations; compare structs.
+    %
+    %   Tolerance policy (Phase 1028 Wave 1):
+    %     - delimiter / headers / hasHeader: bit-exact equality.
+    %     - numeric data: abs error <= 1e-12 (per phase prompt's K1
+    %       parity contract). Both paths convert ASCII -> IEEE 754
+    %       round-to-nearest, but Octave's `textscan('%f')` and C's
+    %       `strtod` can disagree by up to 1 ULP on tie-rounding for
+    %       specific inputs (observed on Octave 11.1 only). 1e-12 is
+    %       12 orders of magnitude tighter than any downstream
+    %       consumer's tolerance and 4 orders looser than 1 ULP, so
+    %       the gap is harmless.
+    %     - cell (cellstr) data: bit-exact (string round-trip).
     outMex = delimited_parse_mex(path);
     outFb  = readRawDelimited_(path);
 
@@ -63,7 +75,15 @@ function assertParseParity_(testCase, path)
         'hasHeader must match');
     testCase.verifyEqual(outMex.headers, outFb.headers, 'headers (cellstr) must match');
     if isnumeric(outFb.data) && isnumeric(outMex.data)
-        testCase.verifyTrue(isequaln(outMex.data, outFb.data), 'numeric data must match');
+        testCase.verifyEqual(size(outMex.data), size(outFb.data), 'numeric size must match');
+        % NaN-equal absdiff: treat NaN==NaN as 0 difference.
+        d = outMex.data - outFb.data;
+        nanMask = isnan(outMex.data) & isnan(outFb.data);
+        d(nanMask) = 0;
+        maxAbsErr = max(abs(d(:)));
+        if isempty(maxAbsErr), maxAbsErr = 0; end
+        testCase.verifyLessThanOrEqual(maxAbsErr, 1e-12, ...
+            sprintf('numeric data must agree within 1e-12 (max abs err = %.3e)', maxAbsErr));
     else
         testCase.verifyEqual(outMex.data, outFb.data, 'cell data must match');
     end
