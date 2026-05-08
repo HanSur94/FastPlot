@@ -55,4 +55,22 @@ function run_tests_with_coverage(pattern)
     if nFailed > 0
         error('Tests failed: %d', nFailed);
     end
+
+    % Force-quit on headless Linux CI to bypass the R2021b shutdown
+    % segfault. After the runner returns successfully, MATLAB's natural
+    % exit path crashes inside libmwbridge.so / Mfh_file::dispatch — same
+    % MATLAB-internals dispatcher bug that drove the gateHeadlessLinux
+    % skips throughout tests/suite/. quit('force') skips MATLAB's
+    % shutdown cleanup and exits with code 0, so matlab-actions/run-command
+    % sees a clean pass. Interactive MATLAB and macOS / Windows CI
+    % continue with the natural return path.
+    if exist('OCTAVE_VERSION', 'builtin')
+        return;
+    end
+    isHeadlessLinux = ~ispc && ~ismac && ~usejava('desktop');
+    if isHeadlessLinux
+        fprintf('All tests passed (failures filtered by assumption are not real failures). ');
+        fprintf('Force-quitting to bypass R2021b shutdown segfault.\n');
+        quit('force');
+    end
 end
