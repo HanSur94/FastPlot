@@ -241,6 +241,51 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             testCase.verifyFalse(~isempty(t) && isvalid(t) && strcmp(t.Running, 'on'), ...
                 'Closed viewer must not re-arm its timer.');
         end
+
+        % --- Task 11: filter bar UI + TimeRangeSelector slider tests ---
+
+        function testPresetButtonsExist(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            btns = findall(v.hFigure, 'Style', 'pushbutton', 'Tag', 'PresetBtn');
+            presetTexts = arrayfun(@(b) get(b, 'String'), btns, 'UniformOutput', false);
+            testCase.verifyEqual(sort(presetTexts), {'1h'; '24h'; '7d'; 'All'});
+        end
+
+        function testFromToDateTimePickersExist(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            fromCtl = findall(v.hFigure, 'Tag', 'FromEdit');
+            toCtl   = findall(v.hFigure, 'Tag', 'ToEdit');
+            testCase.verifyNotEmpty(fromCtl);
+            testCase.verifyNotEmpty(toCtl);
+        end
+
+        function testSliderInstantiated(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            testCase.verifyClass(v.getSliderForTest_(), 'TimeRangeSelector');
+        end
+
+        function testSliderRangeChangedSetsCustomMode(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            comp.stopLiveMode();    % ensure not live so preset yields 'snapshot'
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            v.applyPreset_internalForTest('1h');
+            testCase.verifyEqual(v.TimePresetMode, 'snapshot');
+
+            % Simulate slider drag via the public callback path.
+            v.onSliderRangeChanged_internalForTest(now - 0.5, now);
+            testCase.verifyEqual(v.TimePresetMode, 'custom');
+        end
     end
 end
 

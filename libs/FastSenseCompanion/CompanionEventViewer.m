@@ -139,6 +139,16 @@ classdef CompanionEventViewer < handle
             t = obj.AutoTimer_;
         end
 
+        function s = getSliderForTest_(obj)
+        %GETSLIDERFORTEST_ Test accessor: return Selector_ handle.
+            s = obj.Selector_;
+        end
+
+        function onSliderRangeChanged_internalForTest(obj, t1, t2)
+        %ONSLIDERRANGECHANGED_INTERNALFORTEST Test-only proxy for the slider callback.
+            obj.onSliderRangeChanged_(t1, t2);
+        end
+
         function close(obj)
         %CLOSE Idempotent teardown: timer, listeners, canvas, figure.
             if isempty(obj.hFigure) || ~isgraphics(obj.hFigure)
@@ -223,10 +233,10 @@ classdef CompanionEventViewer < handle
         %   Presets: '1h', '24h', '7d', 'all'.
         %   'all' resolves min-start to max-end across the store events.
             switch name
-                case '1h',  span = 1/24;
-                case '24h', span = 1;
-                case '7d',  span = 7;
-                case 'all', span = [];   % full extent — resolved below
+                case '1h',           span = 1/24;
+                case '24h',          span = 1;
+                case '7d',           span = 7;
+                case {'all', 'All'}, span = [];   % full extent — resolved below
                 otherwise
                     error('CompanionEventViewer:unknownPreset', ...
                         'Unknown preset ''%s''.', name);
@@ -249,6 +259,7 @@ classdef CompanionEventViewer < handle
             else
                 obj.TimePresetMode = 'snapshot';
             end
+            obj.refresh();
         end
 
         function buildFigure_(obj)
@@ -285,6 +296,85 @@ classdef CompanionEventViewer < handle
                 'XColor',   t.ForegroundColor, ...
                 'YColor',   t.ForegroundColor);
             obj.Canvas_ = EventGanttCanvas(ax, t);
+
+            % --- Filter bar contents -----------------------------------
+            % Preset buttons row.
+            presets = {'1h', '24h', '7d', 'All'};
+            for i = 1:numel(presets)
+                uicontrol('Parent', obj.FilterPanel_, ...
+                    'Style', 'pushbutton', 'String', presets{i}, ...
+                    'Tag', 'PresetBtn', ...
+                    'Units', 'normalized', ...
+                    'Position', [0.02 + (i-1)*0.05, 0.55, 0.045, 0.35], ...
+                    'BackgroundColor', t.WidgetBorderColor, ...
+                    'ForegroundColor', t.ForegroundColor, ...
+                    'Callback', @(src, ~) obj.applyPreset_(get(src, 'String')));
+            end
+
+            % From / To datetime edits.
+            uicontrol('Parent', obj.FilterPanel_, 'Style', 'text', 'String', 'From:', ...
+                'Units', 'normalized', 'Position', [0.25 0.55 0.04 0.35], ...
+                'BackgroundColor', t.WidgetBackground, 'ForegroundColor', t.ForegroundColor, ...
+                'HorizontalAlignment', 'right');
+            uicontrol('Parent', obj.FilterPanel_, 'Style', 'edit', 'Tag', 'FromEdit', ...
+                'Units', 'normalized', 'Position', [0.30 0.55 0.10 0.35], ...
+                'String', '', ...
+                'Callback', @(src, ~) obj.onFromToEdited_());
+            uicontrol('Parent', obj.FilterPanel_, 'Style', 'text', 'String', 'To:', ...
+                'Units', 'normalized', 'Position', [0.40 0.55 0.03 0.35], ...
+                'BackgroundColor', t.WidgetBackground, 'ForegroundColor', t.ForegroundColor, ...
+                'HorizontalAlignment', 'right');
+            uicontrol('Parent', obj.FilterPanel_, 'Style', 'edit', 'Tag', 'ToEdit', ...
+                'Units', 'normalized', 'Position', [0.43 0.55 0.10 0.35], ...
+                'String', '', ...
+                'Callback', @(src, ~) obj.onFromToEdited_());
+
+            % Severity toggles.
+            sevLabels = {'I', 'W', 'A'};
+            for i = 1:3
+                uicontrol('Parent', obj.FilterPanel_, 'Style', 'togglebutton', ...
+                    'String', sevLabels{i}, 'Tag', sprintf('SevBtn%d', i), ...
+                    'Value', 1, ...
+                    'Units', 'normalized', ...
+                    'Position', [0.55 + (i-1)*0.03, 0.55, 0.025, 0.35], ...
+                    'BackgroundColor', t.WidgetBorderColor, ...
+                    'ForegroundColor', t.ForegroundColor, ...
+                    'Callback', @(src, ~) obj.onSevToggled_(i, get(src, 'Value')));
+            end
+
+            % Open-only checkbox.
+            uicontrol('Parent', obj.FilterPanel_, 'Style', 'checkbox', ...
+                'String', 'Open only', 'Tag', 'OpenOnlyChk', ...
+                'Value', 0, ...
+                'Units', 'normalized', 'Position', [0.65 0.55 0.07 0.35], ...
+                'BackgroundColor', t.WidgetBackground, 'ForegroundColor', t.ForegroundColor, ...
+                'Callback', @(src, ~) obj.setOpenOnly_(get(src, 'Value') == 1));
+
+            % Tag search.
+            uicontrol('Parent', obj.FilterPanel_, 'Style', 'edit', ...
+                'Tag', 'TagSearch', 'String', '', ...
+                'Units', 'normalized', 'Position', [0.02 0.10 0.20 0.35], ...
+                'TooltipString', 'Tag search…', ...
+                'Callback', @(src, ~) obj.onTagSearchChanged_(get(src, 'String')));
+
+            % Refresh + Auto + interval.
+            uicontrol('Parent', obj.FilterPanel_, 'Style', 'pushbutton', 'String', 'Refresh', ...
+                'Units', 'normalized', 'Position', [0.74 0.55 0.07 0.35], ...
+                'Callback', @(~, ~) obj.refresh());
+            uicontrol('Parent', obj.FilterPanel_, 'Style', 'checkbox', 'String', 'Auto', ...
+                'Tag', 'AutoChk', 'Value', 1, ...
+                'Units', 'normalized', 'Position', [0.82 0.55 0.05 0.35], ...
+                'BackgroundColor', t.WidgetBackground, 'ForegroundColor', t.ForegroundColor, ...
+                'Callback', @(src, ~) obj.setAutoEnabled_(get(src, 'Value') == 1));
+            uicontrol('Parent', obj.FilterPanel_, 'Style', 'edit', 'Tag', 'IntervalEdit', ...
+                'String', sprintf('%g', obj.AutoPeriod_), ...
+                'Units', 'normalized', 'Position', [0.87 0.55 0.04 0.35], ...
+                'Callback', @(src, ~) obj.onIntervalEdited_(get(src, 'String')));
+
+            % --- Slider in bottom panel --------------------------------
+            obj.Selector_ = TimeRangeSelector(obj.SliderPanel_, ...
+                'OnRangeChanged', @(t1, t2) obj.onSliderRangeChanged_(t1, t2), ...
+                'Theme',          t);
 
             % Live-mode coupling.
             obj.Listeners_{end+1} = addlistener(obj.Companion_, 'LiveModeChanged', ...
@@ -350,6 +440,83 @@ classdef CompanionEventViewer < handle
                 end
                 obj.refresh();
             catch
+            end
+        end
+
+        function onSliderRangeChanged_(obj, t1, t2)
+        %ONSLIDERRANGECHANGED_ React to slider drag: set custom time range.
+            if t2 <= t1; return; end
+            obj.TimeRange      = [t1 t2];
+            obj.TimePresetMode = 'custom';
+            obj.refresh();
+        end
+
+        function onFromToEdited_(obj)
+        %ONFROMTOEDITED_ Parse From/To edit fields and apply as custom range.
+            fromCtl = findall(obj.hFigure, 'Tag', 'FromEdit');
+            toCtl   = findall(obj.hFigure, 'Tag', 'ToEdit');
+            sFrom = strtrim(get(fromCtl, 'String'));
+            sTo   = strtrim(get(toCtl,   'String'));
+            if isempty(sFrom) || isempty(sTo); return; end
+            try
+                t1 = datenum(sFrom);
+                t2 = datenum(sTo);
+                obj.setTimeRange(t1, t2);
+                obj.refresh();
+            catch
+                % Bad input — ignore silently; user can correct it.
+            end
+        end
+
+        function onSevToggled_(obj, idx, val)
+        %ONSEVTOGGLED_ React to severity toggle button press.
+            obj.SeverityMask(idx) = (val == 1);
+            obj.refresh();
+        end
+
+        function setOpenOnly_(obj, tf)
+        %SETOPENONLY_ Set open-only filter flag and refresh.
+            obj.OpenOnly = logical(tf);
+            obj.refresh();
+        end
+
+        function onTagSearchChanged_(obj, txt)
+        %ONTAGSEARCHCHANGED_ Filter by tag keys matching search text.
+            txt = strtrim(txt);
+            if isempty(txt)
+                obj.SelectedTagKeys = {};
+            else
+                allKeys = TagRegistry.keys();
+                if isempty(allKeys)
+                    obj.SelectedTagKeys = {};
+                else
+                    hit = allKeys(contains(allKeys, txt));
+                    obj.SelectedTagKeys = hit(:)';
+                end
+            end
+            obj.refresh();
+        end
+
+        function setAutoEnabled_(obj, tf)
+        %SETAUTOENABLED_ Enable or disable the auto-refresh timer.
+            obj.AutoEnabled_ = logical(tf);
+            if obj.AutoEnabled_ && obj.IsLive
+                obj.startAutoTimer_();
+            else
+                obj.stopAutoTimer_();
+            end
+        end
+
+        function onIntervalEdited_(obj, txt)
+        %ONINTERVALEDITED_ Update auto-refresh period from edit field.
+            v = str2double(strtrim(txt));
+            if ~isfinite(v) || v <= 0; return; end
+            obj.AutoPeriod_ = v;
+            if ~isempty(obj.AutoTimer_) && isvalid(obj.AutoTimer_)
+                wasOn = strcmp(obj.AutoTimer_.Running, 'on');
+                if wasOn; stop(obj.AutoTimer_); end
+                obj.AutoTimer_.Period = v;
+                if wasOn; start(obj.AutoTimer_); end
             end
         end
     end
