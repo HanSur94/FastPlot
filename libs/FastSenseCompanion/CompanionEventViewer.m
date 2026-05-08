@@ -113,6 +113,47 @@ classdef CompanionEventViewer < handle
         end
     end
 
+    methods (Static)
+        function out = applyFilters(events, tagKeys, sevMask, openOnly, timeRange)
+        %APPLYFILTERS Pure filter pipeline. Inputs:
+        %   events    — Event row vector
+        %   tagKeys   — cellstr, {} means "all"
+        %   sevMask   — 1x3 logical [info warn alarm]
+        %   openOnly  — logical scalar
+        %   timeRange — 1x2 [tStart tEnd]; tEnd=Inf is acceptable
+        %
+        %   Open events (IsOpen=true) treat EndTime as Inf for overlap.
+            if isempty(events)
+                out = Event.empty; return;
+            end
+            keep = true(1, numel(events));
+            nowRef = now;
+            for i = 1:numel(events)
+                ev = events(i);
+                if ~isempty(tagKeys)
+                    if ~any(ismember(ev.TagKeys, tagKeys))
+                        keep(i) = false; continue;
+                    end
+                end
+                sev = double(ev.Severity);
+                if sev < 1 || sev > numel(sevMask) || ~sevMask(sev)
+                    keep(i) = false; continue;
+                end
+                if openOnly && ~ev.IsOpen
+                    keep(i) = false; continue;
+                end
+                evEnd = ev.EndTime;
+                if isnan(evEnd) || ev.IsOpen
+                    evEnd = max(nowRef, ev.StartTime);
+                end
+                if evEnd < timeRange(1) || ev.StartTime > timeRange(2)
+                    keep(i) = false; continue;
+                end
+            end
+            out = events(keep);
+        end
+    end
+
     methods (Access = private)
         function buildFigure_(obj)
         %BUILDFIGURE_ Create the classic figure with three uipanels + Gantt axes.

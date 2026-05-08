@@ -76,6 +76,47 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             testCase.verifyWarningFree(@() v.bringToFront());
             testCase.verifyTrue(isgraphics(v.hFigure));
         end
+
+        % --- Task 7: applyFilters tests ---
+
+        function testFilterEmptyTagKeysMeansAll(testCase)
+            evs = makeEvents_();
+            out = CompanionEventViewer.applyFilters(evs, {}, [true true true], false, [-Inf Inf]);
+            testCase.verifyEqual(numel(out), numel(evs));
+        end
+
+        function testFilterByTagKeys(testCase)
+            evs = makeEvents_();
+            out = CompanionEventViewer.applyFilters(evs, {'tA'}, [true true true], false, [-Inf Inf]);
+            testCase.verifyTrue(all(arrayfun(@(e) any(strcmp(e.TagKeys, 'tA')), out)));
+        end
+
+        function testFilterBySeverity(testCase)
+            evs = makeEvents_();   % evs has severities 1, 2, 3
+            out = CompanionEventViewer.applyFilters(evs, {}, [false true false], false, [-Inf Inf]);
+            testCase.verifyTrue(all(arrayfun(@(e) e.Severity == 2, out)));
+        end
+
+        function testFilterOpenOnly(testCase)
+            evs = makeEvents_();   % evs(end) has IsOpen=true
+            out = CompanionEventViewer.applyFilters(evs, {}, [true true true], true, [-Inf Inf]);
+            testCase.verifyTrue(all(arrayfun(@(e) e.IsOpen, out)));
+            testCase.verifyTrue(numel(out) >= 1);
+        end
+
+        function testFilterByTimeRange(testCase)
+            evs = makeEvents_();   % evs(1)=[0,1], evs(2)=[10,11], evs(3)=[20,21], evs(4) open at [30,NaN]
+            out = CompanionEventViewer.applyFilters(evs, {}, [true true true], false, [9 12]);
+            testCase.verifyEqual(numel(out), 1, 'only the [10,11] event overlaps [9,12].');
+            testCase.verifyEqual(out(1).StartTime, 10);
+        end
+
+        function testFilterTimeRangeIncludesOpenEvents(testCase)
+            evs = makeEvents_();
+            out = CompanionEventViewer.applyFilters(evs, {}, [true true true], false, [29 99]);
+            testCase.verifyTrue(any(arrayfun(@(e) e.IsOpen, out)), ...
+                'Open event with EndTime=NaN must overlap any range that starts after its StartTime.');
+        end
     end
 end
 
@@ -94,4 +135,12 @@ end
 function comp = makeRealCompanion_(testCase)
     comp = FastSenseCompanion();
     testCase.addTeardown(@() comp.close());
+end
+
+function evs = makeEvents_()
+    e1 = Event(0,  1,  'sA', 'lbl', 1, 'upper'); e1.TagKeys = {'tA'}; e1.Severity = 1;
+    e2 = Event(10, 11, 'sB', 'lbl', 1, 'upper'); e2.TagKeys = {'tB'}; e2.Severity = 2;
+    e3 = Event(20, 21, 'sC', 'lbl', 1, 'upper'); e3.TagKeys = {'tA'}; e3.Severity = 3;
+    e4 = Event(30, NaN, 'sD', 'lbl', 1, 'upper'); e4.TagKeys = {'tD'}; e4.IsOpen = true; e4.Severity = 2;
+    evs = [e1 e2 e3 e4];
 end
