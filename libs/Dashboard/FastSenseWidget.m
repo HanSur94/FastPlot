@@ -140,18 +140,55 @@ classdef FastSenseWidget < DashboardWidget
             %   cell of structs            — {struct('Value',..,'Direction',..,'Label',..), ...}
             applyThresholds_(fp, obj.Thresholds);
 
-            % Set title and axis labels
+            % Set title and axis labels.
+            % Title sits ABOVE the (light) axes area against the panel
+            % background, so its color must come from the dashboard theme
+            % (ToolbarFontColor) — using ax.XColor leaves the title dark on
+            % the dark widget panel in dark mode. XLabel/YLabel sit inside
+            % the axes margins but still touch the panel; same fix.
+            % Prefer GroupHeaderFg (near-white in dark / near-black in light)
+            % over ToolbarFontColor for stronger contrast against the panel.
+            titleColor = get(ax, 'XColor');
+            try
+                t = obj.getTheme();
+                if isstruct(t)
+                    if isfield(t, 'GroupHeaderFg')
+                        titleColor = t.GroupHeaderFg;
+                    elseif isfield(t, 'ToolbarFontColor')
+                        titleColor = t.ToolbarFontColor;
+                    end
+                end
+            catch
+            end
             if ~isempty(obj.Title)
-                title(ax, obj.Title, 'Color', get(ax, 'XColor'));
+                title(ax, obj.Title, 'Color', titleColor);
             end
             if ~isempty(obj.XLabel)
-                xlabel(ax, obj.XLabel, 'Color', get(ax, 'XColor'));
+                xlabel(ax, obj.XLabel, 'Color', titleColor);
             end
             if ~isempty(obj.YLabel)
-                ylabel(ax, obj.YLabel, 'Color', get(ax, 'XColor'));
+                ylabel(ax, obj.YLabel, 'Color', titleColor);
             end
 
             fp.render();
+
+            % Re-apply title/label/tick colors AFTER fp.render(), which
+            % restyles the axes using FastSense's own theme (axes-internal
+            % colors — dark on white). The title sits ABOVE the axes box,
+            % the x/ylabels sit in the OUTSIDE margins, AND the tick labels
+            % render in the margins too — so against the dark widget panel
+            % they all need the dashboard theme's foreground color.
+            try
+                if ~isempty(obj.Title),  set(get(ax, 'Title'),  'Color', titleColor); end
+                if ~isempty(obj.XLabel), set(get(ax, 'XLabel'), 'Color', titleColor); end
+                if ~isempty(obj.YLabel), set(get(ax, 'YLabel'), 'Color', titleColor); end
+                % Tick label color (XColor/YColor also control axis line +
+                % tick marks; the axes box color stays via FastSense's own
+                % styling — only the tick text + line color follow the panel
+                % background).
+                set(ax, 'XColor', titleColor, 'YColor', titleColor);
+            catch
+            end
 
             % Reformat time-axis ticks to HH:MM:SS / MM:SS for readability
             % (main branch addition from #66 / datetime axis migration).
@@ -921,14 +958,30 @@ classdef FastSenseWidget < DashboardWidget
             end
             fp.addTag(obj.Tag);
 
+            % See render() — title sits above the axes against the panel,
+            % so use the dashboard theme's ToolbarFontColor for legibility.
+            % Prefer GroupHeaderFg (near-white in dark / near-black in light)
+            % over ToolbarFontColor for stronger contrast against the panel.
+            titleColor = get(ax, 'XColor');
+            try
+                t = obj.getTheme();
+                if isstruct(t)
+                    if isfield(t, 'GroupHeaderFg')
+                        titleColor = t.GroupHeaderFg;
+                    elseif isfield(t, 'ToolbarFontColor')
+                        titleColor = t.ToolbarFontColor;
+                    end
+                end
+            catch
+            end
             if ~isempty(obj.Title)
-                title(ax, obj.Title, 'Color', get(ax, 'XColor'));
+                title(ax, obj.Title, 'Color', titleColor);
             end
             if ~isempty(obj.XLabel)
-                xlabel(ax, obj.XLabel, 'Color', get(ax, 'XColor'));
+                xlabel(ax, obj.XLabel, 'Color', titleColor);
             end
             if ~isempty(obj.YLabel)
-                ylabel(ax, obj.YLabel, 'Color', get(ax, 'XColor'));
+                ylabel(ax, obj.YLabel, 'Color', titleColor);
             end
 
             fp.render();
