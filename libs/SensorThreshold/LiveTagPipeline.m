@@ -66,6 +66,17 @@ classdef LiveTagPipeline < handle
                                     % unchanged write-on-every-tick cadence per D-12). The handle is created in this
                                     % class's scope so the resolution to the private/ helper is captured at class
                                     % load time. Tests/benchmarks override via setWriteFnForTesting_ (Hidden).
+        cachedWriteFn_ = @writeTagMatCached_   % Phase 1028 plan 02d: cached append helper that skips load().
+                                               % Captured at class load time so resolution to the private/ helper
+                                               % is bound. Disabled by setting cacheActive_ = false (Hidden setter).
+        priorState_                 % Phase 1028 plan 02d: containers.Map keyed by tag key.
+                                    %   Value: struct('X', priorX, 'Y', priorY) reflecting the last save
+                                    %   for that tag. Empty/absent until the first warm tick. The cache is
+                                    %   refreshed after every successful write so subsequent ticks can skip
+                                    %   the on-disk load() inside writeTagMat_('append', ...).
+        cacheActive_ = true         % Phase 1028 plan 02d: production-default. The cache is opt-out via
+                                    %   the Hidden setCacheActiveForTesting_ setter so benchmarks can run
+                                    %   the cache-off comparison; production callers always benefit.
     end
 
     methods
@@ -116,7 +127,8 @@ classdef LiveTagPipeline < handle
             obj.Interval  = opts.Interval;
             obj.ErrorFcn  = opts.ErrorFcn;
             obj.Verbose   = opts.Verbose;
-            obj.tagState_ = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            obj.tagState_  = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            obj.priorState_ = containers.Map('KeyType', 'char', 'ValueType', 'any');
         end
 
         function start(obj)
@@ -199,6 +211,31 @@ classdef LiveTagPipeline < handle
                     'setWriteFnForTesting_ requires a function_handle (got %s)', class(fn));
             end
             obj.writeFn_ = fn;
+        end
+
+        function setCacheActiveForTesting_(obj, tf)
+            %SETCACHEACTIVEFORTESTING_ Internal-only setter for the prior-state cache.
+            %   Phase 1028 plan 02d: enable/disable the in-memory priorState_ cache
+            %   used to skip the on-disk load() in writeTagMat_('append',...).
+            %   Production callers MUST NOT use this — the cache is the production
+            %   default (cacheActive_ = true) and is byte-for-byte parity-tested
+            %   against the cache-off path. Disabling it is a benchmark feature for
+            %   measuring the load()-only cost (see bench_tag_pipeline_1k --cache-off).
+            %
+            %   Side effect: clears the existing priorState_ map so the next write
+            %   per tag re-seeds from disk via the standard append path (D-09).
+            %
+            %   Public API note: marked Hidden so it does not appear in
+            %   tab-completion, doc(), or properties() listings (D-10). Mirrors the
+            %   plan-02b setWriteFnForTesting_ pattern.
+            if ~(islogical(tf) && isscalar(tf))
+                error('TagPipeline:invalidCacheActive', ...
+                    'setCacheActiveForTesting_ requires a logical scalar (got %s).', class(tf));
+            end
+            obj.cacheActive_ = tf;
+            % Re-seed: clearing the cache is safe because the next write per tag
+            % falls back to writeFn_(...,'append',...) which load()s from disk.
+            obj.priorState_ = containers.Map('KeyType', 'char', 'ValueType', 'any');
         end
     end
 
@@ -307,7 +344,65 @@ classdef LiveTagPipeline < handle
             newX = x(newRange);
             newY = y(newRange);
 
-            obj.writeFn_(obj.OutputDir, t, newX, newY, 'append');
+            % Phase 1028 plan 02d: prefer the cached append path when the cache
+            % is active AND we have a warm entry for this tag. Cold cache (first
+            % write per tag) AND cache-off both fall through to the writeFn_
+            % path, which is the same load+concat+save sequence as before. The
+            % cache is then refreshed from the merged result so the next tick
+            % takes the warm path. Because writeTagMatCached_ produces byte-equal
+            % .mat files to writeTagMat_('append',...) for the same priorX/priorY,
+            % crash-recovery semantics at the tick boundary are preserved (D-12).
+            % Phase 1028 plan 02d cache strategy:
+            %   - Warm cache hit  -> writeTagMatCached_ (no load, save only).
+            %   - Cold cache, no on-disk file -> writeFn_('append',...) which
+            %     for a missing file just saves newX/newY (no load happens
+            %     inside writeTagMat_ for this branch — `exist(outPath,'file')`
+            %     is false so the load is skipped). Cache seeded from (newX,
+            %     newY) since that is exactly what was just written.
+            %   - Cold cache, existing on-disk file (process restart, cache
+            %     eviction): writeFn_('append',...) does its own load+save.
+            %     Cache seeded by reading the merged file once. This is the
+            %     ONLY load() the cache adds beyond the production tick path,
+            %     and it happens at most once per tag per pipeline-instance
+            %     lifetime.
+            useCache = obj.cacheActive_ && ...
+                isequal(obj.writeFn_, @writeTagMat_) && ...
+                obj.priorState_.isKey(key);
+            if useCache
+                prior = obj.priorState_(key);
+                [mergedX, mergedY] = obj.cachedWriteFn_( ...
+                    obj.OutputDir, t, newX, newY, prior.X, prior.Y);
+                obj.priorState_(key) = struct('X', mergedX, 'Y', mergedY);
+            else
+                outPath = fullfile(obj.OutputDir, [key '.mat']);
+                fileExistedBefore = (exist(outPath, 'file') == 2);
+                obj.writeFn_(obj.OutputDir, t, newX, newY, 'append');
+                if obj.cacheActive_ && isequal(obj.writeFn_, @writeTagMat_)
+                    if ~fileExistedBefore
+                        % Fresh file: writeTagMat_('append',...) just saved
+                        % (newX, newY) without loading anything. Seed the
+                        % cache directly — no extra disk read.
+                        obj.priorState_(key) = struct('X', newX(:), 'Y', newY(:));
+                    else
+                        % Existing file (process restart / cache eviction):
+                        % read back the merged file once to seed. This load
+                        % happens at most once per tag per pipeline-instance
+                        % lifetime; subsequent ticks skip load() entirely.
+                        try
+                            loaded = load(outPath);
+                            if isfield(loaded, key) && isstruct(loaded.(key)) && ...
+                                    isfield(loaded.(key), 'x') && isfield(loaded.(key), 'y')
+                                obj.priorState_(key) = struct( ...
+                                    'X', loaded.(key).x, ...
+                                    'Y', loaded.(key).y);
+                            end
+                        catch
+                            % Best-effort: if seed read fails the next tick
+                            % retries the cold path, which is correct.
+                        end
+                    end
+                end
+            end
 
             state.lastModTime = modTime;
             state.lastIndex   = total;

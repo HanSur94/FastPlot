@@ -45,6 +45,17 @@ classdef BatchTagPipeline < handle
                                     % unchanged). The handle is created in this class's scope so resolution to the
                                     % private/ helper is captured at class load time. Tests override via
                                     % setWriteFnForTesting_ (Hidden); see LiveTagPipeline for full rationale.
+        cachedWriteFn_ = @writeTagMatCached_   % Phase 1028 plan 02d: cached append helper that skips load().
+                                               % Mirrors LiveTagPipeline. Used only when the public run() is called
+                                               % multiple times against the same OutputDir for the same registry.
+        priorState_                 % Phase 1028 plan 02d: containers.Map keyed by tag key, persisted across
+                                    %   run() invocations. Value: struct('X', priorX, 'Y', priorY).
+                                    %   For BatchTagPipeline, run() always uses 'overwrite' mode so the cache
+                                    %   is reset on every run; the property exists primarily to keep the
+                                    %   class shape symmetric with LiveTagPipeline and to support future
+                                    %   append-mode batch runs.
+        cacheActive_ = true         % Phase 1028 plan 02d: production-default. Hidden setter mirrors
+                                    %   LiveTagPipeline.setCacheActiveForTesting_ for benchmark use.
     end
 
     methods
@@ -87,6 +98,7 @@ classdef BatchTagPipeline < handle
             end
             obj.OutputDir = opts.OutputDir;
             obj.Verbose   = opts.Verbose;
+            obj.priorState_ = containers.Map('KeyType', 'char', 'ValueType', 'any');
         end
 
         function report = run(obj)
@@ -171,6 +183,21 @@ classdef BatchTagPipeline < handle
                     'setWriteFnForTesting_ requires a function_handle (got %s)', class(fn));
             end
             obj.writeFn_ = fn;
+        end
+
+        function setCacheActiveForTesting_(obj, tf)
+            %SETCACHEACTIVEFORTESTING_ Internal-only setter for the prior-state cache.
+            %   Phase 1028 plan 02d: enable/disable the in-memory priorState_ cache.
+            %   Mirror of LiveTagPipeline.setCacheActiveForTesting_; production callers
+            %   MUST NOT use this — cache-on is the production default and is byte-for-byte
+            %   parity-tested against the cache-off path. Hidden so it does not appear in
+            %   tab-completion, doc(), or properties() listings (D-10).
+            if ~(islogical(tf) && isscalar(tf))
+                error('TagPipeline:invalidCacheActive', ...
+                    'setCacheActiveForTesting_ requires a logical scalar (got %s).', class(tf));
+            end
+            obj.cacheActive_ = tf;
+            obj.priorState_ = containers.Map('KeyType', 'char', 'ValueType', 'any');
         end
     end
 
