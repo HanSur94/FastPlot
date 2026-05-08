@@ -113,7 +113,7 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 | 1025. FastSense hover crosshair + datatip | pending | 0/? | Not started | — |
 | 1026. Dashboard time slider preview | pending | 0/? | Not started | — |
 | 1027. Companion detachable log window | pending | 0/? | Not started | — |
-| 1028. Tag update perf — MEX + SIMD | pending | 0/? | Not started | — |
+| 1028. Tag update perf — MEX + SIMD | pending | 0/6 | Not started | — |
 
 ## Phase Details (Pending Milestone)
 
@@ -153,11 +153,19 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 
 ### Phase 1028: Tag update perf — MEX + SIMD
 
-**Goal:** Profile and accelerate the tag update path (SensorTag/StateTag/MonitorTag/CompositeTag streaming + recompute). Identify hot spots and replace with C MEX kernels using SIMD (AVX2 / NEON) where it pays off, consistent with existing FastSense MEX patterns.
+**Goal:** Profile and accelerate the tag update path at the 1000-tag × N-source × 1-session workload anchor (CONTEXT.md D-01). Land MEX kernels (K1 delimited_parse, K2 monitor_fsm, K3 composite_merge, K4 aggregate_matrix) behind transparent .m fallback dispatch (D-09), and conditionally land Stage 2 architectural seams (A1+A2 listener coalescing) gated on Stage-1 measurement (D-05). All 5 existing benchmark gates remain green throughout (D-08); no public API changes (D-10); DerivedTag.UserFn untouched (D-11); .mat write cadence unchanged (D-12).
 
 **Promoted from:** Backlog 999.5 (2026-05-08)
-**Requirements:** TBD
-**Plans:** 0 plans
+**Decisions:** D-01..D-12 from .planning/phases/1028-tag-update-perf-mex-simd/1028-CONTEXT.md (no formal REQ-IDs for v3.x)
+**Plans:** 6 plans
+
+Plans:
+- [ ] 1028-01-PLAN.md — Wave 0: 1000-tag harness + parity scaffolds + regression suite + CI wiring + baseline measurement
+- [ ] 1028-02-PLAN.md — Wave 1: K1 delimited_parse_mex + .m fallback dispatch
+- [ ] 1028-03-PLAN.md — Wave 1: K2 monitor_fsm_mex (fused hysteresis+debounce+findRuns) + .m fallback
+- [ ] 1028-04-PLAN.md — Wave 1: K3 composite_merge_mex + K4 aggregate_matrix_mex (6 structural modes) + fallbacks
+- [ ] 1028-05-PLAN.md — Wave 2 (CONDITIONAL): Stage 2 architectural — A1 listener coalescing + A2 batch invalidate, gated on Stage-1 measurement
+- [ ] 1028-06-PLAN.md — Wave 3: Phase wrap — finalize VERIFICATION.md, update ROADMAP.md + STATE.md
 
 ## Backlog
 
