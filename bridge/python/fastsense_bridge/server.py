@@ -8,6 +8,8 @@ No UI — this is a pure data relay for external frameworks to consume.
 """
 
 import asyncio
+import logging
+import os
 import uuid
 from typing import Any
 
@@ -17,6 +19,10 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from .sqlite_reader import SqliteReader
+
+logger = logging.getLogger(__name__)
+
+_LOCALHOST_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
 
 class ActionRequest(BaseModel):
@@ -105,12 +111,41 @@ def create_app(state: AppState) -> FastAPI:
         title="FastSense Bridge",
         description="Lean connectivity bridge for MATLAB data access",
     )
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # CORS: lock down origins to localhost by default; allow opt-in override
+    # via FASTSENSE_BRIDGE_CORS_ORIGINS (comma-separated list, or "*" for
+    # explicit wildcard with a startup warning). Methods and headers stay
+    # open — origins are the auth boundary.
+    cors_env = os.environ.get("FASTSENSE_BRIDGE_CORS_ORIGINS", "").strip()
+    if not cors_env:
+        # Default: localhost / 127.0.0.1 on any port, http or https.
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[],
+            allow_origin_regex=_LOCALHOST_ORIGIN_REGEX,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    elif cors_env == "*":
+        logger.warning(
+            "FASTSENSE_BRIDGE_CORS_ORIGINS=* — CORS is wide open. "
+            "Do not use in production."
+        )
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    else:
+        explicit_origins = [
+            o.strip() for o in cors_env.split(",") if o.strip()
+        ]
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=explicit_origins,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     # --- Signal Data API ---
 
