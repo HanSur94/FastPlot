@@ -424,8 +424,8 @@ classdef HoverCrosshair < handle
             %   Order: rendered handle 'Color' -> Options.Color -> fallback.
             color = fallback;
             try
-                if isfield(lineRec, 'hLine') && ~isempty(lineRec.hLine) ...
-                        && ishandle(lineRec.hLine)
+                if isfield(lineRec, 'hLine') && ~isempty(lineRec.hLine) && ...
+                        ishandle(lineRec.hLine)
                     c = get(lineRec.hLine, 'Color');
                     if isnumeric(c) && numel(c) == 3
                         color = double(c(:)');
@@ -435,9 +435,9 @@ classdef HoverCrosshair < handle
             catch
             end
             try
-                if isfield(lineRec, 'Options') && isstruct(lineRec.Options) ...
-                        && isfield(lineRec.Options, 'Color') ...
-                        && ~isempty(lineRec.Options.Color)
+                if isfield(lineRec, 'Options') && isstruct(lineRec.Options) && ...
+                        isfield(lineRec.Options, 'Color') && ...
+                        ~isempty(lineRec.Options.Color)
                     c = lineRec.Options.Color;
                     if isnumeric(c) && numel(c) == 3
                         color = double(c(:)');

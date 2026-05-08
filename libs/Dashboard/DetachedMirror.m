@@ -259,6 +259,15 @@ classdef DetachedMirror < handle
             if isprop(cloned, 'EventStoreObj') && ~isempty(original.EventStoreObj)
                 cloned.EventStoreObj = original.EventStoreObj;
             end
+            % FastSenseWidget event-marker store (260508-eu2). EventStore is
+            % intentionally absent from toStruct/fromStruct (runtime handle).
+            % Copy it post-clone so the render guard at FastSenseWidget.m:103
+            % forwards markers to the inner FastSense. The LastEvent*_ change-
+            % detection cache is SetAccess=private so it cannot be copied from
+            % outside the class — refreshEventMarkers_ rebuilds it on first tick.
+            if isprop(cloned, 'EventStore') && ~isempty(original.EventStore)
+                cloned.EventStore = original.EventStore;
+            end
         end
 
         function s = stripSensorRefs(s)
