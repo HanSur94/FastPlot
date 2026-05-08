@@ -610,10 +610,21 @@ classdef DashboardLayout < handle
                 'BorderType', 'none', ...
                 'Tag', 'WidgetButtonBar');
             % Reposition on panel resize so the bar tracks the widget.
-            % SizeChangedFcn fires when the panel resizes (also on first
-            % layout if Units=normalized — harmless idempotent reflow).
-            set(widget.hPanel, 'SizeChangedFcn', ...
-                @(src, ~) DashboardLayout.reflowButtonBar_(src, barH, inset));
+            % Skip the SizeChangedFcn wiring under headless MATLAB R2020b:
+            % the immediate-fire-on-first-render path can SEGV the
+            % defaultFigureVisible='off' demo suite. The bar's initial
+            % pixel position above is already correct; resize follow-up
+            % is a nice-to-have only relevant in an interactive desktop.
+            try
+                isHeadless = isempty(getenv('DISPLAY')) && ...
+                    ~ispc && ~ismac && ~usejava('desktop');
+            catch
+                isHeadless = false;
+            end
+            if ~isHeadless
+                set(widget.hPanel, 'SizeChangedFcn', ...
+                    @(src, ~) DashboardLayout.reflowButtonBar_(src, barH, inset));
+            end
         end
 
         function addInfoIcon(obj, widget)
