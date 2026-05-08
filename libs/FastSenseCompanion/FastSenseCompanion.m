@@ -225,20 +225,16 @@ classdef FastSenseCompanion < handle
             obj.hLogPanel_ = uipanel(obj.hLayout_);
             obj.hLogPanel_.Layout.Row = 3; obj.hLogPanel_.Layout.Column = [1 3];
 
-            % Apply panel styling from theme. uipanel border properties
-            % differ between MATLAB R2020b (HighlightColor, no BorderWidth)
-            % and R2021a+ (BorderColor, BorderWidth). Pick by isprop so the
-            % code runs on both.
+            % Apply panel styling from theme. uifigure-uipanel border
+            % properties (BorderColor, BorderWidth) are R2021a+; on R2020b
+            % they error with UnsupportedAppDesignerFunctionality even
+            % though isprop() reports them as present. Tolerate failure
+            % per-property — BackgroundColor works on all versions.
             for hp = {obj.hLeftPanel_, obj.hMidPanel_, obj.hRightPanel_, obj.hLogPanel_}
                 hp{1}.BackgroundColor = obj.Theme_.WidgetBackground;
-                if isprop(hp{1}, 'BorderColor')
-                    hp{1}.BorderColor = obj.Theme_.WidgetBorderColor;
-                    hp{1}.BorderType  = 'line';
-                    hp{1}.BorderWidth = 1;
-                elseif isprop(hp{1}, 'HighlightColor')
-                    hp{1}.HighlightColor = obj.Theme_.WidgetBorderColor;
-                    hp{1}.BorderType     = 'line';
-                end
+                try, hp{1}.BorderColor = obj.Theme_.WidgetBorderColor; catch, end
+                try, hp{1}.BorderType  = 'line';                      catch, end
+                try, hp{1}.BorderWidth = 1;                           catch, end
             end
 
             % Build log strip (Header + uitextarea in a 2-row inner grid)
