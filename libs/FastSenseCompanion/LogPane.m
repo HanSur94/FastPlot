@@ -359,6 +359,47 @@ classdef LogPane < handle
             end
         end
 
+        function n = bufferSize(obj, which)
+        %BUFFERSIZE Test helper: row count of LogBuffer_ ('log') or LiveLogBuffer_ ('live').
+        %   Test-only API. Production code uses no such introspection — companion
+        %   forwards entries via addLogEntry / addLiveLogEntry only.
+            switch lower(char(which))
+                case 'log';  n = size(obj.LogBuffer_, 1);
+                case 'live'; n = size(obj.LiveLogBuffer_, 1);
+                otherwise
+                    error('LogPane:invalidBufferName', ...
+                        'which must be ''log'' or ''live'' (got ''%s'').', which);
+            end
+        end
+
+        function row = peekLogRow(obj, idx)
+        %PEEKLOGROW Test helper: read row idx (1-based, newest first) from LogBuffer_.
+            if idx < 1 || idx > size(obj.LogBuffer_, 1)
+                error('LogPane:indexOutOfRange', ...
+                    'idx %d out of range [1, %d].', idx, size(obj.LogBuffer_, 1));
+            end
+            row = obj.LogBuffer_(idx, :);
+        end
+
+        function bg = rootBackgroundColor(obj)
+        %ROOTBACKGROUNDCOLOR Test helper: read hRoot_.BackgroundColor (or [] if detached).
+            if isempty(obj.hRoot_) || ~isvalid(obj.hRoot_)
+                bg = [];
+            else
+                bg = obj.hRoot_.BackgroundColor;
+            end
+        end
+
+        function requestDetach(obj)
+        %REQUESTDETACH Programmatic equivalent of clicking the pop-out icon.
+        %   Production path: hPopoutBtn_.ButtonPushedFcn calls notify(obj,'DetachRequested')
+        %   directly. This wrapper exposes the same fire path for unit tests that
+        %   cannot reach the private button handle. Companion code MAY also call
+        %   this if it ever needs to fire the event programmatically — semantically
+        %   identical to a button click.
+            notify(obj, 'DetachRequested');
+        end
+
         function delete(obj)
         %DELETE Handle class destructor — calls detach() for safety.
             try
