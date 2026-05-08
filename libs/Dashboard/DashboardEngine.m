@@ -59,6 +59,7 @@ classdef DashboardEngine < handle
         hTimeSliderR    = []       % Shim handle — points at TimeRangeSelector_ (D-10)
         hTimeStart      = []
         hTimeEnd        = []
+        hTimeResetBtn   = []       % Reset button on time panel (260508-f7p — needed for theme switch)
         SliderDebounceTimer = []   % MATLAB timer for coalescing rapid slider events
         TimeRangeSelector_  = []   % TimeRangeSelector handle (replaces dual sliders)
         Progress_           = []   % DashboardProgress instance (active during render)
@@ -1075,6 +1076,12 @@ classdef DashboardEngine < handle
                         'ForegroundColor', theme.ToolbarFontColor);
                 end
             end
+            % Reset button shares the time panel's background/foreground.
+            if ~isempty(obj.hTimeResetBtn) && ishandle(obj.hTimeResetBtn)
+                set(obj.hTimeResetBtn, ...
+                    'BackgroundColor', theme.ToolbarBackground, ...
+                    'ForegroundColor', theme.ToolbarFontColor);
+            end
 
             % Page bar (visible or placeholder)
             if ~isempty(obj.hPageBar) && ishandle(obj.hPageBar)
@@ -1729,7 +1736,7 @@ classdef DashboardEngine < handle
             % the selection to the full DataTimeRange. Double-clicking the
             % selection patch does the same, but a visible button is more
             % discoverable.
-            uicontrol('Parent', obj.hTimePanel, ...
+            obj.hTimeResetBtn = uicontrol('Parent', obj.hTimePanel, ...
                 'Style', 'pushbutton', ...
                 'Units', 'normalized', ...
                 'Position', [0.003 0.15 0.035 0.7], ...
