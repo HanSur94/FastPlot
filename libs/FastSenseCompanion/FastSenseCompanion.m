@@ -743,6 +743,52 @@ classdef FastSenseCompanion < handle
             obj.SettingsDlg_ = CompanionSettingsDialog(obj);
         end
 
+        % --- Test helpers (Phase 1027) -- do not call from production ---
+        % These accessors expose private state to TestFastSenseCompanion only.
+        % They are intentionally public (MATLAB has no friend-class scope), but
+        % production code paths must continue to use the private members
+        % directly (LogPane_, hLogStateDD_, etc.) -- these wrappers exist solely
+        % so the test suite can verify state machine behavior without relaxing
+        % access on the real properties.
+
+        function p = getLogPane(obj)
+        %GETLOGPANE Test helper: return the LogPane instance.
+            p = obj.LogPane_;
+        end
+
+        function v = getLogStateValue(obj)
+        %GETLOGSTATEVALUE Test helper: return the toolbar dropdown value (or '').
+            if isempty(obj.hLogStateDD_) || ~isvalid(obj.hLogStateDD_)
+                v = '';
+            else
+                v = obj.hLogStateDD_.Value;
+            end
+        end
+
+        function hf = getDetachedLogFig(obj)
+        %GETDETACHEDLOGFIG Test helper: return the detached uifigure handle or [].
+            hf = obj.hDetachedLogFig_;
+        end
+
+        function rh = getRow3Height(obj)
+        %GETROW3HEIGHT Test helper: return numeric row 3 height of hLayout_.
+            rh = obj.hLayout_.RowHeight{3};
+        end
+
+        function applyLogState(obj, newState)
+        %APPLYLOGSTATE Test helper: public wrapper for the private setLogState_.
+            obj.setLogState_(newState);
+        end
+
+        function par = getLiveButtonParent(obj)
+        %GETLIVEBUTTONPARENT Test helper: return the parent handle of hLiveBtn_.
+            if isempty(obj.hLiveBtn_) || ~isvalid(obj.hLiveBtn_)
+                par = [];
+            else
+                par = obj.hLiveBtn_.Parent;
+            end
+        end
+
     end
 
     methods (Access = private)
