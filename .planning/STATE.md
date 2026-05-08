@@ -4,7 +4,7 @@ milestone: v3.0
 milestone_name: FastSense Companion
 status: shipped
 last_updated: "2026-05-08T08:00:00.000Z"
-last_activity: 2026-05-08 -- Completed quick task 260508-das: Restore dashboard time-slider preview lines + event markers (backlog 999.3)
+last_activity: 2026-05-08 -- Completed quick task 260508-edd: Per-event color in dashboard slider preview markers (sev1/2/3 -> green/orange/red)
 progress:
   total_phases: 6
   completed_phases: 6
@@ -19,7 +19,7 @@ shipped_at: 2026-04-30
 
 Milestone: v3.0 FastSense Companion — SHIPPED 2026-04-30
 Status: Awaiting next milestone (run `/gsd:new-milestone` to scope v3.x or v4.0)
-Last activity: 2026-05-08 -- Completed quick task 260508-das: Restore dashboard time-slider preview lines + event markers (backlog 999.3)
+Last activity: 2026-05-08 -- Completed quick task 260508-edd: Per-event color in dashboard slider preview markers (sev1/2/3 -> green/orange/red)
 
 ### Quick Tasks Completed
 
@@ -29,6 +29,7 @@ Last activity: 2026-05-08 -- Completed quick task 260508-das: Restore dashboard 
 | 260504-sgt | Implement Companion Settings Dialog (Theme + Live period) | 2026-05-04 | c522988 | Verified | [260504-sgt-implement-companion-settings-dialog-them](./quick/260504-sgt-implement-companion-settings-dialog-them/) |
 | 260504-sfp | Unify single-tag Open Detail through openAdHocPlot + right-click event-marker context menu | 2026-05-04 | 1d0ccd3 | — | [260504-sfp-fastsensecompanion-route-single-tag-open](./quick/260504-sfp-fastsensecompanion-route-single-tag-open/) |
 | 260508-das | Restore dashboard time-slider preview lines + event markers (backlog 999.3) | 2026-05-08 | 4110024 | Verified | [260508-das-implement-backlog-999-3-dashboard-time-s](./quick/260508-das-implement-backlog-999-3-dashboard-time-s/) |
+| 260508-edd | Color dashboard slider preview event markers per-severity (sev1/2/3 -> green/orange/red) | 2026-05-08 | 9c1ef82 | Verified | [260508-edd-color-slider-preview-event-markers-per-e](./quick/260508-edd-color-slider-preview-event-markers-per-e/) |
 
 ## Progress Bar
 
