@@ -77,6 +77,14 @@ classdef LiveTagPipeline < handle
         cacheActive_ = true         % Phase 1028 plan 02d: production-default. The cache is opt-out via
                                     %   the Hidden setCacheActiveForTesting_ setter so benchmarks can run
                                     %   the cache-off comparison; production callers always benefit.
+        writeFnIsProduction_ = true % Phase 1028 plan 02d: explicit flag tracking whether writeFn_ is the
+                                    %   default (production) handle. Set false by setWriteFnForTesting_ when
+                                    %   the bench swaps in a no-op writer. Used to gate the cache: if writeFn_
+                                    %   does not actually write to disk (NoIO benchmark mode), the cache must
+                                    %   be bypassed because there is no on-disk state to load back. We use an
+                                    %   explicit flag rather than `isequal(writeFn_, @writeTagMat_)` because
+                                    %   function-handle equality is unreliable for private/ helpers across
+                                    %   MATLAB / Octave versions.
     end
 
     methods
@@ -211,6 +219,11 @@ classdef LiveTagPipeline < handle
                     'setWriteFnForTesting_ requires a function_handle (got %s)', class(fn));
             end
             obj.writeFn_ = fn;
+            % Phase 1028 plan 02d: flip the production-handle flag so the
+            % cache wiring knows the writer no longer touches disk and the
+            % seed-from-disk path must be bypassed (NoIO mode is meaningless
+            % under cache because there's no .mat to read back).
+            obj.writeFnIsProduction_ = false;
         end
 
         function setCacheActiveForTesting_(obj, tf)
@@ -366,7 +379,7 @@ classdef LiveTagPipeline < handle
             %     and it happens at most once per tag per pipeline-instance
             %     lifetime.
             useCache = obj.cacheActive_ && ...
-                isequal(obj.writeFn_, @writeTagMat_) && ...
+                obj.writeFnIsProduction_ && ...
                 obj.priorState_.isKey(key);
             if useCache
                 prior = obj.priorState_(key);
@@ -377,7 +390,7 @@ classdef LiveTagPipeline < handle
                 outPath = fullfile(obj.OutputDir, [key '.mat']);
                 fileExistedBefore = (exist(outPath, 'file') == 2);
                 obj.writeFn_(obj.OutputDir, t, newX, newY, 'append');
-                if obj.cacheActive_ && isequal(obj.writeFn_, @writeTagMat_)
+                if obj.cacheActive_ && obj.writeFnIsProduction_
                     if ~fileExistedBefore
                         % Fresh file: writeTagMat_('append',...) just saved
                         % (newX, newY) without loading anything. Seed the

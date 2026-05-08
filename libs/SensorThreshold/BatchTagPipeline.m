@@ -56,6 +56,7 @@ classdef BatchTagPipeline < handle
                                     %   append-mode batch runs.
         cacheActive_ = true         % Phase 1028 plan 02d: production-default. Hidden setter mirrors
                                     %   LiveTagPipeline.setCacheActiveForTesting_ for benchmark use.
+        writeFnIsProduction_ = true % Phase 1028 plan 02d: tracks whether writeFn_ is the production handle.
     end
 
     methods
@@ -183,6 +184,7 @@ classdef BatchTagPipeline < handle
                     'setWriteFnForTesting_ requires a function_handle (got %s)', class(fn));
             end
             obj.writeFn_ = fn;
+            obj.writeFnIsProduction_ = false;
         end
 
         function setCacheActiveForTesting_(obj, tf)
