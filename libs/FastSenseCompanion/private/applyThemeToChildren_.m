@@ -23,6 +23,11 @@ function applyThemeToChildren_(rootHandle, theme)
 %   Out of scope: axes / uiaxes children (owned by FastSense widgets) and
 %   anything inside them (line/threshold colors).
 %
+%   Skip rule: any uipanel with Tag == 'LogPaneRoot' is treated as opaque —
+%   the walker does not recurse into it. This is the LogPane integration
+%   boundary (Phase 1027) — LogPane manages its own theming via
+%   FastSenseCompanion.applyTheme calling obj.LogPane_.applyTheme().
+%
 %   See also CompanionTheme, FastSenseCompanion.applyTheme.
 
     if isempty(rootHandle) || ~isvalid(rootHandle); return; end
@@ -45,6 +50,14 @@ function applyThemeToChildren_(rootHandle, theme)
         cls = class(ch);
         switch cls
             case 'matlab.ui.container.Panel'
+                % Skip LogPane subtree — LogPane manages its own theming via
+                % FastSenseCompanion.applyTheme calling obj.LogPane_.applyTheme().
+                % The walker recursing into hLogPanel_ would stomp LogPane's
+                % accent colors (PlaceholderTextColor on Updated label,
+                % striped uitable background pair).
+                if isprop(ch, 'Tag') && strcmp(ch.Tag, 'LogPaneRoot')
+                    continue;
+                end
                 try; ch.BackgroundColor = theme.WidgetBackground; catch; end
                 try; ch.BorderColor     = theme.WidgetBorderColor; catch; end
                 applyThemeToChildren_(ch, theme);
