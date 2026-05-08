@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778076037995,
+  "lastUpdate": 1778223380240,
   "repoUrl": "https://github.com/HanSur94/FastSense",
   "entries": {
     "FastPlot Performance": [
@@ -59215,6 +59215,310 @@ window.BENCHMARK_DATA = {
           {
             "name": "Dashboard broadcastTimeRange stdmean",
             "value": 0.026,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "50265832+HanSur94@users.noreply.github.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0fdabf45e723802431137a237cc72e691a8320a6",
+          "message": "Audit fixes: refresh CLAUDE.md, lock down WebBridge CORS + WS origin gate (#108)\n\n* docs(260508-b8m-01): refresh CLAUDE.md architecture for Tag-based API\n\n- Rewrote architecture/layers/key-abstractions/entry-points to match on-disk libs/\n- Removed all Sensor/SensorRegistry/ThresholdRule/EventDetector/IncrementalEventDetector references\n- Added Tag-based abstractions (Tag, MonitorTag, SensorTag, CompositeTag, DerivedTag, StateTag, TagRegistry)\n- Added FastSenseCompanion as the sixth layer with its actual classes and dependencies\n- Listed full Dashboard widget set including new ChipBarWidget, DetachedMirror, DashboardPage, etc.\n- Updated convention examples to current namespaces and method names\n\n* docs(260508-b8m-02): add Running MATLAB code section to CLAUDE.md\n\n- New top-level section between architecture and GSD workflow blocks\n- Documents all five mcp__matlab__* tools with one-line purposes\n- Notes that MATLAB is already running and figures appear in the MATLAB UI\n- Includes safety guidance against altering filesystem/environment without consent\n- Wrapped in GSD:matlab-mcp-start/end markers for downstream tooling\n\n* docs(260508-b8m): complete refresh-claude-md plan\n\nAdds SUMMARY for quick task 260508-b8m and records completion in STATE.md.\n\n* feat(quick-260508-bju): lock CORS to localhost with env-var override\n\n- Replace allow_origins=['*'] with localhost regex default\n- FASTSENSE_BRIDGE_CORS_ORIGINS env var: CSV list, or '*' opt-in\n- Wildcard branch logs WARNING at startup\n- allow_methods/allow_headers unchanged (origins are the auth boundary)\n\n* test(quick-260508-bju): add TestCORSPolicy covering localhost/env/wildcard\n\n- test_default_allows_localhost: localhost:5173, 127.0.0.1:8080 echoed\n- test_default_blocks_foreign_origin: evil.example.com not echoed\n- test_env_override_allows_listed_origin: explicit origin honored\n- test_wildcard_logs_warning: '*' branch emits WARNING and allows any origin\n\n* docs(quick-260508-bju): complete WebBridge CORS lock-down quick task\n\n- Add SUMMARY with task breakdown, must-haves verification, and follow-ups\n- Note WebSocket origin gating as known follow-up (CORSMiddleware does not\n  gate WS upgrades — out of scope per CONTEXT.md)\n- Update STATE.md last_activity and Quick Tasks Completed table\n\n* test(quick-260508-bxh-01): add failing tests for /ws origin gate\n\nAdds TestWebSocketOriginPolicy mirroring TestCORSPolicy. Three tests\nfail (RED) because /ws currently accepts any origin without checking\nthe same policy that gates HTTP CORS.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(quick-260508-bxh-01): gate /ws upgrade with shared origin policy\n\nCloses the WebSocket-side gap left after CORS lockdown (260508-bju):\nFastAPI's CORSMiddleware does not inspect WS upgrades, so a foreign\norigin could still establish a live event stream against /ws.\n\n- Extract resolve_cors_policy() returning a frozen CorsPolicy dataclass\n  (mode + regex + origins) — single source of truth consumed by both\n  HTTP CORSMiddleware setup and the WS gate.\n- Add is_origin_allowed(policy, origin) helper. Wildcard mode allows\n  any origin including missing; regex/list modes reject missing Origin.\n- /ws endpoint now reads the Origin header and calls\n  await ws.close(code=1008) BEFORE await ws.accept() on policy\n  violation — produces a handshake-time HTTP 403 surfacing as\n  WebSocketDisconnect(code=1008) on the client.\n- Wildcard warning moved into resolve_cors_policy() so it still fires\n  exactly once per create_app() call (test_wildcard_logs_warning\n  unchanged).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260508-bxh): complete /ws origin gate quick task\n\nAdds SUMMARY.md and updates STATE.md quick-tasks table with the\n260508-bxh entry (commit e1aeebc).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.7 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-05-08T08:48:44+02:00",
+          "tree_id": "08adb4b83f3527914d58e9324cf6dd445a9682c3",
+          "url": "https://github.com/HanSur94/FastSense/commit/0fdabf45e723802431137a237cc72e691a8320a6"
+        },
+        "date": 1778223378338,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample mean (1M)",
+            "value": 1.174,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(1M)",
+            "value": 0.007,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (1M)",
+            "value": 153.655,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(1M)",
+            "value": 0.923,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (1M)",
+            "value": 242.273,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(1M)",
+            "value": 1.711,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (1M)",
+            "value": 14.524,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(1M)",
+            "value": 3.592,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (5M)",
+            "value": 7.556,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(5M)",
+            "value": 0.094,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (5M)",
+            "value": 174.874,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(5M)",
+            "value": 1.541,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (5M)",
+            "value": 248.409,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(5M)",
+            "value": 0.529,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (5M)",
+            "value": 14.417,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(5M)",
+            "value": 0.591,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (10M)",
+            "value": 15.25,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std10M)",
+            "value": 0.07,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (10M)",
+            "value": 195.528,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std10M)",
+            "value": 1.734,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (10M)",
+            "value": 253.929,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std10M)",
+            "value": 0.532,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (10M)",
+            "value": 15.5,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std10M)",
+            "value": 0.685,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (50M)",
+            "value": 79.264,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std50M)",
+            "value": 0.335,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (50M)",
+            "value": 1264.803,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std50M)",
+            "value": 1.07,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (50M)",
+            "value": 248.787,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std50M)",
+            "value": 1.424,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (50M)",
+            "value": 14.7,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std50M)",
+            "value": 1.079,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (100M)",
+            "value": 157.455,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 5.626,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (100M)",
+            "value": 2486.085,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 64.067,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (100M)",
+            "value": 249.927,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 1.927,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (100M)",
+            "value": 14.412,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.75,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (500M)",
+            "value": 777.061,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 9.287,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (500M)",
+            "value": 22903.645,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 637.638,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (500M)",
+            "value": 291.356,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 14.029,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (500M)",
+            "value": 15.124,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.92,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render mean",
+            "value": 286.414,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render stdmean",
+            "value": 30.306,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick mean",
+            "value": 2.567,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick stdmean",
+            "value": 0.182,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch mean",
+            "value": 0.136,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch stdmean",
+            "value": 0.057,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange mean",
+            "value": 0.058,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange stdmean",
+            "value": 0.017,
             "unit": "ms"
           }
         ]
