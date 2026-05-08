@@ -1019,6 +1019,9 @@ classdef DashboardEngine < handle
             [effToolbarH, effPageBarH, effTimeH] = obj.applyChromeVisibility();
             obj.Layout.ContentArea = [0, effTimeH, ...
                 1, 1 - effToolbarH - effPageBarH - effTimeH];
+            % Reposition the banner BEFORE the widget rerender — banner Y must
+            % track current chrome heights even if rerenderWidgets() throws.
+            obj.repositionStaleBanner_();
             try
                 obj.rerenderWidgets();
             catch
@@ -1198,9 +1201,10 @@ classdef DashboardEngine < handle
 
         function createStaleBanner(obj, theme, toolbarH)
         %CREATESTALEBANNER Create the hidden stale-data warning banner overlay.
-        %   A uipanel strip below the toolbar containing a message label and
-        %   a close button. Hidden by default; shown when staleness is detected
-        %   and not previously dismissed by the user.
+        %   A uipanel strip below the toolbar AND below the page-tab strip
+        %   (when present) so the banner never occludes page navigation.
+        %   Hidden by default; shown when staleness is detected and not
+        %   previously dismissed by the user.
             if ~isempty(obj.hStaleBanner) && ishandle(obj.hStaleBanner)
                 return;
             end
@@ -1208,9 +1212,18 @@ classdef DashboardEngine < handle
             warnColor = theme.StatusWarnColor;
             fgColor   = [0.15 0.10 0.02];
 
+            % Effective page-bar height matches applyChromeVisibility:
+            % zero when single-page (tabs hidden), PageBarHeight when multi-page.
+            if numel(obj.Pages) > 1
+                effPageBarH = obj.PageBarHeight;
+            else
+                effPageBarH = 0;
+            end
+            bannerY = 1 - toolbarH - effPageBarH - bannerH;
+
             obj.hStaleBanner = uipanel('Parent', obj.hFigure, ...
                 'Units', 'normalized', ...
-                'Position', [0, 1 - toolbarH - bannerH, 1, bannerH], ...
+                'Position', [0, bannerY, 1, bannerH], ...
                 'BorderType', 'none', ...
                 'BackgroundColor', warnColor, ...
                 'Visible', 'off');
@@ -1234,6 +1247,30 @@ classdef DashboardEngine < handle
                 'FontWeight', 'bold', ...
                 'TooltipString', 'Dismiss this warning (reappears when data resumes then stops again)', ...
                 'Callback', @(~,~) obj.onStaleBannerClose());
+        end
+
+        function repositionStaleBanner_(obj)
+        %REPOSITIONSTALEBANNER_ Recompute banner Y from current chrome heights.
+        %   Safe to call before render or after teardown — no-ops when the
+        %   banner handle is empty/invalid. Banner stays an overlay; this
+        %   never touches Layout.ContentArea.
+            if isempty(obj.hStaleBanner) || ~ishandle(obj.hStaleBanner)
+                return;
+            end
+            if ~isempty(obj.Toolbar)
+                toolbarH = obj.Toolbar.Height;
+            else
+                toolbarH = 0;
+            end
+            if numel(obj.Pages) > 1
+                effPageBarH = obj.PageBarHeight;
+            else
+                effPageBarH = 0;
+            end
+            pos = get(obj.hStaleBanner, 'Position');
+            bannerH = pos(4);
+            set(obj.hStaleBanner, 'Position', ...
+                [0, 1 - toolbarH - effPageBarH - bannerH, 1, bannerH]);
         end
 
         function showStaleBanner(obj, staleTitles)
@@ -1523,6 +1560,7 @@ classdef DashboardEngine < handle
         %ONRESIZE Handle figure resize: reposition all widget panels.
             if ~isempty(obj.hFigure) && ishandle(obj.hFigure)
                 obj.repositionPanels();
+                obj.repositionStaleBanner_();
             end
         end
 

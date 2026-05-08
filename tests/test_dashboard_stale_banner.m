@@ -166,6 +166,39 @@ function test_dashboard_stale_banner()
         nFailed = nFailed + 1;
     end
 
+    % testBannerBelowPageBarMultiPage
+    try
+        d = DashboardEngine('BannerBelowTabs');
+        d.addPage('A');
+        d.addPage('B');
+        d.addWidget('number', 'Title', 'T', 'Position', [1 1 6 2], 'StaticValue', 1);
+        d.render();
+        set(d.hFigure, 'Visible', 'off');
+
+        caBefore = d.Layout.ContentArea;
+        d.showStaleBanner({'X'});
+
+        bannerPos  = get(d.hStaleBanner, 'Position');
+        pageBarPos = get(d.hPageBar,     'Position');
+        % Banner top must sit at-or-below the page-bar bottom (no overlap).
+        bannerTop  = bannerPos(2) + bannerPos(4);
+        pageBarBot = pageBarPos(2);
+        assert(bannerTop <= pageBarBot + 1e-6, ...
+            sprintf('banner top %.4f must be <= page-bar bottom %.4f', ...
+                bannerTop, pageBarBot));
+        assert(strcmp(get(d.hPageBar, 'Visible'), 'on'), ...
+            'page bar must remain visible while banner is shown');
+        assert(isequal(d.Layout.ContentArea, caBefore), ...
+            'ContentArea must be unchanged when banner is shown (overlay only)');
+
+        d.hideStaleBanner();
+        close(d.hFigure);
+        nPassed = nPassed + 1;
+    catch err
+        fprintf('    FAIL testBannerBelowPageBarMultiPage: %s\n', err.message);
+        nFailed = nFailed + 1;
+    end
+
     fprintf('    %d passed, %d failed.\n', nPassed, nFailed);
     if nFailed > 0
         error('test_dashboard_stale_banner:fail', ...
