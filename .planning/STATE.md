@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: FastSense Companion
 status: shipped
-last_updated: "2026-05-08T21:00:00.000Z"
-last_activity: 2026-05-08 -- Quick fix 260508-n3u (4a260ef): FastSenseWidget.getPreviewSeries skips downsampling for sensors with <=100 samples (raw fidelity below threshold, downsample above) (N3U-01)
+last_updated: "2026-05-08T22:00:00.000Z"
+last_activity: 2026-05-08 -- Quick fix 260508-ny6 (31a7b94): switchPage now marks active-page widgets dirty + refreshes them (incl. nested GroupWidget children), so HistogramWidget/HeatmapWidget/BarChartWidget/ScatterWidget no longer render empty after tab switch (NY6-01/02/03)
 progress:
   total_phases: 6
   completed_phases: 6
@@ -19,7 +19,7 @@ shipped_at: 2026-04-30
 
 Milestone: v3.0 FastSense Companion — SHIPPED 2026-04-30
 Status: Awaiting next milestone (run `/gsd:new-milestone` to scope v3.x or v4.0)
-Last activity: 2026-05-08 -- Quick fix 260508-n3u (4a260ef): FastSenseWidget.getPreviewSeries skips downsampling for sensors with <=100 samples (raw fidelity below threshold, downsample above) (N3U-01)
+Last activity: 2026-05-08 -- Quick fix 260508-ny6 (31a7b94): switchPage now marks active-page widgets dirty + refreshes them (incl. nested GroupWidget children), so HistogramWidget/HeatmapWidget/BarChartWidget/ScatterWidget no longer render empty after tab switch (NY6-01/02/03)
 
 ### Quick Tasks Completed
 
@@ -47,6 +47,7 @@ Last activity: 2026-05-08 -- Quick fix 260508-n3u (4a260ef): FastSenseWidget.get
 | 260508-mhv | Restore full-width WidgetButtonBar; render widget content into WidgetContentPanel sub-panel below the bar so titles/axes never truncate (MHV-01/02) | 2026-05-08 | 6860bad | Verified | [260508-mhv-full-width-widget-bar-with-content-panel](./quick/260508-mhv-full-width-widget-bar-with-content-panel/) |
 | 260508-n3u | FastSenseWidget.getPreviewSeries skips downsampling for sensors with <=100 samples (raw fidelity below threshold, downsample above) (N3U-01) | 2026-05-08 | 4a260ef | — | [260508-n3u-preview-skips-downsampling-under-100-sam](./quick/260508-n3u-preview-skips-downsampling-under-100-sam/) |
 | 260508-ng1 | Add Reset button to DashboardToolbar that triggers DashboardEngine.rerenderWidgets() | 2026-05-08 | fb80f4b | Verified | [260508-ng1-add-reset-button-to-dashboard-toolbar](./quick/260508-ng1-add-reset-button-to-dashboard-toolbar/) |
+| 260508-ny6 | switchPage marks active-page widgets dirty + refreshes them, incl. nested GroupWidget children; isolates per-widget refresh failures (NY6-01/02/03) | 2026-05-08 | 31a7b94 | — | [260508-ny6-tab-switch-marks-active-page-widgets-dir](./quick/260508-ny6-tab-switch-marks-active-page-widgets-dir/) |
 
 ## Progress Bar
 
