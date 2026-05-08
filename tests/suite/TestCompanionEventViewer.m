@@ -117,6 +117,49 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             testCase.verifyTrue(any(arrayfun(@(e) e.IsOpen, out)), ...
                 'Open event with EndTime=NaN must overlap any range that starts after its StartTime.');
         end
+
+        % --- Task 8: preset + setTimeRange tests ---
+
+        function testApplyPresetSnapshotWhenNotLive(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            comp.stopLiveMode();    % ensure not live
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            v.applyPreset_internalForTest('1h');
+            testCase.verifyEqual(v.TimePresetMode, 'snapshot');
+            testCase.verifyEqual(v.TimeRange(2) - v.TimeRange(1), 1/24, 'AbsTol', 1e-6);
+        end
+
+        function testApplyPresetRollWhenLive(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            if ~comp.IsLive; comp.startLiveMode(); end
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            v.applyPreset_internalForTest('24h');
+            testCase.verifyEqual(v.TimePresetMode, 'roll');
+            testCase.verifyEqual(v.TimeRange(2) - v.TimeRange(1), 1, 'AbsTol', 1e-6);
+        end
+
+        function testSetTimeRangeSwitchesModeToCustom(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            v.setTimeRange(100, 200);
+            testCase.verifyEqual(v.TimePresetMode, 'custom');
+            testCase.verifyEqual(v.TimeRange, [100 200]);
+        end
+
+        function testSetTimeRangeRejectsInverted(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            testCase.verifyError(@() v.setTimeRange(5, 5), 'CompanionEventViewer:invalidTimeRange');
+            testCase.verifyError(@() v.setTimeRange(10, 5), 'CompanionEventViewer:invalidTimeRange');
+        end
     end
 end
 

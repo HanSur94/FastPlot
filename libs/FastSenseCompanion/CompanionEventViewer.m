@@ -76,6 +76,43 @@ classdef CompanionEventViewer < handle
             end
         end
 
+        function setTimeRange(obj, tStart, tEnd)
+        %SETTIMERANGE Set an explicit time range; switches mode to 'custom'.
+        %   setTimeRange(tStart, tEnd) — both numeric scalars, tEnd > tStart.
+            if ~isnumeric(tStart) || ~isnumeric(tEnd) || ~isscalar(tStart) || ~isscalar(tEnd)
+                error('CompanionEventViewer:invalidTimeRange', ...
+                    'setTimeRange requires two numeric scalars.');
+            end
+            if ~(tEnd > tStart)
+                error('CompanionEventViewer:invalidTimeRange', ...
+                    'setTimeRange requires tEnd > tStart (got [%g %g]).', tStart, tEnd);
+            end
+            obj.TimeRange      = [tStart tEnd];
+            obj.TimePresetMode = 'custom';
+        end
+
+        function setTagFilter(obj, keysCell)
+        %SETTAGFILTER Set the tag key filter. {} / '' means "all tags".
+            if isempty(keysCell)
+                obj.SelectedTagKeys = {};
+                return;
+            end
+            if ~iscellstr(keysCell) %#ok<ISCLSTR>
+                if ischar(keysCell)
+                    keysCell = {keysCell};
+                else
+                    error('CompanionEventViewer:invalidTagFilter', ...
+                        'setTagFilter requires cellstr or char.');
+                end
+            end
+            obj.SelectedTagKeys = keysCell(:)';
+        end
+
+        function applyPreset_internalForTest(obj, name)
+        %APPLYPRESET_INTERNALFORTEST Test-only proxy for the preset handler.
+            obj.applyPreset_(name);
+        end
+
         function close(obj)
         %CLOSE Idempotent teardown: timer, listeners, canvas, figure.
             if isempty(obj.hFigure) || ~isgraphics(obj.hFigure)
@@ -155,6 +192,39 @@ classdef CompanionEventViewer < handle
     end
 
     methods (Access = private)
+        function applyPreset_(obj, name)
+        %APPLYPRESET_ Set TimeRange + TimePresetMode for a named preset.
+        %   Presets: '1h', '24h', '7d', 'all'.
+        %   'all' resolves min-start to max-end across the store events.
+            switch name
+                case '1h',  span = 1/24;
+                case '24h', span = 1;
+                case '7d',  span = 7;
+                case 'all', span = [];   % full extent — resolved below
+                otherwise
+                    error('CompanionEventViewer:unknownPreset', ...
+                        'Unknown preset ''%s''.', name);
+            end
+            if isempty(span)
+                evs = obj.Store_.getEvents();
+                if isempty(evs)
+                    obj.TimeRange = [now-1, now];
+                else
+                    starts = arrayfun(@(e) e.StartTime, evs);
+                    nowRef = now;
+                    ends   = arrayfun(@(e) EventGanttCanvas.eventEndOrNow(e, nowRef), evs);
+                    obj.TimeRange = [min(starts), max(nowRef, max(ends))];
+                end
+            else
+                obj.TimeRange = [now - span, now];
+            end
+            if obj.IsLive
+                obj.TimePresetMode = 'roll';
+            else
+                obj.TimePresetMode = 'snapshot';
+            end
+        end
+
         function buildFigure_(obj)
         %BUILDFIGURE_ Create the classic figure with three uipanels + Gantt axes.
             t = obj.Theme_;
