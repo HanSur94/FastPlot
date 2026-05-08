@@ -1,0 +1,97 @@
+# Phase 1028 Deferred Items
+
+Out-of-scope discoveries during plan 1028-01 execution. These are NOT fixed by this plan; surfaced for follow-up.
+
+## Pre-existing benchmark brokenness exposed by TestTagPerfRegression
+
+When the new `tests/suite/TestTagPerfRegression.m` (plan 1028-01 task 3) ran for the first time on CI under MATLAB R2021b, several existing D-08 benchmark scripts errored with PRE-existing bugs from the v2.0 Tag-API migration. These benches had not been wired into any CI workflow before plan 1028-01 surfaced them.
+
+### `benchmarks/bench_monitortag_tick.m`
+
+- **Line 47:** `s = SensorTag(sprintf('s%d', k));` constructs a SensorTag without X/Y data; immediately followed by a leftover migration TODO (line 48) that says `% TODO: s.X = x; s.Y = y; (needs manual fix)`. The X and Y are never set on `s`, so the "legacy path" sensor never has data.
+- **Line 49:** `t = MonitorTag(sprintf('t%d', k), 'Direction', 'upper');` passes `'Direction'` as the second positional argument. The MonitorTag constructor signature is `(key, parentTag, conditionFn, ...)` so `parentTag` is the string `'Direction'` and the constructor errors with `MonitorTag:invalidParent`. `t` is never used elsewhere.
+- **Lines 64-73:** The "Legacy baseline" measurement loop has an empty inner-most loop body (`for k = 1:nSensors\nend`), so `tLegacy` measures the time to do nothing. The subsequent overhead-percent assertion compares MonitorTag tick time against an essentially-zero baseline; on any real run, `overhead_pct` is huge and the gate would always fail.
+
+**On Octave:** the `MonitorTag('t', 'Direction', 'upper')` call apparently doesn't fail (likely due to Octave's looser positional-argument validation in OOP), so the bench RAN to completion on Octave but reported nonsense numbers. On MATLAB R2021b the same call hard-errors with `MonitorTag:invalidParent`.
+
+**Why this wasn't caught earlier:** `scripts/run_ci_benchmark.m` does not invoke any of the 5 D-08 benches; only the FastSense rendering / Dashboard benches. The 5 D-08 benches are documented gates but were never automated. Phase 1028's TestTagPerfRegression is the first piece of CI to actually invoke them.
+
+**Mitigation in plan 1028-01:** TestTagPerfRegression now wraps each bench invocation in a try/catch. If the bench errors AND the error is the pre-existing `MonitorTag:invalidParent` (or similar), the test method emits a diagnostic and assumes-skips (rather than failing the whole suite). This preserves the regression-gate intent: when the bench is later FIXED in a separate phase, TestTagPerfRegression starts asserting automatically.
+
+**Follow-up phase scope:**
+- Rewrite `bench_monitortag_tick.m` to compare a coherent baseline against the MonitorTag path. The original v1.0 "Sensor.resolve baseline" is no longer applicable since the legacy `Sensor` class was removed in phase 1011. A reasonable replacement: compare cold-cache `MonitorTag.invalidate()` + `getXY()` against the warm-cache `getXY()` (≈the cache-stale vs cache-hit cost ratio).
+- Audit the other 4 D-08 benches (`bench_compositetag_merge`, `_sensortag_getxy`, `_monitortag_append`, `_consumer_migration_tick`) for similar v2.0-migration leftovers. Most likely some of them have analogous brokenness that the new regression suite will surface.
+
+**Severity:** D-08 is listed as a HARD constraint in CONTEXT.md, but the gates as currently coded are not enforceable. The plan's intent (no regression in tag-path performance throughout phase 1028) requires the benches to first be fixed.
+
+---
+
+## TestFastSenseWidgetUpdate MATLAB segfault (pre-existing)
+
+The MATLAB R2021b CI cell crashes during `TestFastSenseWidgetUpdate` with a `Segmentation violation` in `libmwmcos_impl.so`. This crash predates phase 1028 (visible in main-branch CI runs prior to this branch). It is not addressed by plan 1028-01.
+
+The MATLAB CI job in `tests.yml` has a sentinel-file mechanism intended to absorb shutdown-time MATLAB segfaults — the sentinel is written when the test runner completes; if the sentinel is present at job end, the segfault is treated as a known shutdown-time issue. In this case the segfault happens DURING test execution (not at shutdown), so the sentinel is never written and the job fails.
+
+**Severity:** pre-existing on main. Out of scope for plan 1028-01.
+
+---
+
+## Default-branch existing test failures
+
+`TestDashboardListPane` reports several `assertNotEmpty failed` on MATLAB. These are pre-existing on main (visible in main CI runs prior to this branch). Out of scope for plan 1028-01.
+
+---
+
+## NoIO path-priority shim ineffective from SensorThreshold/private callers (1028-02 finding)
+
+When plan 1028-02 wired `tBreakdown` profiling into `bench_tag_pipeline_1k.m` (Octave `profile on/off` + function-name bucketing), the per-region table revealed:
+
+- **`load`: ~9.3 s** summed over 3 measurement ticks
+- **`save`: ~2.3 s** summed over 3 measurement ticks
+- **`writeTagMat_`: ~0.17 s** (the path-priority shim)
+
+The harness's NoIO mode installs a no-op `writeTagMat_.m` shim into a tempdir and prepends it via `addpath(shimDir, '-begin')`, intending to suppress all .mat I/O during the gated bench. The intent is to measure the tag/MEX path WITHOUT .mat I/O dominance per RESEARCH §"Risks and Unknowns" P2.
+
+**The shim does not take effect** when the call site lives inside `libs/SensorThreshold/` (i.e., `LiveTagPipeline.processTag_` calls `writeTagMat_`). MATLAB and Octave both resolve `writeTagMat_` to its `private/` neighbor regardless of higher-priority `addpath` entries, because `private/` directories are scoped to their parent and shadow path lookups for callers within that parent's scope.
+
+**Implications:**
+
+1. **Wave 0's `WithIO/NoIO ratio: 1.030×` was misleading.** Both runs were effectively WithIO. The correct interpretation: .mat I/O is **always** running, and the 1.030× delta represents only the harness's per-tick overhead difference, NOT the cost of the writes themselves.
+2. **D-12 ".mat I/O dominance check passed cleanly"** in Wave 0 SUMMARY is not yet substantiated. The Wave-1 profile shows .mat I/O at ~76% of total profiled wall time — by far the dominant cost. Whether this still warrants deferring `.mat` cadence optimization to a follow-up phase is a planning-level question the user should review before Wave 2 (Plan 03) is triggered.
+
+**Mitigation in plan 1028-02:** None applied directly. Plan 02 ships K1 + tBreakdown instrumentation as designed. The finding is surfaced in `1028-VERIFICATION.md` Stage-1 Final section and SUMMARY.md so subsequent plans can pivot.
+
+**Possible fixes (deferred):**
+
+- **A. Constructor option `'SkipWrite', true`** on `LiveTagPipeline` and `BatchTagPipeline`. Adds public surface (D-10 violation) and is the cleanest fix.
+- **B. Function-handle injection.** Add a `WriteFn` private property on the pipeline; default to `@writeTagMat_`; allow `setWriteFn_(@noop)` from the bench via a friend-class accessor. Less surface impact but invasive.
+- **C. Move `writeTagMat_.m` out of `private/`** to `libs/SensorThreshold/` (top-level). Loses private-helper isolation but lets `addpath -begin` do its job. Smallest surface change.
+- **D. Bench writes to a tempfs / RAM disk.** Changes the cost ratio but not the structure; on Linux CI shared runners /tmp is already a tmpfs, so the .mat writes may already be RAM-backed.
+
+**Severity:** HIGH for plan 03+ kernel selection. The H1–H10 ranking in RESEARCH.md cannot be trusted at this scale — RESEARCH did not anticipate that .mat I/O would dominate. A ~76% I/O share completely changes the kernel-selection calculus.
+
+---
+
+## Class-method tBreakdown buckets are 0 ms in Wave-1 profile (1028-02 finding)
+
+The profile-mode tBreakdown shows `monitor_recompute`, `composite_merge`, `aggregate`, and `listener_fanout` as ~0 ms/tick, despite 150 MonitorTags + 50 CompositeTags being constructed. Likely cause: in NoIO mode (which is also effectively WithIO per the shim issue), the per-tag work is dominated by load/save and the recompute path may not be triggering frequently enough at smoke scale to register meaningful time, OR Octave's profile is not visiting the inlined sub-method bodies through the bucketed function names.
+
+**Mitigation:** Each subsequent plan (1028-03 K2 monitor FSM, 1028-04 K3 composite merge / K4 aggregate matrix) should wire ITS OWN named `tic/toc` probes around the corresponding code as part of the kernel swap — not rely solely on Octave/MATLAB profile bucketing. This produces direct per-region wall numbers independent of profiler accuracy.
+
+**Severity:** MEDIUM. The Wave-1 tBreakdown still successfully surfaces the .mat I/O dominance (the consequential finding); the empty class-method buckets are noted but not blocking K1 ship.
+
+---
+
+## Pre-existing CI failures observed during Plan 1028-02d (NOT introduced by this plan)
+
+The Tests workflow on commit `8977707` (plan 02d's CI-unblock merge) shows three pre-existing failures inherited from `origin/main`:
+
+1. **MATLAB Lint failure: `libs/Dashboard/DashboardEngine.m` line 72 exceeds 160 chars** — long inline comment for the `LastSyncedTimeRange_` property added by quick-task `260508-llw`. This came in via the merge of `origin/main` (commit set `971f822`+) and was not present on the branch prior to plan 02d. Per scope_boundary rule (only auto-fix issues directly caused by this plan's changes), NOT fixed in plan 02d. Should be addressed by a follow-up `style:` quick task that wraps the trailing portion of the comment.
+
+2. **Octave Tests failure: `test_dashboard_time_sync_all_pages`** — assertion failures around `Pages` private-access subsasgn and `PostSet` undefined. Same provenance: introduced by `260508-llw` quick task. Not in plan 02d's scope (no SensorThreshold changes). Pre-existing on main HEAD as of merge.
+
+3. **MATLAB R2021b shutdown segfault** — observed at process-shutdown phase (`utUnloadLibrary`/`dlclose` stack frames) AFTER all class-based suite tests pass. TestPriorStateCacheParity ran 4/4 successfully before the crash. The sentinel-write logic interpreted shutdown crash as test failure. This is the same pre-existing TestFastSenseWidgetUpdate-related infrastructure issue documented in Plan 02b's deferred-items (it predates phase 1028).
+
+**Severity:** LOW for plan 02d. None of these failures are caused by plan 02d's cache changes. The TestPriorStateCacheParity suite passed (4/4). The Benchmark workflow (D-08 gates) is the relevant gate; it ran independently and is the source of truth for plan 02d's "all 4 active D-08 gates green" success criterion.
+
+**Mitigation:** Surface to user. Follow-up quick tasks for #1 and #2 (both pre-existing main issues). #3 was already documented and accepted as a known infrastructure quirk by Plan 02b.

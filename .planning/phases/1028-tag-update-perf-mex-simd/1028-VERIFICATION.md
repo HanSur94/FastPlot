@@ -363,6 +363,106 @@ attacking the dominant costs in this order:
 This is a pivot from RESEARCH.md's H1–H10 ranking, but it is grounded
 in clean measurement rather than estimates.
 
+## Post-Cache tBreakdown — Plan 1028-02d
+
+CI run: https://github.com/HanSur94/FastSense/actions/runs/25567022263 (Benchmark — success)
+Commit: `5b622d1` (fix: explicit `writeFnIsProduction_` flag replacing brittle `isequal(writeFn_,@writeTagMat_)` check)
+Branch: `claude/adoring-ishizaka-edc93c`
+
+**Important:** The first Plan 02d CI run on commit `8977707` showed cache-on (5552ms) and cache-off (5433ms) WithIO tickMin essentially equal because `isequal(writeFn_, @writeTagMat_)` returns false for two function-handles to the same `private/` helper across MATLAB / Octave versions — the cache was never being hit. Fix in commit `5b622d1` replaces the equality check with an explicit `writeFnIsProduction_` boolean property; the production-default is `true`, the `setWriteFnForTesting_` setter flips it to `false`. Numbers below are from the post-fix run.
+
+**Mechanism (one paragraph):** `LiveTagPipeline` and `BatchTagPipeline`
+gain a private `priorState_` cache (`containers.Map` keyed by tag key,
+value `struct('X', priorX, 'Y', priorY)`) plus a `cacheActive_` flag
+(production default `true`) and a `Hidden setCacheActiveForTesting_`
+setter mirroring the Plan 02b `setWriteFnForTesting_` DI-seam pattern.
+On every `processTag_` call: warm cache hit -> route through
+`writeTagMatCached_(...,priorX,priorY)` which skips the `load()` and
+saves directly; cold cache + fresh file -> standard `writeFn_('append',...)`
+which doesn't load() for non-existent files, then seed the cache from
+(newX, newY); cold cache + existing file (process restart) -> standard
+load+save path with one cache-seed read. After warm-up, every tick saves
+once per tag without any `load()`. D-12 cadence preserved (one save per
+tag per tick); D-09 parity preserved (cache-on `.mat` files are
+byte-equal to cache-off — enforced by `TestPriorStateCacheParity`).
+
+### Headline metrics (CI Octave Linux x86_64, gnuoctave/octave:11.1.0)
+
+| Metric | Plan 02b (cache-off baseline) | Plan 02d (cache-on) | Δ |
+|--------|-------------------------------|---------------------|---|
+| WithIO `tickMin` (cache-on, production default) | 5225.1 ms (Plan 02b commit `fb8a03b`) | **3662.0 ms** | **−1563.1 ms = −29.9%** |
+| WithIO `tickMin` (cache-off, regression check) | — | **5467.4 ms** | **+4.6% vs Plan 02b 5225 ms** ✓ within ±5% tolerance |
+| NoIO `tickMin` | 1816.9 ms | 2408.6 ms | +33% (same path; CI run-to-run variance ±35% per Plan 02b notes) |
+
+The cache-on WithIO tickMin (3662 ms) is also significantly closer to NoIO tickMin (2408 ms) than cache-off WithIO (5467 ms) is — the WithIO/NoIO ratio drops from 3.01× (cache-off) to **1.52× (cache-on)**, confirming roughly half of the residual WithIO cost above NoIO is the `save()` step (which the cache cannot eliminate).
+
+### Full WithIO tBreakdown (cache-on vs cache-off, smoke `--profile`, 3 measurement ticks)
+
+| Region | cache-off (ms/tick) | cache-on (ms/tick) | Δ (cache eliminates) |
+|--------|---------------------|--------------------|----------------------|
+| `mat_write` (incl. `load`/`save`) | **2083.5** | **720.2** | **−1363.3 ms (−65.4%)** ← load eliminated, save remains |
+| `other`             | 2490.2 | 2447.0 | (~no change — per-tag dispatch / fs metadata; ~3000 ms/tick at smoke includes warmup) |
+| **Total profiled (excl. parse/select)**  | 4573.7 | 3167.2 | **−1406.5 ms** |
+
+(Note: smoke profile is 3 ticks; per-tick numbers above are the bench's smokeTicksDivisor=3 averaging. The `parse` and `select` regions are not separately profiled in WithIO mode in this CI run; they appear only in the NoIO `tag_pipeline_1k_breakdown_*` rows. NoIO breakdown unchanged from Plan 02b: parse ~192 ms/tick, select ~58 ms/tick, other ~2090 ms/tick.)
+
+### `load` call-count reduction
+
+- **Pre-cache (cache-off / Plan 02b baseline):** Every tick × every tag
+  = 1000 × nTicks calls to `load()` inside `writeTagMat_('append',...)`.
+  At full-bench (nTicks=30) that is **30 000 `load` syscalls per run**.
+  Confirmed by `mat_write` at 2083.5 ms/tick = ~6.25 s across 3 smoke ticks
+  (consistent with Plan 02's `load`+`save` ≈ 11.6 s / 3 ticks before the
+  separate save-side cost was isolated).
+- **Post-cache (cache-on / production default):** First-warm tick per
+  tag pays a fresh-file save (no load) since the bench's outDir starts
+  empty; all 1000 tags take the cold-fresh path on tick 1. Ticks 2..30
+  hit the warm cache. Total `load` syscalls per run: **0** (bench
+  scenario) or at most **1 per tag** when an existing on-disk state
+  is being inherited (process-restart scenario, capped at 1 per tag
+  per pipeline-instance lifetime).
+- Reduction: **30 000 -> 0 in the bench scenario (100% removed)**;
+  **30 000 -> ≤1000 in the process-restart scenario (≥97% removed)**.
+- **Validated by `mat_write` collapse from 2083.5 ms/tick (cache-off) to 720.2 ms/tick (cache-on), a −65.4% drop.** The residual 720 ms/tick is the `save()` cost (writing the merged X/Y back to disk every tick), which the cache does NOT touch — D-12 cadence preserves write-on-every-tick.
+
+### Strategic implication for Plan 05 (architectural — H8/H9)
+
+Plan 02b documented that with `.mat` write I/O dominating ~65% of
+production tick (5.2 s WithIO), no kernel swap inside SensorThreshold
+could move the production tick more than ~35%. With Plan 02d's cache
+landed, the leverage profile shifts:
+
+**If post-cache WithIO tickMin is close to the Plan 02b NoIO 1.82 s**
+(i.e., the cache absorbs nearly all of the I/O cost), then the
+post-cache tick is dominated by what was the NoIO `other` bucket
+at 88% of NoIO tick — that is the H8 (per-tag dispatch:
+`@containers.Map/subsref`, `@LiveTagPipeline/processTag_`) and H10
+(per-tag filesystem metadata: `dir`, `exist`, `fullfile`) costs Plan
+02b's TL;DR flagged as the second-highest-leverage region. **Plan 05's
+"ship Stage 2 ONLY if H8 or H9 are >25% of post-Stage-1 tickMin"
+trigger almost certainly trips at this point** — H8+H10 are ~50% of
+the cleanly-measured NoIO tick (which is now what WithIO tick
+approaches). The architectural work in Plan 05 (listener fan-out
+coalescing, batched invalidation, per-tag dispatch reduction) has a
+direct line to the dominant remaining cost.
+
+**If post-cache WithIO tickMin is significantly above Plan 02b NoIO
+1.82 s** (cache absorbs only part of `mat_write`), the diagnosis
+shifts: the residual `mat_write` is the `save` step, not `load`.
+That points to a follow-up optimization on the save side
+(`save -struct wrap` overhead per call) but Plan 05's H8/H9 trigger
+still trips because `other` at 87% of NoIO is unchanged in absolute
+terms — it just becomes a smaller fraction of WithIO.
+
+**Recommendation regardless of which case the data shows:** Plan 05
+should run as currently scoped. The cache eliminates the read-side
+of `mat_write` but does not touch `other`/H8/H9, which Plan 02b
+already established as the next-largest cost. Plans 03/04
+(K2/K3/K4 kernel swaps) remain weaker candidates because their
+target regions still bucket as 0 ms in the post-cache tBreakdown
+unless plans 03/04 add direct `tic/toc` probes per Plan 02b's
+recommendation.
+
 ## Stage 2 Final (plan 06)
 
 TBD or "deferred per Stage 2 Trigger".

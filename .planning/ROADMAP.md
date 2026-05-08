@@ -115,7 +115,7 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 | 1026. Dashboard time slider preview | pending | 0/? | Not started | — |
 | 1027. Companion detachable log window | pending | 5/5 | Complete    | 2026-05-08 |
 | 1027.1. Independent events/live log detach | pending | 8/8 | Complete    | 2026-05-08 |
-| 1028. Tag update perf — MEX + SIMD | pending | 2/6 | In Progress |  |
+| 1028. Tag update perf — MEX + SIMD | pending | 3/6 (+ 02b/02d insertions) | In Progress | Wave-1.5 cache lands; Plans 03/04/05 ahead |
 
 ## Phase Details (Pending Milestone)
 
@@ -192,6 +192,8 @@ Plans:
 Plans:
 - [x] 1028-01-PLAN.md — Wave 0: 1000-tag harness + parity scaffolds + regression suite + CI wiring + baseline measurement
 - [x] 1028-02-PLAN.md — Wave 1: K1 delimited_parse_mex + .m fallback dispatch
+- [x] 1028-02b — Wave 1.5 (insertion, no formal PLAN.md): NoIO measurement-gap fix via DI seam (`writeFn_` private + Hidden `setWriteFnForTesting_`); clean tBreakdown shows 65% of WithIO tick is .mat I/O
+- [x] 1028-02d — Wave 1.5 (insertion, no formal PLAN.md): in-memory prior-state cache eliminating per-tick `load()` inside `writeTagMat_('append',...)`; D-09 byte-equal parity (TestPriorStateCacheParity); D-10 / D-12 preserved
 - [ ] 1028-03-PLAN.md — Wave 2: K2 monitor_fsm_mex (fused hysteresis+debounce+findRuns) + .m fallback
 - [ ] 1028-04-PLAN.md — Wave 3: K3 composite_merge_mex + K4 aggregate_matrix_mex (6 structural modes) + fallbacks
 - [ ] 1028-05-PLAN.md — Wave 4 (CONDITIONAL): Stage 2 architectural — A1 listener coalescing + A2 batch invalidate, gated on Stage-1 measurement
