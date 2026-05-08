@@ -215,6 +215,13 @@ classdef DashboardEngine < handle
                     obj.realizeBatch(5);
                 end
             end
+            % Re-apply the current synced time range so widgets that just
+            % realized on this tab inherit the dashboard-wide window
+            % instead of their construction default. (260508-llw)
+            if ~isempty(obj.LastSyncedTimeRange_)
+                rng = obj.LastSyncedTimeRange_;
+                obj.broadcastTimeRange(rng(1), rng(2));
+            end
             % Refresh the preview envelope on the newly active page (D-07).
             try obj.computePreviewEnvelope(); catch err
                 if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
