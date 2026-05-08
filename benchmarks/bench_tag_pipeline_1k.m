@@ -10,16 +10,21 @@ function result = bench_tag_pipeline_1k(varargin)
     %     bench_tag_pipeline_1k()                  % NoIO mode, gated, full run
     %     bench_tag_pipeline_1k('--smoke')         % NoIO, nTicks=10, no gate (CI smoke)
     %     bench_tag_pipeline_1k('Mode', 'WithIO')  % diagnostic, not gated
+    %     bench_tag_pipeline_1k('--profile')       % NoIO + profile on/off; populates tBreakdown
     %     result = bench_tag_pipeline_1k(...)      % returns struct with timings
     %
     %   Output struct fields:
     %     tickMin       — minimum tick wall (seconds)
     %     tickMedian    — median tick wall (seconds)
-    %     tBreakdown    — struct('parse', t1, 'perTag', t2, 'fanout', t3, 'merge', t4)
-    %                     Wave 0: all zeros (slot reserved for Wave 1+ named-region wiring).
+    %     tBreakdown    — struct of named region wall times (seconds).
+    %                     Populated when '--profile' is passed; otherwise zeros.
+    %                     Regions (Wave 1+): parse, monitor_recompute,
+    %                     composite_merge, aggregate, listener_fanout,
+    %                     mat_write, select, other, totalProfiled.
     %     mode          — 'NoIO' | 'WithIO'
     %     wallTotal     — total wall time of the warmup+measurement loop (seconds)
     %     nTagsTotal    — 1000 (sanity check)
+    %     profiled      — logical, true iff '--profile' was passed
     %
     %   Modes (P2 mitigation per RESEARCH §"Risks and Unknowns"):
     %     'NoIO'   (default, gated): writeTagMat_ shimmed to no-op via path
@@ -64,14 +69,18 @@ function result = bench_tag_pipeline_1k(varargin)
     addpath(fullfile(here, '..'));
     install();
 
-    % --------- Mode + smoke parsing ---------
+    % --------- Mode + smoke + profile parsing ---------
     mode = 'NoIO';
     smoke = false;
+    profileMode = false;
     i = 1;
     while i <= numel(varargin)
         arg = varargin{i};
         if ischar(arg) && strcmp(arg, '--smoke')
             smoke = true;
+            i = i + 1;
+        elseif ischar(arg) && strcmp(arg, '--profile')
+            profileMode = true;
             i = i + 1;
         elseif ischar(arg) && strcmpi(arg, 'Mode')
             if i + 1 > numel(varargin)
@@ -82,7 +91,7 @@ function result = bench_tag_pipeline_1k(varargin)
             i = i + 2;
         else
             error('bench_tag_pipeline_1k:badArgs', ...
-                'Unknown argument %s. Expected ''--smoke'' or ''Mode''.', ...
+                'Unknown argument %s. Expected ''--smoke'', ''--profile'', or ''Mode''.', ...
                 disp_(arg));
         end
     end
@@ -179,18 +188,42 @@ function result = bench_tag_pipeline_1k(varargin)
     p = LiveTagPipeline('OutputDir', outDir, 'Interval', 999);   % timer never used
 
     tickTimes = nan(1, nTicks);
-    tBreakdown = struct('parse', 0, 'perTag', 0, 'fanout', 0, 'merge', 0);
+    tBreakdown = emptyBreakdown_();
+
+    % If --profile, capture a single profile pass over the measurement
+    % ticks (warmup runs without profile to avoid first-call distortion).
+    % MATLAB and Octave both expose `profile on/off` and `profile('info')`.
+    profileWasOn = false;
+    if profileMode
+        % Reset profiler state before capture; some Octave versions retain
+        % data across profile on/off cycles.
+        try
+            profile('clear');
+        catch
+        end
+    end
 
     wallStart = tic;
     for k = 1:(nWarmup + nTicks)
         rowCounts = growAllRawFiles_(csvPaths, rowCounts, nAppend, nCols);   % outside timing
         if k > nWarmup
+            % Enable profile on first measurement tick; disable after last.
+            if profileMode && (k - nWarmup) == 1
+                profile('on');
+                profileWasOn = true;
+            end
             t0 = tic;
             p.tickOnce();
             tickTimes(k - nWarmup) = toc(t0);
         else
             p.tickOnce();
         end
+    end
+    profileTopN = struct('name', {{}}, 'totalTime', []);
+    if profileWasOn
+        profile('off');
+        tBreakdown = collectBreakdown_(nTicks);
+        profileTopN = collectTopNFunctions_(20);
     end
     wallTotal = toc(wallStart);
 
@@ -208,10 +241,38 @@ function result = bench_tag_pipeline_1k(varargin)
     result.mode       = mode;
     result.wallTotal  = wallTotal;
     result.nTagsTotal = nTagsTotal;
+    result.profiled   = profileMode;
+    result.profileTopN = profileTopN;
 
     fprintf('  tickMin    : %.4f s\n', result.tickMin);
     fprintf('  tickMedian : %.4f s\n', result.tickMedian);
     fprintf('  wallTotal  : %.2f s (budget: <%.0f s)\n', wallTotal, walletBudget);
+
+    if profileMode
+        fprintf('\n  Top 20 profile functions (TotalTime, summed across %d ticks):\n', nTicks);
+        for kk = 1:numel(profileTopN.name)
+            fprintf('    %7.4f s  %s\n', profileTopN.totalTime(kk), profileTopN.name{kk});
+        end
+
+        fprintf('\n  tBreakdown (profile-mode, %d measurement ticks):\n', nTicks);
+        regs = fieldnames(tBreakdown);
+        totProf = 0;
+        for r = 1:numel(regs)
+            if strcmp(regs{r}, 'totalProfiled')
+                continue;
+            end
+            v = tBreakdown.(regs{r});
+            totProf = totProf + v;
+            fprintf('    %-22s %8.4f s   (%6.2f ms / tick)\n', ...
+                regs{r}, v, 1000 * v / nTicks);
+        end
+        fprintf('    %-22s %8.4f s\n', 'totalProfiled (sum)', totProf);
+        if isfield(tBreakdown, 'totalProfiled') && tBreakdown.totalProfiled > 0
+            fprintf('    %-22s %8.4f s   (%.2f%% of total profiled)\n', ...
+                'parse share', tBreakdown.parse, ...
+                100 * tBreakdown.parse / tBreakdown.totalProfiled);
+        end
+    end
 
     % --------- Gate (only when not smoke) ---------
     if ~smoke
@@ -277,6 +338,198 @@ function teardown_(shimDir, rawDir, outDir)
             rmdir(outDir, 's');
         end
     catch
+    end
+end
+
+function tb = emptyBreakdown_()
+    %EMPTYBREAKDOWN_ Zero-initialized region table (Wave 1 schema).
+    %   Region taxonomy mirrors RESEARCH.md §"Hot-Loop Inventory":
+    %     parse              — H1: dispatchDelimitedParse_ + readRawDelimited_
+    %                          + delimited_parse_mex
+    %     monitor_recompute  — H2/H3/H4/H5: MonitorTag.recompute_/
+    %                          applyHysteresis_/applyDebounce_/findRuns_/
+    %                          fireEventsInTail_/fireEventsOnRisingEdges_
+    %     composite_merge    — H6: CompositeTag.mergeStream_
+    %     aggregate          — H7: CompositeTag.aggregateMatrix_
+    %     listener_fanout    — H9: notifyListeners_ + Tag.invalidate
+    %     mat_write          — D-12 deferred I/O: writeTagMat_
+    %     select             — selectTimeAndValue_ (column slice)
+    %     other              — everything else (including dispatch overhead H8)
+    %     totalProfiled      — sum of all named regions (sanity)
+    tb = struct( ...
+        'parse',             0, ...
+        'monitor_recompute', 0, ...
+        'composite_merge',   0, ...
+        'aggregate',         0, ...
+        'listener_fanout',   0, ...
+        'mat_write',         0, ...
+        'select',            0, ...
+        'other',             0, ...
+        'totalProfiled',     0);
+end
+
+function tb = collectBreakdown_(nTicks)
+    %COLLECTBREAKDOWN_ Bucket profile('info') functions into named regions.
+    %   Bucket assignment is name-prefix matched against
+    %   RESEARCH.md §"Hot-Loop Inventory" function names.
+    %
+    %   The Octave/MATLAB profile records `TotalTime` per function (wall
+    %   clock, in seconds, summed across all calls). We sum into the
+    %   matching region. Because both runtimes count Self+Children when
+    %   `TotalTime` is reported, we use it consistently here — a function's
+    %   time includes anything it calls. To avoid double-counting we only
+    %   bucket leaf-ish targets: the explicit hot-spot helpers, NOT their
+    %   class-method orchestrators.
+    %
+    %   This is approximate but sufficient to identify which region
+    %   dominates the 4.4 s tick. Wave 2/3 plans can refine with named
+    %   tic/toc probes inside their own kernel swap.
+    tb = emptyBreakdown_();
+    %#ok<*TRYNC>
+    info = [];
+    try
+        info = profile('info');
+    catch
+    end
+    if isempty(info) || ~isfield(info, 'FunctionTable')
+        return;
+    end
+    ft = info.FunctionTable;
+    if isempty(ft)
+        return;
+    end
+
+    % Region patterns: substring match against function-name. Octave
+    % reports class methods as '@ClassName/methodname' while MATLAB uses
+    % 'ClassName.methodname'. Patterns are substrings that hit both.
+    parsePats           = {'dispatchDelimitedParse_', 'readRawDelimited_', ...
+                           'delimited_parse_mex', 'sniffDelimiter_', ...
+                           'detectHeader_', 'splitByDelim_', 'tryParse_', ...
+                           'countDataRows_', 'textscan', 'dispatchParse_'};
+    recomputePats       = {'recompute_', 'applyHysteresis_', 'applyDebounce_', ...
+                           'findRuns_', 'fireEventsInTail_', ...
+                           'fireEventsOnRisingEdges_', 'to_step_function_mex', ...
+                           'compute_violations_mex', 'violation_cull_mex', ...
+                           '/recompute_', '/applyHysteresis_', '/applyDebounce_', ...
+                           '/fireEventsInTail_', '/fireEventsOnRisingEdges_', ...
+                           '/findRuns_'};
+    mergePats           = {'mergeStream_', '/mergeStream_'};
+    aggregatePats       = {'aggregateMatrix_', '/aggregateMatrix_'};
+    fanoutPats          = {'notifyListeners_', '/notifyListeners_', ...
+                           '/invalidate', 'invalidateBatch_', '/updateData'};
+    % mat_write also catches the load/save calls — writeTagMat_'s
+    % append-mode body is the ONLY caller of load/save in the bench
+    % tick path (verified via top-N diagnostic). Outside the bench
+    % these patterns may over-claim, but inside the harness they
+    % correctly attribute the >75% I/O cost the NoIO shim was
+    % supposed to suppress (see deferred-items.md "NoIO shim
+    % ineffective from SensorThreshold/private call sites").
+    %
+    % Use exact-match for 'load'/'save' to avoid hitting unrelated
+    % function names that happen to contain those substrings.
+    writePats           = {'writeTagMat_'};
+    writeExactPats      = {'load', 'save'};
+    selectPats          = {'selectTimeAndValue_'};
+
+    totalProf = 0;
+    for f = 1:numel(ft)
+        fname = ft(f).FunctionName;
+        ttime = 0;
+        if isfield(ft(f), 'TotalTime')
+            ttime = ft(f).TotalTime;
+        elseif isfield(ft(f), 'TotalRecursiveTime')
+            ttime = ft(f).TotalRecursiveTime;
+        end
+        if ~isfinite(ttime) || ttime <= 0
+            continue;
+        end
+        totalProf = totalProf + ttime;
+
+        if matchesAny_(fname, parsePats)
+            tb.parse = tb.parse + ttime;
+        elseif matchesAny_(fname, recomputePats)
+            tb.monitor_recompute = tb.monitor_recompute + ttime;
+        elseif matchesAny_(fname, mergePats)
+            tb.composite_merge = tb.composite_merge + ttime;
+        elseif matchesAny_(fname, aggregatePats)
+            tb.aggregate = tb.aggregate + ttime;
+        elseif matchesAny_(fname, fanoutPats)
+            tb.listener_fanout = tb.listener_fanout + ttime;
+        elseif matchesAny_(fname, writePats) || matchesExact_(fname, writeExactPats)
+            tb.mat_write = tb.mat_write + ttime;
+        elseif matchesAny_(fname, selectPats)
+            tb.select = tb.select + ttime;
+        else
+            tb.other = tb.other + ttime;
+        end
+    end
+    tb.totalProfiled = totalProf;
+    %#ok<*INUSD>
+    nTicks = max(1, nTicks);  %#ok<NASGU> kept for symmetry / per-tick math by caller
+end
+
+function topN = collectTopNFunctions_(n)
+    %COLLECTTOPNFUNCTIONS_ Return top-N functions by TotalTime from profile.
+    %   Wave 1+ tBreakdown's bucketing is approximate; the raw top-N list
+    %   is the ground truth for diagnosing where the 4.4s tick lives. The
+    %   result is captured in the returned bench struct so CI artifact
+    %   downstream consumers can read it.
+    topN = struct('name', {{}}, 'totalTime', []);
+    info = [];
+    try
+        info = profile('info');
+    catch
+    end
+    if isempty(info) || ~isfield(info, 'FunctionTable')
+        return;
+    end
+    ft = info.FunctionTable;
+    if isempty(ft)
+        return;
+    end
+    ts = arrayfun(@(s) getfield_(s, 'TotalTime'), ft);
+    [~, idx] = sort(ts, 'descend');
+    nKeep = min(n, numel(idx));
+    topN.name = cell(1, nKeep);
+    topN.totalTime = zeros(1, nKeep);
+    for kk = 1:nKeep
+        topN.name{kk} = ft(idx(kk)).FunctionName;
+        topN.totalTime(kk) = ts(idx(kk));
+    end
+end
+
+function v = getfield_(s, name)
+    %GETFIELD_ Safe field read returning 0 if missing or non-finite.
+    if isfield(s, name)
+        v = s.(name);
+        if ~isfinite(v) || v < 0, v = 0; end
+    else
+        v = 0;
+    end
+end
+
+function tf = matchesAny_(fname, pats)
+    %MATCHESANY_ Substring-match fname against any of pats. Strict prefix
+    %   would over-restrict (Octave reports functions as 'Class.method').
+    tf = false;
+    for j = 1:numel(pats)
+        if ~isempty(strfind(fname, pats{j}))
+            tf = true;
+            return;
+        end
+    end
+end
+
+function tf = matchesExact_(fname, pats)
+    %MATCHESEXACT_ Whole-name equality match. Used for short generic names
+    %   like 'load'/'save' where substring would hit too many false
+    %   positives.
+    tf = false;
+    for j = 1:numel(pats)
+        if strcmp(fname, pats{j})
+            tf = true;
+            return;
+        end
     end
 end
 

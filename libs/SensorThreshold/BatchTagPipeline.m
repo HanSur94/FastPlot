@@ -176,11 +176,14 @@ classdef BatchTagPipeline < handle
 
         function parsed = dispatchParse_(obj, abspath)  %#ok<INUSL>
             %DISPATCHPARSE_ Internal parser dispatch (D-02 forward-compat shape).
+            %   Routes through dispatchDelimitedParse_ which prefers the
+            %   compiled delimited_parse_mex (Phase 1028 K1) and falls back
+            %   to readRawDelimited_ when the MEX binary is absent (D-09).
             [~, ~, ext] = fileparts(abspath);
             ext = lower(ext);
             switch ext
                 case {'.csv', '.txt', '.dat'}
-                    parsed = readRawDelimited_(abspath);
+                    parsed = dispatchDelimitedParse_(abspath);
                 otherwise
                     error('TagPipeline:unknownExtension', ...
                         'Unsupported extension ''%s''. Supported: .csv .txt .dat', ext);
