@@ -278,8 +278,19 @@ classdef FastSenseCompanion < handle
                 obj.OriginalLogRowHeight_ = rh3;
             end
 
-            % Build log strip (Header + uitextarea in a 2-row inner grid)
-            obj.buildLogStrip_();
+            % Phase 1027 — instantiate LogPane and attach inline by default.
+            obj.LogPane_ = LogPane(obj.Theme_);
+            obj.Listeners_{end+1} = addlistener(obj.LogPane_, 'DetachRequested', ...
+                @(~,~) obj.setLogState_('Detached'));
+            % LiveSampleCount_ used to be initialised inside buildLogStrip_;
+            % move it here since buildLogStrip_ is gone but the pipeline
+            % bookkeeping still belongs to FastSenseCompanion (CONTEXT.md
+            % Live-pipeline integration boundary).
+            obj.LiveSampleCount_ = containers.Map( ...
+                'KeyType', 'char', 'ValueType', 'double');
+            obj.setLogState_('Inline');
+            % Seed the log with the same ready line buildLogStrip_ used to add.
+            obj.addLogEntry('info', 'Companion ready.');
 
             % Step 10 — Instantiate pane objects and attach
             obj.CatalogPane_   = TagCatalogPane();
@@ -577,26 +588,12 @@ classdef FastSenseCompanion < handle
         end
 
         function addLogEntry(obj, level, msg)
-        %ADDLOGENTRY Append a timestamped log line.
-        %   level — 'info' | 'warn' | 'error' (any short tag accepted)
-        %   msg   — char/string. Anything else is sprintf'd through %s.
-        %   Pushes onto LogBuffer_ (full history, newest first, capped at
-        %   500), then re-applies the level + text filter to update the
-        %   visible uitable rows.
-            if isempty(obj.hLogTable_) || ~isvalid(obj.hLogTable_); return; end
-            try
-                ts = char(datetime('now', 'Format', 'HH:mm:ss'));
-                if isstring(msg) && isscalar(msg); msg = char(msg); end
-                if ~ischar(msg); msg = sprintf('%s', msg); end
-                row = {ts, upper(char(level)), msg};
-                obj.LogBuffer_ = [row; obj.LogBuffer_];
-                if size(obj.LogBuffer_, 1) > 500
-                    obj.LogBuffer_ = obj.LogBuffer_(1:500, :);
-                end
-                obj.applyLogFilter_();
-            catch
-                % Logging must never crash the UI.
-            end
+        %ADDLOGENTRY Append a timestamped log line. Forwards to LogPane_.
+        %   Phase 1027: actual buffering + filter + render lives in LogPane.
+        %   This method survives as the public API for code that calls
+        %   `obj.addLogEntry(...)` directly (existing callers are unchanged).
+            if isempty(obj.LogPane_) || ~isvalid(obj.LogPane_); return; end
+            obj.LogPane_.addLogEntry(level, msg);
         end
 
         function refreshCatalog(obj)
@@ -718,160 +715,93 @@ classdef FastSenseCompanion < handle
             companionPrefs('save', prefs);
         end
 
-        function buildLogStrip_(obj)
-        %BUILDLOGSTRIP_ Construct two stacked logs: events (top) + live updates (bottom).
-        %   Events: search + level filter + updated label + live toggle in
-        %   the header, table below.
-        %   Live updates: 'Live updates' label + Clear button in header,
-        %   table {Time, Tag, +Samples, Latest} below.
-            t = obj.Theme_;
-            g = uigridlayout(obj.hLogPanel_, [4 1]);
-            g.RowHeight   = {28, 150, 28, '1x'};
-            g.ColumnWidth = {'1x'};
-            g.Padding = [8 4 8 4];
-            g.RowSpacing = 4;
-            g.BackgroundColor = t.WidgetBackground;
-
-            % Header: Log label | search | level dropdown | last-update | Live toggle.
-            gHdr = uigridlayout(g, [1 5]);
-            gHdr.Layout.Row = 1; gHdr.Layout.Column = 1;
-            gHdr.ColumnWidth = {40, '1x', 100, 150, 110};
-            gHdr.RowHeight = {'1x'};
-            gHdr.Padding = [0 0 0 0];
-            gHdr.ColumnSpacing = 8;
-            gHdr.BackgroundColor = t.WidgetBackground;
-
-            hLbl = uilabel(gHdr);
-            hLbl.Layout.Row = 1; hLbl.Layout.Column = 1;
-            hLbl.Text = 'Log'; hLbl.FontWeight = 'bold'; hLbl.FontSize = 11;
-            hLbl.FontColor = t.ForegroundColor;
-            hLbl.HorizontalAlignment = 'left'; hLbl.VerticalAlignment = 'center';
-
-            obj.hLogSearch_ = uieditfield(gHdr, 'text');
-            obj.hLogSearch_.Layout.Row = 1; obj.hLogSearch_.Layout.Column = 2;
-            obj.hLogSearch_.Placeholder = 'Search log…';
-            obj.hLogSearch_.FontSize = 11;
-            obj.hLogSearch_.ValueChangedFcn = @(~,~) obj.applyLogFilter_();
-
-            obj.hLogLevelDD_ = uidropdown(gHdr);
-            obj.hLogLevelDD_.Layout.Row = 1; obj.hLogLevelDD_.Layout.Column = 3;
-            obj.hLogLevelDD_.Items = {'All', 'INFO', 'WARN', 'ERROR'};
-            obj.hLogLevelDD_.Value = 'All';
-            obj.hLogLevelDD_.FontSize = 11;
-            obj.hLogLevelDD_.Tooltip = 'Filter by log level';
-            obj.hLogLevelDD_.ValueChangedFcn = @(~,~) obj.applyLogFilter_();
-
-            obj.hLastUpdateLbl_ = uilabel(gHdr);
-            obj.hLastUpdateLbl_.Layout.Row = 1; obj.hLastUpdateLbl_.Layout.Column = 4;
-            obj.hLastUpdateLbl_.Text = 'Updated: --:--:--';
-            obj.hLastUpdateLbl_.FontSize = 11; obj.hLastUpdateLbl_.FontName = 'Menlo';
-            obj.hLastUpdateLbl_.FontColor = t.PlaceholderTextColor;
-            obj.hLastUpdateLbl_.HorizontalAlignment = 'right';
-            obj.hLastUpdateLbl_.VerticalAlignment = 'center';
-            obj.hLastUpdateLbl_.Tooltip = 'Time of the last successful live refresh';
-
-            obj.hLiveBtn_ = uibutton(gHdr, 'push');
-            obj.hLiveBtn_.Layout.Row = 1; obj.hLiveBtn_.Layout.Column = 5;
-            obj.hLiveBtn_.Text = 'Live: OFF';
-            obj.hLiveBtn_.FontSize = 11; obj.hLiveBtn_.FontWeight = 'bold';
-            obj.hLiveBtn_.Tooltip = 'Toggle live refresh of the inspector';
-            obj.hLiveBtn_.ButtonPushedFcn = @(~,~) obj.toggleLiveMode();
-            obj.updateLiveButton_();
-
-            obj.hLogTable_ = uitable(g);
-            obj.hLogTable_.Layout.Row = 2; obj.hLogTable_.Layout.Column = 1;
-            obj.hLogTable_.ColumnName     = {'Time', 'Level', 'Message'};
-            obj.hLogTable_.ColumnWidth    = {65, 55, 'auto'};
-            obj.hLogTable_.ColumnEditable = [false false false];
-            obj.hLogTable_.RowName        = {};
-            obj.hLogTable_.FontSize       = 10;
-            obj.hLogTable_.FontName       = 'Menlo';
-            obj.hLogTable_.ForegroundColor = t.ForegroundColor;
-            if strcmp(obj.Theme, 'dark')
-                obj.hLogTable_.BackgroundColor = [0.13 0.13 0.13; 0.20 0.20 0.20];
-            else
-                obj.hLogTable_.BackgroundColor = [1.00 1.00 1.00; 0.94 0.94 0.94];
+        function setLogState_(obj, newState)
+        %SETLOGSTATE_ Transition the log between Inline / Detached / Hidden.
+        %   Single transition function called from:
+        %     - hLogStateDD_.ValueChangedFcn (toolbar dropdown)
+        %     - LogPane.DetachRequested listener (pop-out icon)
+        %     - hDetachedLogFig_.CloseRequestFcn (X button on detached window)
+        %   Idempotent: calling with the current dropdown value is a no-op.
+        %
+        %   newState — char: 'Inline' | 'Detached' | 'Hidden'
+            if ~ischar(newState) && ~(isstring(newState) && isscalar(newState))
+                error('FastSenseCompanion:invalidLogState', ...
+                    'newState must be ''Inline'', ''Detached'', or ''Hidden''.');
             end
-
-            % Seed buffer with one ready line and apply filter.
-            obj.LogBuffer_ = { ...
-                char(datetime('now', 'Format', 'HH:mm:ss')), 'INFO', 'Companion ready.'};
-            obj.applyLogFilter_();
-
-            % --- Live updates header (label + Clear button) ---
-            gLive = uigridlayout(g, [1 2]);
-            gLive.Layout.Row = 3; gLive.Layout.Column = 1;
-            gLive.ColumnWidth = {'1x', 80};
-            gLive.RowHeight = {'1x'};
-            gLive.Padding = [0 0 0 0]; gLive.ColumnSpacing = 8;
-            gLive.BackgroundColor = t.WidgetBackground;
-
-            hLiveLbl = uilabel(gLive);
-            hLiveLbl.Layout.Row = 1; hLiveLbl.Layout.Column = 1;
-            hLiveLbl.Text = 'Live updates'; hLiveLbl.FontWeight = 'bold'; hLiveLbl.FontSize = 11;
-            hLiveLbl.FontColor = t.ForegroundColor;
-            hLiveLbl.HorizontalAlignment = 'left'; hLiveLbl.VerticalAlignment = 'center';
-
-            hLiveClear = uibutton(gLive, 'push');
-            hLiveClear.Layout.Row = 1; hLiveClear.Layout.Column = 2;
-            hLiveClear.Text = 'Clear'; hLiveClear.FontSize = 11;
-            hLiveClear.Tooltip = 'Clear the live updates log';
-            hLiveClear.ButtonPushedFcn = @(~,~) obj.clearLiveLog_();
-
-            % --- Live updates table ---
-            obj.hLiveLogTable_ = uitable(g);
-            obj.hLiveLogTable_.Layout.Row = 4; obj.hLiveLogTable_.Layout.Column = 1;
-            obj.hLiveLogTable_.ColumnName     = {'Time', 'Tag', char([8710, ' samples']), 'Latest'};
-            obj.hLiveLogTable_.ColumnWidth    = {65, 'auto', 90, 90};
-            obj.hLiveLogTable_.ColumnEditable = [false false false false];
-            obj.hLiveLogTable_.RowName        = {};
-            obj.hLiveLogTable_.FontSize       = 10;
-            obj.hLiveLogTable_.FontName       = 'Menlo';
-            obj.hLiveLogTable_.ForegroundColor = t.ForegroundColor;
-            if strcmp(obj.Theme, 'dark')
-                obj.hLiveLogTable_.BackgroundColor = [0.13 0.13 0.13; 0.20 0.20 0.20];
-            else
-                obj.hLiveLogTable_.BackgroundColor = [1.00 1.00 1.00; 0.94 0.94 0.94];
+            newState = char(newState);
+            if ~any(strcmp(newState, {'Inline', 'Detached', 'Hidden'}))
+                error('FastSenseCompanion:invalidLogState', ...
+                    'newState must be ''Inline'', ''Detached'', or ''Hidden'' (got ''%s'').', ...
+                    newState);
             end
-            obj.hLiveLogTable_.Data = cell(0, 4);
-
-            % Per-tag last-seen sample count map (for delta detection).
-            obj.LiveSampleCount_ = containers.Map( ...
-                'KeyType', 'char', 'ValueType', 'double');
-        end
-
-        function clearLiveLog_(obj)
-        %CLEARLIVELOG_ Wipe the live-updates buffer + table.
-            obj.LiveLogBuffer_ = cell(0, 4);
-            if ~isempty(obj.hLiveLogTable_) && isvalid(obj.hLiveLogTable_)
-                obj.hLiveLogTable_.Data = cell(0, 4);
+            % Idempotency: read current state from dropdown (when present).
+            if ~isempty(obj.hLogStateDD_) && isvalid(obj.hLogStateDD_)
+                if strcmp(obj.hLogStateDD_.Value, newState)
+                    return;
+                end
             end
-        end
-
-        function addLiveLogEntry_(obj, tagKey, deltaSamples, latestY)
-        %ADDLIVELOGENTRY_ Push a row into the live-updates log.
-            if isempty(obj.hLiveLogTable_) || ~isvalid(obj.hLiveLogTable_); return; end
             try
-                ts = char(datetime('now', 'Format', 'HH:mm:ss'));
-                latestTxt = '—';
-                if ~isempty(latestY) && isnumeric(latestY) && isfinite(latestY)
-                    a = abs(latestY);
-                    if a == 0;       latestTxt = '0';
-                    elseif a >= 1000 || a < 0.01; latestTxt = sprintf('%.3g', latestY);
-                    elseif a >= 100;  latestTxt = sprintf('%.0f', latestY);
-                    elseif a >= 10;   latestTxt = sprintf('%.2f', latestY);
-                    else;             latestTxt = sprintf('%.3f', latestY);
-                    end
-                elseif ischar(latestY) || (isstring(latestY) && isscalar(latestY))
-                    latestTxt = char(latestY);
+                switch newState
+                    case 'Inline'
+                        % Tear down detached uifigure if present (without
+                        % triggering its CloseRequestFcn — we clear it first).
+                        if ~isempty(obj.hDetachedLogFig_) && isvalid(obj.hDetachedLogFig_)
+                            obj.hDetachedLogFig_.CloseRequestFcn = '';
+                            delete(obj.hDetachedLogFig_);
+                        end
+                        obj.hDetachedLogFig_ = [];
+                        % Detach LogPane from previous parent (if attached).
+                        if obj.LogPane_.IsAttached
+                            obj.LogPane_.detach();
+                        end
+                        % Restore row-3 height and re-attach inline.
+                        obj.hLayout_.RowHeight{3} = obj.OriginalLogRowHeight_;
+                        obj.LogPane_.attach(obj.hLogPanel_, obj.Theme_);
+
+                    case 'Detached'
+                        % Detach inline first, then build the detached uifigure.
+                        if obj.LogPane_.IsAttached
+                            obj.LogPane_.detach();
+                        end
+                        obj.hLayout_.RowHeight{3} = 0;
+                        % Title built via sprintf + char(8212) for the em-dash.
+                        % Single-quoted MATLAB strings do NOT interpret \x
+                        % escape sequences, so a literal '\x2014' would
+                        % appear in the title bar. char(8212) is the
+                        % correct, portable form.
+                        obj.hDetachedLogFig_ = uifigure( ...
+                            'Name',     sprintf('FastSense Companion %s Log', char(8212)), ...
+                            'Position', [0 0 720 480], ...
+                            'Color',    obj.Theme_.DashboardBackground);
+                        % Center on screen via MATLAB default helper.
+                        movegui(obj.hDetachedLogFig_, 'center');
+                        % CloseRequestFcn drives state back to Inline. The
+                        % cleared-handler dance in the 'Inline' branch above
+                        % prevents recursion when WE delete it programmatically.
+                        obj.hDetachedLogFig_.CloseRequestFcn = ...
+                            @(~,~) obj.setLogState_('Inline');
+                        obj.LogPane_.attach(obj.hDetachedLogFig_, obj.Theme_);
+
+                    case 'Hidden'
+                        if ~isempty(obj.hDetachedLogFig_) && isvalid(obj.hDetachedLogFig_)
+                            obj.hDetachedLogFig_.CloseRequestFcn = '';
+                            delete(obj.hDetachedLogFig_);
+                        end
+                        obj.hDetachedLogFig_ = [];
+                        if obj.LogPane_.IsAttached
+                            obj.LogPane_.detach();
+                        end
+                        obj.hLayout_.RowHeight{3} = 0;
                 end
-                row = {ts, char(tagKey), sprintf('+%d', deltaSamples), latestTxt};
-                obj.LiveLogBuffer_ = [row; obj.LiveLogBuffer_];
-                if size(obj.LiveLogBuffer_, 1) > 500
-                    obj.LiveLogBuffer_ = obj.LiveLogBuffer_(1:500, :);
+                % Sync dropdown (does NOT fire ValueChangedFcn per MATLAB
+                % convention — programmatic assignment is silent).
+                if ~isempty(obj.hLogStateDD_) && isvalid(obj.hLogStateDD_)
+                    obj.hLogStateDD_.Value = newState;
                 end
-                obj.hLiveLogTable_.Data = obj.LiveLogBuffer_;
-            catch
+            catch err
+                if ~isempty(obj.hFig_) && isvalid(obj.hFig_)
+                    uialert(obj.hFig_, err.message, 'FastSense Companion');
+                end
             end
         end
 
@@ -880,11 +810,12 @@ classdef FastSenseCompanion < handle
             % Guard for the truly-uninitialized state (property default is []).
             % Do NOT use isempty() here — isempty(containers.Map) returns true
             % whenever the map has 0 entries, and the map only acquires keys
-            % from inside this function (chicken-and-egg). buildLogStrip_()
-            % constructs the map in the constructor before startLiveMode() runs,
-            % so by the time the timer fires, LiveSampleCount_ is always a
+            % from inside this function (chicken-and-egg). The constructor
+            % initialises the map before startLiveMode() runs, so by the
+            % time the timer fires, LiveSampleCount_ is always a
             % containers.Map handle.
             if ~isa(obj.LiveSampleCount_, 'containers.Map'); return; end
+            if isempty(obj.LogPane_) || ~isvalid(obj.LogPane_); return; end
             try
                 tags = TagRegistry.find(@(t) isa(t, 'SensorTag') || isa(t, 'StateTag'));
             catch
@@ -909,49 +840,13 @@ classdef FastSenseCompanion < handle
                             if iscell(y); latestY = y{end}; else; latestY = y(end); end
                         end
                         if last > 0  % skip the first-seen baseline log
-                            obj.addLiveLogEntry_(key, delta, latestY);
+                            obj.LogPane_.addLiveLogEntry(key, delta, latestY);
                         end
                         obj.LiveSampleCount_(key) = n;
                     end
                 catch
                 end
             end
-        end
-
-        function applyLogFilter_(obj)
-        %APPLYLOGFILTER_ Re-apply level + text filter to LogBuffer_ → uitable.Data.
-            if isempty(obj.hLogTable_) || ~isvalid(obj.hLogTable_); return; end
-            rows = obj.LogBuffer_;
-            if isempty(rows)
-                obj.hLogTable_.Data = cell(0, 3); return;
-            end
-            % Level filter
-            lvl = 'All';
-            if ~isempty(obj.hLogLevelDD_) && isvalid(obj.hLogLevelDD_)
-                lvl = obj.hLogLevelDD_.Value;
-            end
-            if ~strcmpi(lvl, 'All')
-                keep = false(size(rows, 1), 1);
-                for i = 1:size(rows, 1)
-                    keep(i) = strcmpi(rows{i, 2}, lvl);
-                end
-                rows = rows(keep, :);
-            end
-            % Text filter — case-insensitive substring across all 3 columns.
-            qry = '';
-            if ~isempty(obj.hLogSearch_) && isvalid(obj.hLogSearch_)
-                qry = strtrim(obj.hLogSearch_.Value);
-            end
-            if ~isempty(qry)
-                qLow = lower(qry);
-                keep = false(size(rows, 1), 1);
-                for i = 1:size(rows, 1)
-                    line = lower([rows{i, 1}, ' ', rows{i, 2}, ' ', rows{i, 3}]);
-                    keep(i) = ~isempty(strfind(line, qLow)); %#ok<STREMP>
-                end
-                rows = rows(keep, :);
-            end
-            obj.hLogTable_.Data = rows;
         end
 
         function updateLiveButton_(obj)
@@ -982,9 +877,8 @@ classdef FastSenseCompanion < handle
                     obj.InspectorPane_.refreshLive();
                 end
                 obj.scanLiveTagUpdates_();
-                if ~isempty(obj.hLastUpdateLbl_) && isvalid(obj.hLastUpdateLbl_)
-                    obj.hLastUpdateLbl_.Text = sprintf('Updated: %s', ...
-                        char(datetime('now', 'Format', 'HH:mm:ss')));
+                if ~isempty(obj.LogPane_) && isvalid(obj.LogPane_)
+                    obj.LogPane_.setLastUpdated(datetime('now'));
                 end
             catch
                 % Live ticks must never crash the timer.
