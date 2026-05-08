@@ -225,12 +225,16 @@ classdef FastSenseCompanion < handle
             obj.hLogPanel_ = uipanel(obj.hLayout_);
             obj.hLogPanel_.Layout.Row = 3; obj.hLogPanel_.Layout.Column = [1 3];
 
-            % Apply panel styling from theme
+            % Apply panel styling from theme. uifigure-uipanel border
+            % properties (BorderColor, BorderWidth) are R2021a+; on R2020b
+            % they error with UnsupportedAppDesignerFunctionality even
+            % though isprop() reports them as present. Tolerate failure
+            % per-property — BackgroundColor works on all versions.
             for hp = {obj.hLeftPanel_, obj.hMidPanel_, obj.hRightPanel_, obj.hLogPanel_}
                 hp{1}.BackgroundColor = obj.Theme_.WidgetBackground;
-                hp{1}.BorderColor     = obj.Theme_.WidgetBorderColor;
-                hp{1}.BorderType      = 'line';
-                hp{1}.BorderWidth     = 1;
+                try, hp{1}.BorderColor = obj.Theme_.WidgetBorderColor; catch, end
+                try, hp{1}.BorderType  = 'line';                      catch, end
+                try, hp{1}.BorderWidth = 1;                           catch, end
             end
 
             % Build log strip (Header + uitextarea in a 2-row inner grid)
@@ -704,7 +708,8 @@ classdef FastSenseCompanion < handle
 
             obj.hLogSearch_ = uieditfield(gHdr, 'text');
             obj.hLogSearch_.Layout.Row = 1; obj.hLogSearch_.Layout.Column = 2;
-            obj.hLogSearch_.Placeholder = 'Search log…';
+            % Placeholder is R2021a+; tolerated on R2020b (no placeholder text).
+            try, obj.hLogSearch_.Placeholder = 'Search log…'; catch, end
             obj.hLogSearch_.FontSize = 11;
             obj.hLogSearch_.ValueChangedFcn = @(~,~) obj.applyLogFilter_();
 

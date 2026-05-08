@@ -204,7 +204,8 @@ classdef InspectorPane < handle
                 end
                 if ~isempty(obj.hPanel_) && isvalid(obj.hPanel_)
                     obj.hPanel_.BackgroundColor = t.WidgetBackground;
-                    obj.hPanel_.BorderColor     = t.WidgetBorderColor;
+                    % BorderColor is R2021a+ uifigure-uipanel; tolerated on R2020b.
+                    try, obj.hPanel_.BorderColor = t.WidgetBorderColor; catch, end
                 end
                 obj.setState(obj.State_, obj.Payload_);
             catch err
@@ -425,7 +426,8 @@ classdef InspectorPane < handle
 
             lt = uilabel(g); lt.Layout.Row = 1; lt.Layout.Column = 1;
             lt.Text = char(tag.Name); lt.FontSize = 14; lt.FontWeight = 'bold';
-            lt.FontColor = t.ForegroundColor; lt.WordWrap = 'on';
+            lt.FontColor = t.ForegroundColor;
+            try, lt.WordWrap = 'on'; catch, end  % R2022a+
             lt.HorizontalAlignment = 'left'; lt.VerticalAlignment = 'center';
             obj.hTagTitle_ = lt;
 
@@ -445,7 +447,9 @@ classdef InspectorPane < handle
             obj.hSparkPanel_ = uipanel(g);
             obj.hSparkPanel_.Layout.Row = 3; obj.hSparkPanel_.Layout.Column = 1;
             obj.hSparkPanel_.BackgroundColor = t.WidgetBackground;
-            obj.hSparkPanel_.BorderColor = t.WidgetBorderColor; obj.hSparkPanel_.BorderType = 'line';
+            % BorderColor is R2021a+ uifigure-uipanel; tolerated on R2020b.
+            try, obj.hSparkPanel_.BorderColor = t.WidgetBorderColor; catch, end
+            try, obj.hSparkPanel_.BorderType  = 'line';              catch, end
 
             obj.hRangeLbl_ = uilabel(g);
             obj.hRangeLbl_.Layout.Row = 4; obj.hRangeLbl_.Layout.Column = 1;
@@ -884,7 +888,8 @@ classdef InspectorPane < handle
 
             lt = uilabel(g); lt.Layout.Row = 1; lt.Layout.Column = 1;
             lt.Text = char(db.Name); lt.FontSize = 14; lt.FontWeight = 'bold';
-            lt.FontColor = t.ForegroundColor; lt.WordWrap = 'on';
+            lt.FontColor = t.ForegroundColor;
+            try, lt.WordWrap = 'on'; catch, end  % R2022a+
             lt.HorizontalAlignment = 'left'; lt.VerticalAlignment = 'center';
             obj.hDashTitle_ = lt;
 
@@ -1362,7 +1367,7 @@ classdef InspectorPane < handle
             lv = uilabel(hr); lv.Layout.Row = 1; lv.Layout.Column = 2;
             lv.Text = valTxt; lv.FontSize = 11; lv.FontColor = t.ForegroundColor;
             lv.HorizontalAlignment = 'left'; lv.VerticalAlignment = 'center';
-            lv.WordWrap = 'on';
+            try, lv.WordWrap = 'on'; catch, end  % R2022a+
             lv.Tooltip = valTxt;  % full value visible on hover even if visually clipped
         end
 
