@@ -33,16 +33,32 @@ function result = bench_tag_pipeline_1k(varargin)
     %     'WithIO' (diagnostic, NOT gated): full lifecycle including .mat
     %                                       writes; surfaces D-12 limitation.
     %
-    %   NoIO implementation choice (per Task 1 plan note):
-    %     Path-priority shim. We materialize a no-op `writeTagMat_.m` into a
-    %     temp directory and `addpath(tempShimDir, '-begin')`, then `rmpath`
-    %     in the cleanup (try/finally). Public API is untouched (D-10).
-    %     Octave's private-method visibility rule does NOT block this — the
-    %     SensorThreshold caller resolves writeTagMat_ via its parent's
-    %     `private/` directory, but the leading addpath wins on the search
-    %     order in both MATLAB and Octave for top-level (non-private) names
-    %     at the same level. This was selected over a constructor 'SkipWrite'
-    %     option to keep LiveTagPipeline's public surface exactly as-is.
+    %   NoIO implementation choice (Wave 1 plan 02b — supersedes Wave 0 path shim):
+    %     Dependency-injection seam. The harness constructs the pipeline and
+    %     then calls `p.setWriteFnForTesting_(@noopWrite_)` to swap the
+    %     private writeFn_ property from its default `@writeTagMat_` to a
+    %     no-op handle. This works because a function_handle captured inside
+    %     the LiveTagPipeline class body at class-load time IS bound to the
+    %     private/writeTagMat_ helper, and once bound, swapping the property
+    %     value reaches every call site without touching the path or the
+    %     production cadence (D-12 preserved).
+    %
+    %   Why the path-priority shim was abandoned:
+    %     Wave 0 materialized a no-op writeTagMat_.m into a tempdir and ran
+    %     `addpath(tempShimDir, '-begin')` to shadow the private/ helper.
+    %     Profile data from Wave 1 plan 02 showed this shim is INERT — load
+    %     and save still dominated 76% of profiled tick time. Root cause:
+    %     MATLAB/Octave scope private/ directories to their parent. When
+    %     LiveTagPipeline.processTag_ (which lives at
+    %     libs/SensorThreshold/LiveTagPipeline.m) calls writeTagMat_, the
+    %     resolver checks libs/SensorThreshold/private/ FIRST and stops
+    %     there — the prepended path is never consulted. The DI seam is
+    %     the one mechanism that bypasses this scoping rule.
+    %
+    %   Public API impact (D-10): none. setWriteFnForTesting_ is marked
+    %     Hidden so it does not appear in tab-completion, doc(), or the
+    %     properties() listing. Production callers see exactly the same
+    %     surface they did before plan 02b.
     %
     %   Determinism:
     %     - rng(0) on MATLAB; rand('state',0)/randn('state',0) on Octave
@@ -164,16 +180,12 @@ function result = bench_tag_pipeline_1k(varargin)
         nSensors + nState + nMonitor + nComposite, nSensors, nState, nMonitor, nComposite, ...
         nMachines, mode, char(repmat('  [SMOKE]', 1, double(smoke))));
 
-    % --------- Setup: temp dirs + path-priority NoIO shim ---------
+    % --------- Setup: temp dirs (NoIO is now wired post-construction via DI seam) ---------
     rawDir = setupTempRawDir_('bench_tp1k_raw');
     outDir = setupTempRawDir_('bench_tp1k_out');
-    shimDir = '';
-    if isNoIO
-        shimDir = installNoIOShim_();
-    end
 
-    % Cleanup discipline: TagRegistry + temp dirs + path shim teardown.
-    cleanupObj = onCleanup(@() teardown_(shimDir, rawDir, outDir));    %#ok<NASGU>
+    % Cleanup discipline: TagRegistry + temp dirs.
+    cleanupObj = onCleanup(@() teardown_(rawDir, outDir));             %#ok<NASGU>
     TagRegistry.clear();
 
     % --------- Build synthetic raw files (8 wide CSVs) ---------
@@ -196,6 +208,14 @@ function result = bench_tag_pipeline_1k(varargin)
 
     % --------- Pipeline driver ---------
     p = LiveTagPipeline('OutputDir', outDir, 'Interval', 999);   % timer never used
+    if isNoIO
+        % Phase 1028 plan 02b: DI seam swaps the private writeFn_ to a no-op
+        % handle so every per-tag write (load+concat+save in append mode) is
+        % short-circuited. This is the ONLY mechanism that actually reaches
+        % the libs/SensorThreshold/private/writeTagMat_ caller — addpath(-begin)
+        % is scoped out by MATLAB/Octave private/ visibility rules.
+        p.setWriteFnForTesting_(@noopWrite_);
+    end
 
     tickTimes = nan(1, nTicks);
     tBreakdown = emptyBreakdown_();
@@ -319,23 +339,16 @@ function dir_ = setupTempRawDir_(suffix)
     end
 end
 
-function teardown_(shimDir, rawDir, outDir)
-    %TEARDOWN_ Best-effort cleanup of TagRegistry, path shim, and temp dirs.
+function teardown_(rawDir, outDir)
+    %TEARDOWN_ Best-effort cleanup of TagRegistry and temp dirs.
+    %   Phase 1028 plan 02b: dropped path-shim teardown after the NoIO
+    %   mechanism switched from addpath(-begin) to a function-handle DI
+    %   seam (LiveTagPipeline.setWriteFnForTesting_). The seam needs no
+    %   teardown because the swapped writeFn_ lives only on the bench's
+    %   throw-away pipeline instance.
     try
         TagRegistry.clear();
     catch
-    end
-    if ~isempty(shimDir)
-        try
-            rmpath(shimDir);
-        catch
-        end
-        try
-            if exist(shimDir, 'dir')
-                rmdir(shimDir, 's');
-            end
-        catch
-        end
     end
     try
         if exist(rawDir, 'dir')
@@ -349,6 +362,14 @@ function teardown_(shimDir, rawDir, outDir)
         end
     catch
     end
+end
+
+function noopWrite_(varargin)  %#ok<INUSD>
+    %NOOPWRITE_ DI-seam target for NoIO mode. Discards inputs.
+    %   Same call signature as writeTagMat_(outputDir, tag, x, y, mode).
+    %   Replaces the path-priority shim that was inert because MATLAB/Octave
+    %   scope private/ directories to their parent (so addpath(-begin) cannot
+    %   shadow private/writeTagMat_ for callers inside libs/SensorThreshold/).
 end
 
 function tb = emptyBreakdown_()
@@ -541,23 +562,6 @@ function tf = matchesExact_(fname, pats)
             return;
         end
     end
-end
-
-function shimDir = installNoIOShim_()
-    %INSTALLNOIOSHIM_ Materialize a no-op writeTagMat_ shim and prepend to path.
-    %   Path priority makes the shim's writeTagMat_ resolved before the
-    %   SensorThreshold/private/writeTagMat_.m. The shim ignores all inputs.
-    shimDir = setupTempRawDir_('bench_tp1k_shim');
-    shimFile = fullfile(shimDir, 'writeTagMat_.m');
-    fid = fopen(shimFile, 'w');
-    if fid == -1
-        error('bench_tag_pipeline_1k:shim', 'Cannot create shim file %s', shimFile);
-    end
-    fprintf(fid, 'function writeTagMat_(varargin)\n');
-    fprintf(fid, '    %%WRITETAGMAT_ NoIO shim — bench_tag_pipeline_1k. Discards inputs.\n');
-    fprintf(fid, 'end\n');
-    fclose(fid);
-    addpath(shimDir, '-begin');
 end
 
 function writeInitialCsv_(path, nCols, nRows)
