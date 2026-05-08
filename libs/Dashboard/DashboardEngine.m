@@ -1878,9 +1878,12 @@ classdef DashboardEngine < handle
         end
 
         function computePreviewEnvelope(obj, nBuckets)
-        %COMPUTEPREVIEWENVELOPE Aggregate per-bucket min/max across
-        %   active-page widgets and push the result onto the selector's
-        %   envelope patch (D-07, D-08). nBuckets optional; when omitted,
+        %COMPUTEPREVIEWENVELOPE Aggregate per-bucket min/max across ALL widgets
+        %   on EVERY page and push the result onto the selector's envelope
+        %   patch (D-07, D-08). Multi-page dashboards therefore show the full
+        %   cross-tab envelope (260508-kau / KAU-01); single-page dashboards
+        %   are unaffected because allPageWidgets() returns obj.Widgets when
+        %   Pages is empty. nBuckets optional; when omitted,
         %   defaults to ~200 based on panel axes pixel width, clamped to
         %   [50, 400]. Silently no-ops when no selector is wired yet (e.g.
         %   before render()).
@@ -1912,7 +1915,11 @@ classdef DashboardEngine < handle
                 catch
                 end
             end
-            ws = obj.activePageWidgets();
+            % 260508-kau (KAU-01): aggregate across ALL pages so the slider
+            % preview reflects the entire dashboard, not just the active tab.
+            % allPageWidgets() returns obj.Widgets unchanged when Pages is
+            % empty, preserving single-page behavior bit-for-bit.
+            ws = obj.allPageWidgets();
             if isempty(ws)
                 obj.TimeRangeSelector_.setPreviewLines({});
                 env = struct('xCenters', [], 'yMin', [], 'yMax', []);
@@ -1984,8 +1991,10 @@ classdef DashboardEngine < handle
         end
 
         function computeEventMarkers(obj)
-        %COMPUTEEVENTMARKERS Aggregate event markers across active-page widgets
-        %   and push them onto the TimeRangeSelector's marker overlay.
+        %COMPUTEEVENTMARKERS Aggregate event markers across ALL widgets on EVERY
+        %   page and push them onto the TimeRangeSelector's marker overlay.
+        %   Multi-page dashboards therefore show the full cross-tab marker set
+        %   (260508-kau / KAU-01); single-page dashboards are unaffected.
         %
         %   Mirrors computePreviewEnvelope's guard + iteration pattern:
         %   no-op before render or when no widgets expose events. A failing
@@ -2017,7 +2026,11 @@ classdef DashboardEngine < handle
                 obj.TimeRangeSelector_.setEventMarkers([]);
                 return;
             end
-            ws = obj.activePageWidgets();
+            % 260508-kau (KAU-01): aggregate event markers across ALL pages,
+            % matching computePreviewEnvelope's all-pages contract. Dedup
+            % below already collapses duplicates by Time with max-severity
+            % tiebreaker, so cross-page events at identical Times stay safe.
+            ws = obj.allPageWidgets();
 
             % Accumulators (parallel arrays — keep allocation-free until
             % the dedup pass at the end). Severity defaults to 1 (OK) for
