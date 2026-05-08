@@ -269,6 +269,43 @@ classdef TestDashboardDetach < matlab.unittest.TestCase
                 'Inner FastSense.EventStore must remain empty when widget did not opt in');
         end
 
+        function testDetachMirrorsToggledOffEvents(testCase)
+        % DETACH-EVT-02 (260508-eu2 follow-up): If the user toggled events OFF
+        %   in the dashboard before detaching, the detached clone must mirror
+        %   that state — not show markers because ShowEventMarkers was true at
+        %   construction time.
+            if ~usejava('jvm'), testCase.assumeFail('JVM required for render'); end
+
+            w = FastSenseWidget();
+            parent = SensorTag('p_eu2_off');
+            parent.updateData([0 1 2 3 4 5], [0 0 0 10 10 0]);
+            w.Tag = parent;
+            es = EventStore('');
+            w.EventStore       = es;
+            w.ShowEventMarkers = true;
+
+            % Render the original briefly so FastSenseObj exists, then toggle
+            % markers OFF — mirroring the dashboard toolbar's Events button.
+            origFig = figure('Visible', 'off');
+            origPanel = uipanel('Parent', origFig);
+            w.render(origPanel);
+            w.setEventMarkersVisible(false);
+            testCase.verifyFalse(w.ShowEventMarkers, ...
+                'setEventMarkersVisible(false) must mirror into ShowEventMarkers');
+
+            themeStruct = DashboardTheme('light');
+            noop = @() [];
+            mirror = DetachedMirror(w, themeStruct, noop);
+            set(mirror.hFigure, 'Visible', 'off');
+            testCase.addTeardown(@() close('all', 'force'));
+
+            cloned = mirror.Widget;
+            testCase.verifyFalse(cloned.ShowEventMarkers, ...
+                'Clone must inherit toggled-off state, not the construction default');
+            testCase.verifyFalse(cloned.FastSenseObj.ShowEventMarkers, ...
+                'Inner FastSense must keep markers hidden after detach');
+        end
+
         % -----------------------------------------------------------------------
         % DETACH-06: Detaching does not create extra timers (PASSES)
         % -----------------------------------------------------------------------

@@ -267,6 +267,13 @@ classdef FastSenseWidget < DashboardWidget
             %   When rendered, delegates to FastSense.setShowEventMarkers
             %   which re-draws the overlay in place without disturbing
             %   zoom state or live refresh cadence.
+            %
+            %   Also mirrors the runtime visibility into obj.ShowEventMarkers
+            %   so that the property is the single source of truth — required
+            %   for detach (toStruct/fromStruct round-trip) to reflect the
+            %   user's current toggle state instead of the construction-time
+            %   default. (260508-eu2 follow-up.)
+            obj.ShowEventMarkers = logical(tf);
             if ~isempty(obj.FastSenseObj)
                 try
                     obj.FastSenseObj.setShowEventMarkers(tf);
