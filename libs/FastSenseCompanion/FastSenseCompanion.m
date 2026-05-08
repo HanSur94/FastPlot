@@ -435,28 +435,45 @@ classdef FastSenseCompanion < handle
             catch err
                 fprintf(2, '[FastSenseCompanion] InspectorPane.detach failed: %s\n', err.message);
             end
-            % Phase 1027 — close any open detached log uifigure first, then
-            % destroy the LogPane. Order matters: the detached fig's
-            % CloseRequestFcn calls obj.setLogState_('Inline'), and we don't
-            % want that to fire mid-teardown.
+            % Phase 1027.1 -- close any open detached uifigures FIRST (clear
+            % CloseRequestFcn so it can't fire mid-teardown), then destroy
+            % both panes. Order between events/live doesn't matter.
             try
-                if ~isempty(obj.hDetachedLogFig_) && isvalid(obj.hDetachedLogFig_)
-                    obj.hDetachedLogFig_.CloseRequestFcn = '';
-                    delete(obj.hDetachedLogFig_);
+                if ~isempty(obj.hDetachedEventsFig_) && isvalid(obj.hDetachedEventsFig_)
+                    obj.hDetachedEventsFig_.CloseRequestFcn = '';
+                    delete(obj.hDetachedEventsFig_);
                 end
             catch err
-                fprintf(2, '[FastSenseCompanion] hDetachedLogFig cleanup failed: %s\n', err.message);
+                fprintf(2, '[FastSenseCompanion] hDetachedEventsFig cleanup failed: %s\n', err.message);
             end
-            obj.hDetachedLogFig_ = [];
+            obj.hDetachedEventsFig_ = [];
             try
-                if ~isempty(obj.LogPane_) && isvalid(obj.LogPane_)
-                    obj.LogPane_.detach();
-                    delete(obj.LogPane_);
+                if ~isempty(obj.hDetachedLiveFig_) && isvalid(obj.hDetachedLiveFig_)
+                    obj.hDetachedLiveFig_.CloseRequestFcn = '';
+                    delete(obj.hDetachedLiveFig_);
                 end
             catch err
-                fprintf(2, '[FastSenseCompanion] LogPane cleanup failed: %s\n', err.message);
+                fprintf(2, '[FastSenseCompanion] hDetachedLiveFig cleanup failed: %s\n', err.message);
             end
-            obj.LogPane_ = [];
+            obj.hDetachedLiveFig_ = [];
+            try
+                if ~isempty(obj.EventsLogPane_) && isvalid(obj.EventsLogPane_)
+                    obj.EventsLogPane_.detach();
+                    delete(obj.EventsLogPane_);
+                end
+            catch err
+                fprintf(2, '[FastSenseCompanion] EventsLogPane cleanup failed: %s\n', err.message);
+            end
+            obj.EventsLogPane_ = [];
+            try
+                if ~isempty(obj.LiveLogPane_) && isvalid(obj.LiveLogPane_)
+                    obj.LiveLogPane_.detach();
+                    delete(obj.LiveLogPane_);
+                end
+            catch err
+                fprintf(2, '[FastSenseCompanion] LiveLogPane cleanup failed: %s\n', err.message);
+            end
+            obj.LiveLogPane_ = [];
             % Release orchestrator-level listeners. delete(cellArray) is
             % interpreted as filename-delete by MATLAB ("Name must be a
             % text scalar"). Iterate explicitly.
@@ -681,8 +698,8 @@ classdef FastSenseCompanion < handle
         %   Phase 1027: actual buffering + filter + render lives in LogPane.
         %   This method survives as the public API for code that calls
         %   `obj.addLogEntry(...)` directly (existing callers are unchanged).
-            if isempty(obj.LogPane_) || ~isvalid(obj.LogPane_); return; end
-            obj.LogPane_.addLogEntry(level, msg);
+            if isempty(obj.EventsLogPane_) || ~isvalid(obj.EventsLogPane_); return; end
+            obj.EventsLogPane_.addLogEntry(level, msg);
         end
 
         function refreshCatalog(obj)
@@ -737,15 +754,21 @@ classdef FastSenseCompanion < handle
                 if ~isempty(obj.InspectorPane_) && isvalid(obj.InspectorPane_)
                     obj.InspectorPane_.setTheme(obj.Theme_);
                 end
-                % Phase 1027 — LogPane manages its own theming (walker skips
-                % hLogPanel_ subtree). Companion calls applyTheme directly so
-                % both inline and detached states retheme.
-                if ~isempty(obj.LogPane_) && isvalid(obj.LogPane_)
-                    obj.LogPane_.applyTheme(obj.Theme_);
+                % Phase 1027.1 -- both panes manage their own theming (walker
+                % skips both LogPaneRoot-tagged sub-panels). Companion calls
+                % applyTheme on each pane and updates each detached uifigure's
+                % background.
+                if ~isempty(obj.EventsLogPane_) && isvalid(obj.EventsLogPane_)
+                    obj.EventsLogPane_.applyTheme(obj.Theme_);
                 end
-                % If the log is currently detached, retheme the uifigure host.
-                if ~isempty(obj.hDetachedLogFig_) && isvalid(obj.hDetachedLogFig_)
-                    obj.hDetachedLogFig_.Color = obj.Theme_.DashboardBackground;
+                if ~isempty(obj.LiveLogPane_) && isvalid(obj.LiveLogPane_)
+                    obj.LiveLogPane_.applyTheme(obj.Theme_);
+                end
+                if ~isempty(obj.hDetachedEventsFig_) && isvalid(obj.hDetachedEventsFig_)
+                    obj.hDetachedEventsFig_.Color = obj.Theme_.DashboardBackground;
+                end
+                if ~isempty(obj.hDetachedLiveFig_) && isvalid(obj.hDetachedLiveFig_)
+                    obj.hDetachedLiveFig_.Color = obj.Theme_.DashboardBackground;
                 end
                 obj.updateLiveButton_();
                 drawnow;
@@ -802,31 +825,50 @@ classdef FastSenseCompanion < handle
             obj.SettingsDlg_ = CompanionSettingsDialog(obj);
         end
 
-        % --- Test helpers (Phase 1027) -- do not call from production ---
+        % --- Test helpers (Phase 1027.1) -- do not call from production ---
         % These accessors expose private state to TestFastSenseCompanion only.
         % They are intentionally public (MATLAB has no friend-class scope), but
         % production code paths must continue to use the private members
-        % directly (LogPane_, hLogStateDD_, etc.) -- these wrappers exist solely
-        % so the test suite can verify state machine behavior without relaxing
-        % access on the real properties.
+        % directly (EventsLogPane_, LiveLogPane_, etc.) -- these wrappers exist
+        % solely so the test suite can verify state machine behavior without
+        % relaxing access on the real properties.
 
-        function p = getLogPane(obj)
-        %GETLOGPANE Test helper: return the LogPane instance.
-            p = obj.LogPane_;
+        function p = getEventsLogPane(obj)
+        %GETEVENTSLOGPANE Test helper: return the EventsLogPane instance.
+            p = obj.EventsLogPane_;
         end
 
-        function v = getLogStateValue(obj)
-        %GETLOGSTATEVALUE Test helper: return the toolbar dropdown value (or '').
-            if isempty(obj.hLogStateDD_) || ~isvalid(obj.hLogStateDD_)
+        function p = getLiveLogPane(obj)
+        %GETLIVELOGPANE Test helper: return the LiveLogPane instance.
+            p = obj.LiveLogPane_;
+        end
+
+        function v = getEventsLogStateValue(obj)
+        %GETEVENTSLOGSTATEVALUE Test helper: return events log dropdown value (or '').
+            if isempty(obj.hEventsLogStateDD_) || ~isvalid(obj.hEventsLogStateDD_)
                 v = '';
             else
-                v = obj.hLogStateDD_.Value;
+                v = obj.hEventsLogStateDD_.Value;
             end
         end
 
-        function hf = getDetachedLogFig(obj)
-        %GETDETACHEDLOGFIG Test helper: return the detached uifigure handle or [].
-            hf = obj.hDetachedLogFig_;
+        function v = getLiveLogStateValue(obj)
+        %GETLIVELOGSTATEVALUE Test helper: return live log dropdown value (or '').
+            if isempty(obj.hLiveLogStateDD_) || ~isvalid(obj.hLiveLogStateDD_)
+                v = '';
+            else
+                v = obj.hLiveLogStateDD_.Value;
+            end
+        end
+
+        function hf = getDetachedEventsFig(obj)
+        %GETDETACHEDEVENTSFIG Test helper: return the events detached uifigure handle or [].
+            hf = obj.hDetachedEventsFig_;
+        end
+
+        function hf = getDetachedLiveFig(obj)
+        %GETDETACHEDLIVEFIG Test helper: return the live detached uifigure handle or [].
+            hf = obj.hDetachedLiveFig_;
         end
 
         function rh = getRow3Height(obj)
@@ -834,9 +876,9 @@ classdef FastSenseCompanion < handle
             rh = obj.hLayout_.RowHeight{3};
         end
 
-        function applyLogState(obj, newState)
+        function applyLogState(obj, which, newState)
         %APPLYLOGSTATE Test helper: public wrapper for the private setLogState_.
-            obj.setLogState_(newState);
+            obj.setLogState_(which, newState);
         end
 
         function par = getLiveButtonParent(obj)
@@ -860,15 +902,28 @@ classdef FastSenseCompanion < handle
             companionPrefs('save', prefs);
         end
 
-        function setLogState_(obj, newState)
-        %SETLOGSTATE_ Transition the log between Inline / Detached / Hidden.
+        function setLogState_(obj, which, newState)
+        %SETLOGSTATE_ Transition one log pane between Inline / Detached / Hidden.
         %   Single transition function called from:
-        %     - hLogStateDD_.ValueChangedFcn (toolbar dropdown)
-        %     - LogPane.DetachRequested listener (pop-out icon)
-        %     - hDetachedLogFig_.CloseRequestFcn (X button on detached window)
-        %   Idempotent: calling with the current dropdown value is a no-op.
+        %     - hEventsLogStateDD_/hLiveLogStateDD_.ValueChangedFcn
+        %     - EventsLogPane_/LiveLogPane_.DetachRequested listeners
+        %     - hDetachedEventsFig_/hDetachedLiveFig_.CloseRequestFcn
+        %   Idempotent: derives current state from the pane's own attachment
+        %   plus the corresponding hDetached*Fig_ validity (NOT from the
+        %   dropdown -- that's set programmatically before LogPane is built
+        %   during bootstrap). Same lesson as Phase 1027 fix-commit 3e6c155.
         %
-        %   newState — char: 'Inline' | 'Detached' | 'Hidden'
+        %   which    -- char: 'events' | 'live'
+        %   newState -- char: 'Inline' | 'Detached' | 'Hidden'
+            if ~ischar(which) && ~(isstring(which) && isscalar(which))
+                error('FastSenseCompanion:invalidLogWhich', ...
+                    'which must be ''events'' or ''live''.');
+            end
+            which = lower(char(which));
+            if ~any(strcmp(which, {'events', 'live'}))
+                error('FastSenseCompanion:invalidLogWhich', ...
+                    'which must be ''events'' or ''live'' (got ''%s'').', which);
+            end
             if ~ischar(newState) && ~(isstring(newState) && isscalar(newState))
                 error('FastSenseCompanion:invalidLogState', ...
                     'newState must be ''Inline'', ''Detached'', or ''Hidden''.');
@@ -879,87 +934,129 @@ classdef FastSenseCompanion < handle
                     'newState must be ''Inline'', ''Detached'', or ''Hidden'' (got ''%s'').', ...
                     newState);
             end
-            % Idempotency: only no-op if the system is ACTUALLY in the
-            % requested state (not just if the dropdown reads that value).
-            % Guards the bootstrap path where the dropdown is pre-set to
-            % 'Inline' before LogPane is constructed.
-            if ~isempty(obj.LogPane_) && isvalid(obj.LogPane_)
-                hasDetached = ~isempty(obj.hDetachedLogFig_) && isvalid(obj.hDetachedLogFig_);
-                attached    = obj.LogPane_.IsAttached;
-                inState = '';
-                if attached && ~hasDetached
-                    inState = 'Inline';
-                elseif attached && hasDetached
-                    inState = 'Detached';
-                elseif ~attached && ~hasDetached
-                    inState = 'Hidden';
-                end
-                if strcmp(inState, newState)
-                    return;
-                end
+
+            % Resolve which pane / dropdown / parent / detached handle to use.
+            if strcmp(which, 'events')
+                pane     = obj.EventsLogPane_;
+                dd       = obj.hEventsLogStateDD_;
+                panel    = obj.hEventsLogPanel_;
+                detName  = 'hDetachedEventsFig_';
+                figTitle = sprintf('FastSense Companion %s Events Log', char(8212));
+                figSize  = [720 480];
+            else
+                pane     = obj.LiveLogPane_;
+                dd       = obj.hLiveLogStateDD_;
+                panel    = obj.hLiveLogPanel_;
+                detName  = 'hDetachedLiveFig_';
+                figTitle = sprintf('FastSense Companion %s Live Log', char(8212));
+                figSize  = [480 360];
             end
+
+            if isempty(pane) || ~isvalid(pane); return; end
+
+            % Idempotency: derive actual state from pane attachment + detFig validity.
+            detFig = obj.(detName);
+            hasDetached = ~isempty(detFig) && isvalid(detFig);
+            attached    = pane.IsAttached;
+            inState = '';
+            if attached && ~hasDetached
+                inState = 'Inline';
+            elseif attached && hasDetached
+                inState = 'Detached';
+            elseif ~attached && ~hasDetached
+                inState = 'Hidden';
+            end
+            if strcmp(inState, newState)
+                return;
+            end
+
             try
                 switch newState
                     case 'Inline'
-                        % Tear down detached uifigure if present (without
-                        % triggering its CloseRequestFcn — we clear it first).
-                        if ~isempty(obj.hDetachedLogFig_) && isvalid(obj.hDetachedLogFig_)
-                            obj.hDetachedLogFig_.CloseRequestFcn = '';
-                            delete(obj.hDetachedLogFig_);
+                        if ~isempty(detFig) && isvalid(detFig)
+                            detFig.CloseRequestFcn = '';
+                            delete(detFig);
                         end
-                        obj.hDetachedLogFig_ = [];
-                        % Detach LogPane from previous parent (if attached).
-                        if obj.LogPane_.IsAttached
-                            obj.LogPane_.detach();
+                        obj.(detName) = [];
+                        if pane.IsAttached
+                            pane.detach();
                         end
-                        % Restore row-3 height and re-attach inline.
-                        obj.hLayout_.RowHeight{3} = obj.OriginalLogRowHeight_;
-                        obj.LogPane_.attach(obj.hLogPanel_, obj.Theme_);
+                        pane.attach(panel, obj.Theme_);
 
                     case 'Detached'
-                        % Detach inline first, then build the detached uifigure.
-                        if obj.LogPane_.IsAttached
-                            obj.LogPane_.detach();
+                        if pane.IsAttached
+                            pane.detach();
                         end
-                        obj.hLayout_.RowHeight{3} = 0;
-                        % Title built via sprintf + char(8212) for the em-dash.
-                        % Single-quoted MATLAB strings do NOT interpret \x
-                        % escape sequences, so a literal '\x2014' would
-                        % appear in the title bar. char(8212) is the
-                        % correct, portable form.
-                        obj.hDetachedLogFig_ = uifigure( ...
-                            'Name',     sprintf('FastSense Companion %s Log', char(8212)), ...
-                            'Position', [0 0 720 480], ...
+                        newFig = uifigure( ...
+                            'Name',     figTitle, ...
+                            'Position', [0 0 figSize(1) figSize(2)], ...
                             'Color',    obj.Theme_.DashboardBackground);
-                        % Center on screen via MATLAB default helper.
-                        movegui(obj.hDetachedLogFig_, 'center');
+                        movegui(newFig, 'center');
                         % CloseRequestFcn drives state back to Inline. The
-                        % cleared-handler dance in the 'Inline' branch above
-                        % prevents recursion when WE delete it programmatically.
-                        obj.hDetachedLogFig_.CloseRequestFcn = ...
-                            @(~,~) obj.setLogState_('Inline');
-                        obj.LogPane_.attach(obj.hDetachedLogFig_, obj.Theme_);
+                        % cleared-handler dance in 'Inline' above prevents
+                        % recursion when WE delete it programmatically.
+                        newFig.CloseRequestFcn = ...
+                            @(~,~) obj.setLogState_(which, 'Inline');
+                        obj.(detName) = newFig;
+                        pane.attach(newFig, obj.Theme_);
 
                     case 'Hidden'
-                        if ~isempty(obj.hDetachedLogFig_) && isvalid(obj.hDetachedLogFig_)
-                            obj.hDetachedLogFig_.CloseRequestFcn = '';
-                            delete(obj.hDetachedLogFig_);
+                        if ~isempty(detFig) && isvalid(detFig)
+                            detFig.CloseRequestFcn = '';
+                            delete(detFig);
                         end
-                        obj.hDetachedLogFig_ = [];
-                        if obj.LogPane_.IsAttached
-                            obj.LogPane_.detach();
+                        obj.(detName) = [];
+                        if pane.IsAttached
+                            pane.detach();
                         end
-                        obj.hLayout_.RowHeight{3} = 0;
                 end
-                % Sync dropdown (does NOT fire ValueChangedFcn per MATLAB
-                % convention — programmatic assignment is silent).
-                if ~isempty(obj.hLogStateDD_) && isvalid(obj.hLogStateDD_)
-                    obj.hLogStateDD_.Value = newState;
+                % Sync dropdown (programmatic assignment is silent per MATLAB convention).
+                if ~isempty(dd) && isvalid(dd)
+                    dd.Value = newState;
                 end
+                obj.rebalanceLogStrip_();
             catch err
                 if ~isempty(obj.hFig_) && isvalid(obj.hFig_)
                     uialert(obj.hFig_, err.message, 'FastSense Companion');
                 end
+            end
+        end
+
+        function rebalanceLogStrip_(obj)
+        %REBALANCELOGSTRIP_ Recompute inner hLogStripGrid_.RowHeight + outer hLayout_.RowHeight{3}
+        %   from BOTH panes' actual attachment state (pane.IsAttached AND
+        %   the corresponding hDetached*Fig_ validity -- a pane "Inline"
+        %   means attached AND no detached uifigure).
+        %   Single-source of truth so callers (setLogState_ and tests) never
+        %   touch row heights directly.
+            if isempty(obj.hLogStripGrid_) || ~isvalid(obj.hLogStripGrid_); return; end
+            evtInline  = false;
+            liveInline = false;
+            if ~isempty(obj.EventsLogPane_) && isvalid(obj.EventsLogPane_) && ...
+                    obj.EventsLogPane_.IsAttached && ...
+                    (isempty(obj.hDetachedEventsFig_) || ~isvalid(obj.hDetachedEventsFig_))
+                evtInline = true;
+            end
+            if ~isempty(obj.LiveLogPane_) && isvalid(obj.LiveLogPane_) && ...
+                    obj.LiveLogPane_.IsAttached && ...
+                    (isempty(obj.hDetachedLiveFig_) || ~isvalid(obj.hDetachedLiveFig_))
+                liveInline = true;
+            end
+            % Inner sub-grid row heights (events row 1, live row 2).
+            if evtInline && liveInline
+                obj.hLogStripGrid_.RowHeight = {180, '1x'};
+            elseif evtInline && ~liveInline
+                obj.hLogStripGrid_.RowHeight = {'1x', 0};
+            elseif ~evtInline && liveInline
+                obj.hLogStripGrid_.RowHeight = {0, '1x'};
+            else
+                obj.hLogStripGrid_.RowHeight = {0, 0};
+            end
+            % Outer row 3: collapse to 0 only when neither pane is inline.
+            if evtInline || liveInline
+                obj.hLayout_.RowHeight{3} = obj.OriginalLogRowHeight_;
+            else
+                obj.hLayout_.RowHeight{3} = 0;
             end
         end
 
@@ -973,7 +1070,7 @@ classdef FastSenseCompanion < handle
             % time the timer fires, LiveSampleCount_ is always a
             % containers.Map handle.
             if ~isa(obj.LiveSampleCount_, 'containers.Map'); return; end
-            if isempty(obj.LogPane_) || ~isvalid(obj.LogPane_); return; end
+            if isempty(obj.LiveLogPane_) || ~isvalid(obj.LiveLogPane_); return; end
             try
                 tags = TagRegistry.find(@(t) isa(t, 'SensorTag') || isa(t, 'StateTag'));
             catch
@@ -998,7 +1095,7 @@ classdef FastSenseCompanion < handle
                             if iscell(y); latestY = y{end}; else; latestY = y(end); end
                         end
                         if last > 0  % skip the first-seen baseline log
-                            obj.LogPane_.addLiveLogEntry(key, delta, latestY);
+                            obj.LiveLogPane_.addLiveLogEntry(key, delta, latestY);
                         end
                         obj.LiveSampleCount_(key) = n;
                     end
@@ -1035,8 +1132,8 @@ classdef FastSenseCompanion < handle
                     obj.InspectorPane_.refreshLive();
                 end
                 obj.scanLiveTagUpdates_();
-                if ~isempty(obj.LogPane_) && isvalid(obj.LogPane_)
-                    obj.LogPane_.setLastUpdated(datetime('now'));
+                if ~isempty(obj.EventsLogPane_) && isvalid(obj.EventsLogPane_)
+                    obj.EventsLogPane_.setLastUpdated(datetime('now'));
                 end
             catch
                 % Live ticks must never crash the timer.
