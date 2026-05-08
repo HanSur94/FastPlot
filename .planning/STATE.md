@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: FastSense Companion
 status: shipped
-last_updated: "2026-05-08T09:00:00.000Z"
-last_activity: 2026-05-08 -- Completed quick task 260508-eu2: Restore EventStore on detached FastSenseWidget so event markers stay visible after detach
+last_updated: "2026-05-08T09:30:00.000Z"
+last_activity: 2026-05-08 -- 260508-eu2 follow-up: mirror runtime event-toggle state into widget property so detach honors dashboard toggle
 progress:
   total_phases: 6
   completed_phases: 6
@@ -19,7 +19,7 @@ shipped_at: 2026-04-30
 
 Milestone: v3.0 FastSense Companion — SHIPPED 2026-04-30
 Status: Awaiting next milestone (run `/gsd:new-milestone` to scope v3.x or v4.0)
-Last activity: 2026-05-08 -- Completed quick task 260508-eu2: Restore EventStore on detached FastSenseWidget so event markers stay visible after detach
+Last activity: 2026-05-08 -- 260508-eu2 follow-up: mirror runtime event-toggle state into widget property so detach honors dashboard toggle
 
 ### Quick Tasks Completed
 
