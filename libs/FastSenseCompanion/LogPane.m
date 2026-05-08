@@ -312,7 +312,51 @@ classdef LogPane < handle
 
         function applyTheme(obj, themeStruct)
         %APPLYTHEME Live theme switch — restyle existing UI without rebuilding handles.
-            % TODO Task 4
+        %   themeStruct — resolved CompanionTheme struct.
+        %   Updates ThemeStruct_, then walks the pane subtree via
+        %   applyThemeToChildren_, then re-applies pane-specific accents
+        %   (Updated label PlaceholderTextColor, pop-out button colors,
+        %   striped uitable BackgroundColor pair). No-op when detached
+        %   (next attach() will use the latest ThemeStruct_).
+            if ~isstruct(themeStruct); return; end
+            obj.ThemeStruct_ = themeStruct;
+            if ~obj.IsAttached || isempty(obj.hRoot_) || ~isvalid(obj.hRoot_)
+                return;
+            end
+            try
+                applyThemeToChildren_(obj.hRoot_, themeStruct);
+                % Re-apply LogPane-specific accents that the generic walker overwrites.
+                t = themeStruct;
+                % "Updated: HH:MM:SS" uses the subdued PlaceholderTextColor, not
+                % the default ForegroundColor the walker assigns to all labels.
+                if ~isempty(obj.hLastUpdateLbl_) && isvalid(obj.hLastUpdateLbl_)
+                    obj.hLastUpdateLbl_.FontColor = t.PlaceholderTextColor;
+                end
+                % Pop-out button uses WidgetBorderColor + ForegroundColor (matches
+                % the settings-gear button styling in FastSenseCompanion).
+                if ~isempty(obj.hPopoutBtn_) && isvalid(obj.hPopoutBtn_)
+                    obj.hPopoutBtn_.BackgroundColor = t.WidgetBorderColor;
+                    obj.hPopoutBtn_.FontColor       = t.ForegroundColor;
+                end
+                % Tables: re-assert striped pair so attach() and applyTheme()
+                % share the same logic regardless of walker behavior.
+                isDark = mean(t.DashboardBackground) < 0.5;
+                if isDark
+                    stripePair = [0.13 0.13 0.13; 0.20 0.20 0.20];
+                else
+                    stripePair = [1.00 1.00 1.00; 0.94 0.94 0.94];
+                end
+                if ~isempty(obj.hLogTable_) && isvalid(obj.hLogTable_)
+                    obj.hLogTable_.BackgroundColor = stripePair;
+                    obj.hLogTable_.ForegroundColor = t.ForegroundColor;
+                end
+                if ~isempty(obj.hLiveLogTable_) && isvalid(obj.hLiveLogTable_)
+                    obj.hLiveLogTable_.BackgroundColor = stripePair;
+                    obj.hLiveLogTable_.ForegroundColor = t.ForegroundColor;
+                end
+            catch
+                % Theme application must never propagate errors.
+            end
         end
 
         function delete(obj)
