@@ -68,6 +68,7 @@ classdef DashboardEngine < handle
         hTimeResetBtn   = []       % Reset button on time panel (260508-f7p — needed for theme switch)
         SliderDebounceTimer = []   % MATLAB timer for coalescing rapid slider events
         TimeRangeSelector_  = []   % TimeRangeSelector handle (replaces dual sliders)
+        LastSyncedTimeRange_ = []  % [tStart tEnd] cache of most recent broadcast (260508-llw); used by switchPage to re-apply current synced window to widgets realized on tab-switch
         Progress_           = []   % DashboardProgress instance (active during render)
         % Stale-data banner (shown during live mode when a widget's tMax stops advancing)
         hStaleBanner         = []  % uipanel overlay; hidden unless live+stale+!dismissed
@@ -1368,8 +1369,15 @@ classdef DashboardEngine < handle
         end
 
         function broadcastTimeRange(obj, tStart, tEnd)
-        %BROADCASTTIMERANGE Push time range to widgets using global time.
-            ws = obj.activePageWidgets();
+        %BROADCASTTIMERANGE Push time range to widgets across ALL pages (not just active).
+        %   Time sync is a dashboard-wide control: dragging the slider, clicking
+        %   "Sync all", or calling broadcastTimeRangeNow updates every page's
+        %   widgets so switching tabs preserves the synced window. Per-widget
+        %   UseGlobalTime=false (manually zoomed) widgets opt out via their own
+        %   setTimeRange guard. (260508-llw — was activePageWidgets, caused a
+        %   per-tab desync bug.)
+            obj.LastSyncedTimeRange_ = [tStart tEnd];
+            ws = obj.allPageWidgets();
             for i = 1:numel(ws)
                 try
                     ws{i}.setTimeRange(tStart, tEnd);
@@ -1382,8 +1390,10 @@ classdef DashboardEngine < handle
         end
 
         function resetGlobalTime(obj)
-        %RESETGLOBALTIME Re-attach all widgets to global time and apply.
-            ws = obj.activePageWidgets();
+        %RESETGLOBALTIME Re-attach all widgets across ALL pages to global time and apply.
+        %   (260508-llw — was activePageWidgets, leaving widgets on inactive
+        %   pages still detached after a "Reset" toolbar action.)
+            ws = obj.allPageWidgets();
             for i = 1:numel(ws)
                 ws{i}.UseGlobalTime = true;
             end
