@@ -44,6 +44,8 @@ classdef FastSenseWidget < DashboardWidget
         LastEventIds_      = {}    % Phase 1012 — cell of event Ids at last refresh
         LastEventOpen_     = []    % Phase 1012 — logical array parallel to LastEventIds_
         LastEventSeverity_ = []    % Phase 1012 — numeric array parallel to LastEventIds_
+        PreviewCache_      = []    % 260508-das — cached getPreviewSeries result
+        PreviewCacheKey_   = []    % [numel(x), x(1), x(end), nBucketsEff] sentinel
     end
 
     methods
@@ -138,18 +140,55 @@ classdef FastSenseWidget < DashboardWidget
             %   cell of structs            — {struct('Value',..,'Direction',..,'Label',..), ...}
             applyThresholds_(fp, obj.Thresholds);
 
-            % Set title and axis labels
+            % Set title and axis labels.
+            % Title sits ABOVE the (light) axes area against the panel
+            % background, so its color must come from the dashboard theme
+            % (ToolbarFontColor) — using ax.XColor leaves the title dark on
+            % the dark widget panel in dark mode. XLabel/YLabel sit inside
+            % the axes margins but still touch the panel; same fix.
+            % Prefer GroupHeaderFg (near-white in dark / near-black in light)
+            % over ToolbarFontColor for stronger contrast against the panel.
+            titleColor = get(ax, 'XColor');
+            try
+                t = obj.getTheme();
+                if isstruct(t)
+                    if isfield(t, 'GroupHeaderFg')
+                        titleColor = t.GroupHeaderFg;
+                    elseif isfield(t, 'ToolbarFontColor')
+                        titleColor = t.ToolbarFontColor;
+                    end
+                end
+            catch
+            end
             if ~isempty(obj.Title)
-                title(ax, obj.Title, 'Color', get(ax, 'XColor'));
+                title(ax, obj.Title, 'Color', titleColor);
             end
             if ~isempty(obj.XLabel)
-                xlabel(ax, obj.XLabel, 'Color', get(ax, 'XColor'));
+                xlabel(ax, obj.XLabel, 'Color', titleColor);
             end
             if ~isempty(obj.YLabel)
-                ylabel(ax, obj.YLabel, 'Color', get(ax, 'XColor'));
+                ylabel(ax, obj.YLabel, 'Color', titleColor);
             end
 
             fp.render();
+
+            % Re-apply title/label/tick colors AFTER fp.render(), which
+            % restyles the axes using FastSense's own theme (axes-internal
+            % colors — dark on white). The title sits ABOVE the axes box,
+            % the x/ylabels sit in the OUTSIDE margins, AND the tick labels
+            % render in the margins too — so against the dark widget panel
+            % they all need the dashboard theme's foreground color.
+            try
+                if ~isempty(obj.Title),  set(get(ax, 'Title'),  'Color', titleColor); end
+                if ~isempty(obj.XLabel), set(get(ax, 'XLabel'), 'Color', titleColor); end
+                if ~isempty(obj.YLabel), set(get(ax, 'YLabel'), 'Color', titleColor); end
+                % Tick label color (XColor/YColor also control axis line +
+                % tick marks; the axes box color stays via FastSense's own
+                % styling — only the tick text + line color follow the panel
+                % background).
+                set(ax, 'XColor', titleColor, 'YColor', titleColor);
+            catch
+            end
 
             % Reformat time-axis ticks to HH:MM:SS / MM:SS for readability
             % (main branch addition from #66 / datetime axis migration).
@@ -222,7 +261,8 @@ classdef FastSenseWidget < DashboardWidget
                     obj.FastSenseObj.updateData(1, x, y);
                     obj.autoScaleY_(y);
                     obj.updateTimeRangeCache();
-                    obj.refreshEventMarkers_();  % Phase 1012
+                    obj.invalidatePreviewCache_();   % 260508-das
+                    obj.refreshEventMarkers_();      % Phase 1012
                     obj.formatTimeAxis_(obj.FastSenseObj.hAxes);
                     return;
                 catch
@@ -247,7 +287,8 @@ classdef FastSenseWidget < DashboardWidget
                     obj.FastSenseObj.updateData(1, x, y);
                     obj.autoScaleY_(y);
                     obj.updateTimeRangeCache();
-                    obj.refreshEventMarkers_();  % Phase 1012
+                    obj.invalidatePreviewCache_();   % 260508-das
+                    obj.refreshEventMarkers_();      % Phase 1012
                     obj.formatTimeAxis_(obj.FastSenseObj.hAxes);
                     return;
                 catch
@@ -263,6 +304,13 @@ classdef FastSenseWidget < DashboardWidget
             %   When rendered, delegates to FastSense.setShowEventMarkers
             %   which re-draws the overlay in place without disturbing
             %   zoom state or live refresh cadence.
+            %
+            %   Also mirrors the runtime visibility into obj.ShowEventMarkers
+            %   so that the property is the single source of truth — required
+            %   for detach (toStruct/fromStruct round-trip) to reflect the
+            %   user's current toggle state instead of the construction-time
+            %   default. (260508-eu2 follow-up.)
+            obj.ShowEventMarkers = logical(tf);
             if ~isempty(obj.FastSenseObj)
                 try
                     obj.FastSenseObj.setShowEventMarkers(tf);
@@ -381,13 +429,23 @@ classdef FastSenseWidget < DashboardWidget
         function series = getPreviewSeries(obj, nBuckets)
         %GETPREVIEWSERIES Per-bucket min/max preview for the dashboard envelope.
         %   series = getPreviewSeries(obj, nBuckets) returns a struct with
-        %   fields xCenters, yMin, yMax — each a 1xnBuckets row vector; yMin
-        %   and yMax are normalized into [0,1] across the widget's own
-        %   current y-range. Returns [] when no data is bound or when the
-        %   sample count is too low to downsample meaningfully.
+        %   fields xCenters, yMin, yMax — each a 1xnBucketsEff row vector;
+        %   yMin and yMax are normalized into [0,1] across the widget's own
+        %   current y-range. Returns [] only when no data is bound or when
+        %   the sample count is genuinely too sparse (<4) to downsample.
+        %
+        %   The bucket count is adaptive: when the caller asks for more
+        %   buckets than there are samples, we fall back to
+        %   `floor(numel(x)/2)` so live widgets that have only collected a
+        %   few hundred samples still render a meaningful preview line on
+        %   the slider track. (Backlog 999.3.)
         %
         %   Uses minmax_core_mex (or a pure-MATLAB fallback) for the same
         %   downsampling strategy FastSense rendering uses.
+        %
+        %   Cached: a private PreviewCache_ short-circuits repeat calls
+        %   when (numel(x), x(1), x(end), nBucketsEff) is unchanged; the
+        %   cache is invalidated by invalidatePreviewCache_().
             series = [];
             try
                 if nargin < 2 || isempty(nBuckets) || ~isfinite(nBuckets) || nBuckets < 1
@@ -411,8 +469,21 @@ classdef FastSenseWidget < DashboardWidget
                 if isempty(x) || isempty(y) || numel(x) ~= numel(y)
                     return;
                 end
-                if numel(x) < nBuckets
-                    % Not enough points to downsample into this many buckets.
+                % Adaptive bucket count: never bail on small datasets.
+                % Live widgets typically have <200 samples for the first
+                % minute of operation; the previous hard floor
+                % (numel(x) < nBuckets => return) blanked the slider for
+                % the entire warm-up period. We require at least 4 raw
+                % samples to bother downsampling at all.
+                if numel(x) < 4
+                    return;
+                end
+                nBucketsEff = max(1, min(nBuckets, floor(numel(x) / 2)));
+
+                % Cache lookup — bit-identical for unchanged data shape.
+                cacheKey = [double(numel(x)), double(x(1)), double(x(end)), double(nBucketsEff)];
+                if ~isempty(obj.PreviewCache_) && isequal(obj.PreviewCacheKey_, cacheKey)
+                    series = obj.PreviewCache_;
                     return;
                 end
 
@@ -425,9 +496,10 @@ classdef FastSenseWidget < DashboardWidget
                 if any(nanMask)
                     x = x(~nanMask);
                     y = y(~nanMask);
-                    if numel(x) < nBuckets
+                    if numel(x) < 4
                         return;
                     end
+                    nBucketsEff = max(1, min(nBuckets, floor(numel(x) / 2)));
                 end
 
                 % Call MEX when available; otherwise compute per-bucket
@@ -435,22 +507,22 @@ classdef FastSenseWidget < DashboardWidget
                 useMex = (exist('minmax_core_mex', 'file') == 3);
                 if useMex
                     try
-                        [xOut, yOut] = minmax_core_mex(x, y, nBuckets);
+                        [xOut, yOut] = minmax_core_mex(x, y, nBucketsEff);
                     catch
                         useMex = false;
                     end
                 end
                 if ~useMex
-                    [xOut, yOut] = localMinMaxBuckets_(x, y, nBuckets);
+                    [xOut, yOut] = localMinMaxBuckets_(x, y, nBucketsEff);
                 end
 
-                if numel(xOut) ~= 2 * nBuckets || numel(yOut) ~= 2 * nBuckets
+                if numel(xOut) ~= 2 * nBucketsEff || numel(yOut) ~= 2 * nBucketsEff
                     return;
                 end
 
                 % Interleaved (min,max) or (max,min) pairs per bucket.
-                xPairs = reshape(xOut, 2, nBuckets);
-                yPairs = reshape(yOut, 2, nBuckets);
+                xPairs = reshape(xOut, 2, nBucketsEff);
+                yPairs = reshape(yOut, 2, nBucketsEff);
                 yMinB  = min(yPairs, [], 1);
                 yMaxB  = max(yPairs, [], 1);
                 xCenters = (xPairs(1, :) + xPairs(2, :)) / 2;
@@ -487,6 +559,8 @@ classdef FastSenseWidget < DashboardWidget
                 series = struct('xCenters', xCenters, ...
                                 'yMin',     yMinN, ...
                                 'yMax',     yMaxN);
+                obj.PreviewCache_    = series;
+                obj.PreviewCacheKey_ = cacheKey;
             catch
                 % Best-effort: swallow any error and opt out of envelope.
                 series = [];
@@ -494,29 +568,178 @@ classdef FastSenseWidget < DashboardWidget
         end
 
         function t = getEventTimes(obj)
-        %GETEVENTTIMES Event start times from the wrapped FastSense.EventStore.
-        %   Returns [] when the FastSense instance is absent, has no
-        %   EventStore, or when any access raises. Never throws.
+        %GETEVENTTIMES Event start times for the dashboard time-slider markers.
+        %   Looks up events in this priority order:
+        %     1. obj.EventStore  (widget-level — the modern attachment point)
+        %     2. obj.FastSenseObj.EventStore  (legacy: events on inner FastSense)
+        %     3. obj.FastSenseObj.Events / .EventTimes  (defensive: extra hooks)
+        %
+        %   Returns [] (and never throws) when no source yields events.
+        %   The widget-level lookup was added in 260508-das after the
+        %   slider markers regressed: most modern dashboards attach an
+        %   EventStore on the widget (which is then forwarded to the
+        %   inner FastSense at render time), but some pre-render flows
+        %   would already query getEventTimes before that forwarding had
+        %   run.
             t = [];
             try
-                if isempty(obj.FastSenseObj) || ~isa(obj.FastSenseObj, 'FastSense')
-                    return;
+                raw = [];
+                % Priority 1: widget-level EventStore (modern path).
+                if ~isempty(obj.EventStore)
+                    try
+                        raw = obj.EventStore.getEvents();
+                    catch
+                        raw = [];
+                    end
                 end
-                if ~isprop(obj.FastSenseObj, 'EventStore') || isempty(obj.FastSenseObj.EventStore)
-                    return;
+                % Priority 2: inner FastSense's EventStore.
+                if isempty(raw) && ~isempty(obj.FastSenseObj) && ...
+                        isa(obj.FastSenseObj, 'FastSense') && ...
+                        isprop(obj.FastSenseObj, 'EventStore') && ...
+                        ~isempty(obj.FastSenseObj.EventStore)
+                    try
+                        raw = obj.FastSenseObj.EventStore.getEvents();
+                    catch
+                        raw = [];
+                    end
                 end
-                raw = obj.FastSenseObj.EventStore.getEvents();
+                % Priority 3: defensive — bare struct array on FastSense.
+                if isempty(raw) && ~isempty(obj.FastSenseObj) && ...
+                        isa(obj.FastSenseObj, 'FastSense')
+                    if isprop(obj.FastSenseObj, 'Events') && ~isempty(obj.FastSenseObj.Events)
+                        raw = obj.FastSenseObj.Events;
+                    end
+                end
                 if isempty(raw), return; end
                 n = numel(raw);
                 tmp = zeros(1, n);
                 for i = 1:n
-                    tmp(i) = raw(i).StartTime;   % PascalCase: Event object / struct
+                    if isstruct(raw)
+                        if isfield(raw, 'StartTime')
+                            tmp(i) = raw(i).StartTime;
+                        elseif isfield(raw, 'startTime')
+                            tmp(i) = raw(i).startTime;
+                        else
+                            tmp(i) = NaN;
+                        end
+                    else
+                        % Object array (Event/Event-like)
+                        if isprop(raw(i), 'StartTime')
+                            tmp(i) = raw(i).StartTime;
+                        else
+                            tmp(i) = NaN;
+                        end
+                    end
                 end
                 tmp = tmp(isfinite(tmp));
                 t = tmp(:).';
             catch
                 t = [];
             end
+        end
+
+        function m = getEventMarkers(obj)
+        %GETEVENTMARKERS Per-event time + severity + color for slider markers.
+        %   m = getEventMarkers(obj) returns a struct array with fields:
+        %     m(k).Time     — numeric timestamp (StartTime)
+        %     m(k).Severity — numeric severity in {1,2,3} (default 1 if absent)
+        %     m(k).Color    — 1x3 RGB triplet from severityColor(theme, sev)
+        %
+        %   Walks the same priority chain as getEventTimes (widget-level
+        %   EventStore -> inner FastSense.EventStore -> bare Events array),
+        %   so the slider markers stay in sync with whatever events the
+        %   widget would otherwise display. Always returns an empty struct
+        %   array (struct('Time',{},'Severity',{},'Color',{})) when no
+        %   source yields events; never throws.
+        %
+        %   The Color is the *base* per-severity palette color — the
+        %   TimeRangeSelector blends it toward AxesColor at draw time.
+        %   Tiebreaker on duplicate Times across widgets is resolved by
+        %   DashboardEngine.computeEventMarkers using the Severity field.
+            m = struct('Time', {}, 'Severity', {}, 'Color', {});
+            try
+                raw = [];
+                if ~isempty(obj.EventStore)
+                    try
+                        raw = obj.EventStore.getEvents();
+                    catch
+                        raw = [];
+                    end
+                end
+                if isempty(raw) && ~isempty(obj.FastSenseObj) && ...
+                        isa(obj.FastSenseObj, 'FastSense') && ...
+                        isprop(obj.FastSenseObj, 'EventStore') && ...
+                        ~isempty(obj.FastSenseObj.EventStore)
+                    try
+                        raw = obj.FastSenseObj.EventStore.getEvents();
+                    catch
+                        raw = [];
+                    end
+                end
+                if isempty(raw) && ~isempty(obj.FastSenseObj) && ...
+                        isa(obj.FastSenseObj, 'FastSense')
+                    if isprop(obj.FastSenseObj, 'Events') && ~isempty(obj.FastSenseObj.Events)
+                        raw = obj.FastSenseObj.Events;
+                    end
+                end
+                if isempty(raw), return; end
+
+                % Resolve theme once — getTheme() is inherited from
+                % DashboardWidget. Tolerate failures (returns []).
+                theme = [];
+                try
+                    theme = obj.getTheme();
+                catch
+                    theme = [];
+                end
+
+                n = numel(raw);
+                for i = 1:n
+                    t = NaN;
+                    sev = 1;
+                    if isstruct(raw)
+                        if isfield(raw, 'StartTime')
+                            t = raw(i).StartTime;
+                        elseif isfield(raw, 'startTime')
+                            t = raw(i).startTime;
+                        end
+                        if isfield(raw, 'Severity') && ~isempty(raw(i).Severity)
+                            sev = raw(i).Severity;
+                        elseif isfield(raw, 'severity') && ~isempty(raw(i).severity)
+                            sev = raw(i).severity;
+                        end
+                    else
+                        if isprop(raw(i), 'StartTime')
+                            t = raw(i).StartTime;
+                        end
+                        if isprop(raw(i), 'Severity') && ~isempty(raw(i).Severity)
+                            sev = raw(i).Severity;
+                        end
+                    end
+                    if ~isnumeric(t) || ~isfinite(t)
+                        continue;
+                    end
+                    if ~isnumeric(sev) || isempty(sev) || ~isfinite(sev(1))
+                        sev = 1;
+                    else
+                        sev = sev(1);
+                    end
+                    m(end + 1) = struct( ...
+                        'Time',     t, ...
+                        'Severity', sev, ...
+                        'Color',    severityColor(theme, sev)); %#ok<AGROW>
+                end
+            catch
+                m = struct('Time', {}, 'Severity', {}, 'Color', {});
+            end
+        end
+
+        function invalidatePreviewCache_(obj)
+        %INVALIDATEPREVIEWCACHE_ Clear PreviewCache_ so getPreviewSeries recomputes.
+        %   Called from refresh() / update() / rebuildForTag_() whenever
+        %   the underlying data may have changed. Cheap (no graphics).
+            obj.PreviewCache_    = [];
+            obj.PreviewCacheKey_ = [];
         end
 
         function t = getType(~)
@@ -735,14 +958,30 @@ classdef FastSenseWidget < DashboardWidget
             end
             fp.addTag(obj.Tag);
 
+            % See render() — title sits above the axes against the panel,
+            % so use the dashboard theme's ToolbarFontColor for legibility.
+            % Prefer GroupHeaderFg (near-white in dark / near-black in light)
+            % over ToolbarFontColor for stronger contrast against the panel.
+            titleColor = get(ax, 'XColor');
+            try
+                t = obj.getTheme();
+                if isstruct(t)
+                    if isfield(t, 'GroupHeaderFg')
+                        titleColor = t.GroupHeaderFg;
+                    elseif isfield(t, 'ToolbarFontColor')
+                        titleColor = t.ToolbarFontColor;
+                    end
+                end
+            catch
+            end
             if ~isempty(obj.Title)
-                title(ax, obj.Title, 'Color', get(ax, 'XColor'));
+                title(ax, obj.Title, 'Color', titleColor);
             end
             if ~isempty(obj.XLabel)
-                xlabel(ax, obj.XLabel, 'Color', get(ax, 'XColor'));
+                xlabel(ax, obj.XLabel, 'Color', titleColor);
             end
             if ~isempty(obj.YLabel)
-                ylabel(ax, obj.YLabel, 'Color', get(ax, 'XColor'));
+                ylabel(ax, obj.YLabel, 'Color', titleColor);
             end
 
             fp.render();
@@ -756,6 +995,7 @@ classdef FastSenseWidget < DashboardWidget
 
             obj.LastTagRef = obj.Tag;
             obj.updateTimeRangeCache();
+            obj.invalidatePreviewCache_();   % 260508-das
 
             if ~isempty(savedXLim)
                 obj.IsSettingTime = true;

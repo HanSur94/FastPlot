@@ -1577,8 +1577,21 @@ classdef FastSense < handle
             end
 
             % Attach hover crosshair (default on; opt-out via constructor or property).
-            % try/catch keeps render() resilient on platforms where mouse handlers misbehave.
-            if obj.HoverCrosshair && isempty(obj.HoverCrosshair_)
+            % Skip when MATLAB has no interactive Java desktop (CI / -batch /
+            % -nodesktop / -nodisplay even with xvfb): the WindowButtonMotionFcn
+            % + figure-destroy listener wiring across 25+ FastSense instances in
+            % run_demo segfaults R2020b headless. Hover is mouse-driven and
+            % therefore irrelevant in that environment.
+            isInteractive = false;
+            try
+                isInteractive = usejava('desktop');
+                if exist('batchStartupOptionUsed', 'builtin') == 5 && ...
+                        batchStartupOptionUsed
+                    isInteractive = false;
+                end
+            catch
+            end
+            if obj.HoverCrosshair && isempty(obj.HoverCrosshair_) && isInteractive
                 try
                     obj.HoverCrosshair_ = HoverCrosshair(obj);
                 catch ME
@@ -2811,8 +2824,21 @@ classdef FastSense < handle
     methods (Access = private)
         function c = severityToColor_(obj, severity)
             %SEVERITYTOCOLOR_ Map severity level to RGB color.
-            %   Uses DashboardTheme status colors if available in obj.Theme;
-            %   falls back to hardcoded defaults (RESEARCH Critical Finding 5).
+            %   Delegates to the public helper at libs/Dashboard/severityColor.m
+            %   so the FastSense main-axes glyph palette and the dashboard
+            %   slider-preview markers stay in lockstep. The helper is on the
+            %   path whenever the Dashboard library has been added by
+            %   install(); a try/catch falls back to the historical inline
+            %   lookup if FastSense is somehow used without Dashboard on the
+            %   path (e.g. an isolated FastSense smoke test).
+            try
+                c = severityColor(obj.Theme, severity);
+                return;
+            catch
+                % Inline fallback — bytewise equivalent to the pre-260508-edd
+                % implementation. Kept so FastSense remains usable without
+                % the Dashboard library on the path.
+            end
             if severity >= 3
                 if isstruct(obj.Theme) && isfield(obj.Theme, 'StatusAlarmColor')
                     c = obj.Theme.StatusAlarmColor;

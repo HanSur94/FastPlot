@@ -27,6 +27,7 @@ classdef DashboardEngine < handle
         ProgressMode  = 'auto'   % 'auto' | 'on' | 'off' — render progress bar visibility
         ShowTimePanel = true     % hide the bottom time slider panel
         EventMarkersVisible = true  % global toggle for event markers across all widgets (runtime UI state, not serialized)
+        DebugPreview_ = false    % 260508-das — opt-in: surface preview/marker pipeline failures as warnings
     end
 
     properties (SetAccess = private)
@@ -58,6 +59,7 @@ classdef DashboardEngine < handle
         hTimeSliderR    = []       % Shim handle — points at TimeRangeSelector_ (D-10)
         hTimeStart      = []
         hTimeEnd        = []
+        hTimeResetBtn   = []       % Reset button on time panel (260508-f7p — needed for theme switch)
         SliderDebounceTimer = []   % MATLAB timer for coalescing rapid slider events
         TimeRangeSelector_  = []   % TimeRangeSelector handle (replaces dual sliders)
         Progress_           = []   % DashboardProgress instance (active during render)
@@ -114,8 +116,12 @@ classdef DashboardEngine < handle
             end
             % Refresh the preview envelope (D-07). Safe before render():
             % computePreviewEnvelope guards on TimeRangeSelector_ presence.
-            try obj.computePreviewEnvelope(); catch, end
-            try obj.computeEventMarkers();    catch, end
+            try obj.computePreviewEnvelope(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
+            end
+            try obj.computeEventMarkers();    catch err
+                if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
+            end
         end
 
         function setEventMarkersVisible(obj, tf)
@@ -142,6 +148,11 @@ classdef DashboardEngine < handle
             end
             if ~isempty(obj.Toolbar) && ismethod(obj.Toolbar, 'setEventsActiveIndicator')
                 obj.Toolbar.setEventsActiveIndicator(tf);
+            end
+            % Refresh slider preview markers so the toolbar toggle is
+            % reflected in the time-panel track too (260508 follow-up).
+            try obj.computeEventMarkers(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
             end
         end
 
@@ -198,8 +209,12 @@ classdef DashboardEngine < handle
                 end
             end
             % Refresh the preview envelope on the newly active page (D-07).
-            try obj.computePreviewEnvelope(); catch, end
-            try obj.computeEventMarkers();    catch, end
+            try obj.computePreviewEnvelope(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
+            end
+            try obj.computeEventMarkers();    catch err
+                if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
+            end
         end
 
         function w = addWidget(obj, type, varargin)
@@ -814,7 +829,20 @@ classdef DashboardEngine < handle
                     system(['xdg-open "' obj.InfoTempFile '"']);
                 end
             else
-                web(obj.InfoTempFile, '-new');
+                % Only open the browser tab when running in an interactive desktop
+                % MATLAB session. Calling web() inside `-batch -nodisplay` on Linux
+                % CI destabilises the JVM/MEX loader and segfaults the runner
+                % (see TestDashboardInfo failure, GitHub Actions run 25550691546).
+                % The temp HTML file is already on disk above, which is what the
+                % TestDashboardInfo suite verifies.
+                interactive = usejava('desktop');
+                if interactive && exist('batchStartupOptionUsed', 'builtin') && ...
+                        batchStartupOptionUsed()
+                    interactive = false;
+                end
+                if interactive
+                    web(obj.InfoTempFile, '-new');
+                end
             end
         end
 
@@ -1066,6 +1094,12 @@ classdef DashboardEngine < handle
                         'ForegroundColor', theme.ToolbarFontColor);
                 end
             end
+            % Reset button shares the time panel's background/foreground.
+            if ~isempty(obj.hTimeResetBtn) && ishandle(obj.hTimeResetBtn)
+                set(obj.hTimeResetBtn, ...
+                    'BackgroundColor', theme.ToolbarBackground, ...
+                    'ForegroundColor', theme.ToolbarFontColor);
+            end
 
             % Page bar (visible or placeholder)
             if ~isempty(obj.hPageBar) && ishandle(obj.hPageBar)
@@ -1123,8 +1157,12 @@ classdef DashboardEngine < handle
 
             obj.updateTimeLabels(tMin, tMax);
             % Refresh the preview envelope after DataTimeRange change (D-07).
-            try obj.computePreviewEnvelope(); catch, end
-            try obj.computeEventMarkers();    catch, end
+            try obj.computePreviewEnvelope(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
+            end
+            try obj.computeEventMarkers();    catch err
+                if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
+            end
         end
 
         function updateLiveTimeRange(obj)
@@ -1468,8 +1506,12 @@ classdef DashboardEngine < handle
                 ws{i}.Dirty = false;
             end
             % Refresh the preview envelope on every live tick (D-07).
-            try obj.computePreviewEnvelope(); catch, end
-            try obj.computeEventMarkers();    catch, end
+            try obj.computePreviewEnvelope(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
+            end
+            try obj.computeEventMarkers();    catch err
+                if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
+            end
         end
 
         function markAllDirty(obj)
@@ -1712,7 +1754,7 @@ classdef DashboardEngine < handle
             % the selection to the full DataTimeRange. Double-clicking the
             % selection patch does the same, but a visible button is more
             % discoverable.
-            uicontrol('Parent', obj.hTimePanel, ...
+            obj.hTimeResetBtn = uicontrol('Parent', obj.hTimePanel, ...
                 'Style', 'pushbutton', ...
                 'Units', 'normalized', ...
                 'Position', [0.003 0.15 0.035 0.7], ...
@@ -1842,9 +1884,18 @@ classdef DashboardEngine < handle
                 env = struct('xCenters', [], 'yMin', [], 'yMax', []);
                 return;
             end
+            % 260508-das: widgets may return adaptive bucket counts that
+            % differ from nBuckets (e.g., a 50-sample widget returns 25
+            % buckets even when the caller asks for 200). We collect each
+            % series as-is and only build the legacy aggregate envelope
+            % from series that match the requested nBuckets — the
+            % aggregate is read by computePreviewEnvelopeForTest tests
+            % and must stay shape-stable, but the UI lines (linesList)
+            % accept any non-empty series.
             aggMin = inf(1, nBuckets);
             aggMax = -inf(1, nBuckets);
             xCenters = [];
+            haveAggSeries = false;
             linesList = {};
             for i = 1:numel(ws)
                 try
@@ -1856,36 +1907,68 @@ classdef DashboardEngine < handle
                 if ~isfield(s, 'xCenters') || ~isfield(s, 'yMin') || ~isfield(s, 'yMax')
                     continue;
                 end
-                if numel(s.yMin) ~= nBuckets || numel(s.yMax) ~= nBuckets
+                if isempty(s.xCenters) || isempty(s.yMin) || isempty(s.yMax)
                     continue;
                 end
-                if isempty(xCenters), xCenters = s.xCenters; end
-                % Aggregate min/max kept so computePreviewEnvelopeForTest
-                % can still return an envelope struct for existing tests.
-                aggMin = min(aggMin, s.yMin);
-                aggMax = max(aggMax, s.yMax);
+                if numel(s.xCenters) ~= numel(s.yMin) || numel(s.yMin) ~= numel(s.yMax)
+                    continue;
+                end
                 % Per-widget line: midpoint of bucket, already normalized
-                % to [0,1] by the widget (D-08).
+                % to [0,1] by the widget (D-08). Accepted at any bucket
+                % count >= 1.
                 yMid = (s.yMin + s.yMax) / 2;
                 linesList{end + 1} = struct('x', s.xCenters, 'y', yMid); %#ok<AGROW>
+                % Legacy aggregate envelope: only fold in series that
+                % match nBuckets exactly. Existing test_dashboard_preview_envelope
+                % expects a fixed-shape envelope when widgets honour
+                % the requested bucket count.
+                if numel(s.yMin) == nBuckets && numel(s.yMax) == nBuckets
+                    if ~haveAggSeries
+                        xCenters = s.xCenters;
+                        haveAggSeries = true;
+                    end
+                    aggMin = min(aggMin, s.yMin);
+                    aggMax = max(aggMax, s.yMax);
+                end
             end
-            if isempty(xCenters) || ~any(isfinite(aggMin))
+            if isempty(linesList)
                 obj.TimeRangeSelector_.setPreviewLines({});
+                env = struct('xCenters', [], 'yMin', [], 'yMax', []);
+                return;
+            end
+            obj.TimeRangeSelector_.setPreviewLines(linesList);
+            if ~haveAggSeries
+                % No widget produced exactly nBuckets buckets — return an
+                % empty envelope but keep the per-widget lines we drew.
                 env = struct('xCenters', [], 'yMin', [], 'yMax', []);
                 return;
             end
             aggMin(~isfinite(aggMin)) = 0;
             aggMax(~isfinite(aggMax)) = 0;
-            obj.TimeRangeSelector_.setPreviewLines(linesList);
+            % setPreviewLines already called above with the full linesList.
             env = struct('xCenters', xCenters, 'yMin', aggMin, 'yMax', aggMax);
         end
 
         function computeEventMarkers(obj)
-        %COMPUTEEVENTMARKERS Aggregate event times across active-page widgets
+        %COMPUTEEVENTMARKERS Aggregate event markers across active-page widgets
         %   and push them onto the TimeRangeSelector's marker overlay.
-        %   Mirrors computePreviewEnvelope's guard + iteration pattern: no-op
-        %   before render or when no widgets expose events. A failing widget
-        %   does not block siblings (each call is wrapped in try/catch).
+        %
+        %   Mirrors computePreviewEnvelope's guard + iteration pattern:
+        %   no-op before render or when no widgets expose events. A failing
+        %   widget does not block siblings (each call is wrapped in
+        %   try/catch).
+        %
+        %   For each widget we prefer the modern getEventMarkers() shape
+        %   (struct array with Time/Severity/Color fields) — it lets us
+        %   color each slider marker by event severity. Widgets that
+        %   predate the per-severity-color contract still expose only
+        %   getEventTimes() and are folded in with default OK-severity
+        %   color via the severityColor helper.
+        %
+        %   Tiebreaker on duplicate event Times across widgets: KEEP THE
+        %   ROW WITH THE HIGHEST SEVERITY. So if widget A reports
+        %   Severity=1 at t=50 and widget B reports Severity=3 at t=50,
+        %   the slider draws a single alarm-red marker at t=50.
             % Guard mirrors computePreviewEnvelopeReturning_ for parity.
             % We deliberately do NOT use isvalid() here because Octave 7+11
             % does not implement isvalid() for non-timer handle objects;
@@ -1894,28 +1977,117 @@ classdef DashboardEngine < handle
                     ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
                 return;
             end
+            % Honor the global Events toggle: when off, clear any existing
+            % slider markers and bail before doing the per-widget aggregation.
+            if ~obj.EventMarkersVisible
+                obj.TimeRangeSelector_.setEventMarkers([]);
+                return;
+            end
             ws = obj.activePageWidgets();
-            allTimes = [];
+
+            % Accumulators (parallel arrays — keep allocation-free until
+            % the dedup pass at the end). Severity defaults to 1 (OK) for
+            % legacy getEventTimes()-only widgets so the dedup tiebreaker
+            % cleanly prefers any explicitly-tagged sev>=2 widget.
+            allTimes  = [];
+            allSev    = [];
+            allColors = zeros(0, 3);
+
+            % Resolve the *struct* theme — obj.Theme is a preset string
+            % (e.g. 'light'/'dark'); severityColor wants a struct, so go
+            % through the cached resolver. Tolerate failure (helper is
+            % defensive and accepts []).
+            themeStruct = [];
+            try
+                themeStruct = obj.getCachedTheme();
+            catch
+                themeStruct = [];
+            end
+            okColor = severityColor(themeStruct, 1);  % cached for legacy fallback
+
             for i = 1:numel(ws)
-                tVec = [];
+                w = ws{i};
+
+                % Prefer the modern colored-marker shape when the widget
+                % advertises it. ismethod works on classdef objects in
+                % both MATLAB and Octave 7+.
+                useMarkers = false;
                 try
-                    tVec = ws{i}.getEventTimes();
-                catch err
-                    warning('DashboardEngine:getEventTimesFailed', ...
-                        'Widget %d getEventTimes failed: %s', i, err.message);
+                    useMarkers = ismethod(w, 'getEventMarkers');
+                catch
+                    useMarkers = false;
+                end
+
+                if useMarkers
+                    ms = struct('Time', {}, 'Severity', {}, 'Color', {});
+                    try
+                        ms = w.getEventMarkers();
+                    catch err
+                        warning('DashboardEngine:getEventMarkersFailed', ...
+                            'Widget %d getEventMarkers failed: %s', i, err.message);
+                        ms = struct('Time', {}, 'Severity', {}, 'Color', {});
+                    end
+                    for k = 1:numel(ms)
+                        t = ms(k).Time;
+                        if ~isnumeric(t) || ~isfinite(t)
+                            continue;
+                        end
+                        sev = 1;
+                        if isfield(ms, 'Severity') && isnumeric(ms(k).Severity) && ...
+                                ~isempty(ms(k).Severity) && isfinite(ms(k).Severity(1))
+                            sev = ms(k).Severity(1);
+                        end
+                        c = okColor;
+                        if isfield(ms, 'Color') && isnumeric(ms(k).Color) && ...
+                                numel(ms(k).Color) == 3
+                            c = ms(k).Color(:).';
+                        end
+                        allTimes(end + 1)  = t;          %#ok<AGROW>
+                        allSev(end + 1)    = sev;        %#ok<AGROW>
+                        allColors(end + 1, :) = c;       %#ok<AGROW>
+                    end
+                else
+                    % Legacy widgets — synthesize default-severity markers.
                     tVec = [];
-                end
-                if ~isempty(tVec)
-                    allTimes = [allTimes, tVec(:).']; %#ok<AGROW>
+                    try
+                        tVec = w.getEventTimes();
+                    catch err
+                        warning('DashboardEngine:getEventTimesFailed', ...
+                            'Widget %d getEventTimes failed: %s', i, err.message);
+                        tVec = [];
+                    end
+                    if isempty(tVec), continue; end
+                    tVec = tVec(:).';
+                    tVec = tVec(isfinite(tVec));
+                    for k = 1:numel(tVec)
+                        allTimes(end + 1)  = tVec(k);   %#ok<AGROW>
+                        allSev(end + 1)    = 1;          %#ok<AGROW>
+                        allColors(end + 1, :) = okColor; %#ok<AGROW>
+                    end
                 end
             end
-            if ~isempty(allTimes)
-                allTimes = allTimes(isfinite(allTimes));
-                % unique() returns a sorted ascending row in both MATLAB and
-                % Octave 7+, so an explicit sort() is redundant here.
-                allTimes = unique(allTimes);
+
+            if isempty(allTimes)
+                obj.TimeRangeSelector_.setEventMarkers([]);
+                return;
             end
-            obj.TimeRangeSelector_.setEventMarkers(allTimes);
+
+            % Dedup pass with max-severity-wins tiebreaker.
+            % unique() returns a sorted ascending row in both MATLAB and
+            % Octave 7+; idx maps each input row to its bucket in uTimes.
+            [uTimes, ~, idx] = unique(allTimes);
+            uColors = zeros(numel(uTimes), 3);
+            for k = 1:numel(uTimes)
+                rows = find(idx == k);
+                if numel(rows) == 1
+                    uColors(k, :) = allColors(rows, :);
+                else
+                    [~, pickRel] = max(allSev(rows));
+                    uColors(k, :) = allColors(rows(pickRel), :);
+                end
+            end
+
+            obj.TimeRangeSelector_.setEventMarkers(uTimes, uColors);
         end
 
     end

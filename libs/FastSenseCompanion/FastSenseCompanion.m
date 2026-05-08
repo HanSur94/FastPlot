@@ -297,12 +297,16 @@ classdef FastSenseCompanion < handle
             obj.hLogPanel_.Layout.Row = 3; obj.hLogPanel_.Layout.Column = [1 3];
             % Phase 1027.1 -- LogPaneRoot tag moves to the two sub-panels below.
 
-            % Apply panel styling from theme
+            % Apply panel styling from theme. uifigure-uipanel border
+            % properties (BorderColor, BorderWidth) are R2021a+; on R2020b
+            % they error with UnsupportedAppDesignerFunctionality even
+            % though isprop() reports them as present. Tolerate failure
+            % per-property — BackgroundColor works on all versions.
             for hp = {obj.hLeftPanel_, obj.hMidPanel_, obj.hRightPanel_, obj.hLogPanel_}
                 hp{1}.BackgroundColor = obj.Theme_.WidgetBackground;
-                hp{1}.BorderColor     = obj.Theme_.WidgetBorderColor;
-                hp{1}.BorderType      = 'line';
-                hp{1}.BorderWidth     = 1;
+                try, hp{1}.BorderColor = obj.Theme_.WidgetBorderColor; catch, end
+                try, hp{1}.BorderType  = 'line';                      catch, end
+                try, hp{1}.BorderWidth = 1;                           catch, end
             end
 
             % Phase 1027.1 -- inner [2 1] grid hosting two LogPaneRoot-tagged sub-panels.

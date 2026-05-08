@@ -23,6 +23,7 @@ obj = DashboardEngine(name, varargin)
 | ProgressMode | `'auto'` | 'auto' \| 'on' \| 'off' — render progress bar visibility |
 | ShowTimePanel | `true` | hide the bottom time slider panel |
 | EventMarkersVisible | `true` | global toggle for event markers across all widgets (runtime UI state, not serialized) |
+| DebugPreview_ | `false` | 260508-das — opt-in: surface preview/marker pipeline failures as warnings |
 
 ### Methods
 
@@ -541,16 +542,32 @@ updateTimeRangeCache() which is called from render/refresh/update.
 
 GETPREVIEWSERIES Per-bucket min/max preview for the dashboard envelope.
   series = getPreviewSeries(obj, nBuckets) returns a struct with
-  fields xCenters, yMin, yMax — each a 1xnBuckets row vector; yMin
-  and yMax are normalized into [0,1] across the widget's own
-  current y-range. Returns [] when no data is bound or when the
-  sample count is too low to downsample meaningfully.
+  fields xCenters, yMin, yMax — each a 1xnBucketsEff row vector;
+  yMin and yMax are normalized into [0,1] across the widget's own
+  current y-range. Returns [] only when no data is bound or when
+  the sample count is genuinely too sparse (<4) to downsample.
 
 #### `t = getEventTimes(obj)`
 
-GETEVENTTIMES Event start times from the wrapped FastSense.EventStore.
-  Returns [] when the FastSense instance is absent, has no
-  EventStore, or when any access raises. Never throws.
+GETEVENTTIMES Event start times for the dashboard time-slider markers.
+  Looks up events in this priority order:
+    1. obj.EventStore  (widget-level — the modern attachment point)
+    2. obj.FastSenseObj.EventStore  (legacy: events on inner FastSense)
+    3. obj.FastSenseObj.Events / .EventTimes  (defensive: extra hooks)
+
+#### `m = getEventMarkers(obj)`
+
+GETEVENTMARKERS Per-event time + severity + color for slider markers.
+  m = getEventMarkers(obj) returns a struct array with fields:
+    m(k).Time     — numeric timestamp (StartTime)
+    m(k).Severity — numeric severity in {1,2,3} (default 1 if absent)
+    m(k).Color    — 1x3 RGB triplet from severityColor(theme, sev)
+
+#### `invalidatePreviewCache_(obj)`
+
+INVALIDATEPREVIEWCACHE_ Clear PreviewCache_ so getPreviewSeries recomputes.
+  Called from refresh() / update() / rebuildForTag_() whenever
+  the underlying data may have changed. Cheap (no graphics).
 
 #### `t = getType(~)`
 
@@ -874,6 +891,14 @@ GETEVENTTIMES Event start times from resolveEvents (override).
   Mirrors the same filtering pipeline the widget uses to draw
   bars, so the time-slider overlay always matches what the
   widget itself renders.
+
+#### `m = getEventMarkers(obj)`
+
+GETEVENTMARKERS Per-event time + severity + color for slider markers.
+  m = getEventMarkers(obj) returns a struct array with fields:
+    m(k).Time     — numeric timestamp (startTime)
+    m(k).Severity — numeric severity (default 1 if absent)
+    m(k).Color    — 1x3 RGB triplet from severityColor(theme, sev)
 
 #### `refresh(obj)`
 
@@ -1971,7 +1996,7 @@ setPreviewLines  Draw one downsampled line per widget preview.
   interactions remain unaffected.
 Clear previous preview lines.
 
-#### `setEventMarkers(obj, times)`
+#### `setEventMarkers(obj, times, colors)`
 
 setEventMarkers  Draw a faint full-height line per event time.
   setEventMarkers(times) clears any existing markers and draws

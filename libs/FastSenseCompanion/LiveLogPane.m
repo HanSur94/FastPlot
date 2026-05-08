@@ -108,7 +108,8 @@ classdef LiveLogPane < handle
 
             obj.hLiveSearch_ = uieditfield(gHdr, 'text');
             obj.hLiveSearch_.Layout.Row = 1; obj.hLiveSearch_.Layout.Column = 2;
-            obj.hLiveSearch_.Placeholder = ['Search by tag', char(8230)];
+            % Placeholder is R2021a+; tolerated on R2020b.
+            try, obj.hLiveSearch_.Placeholder = ['Search by tag', char(8230)]; catch, end
             obj.hLiveSearch_.FontSize = 11;
             obj.hLiveSearch_.ValueChangedFcn = @(~,~) obj.applyLiveFilter_();
 

@@ -566,53 +566,147 @@ classdef DashboardLayout < handle
             obj.onScroll(val);
         end
 
-        function addInfoIcon(obj, widget)
-        %ADDINFOICON Add a small info button to widget.hPanel for Description display.
+        function bar = getOrCreateButtonBar_(obj, widget) %#ok<INUSL>
+        %GETORCREATEBUTTONBAR_ Return the per-widget button bar uipanel,
+        %   creating it the first time. The bar is a small opaque strip in
+        %   the top-right of widget.hPanel that hosts the info + detach
+        %   buttons so they aren't obscured by widget content drawn behind
+        %   them. Tag = 'WidgetButtonBar' (protected by sweepUserChildren_).
+            existing = findobj(widget.hPanel, 'Tag', 'WidgetButtonBar', '-depth', 1);
+            if ~isempty(existing) && ishandle(existing(1))
+                bar = existing(1);
+                return;
+            end
             if isempty(widget.ParentTheme) || ~isstruct(widget.ParentTheme)
                 theme = DashboardTheme('light');
             else
                 theme = widget.ParentTheme;
             end
-            iconBg = theme.ToolbarBackground;
-            iconFg = theme.ToolbarFontColor;
-            btn = uicontrol('Parent', widget.hPanel, ...
+            % Background: use GroupHeaderBg (explicitly designed as a
+            % header-vs-panel contrast token — light blue-gray in light
+            % mode, slightly-lighter navy in dark mode), falling back to
+            % ToolbarBackground for older themes that don't define it.
+            if isfield(theme, 'GroupHeaderBg')
+                barBg = theme.GroupHeaderBg;
+            else
+                barBg = theme.ToolbarBackground;
+            end
+            % Full-width header strip, 28px tall, anchored at the top of
+            % the widget panel. Inset by 2px on left/right/top to keep the
+            % widget panel border visible.
+            oldUnits = get(widget.hPanel, 'Units');
+            set(widget.hPanel, 'Units', 'pixels');
+            pp = get(widget.hPanel, 'Position');
+            set(widget.hPanel, 'Units', oldUnits);
+            barH = 28;
+            inset = 2;
+            barW = pp(3) - 2 * inset;
+            x = inset;
+            y = pp(4) - barH - inset;
+            bar = uipanel('Parent', widget.hPanel, ...
+                'Units', 'pixels', ...
+                'Position', [x y barW barH], ...
+                'BackgroundColor', barBg, ...
+                'BorderType', 'none', ...
+                'Tag', 'WidgetButtonBar');
+            % Reposition on panel resize so the bar tracks the widget —
+            % only when MATLAB has an interactive desktop. Under -batch /
+            % -nodesktop / -nodisplay (CI, xvfb), the SizeChangedFcn fires
+            % during render of run_demo's 25+ widgets and segfaults R2020b.
+            % usejava('desktop') is true only in an interactive Java desktop;
+            % batchStartupOptionUsed catches MATLAB -batch on R2019a+.
+            isInteractive = false;
+            try
+                isInteractive = usejava('desktop');
+                if exist('batchStartupOptionUsed', 'builtin') == 5 && ...
+                        batchStartupOptionUsed
+                    isInteractive = false;
+                end
+            catch
+            end
+            if isInteractive
+                set(widget.hPanel, 'SizeChangedFcn', ...
+                    @(src, ~) DashboardLayout.reflowButtonBar_(src, barH, inset));
+            end
+        end
+
+        function addInfoIcon(obj, widget)
+        %ADDINFOICON Add a small info button into the widget's button bar.
+            if isempty(widget.ParentTheme) || ~isstruct(widget.ParentTheme)
+                theme = DashboardTheme('light');
+            else
+                theme = widget.ParentTheme;
+            end
+            bar = obj.getOrCreateButtonBar_(widget);
+            barPos = get(bar, 'Position');
+            % Right-anchored: detach at far right (offset 4), info just to
+            % its left. Positions are relative to the bar uipanel.
+            xInfo = barPos(3) - 28 - 28 - 4;
+            uicontrol('Parent', bar, ...
                 'Style', 'pushbutton', ...
                 'String', 'i', ...
                 'Units', 'pixels', ...
-                'Position', [0 0 24 24], ...
+                'Position', [xInfo 2 24 24], ...
                 'FontSize', 9, ...
                 'FontWeight', 'bold', ...
-                'ForegroundColor', iconFg, ...
-                'BackgroundColor', iconBg, ...
+                'ForegroundColor', theme.ToolbarFontColor, ...
+                'BackgroundColor', theme.ToolbarBackground, ...
                 'Tag', 'InfoIconButton', ...
                 'TooltipString', 'Widget info', ...
                 'Callback', @(~,~) obj.openInfoPopup(widget, theme));
-            DashboardLayout.anchorTopRight(btn, 4);
         end
 
         function addDetachButton(obj, widget)
-        %ADDDETACHBUTTON Add a detach button to widget.hPanel for popping out the widget.
+        %ADDDETACHBUTTON Add a detach button into the widget's button bar.
             if isempty(widget.ParentTheme) || ~isstruct(widget.ParentTheme)
                 theme = DashboardTheme('light');
             else
                 theme = widget.ParentTheme;
             end
-            btn = uicontrol('Parent', widget.hPanel, ...
+            bar = obj.getOrCreateButtonBar_(widget);
+            barPos = get(bar, 'Position');
+            xDet = barPos(3) - 24 - 4;
+            uicontrol('Parent', bar, ...
                 'Style', 'pushbutton', ...
                 'String', '^', ...
                 'Units', 'pixels', ...
-                'Position', [0 0 24 24], ...
+                'Position', [xDet 2 24 24], ...
                 'FontSize', 9, ...
                 'ForegroundColor', theme.ToolbarFontColor, ...
                 'BackgroundColor', theme.ToolbarBackground, ...
                 'Tag', 'DetachButton', ...
                 'TooltipString', 'Detach widget', ...
                 'Callback', @(~,~) obj.DetachCallback(widget));
-            DashboardLayout.anchorTopRight(btn, 32);
         end
     end
 
     methods (Static, Access = private)
+
+        function reflowButtonBar_(hPanel, barH, inset)
+        %REFLOWBUTTONBAR_ SizeChangedFcn handler — re-anchor the WidgetButtonBar
+        %   uipanel and its right-aligned buttons after the parent panel resizes.
+        %   No-op when the panel has been deleted or the bar isn't there yet.
+            if ~ishandle(hPanel), return; end
+            bar = findobj(hPanel, 'Tag', 'WidgetButtonBar', '-depth', 1);
+            if isempty(bar) || ~ishandle(bar(1)), return; end
+            bar = bar(1);
+            oldUnits = get(hPanel, 'Units');
+            set(hPanel, 'Units', 'pixels');
+            pp = get(hPanel, 'Position');
+            set(hPanel, 'Units', oldUnits);
+            barW = max(1, pp(3) - 2 * inset);
+            set(bar, 'Units', 'pixels', ...
+                'Position', [inset, pp(4) - barH - inset, barW, barH]);
+            % Re-anchor right-aligned buttons inside the bar.
+            det  = findobj(bar, 'Tag', 'DetachButton',   '-depth', 1);
+            info = findobj(bar, 'Tag', 'InfoIconButton', '-depth', 1);
+            if ~isempty(det) && ishandle(det(1))
+                set(det(1), 'Position', [barW - 24 - 4, 2, 24, 24]);
+            end
+            if ~isempty(info) && ishandle(info(1))
+                set(info(1), 'Position', [barW - 24 - 24 - 4 - 4, 2, 24, 24]);
+            end
+        end
 
         function anchorTopRight(btn, offsetFromRight)
         %ANCHORTOPRIGHT Position a pixel-sized button at the top-right of its parent.

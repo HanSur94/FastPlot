@@ -111,7 +111,8 @@ classdef EventsLogPane < handle
 
             obj.hLogSearch_ = uieditfield(gHdr, 'text');
             obj.hLogSearch_.Layout.Row = 1; obj.hLogSearch_.Layout.Column = 2;
-            obj.hLogSearch_.Placeholder = ['Search log', char(8230)];
+            % Placeholder is R2021a+; tolerated on R2020b.
+            try, obj.hLogSearch_.Placeholder = ['Search log', char(8230)]; catch, end
             obj.hLogSearch_.FontSize = 11;
             obj.hLogSearch_.ValueChangedFcn = @(~,~) obj.applyLogFilter_();
 
