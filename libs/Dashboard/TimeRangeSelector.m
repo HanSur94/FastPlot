@@ -448,7 +448,11 @@ classdef TimeRangeSelector < handle
             % the selection edges as the user drags. Positioned at the
             % middle of the selector height; anchored so they sit to the
             % right of the left handle and to the left of the right handle.
-            labelColor = envColor;
+            % Color: ALWAYS near-black, independent of theme — the slider
+            % axes background is always white (so it can host the colorful
+            % preview lines + event markers cleanly), so a theme-derived
+            % light label would be invisible in dark mode.
+            labelColor = [0.05 0.05 0.05];
             obj.hLabelLeft = text(obj.hAxes, 0, 0.5, '', ...
                 'Color', labelColor, 'FontSize', 9, ...
                 'HorizontalAlignment', 'left', 'VerticalAlignment', 'middle', ...
