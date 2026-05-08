@@ -814,7 +814,20 @@ classdef DashboardEngine < handle
                     system(['xdg-open "' obj.InfoTempFile '"']);
                 end
             else
-                web(obj.InfoTempFile, '-new');
+                % Only open the browser tab when running in an interactive desktop
+                % MATLAB session. Calling web() inside `-batch -nodisplay` on Linux
+                % CI destabilises the JVM/MEX loader and segfaults the runner
+                % (see TestDashboardInfo failure, GitHub Actions run 25550691546).
+                % The temp HTML file is already on disk above, which is what the
+                % TestDashboardInfo suite verifies.
+                interactive = usejava('desktop');
+                if interactive && exist('batchStartupOptionUsed', 'builtin') && ...
+                        batchStartupOptionUsed()
+                    interactive = false;
+                end
+                if interactive
+                    web(obj.InfoTempFile, '-new');
+                end
             end
         end
 
