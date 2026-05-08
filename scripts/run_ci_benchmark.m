@@ -207,6 +207,31 @@ function run_ci_benchmark()
     results = add_result(results, 'Dashboard broadcastTimeRange mean', 'ms', t_br * 1000);
     close all force; clear d_br;
 
+    % --- Phase 1028: 1000-tag pipeline gate (D-06) ---
+    % Emit tickMin + tickMedian for both NoIO (gated) and WithIO (diagnostic).
+    % Direct struct append (NOT via add_result_) because each bench invocation
+    % already does its own min-of-N internally; we report the bench's own stats
+    % rather than re-running it for outer-loop variance.
+    fprintf('\n========== Phase 1028: 1000-tag pipeline ==========\n');
+
+    fprintf('Running bench_tag_pipeline_1k (NoIO, gated)...\n');
+    r1k = bench_tag_pipeline_1k();
+    results{end+1} = struct( ...
+        'name',  'tag_pipeline_1k_noio_min_ms', ...
+        'unit',  'ms', ...
+        'value', r1k.tickMin * 1000); %#ok<AGROW>
+    results{end+1} = struct( ...
+        'name',  'tag_pipeline_1k_noio_median_ms', ...
+        'unit',  'ms', ...
+        'value', r1k.tickMedian * 1000); %#ok<AGROW>
+
+    fprintf('Running bench_tag_pipeline_1k (WithIO, diagnostic — not gated, D-12)...\n');
+    rIO = bench_tag_pipeline_1k('Mode', 'WithIO');
+    results{end+1} = struct( ...
+        'name',  'tag_pipeline_1k_withio_min_ms', ...
+        'unit',  'ms', ...
+        'value', rIO.tickMin * 1000); %#ok<AGROW>
+
     % --- Write JSON ---
     fid = fopen('benchmark-results.json', 'w');
     fprintf(fid, '[\n');
