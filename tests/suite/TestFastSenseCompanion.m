@@ -417,7 +417,7 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             TagRegistry.register('mk2', MockPlottableTag('mk2', 'Name', 'M2', ...
                 'X', 1:50, 'Y', cos((1:50)/3)));
             app = FastSenseCompanion('Theme', 'dark');
-            testCase.addTeardown(@() isvalid(app) && app.IsOpen && app.close());
+            testCase.addTeardown(@() closeIfOpen_(app));
             app.refreshCatalog();
             drawnow;
             preFigs = findobj(groot, 'Type', 'figure');
@@ -444,7 +444,7 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
                     'Name', sprintf('LG%d', i), 'X', 1:30, 'Y', (1:30) + i));
             end
             app = FastSenseCompanion('Theme', 'dark');
-            testCase.addTeardown(@() isvalid(app) && app.IsOpen && app.close());
+            testCase.addTeardown(@() closeIfOpen_(app));
             app.refreshCatalog();
             drawnow;
             preFigs = findobj(groot, 'Type', 'figure');
@@ -470,7 +470,7 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             TagRegistry.register('b4', MockPlottableTag('b4', 'Name', 'B4', ...
                 'X', 1:20, 'Y', 20:-1:1));
             app = FastSenseCompanion('Theme', 'dark');
-            testCase.addTeardown(@() isvalid(app) && app.IsOpen && app.close());
+            testCase.addTeardown(@() closeIfOpen_(app));
             app.refreshCatalog();
             drawnow;
             preFigs = findobj(groot, 'Type', 'figure');
@@ -499,7 +499,7 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             TagRegistry.register('r2', MockPlottableTag('r2', 'Name', 'R2', ...
                 'X', 1:20, 'Y', 20:-1:1));
             app = FastSenseCompanion('Theme', 'dark');
-            testCase.addTeardown(@() isvalid(app) && app.IsOpen && app.close());
+            testCase.addTeardown(@() closeIfOpen_(app));
             app.refreshCatalog();
             drawnow;
             preFigs = findobj(groot, 'Type', 'figure');
@@ -525,7 +525,7 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             TagRegistry.register('t2', MockPlottableTag('t2', 'Name', 'T2', ...
                 'X', 1:20, 'Y', 20:-1:1));
             app = FastSenseCompanion('Theme', 'dark');
-            testCase.addTeardown(@() isvalid(app) && app.IsOpen && app.close());
+            testCase.addTeardown(@() closeIfOpen_(app));
             app.refreshCatalog();
             drawnow;
             preTimers = timerfindall();
@@ -589,10 +589,11 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             feval(tickFcn, s.LiveTimer_, []);
             drawnow;
 
-            % Assertion: at least one row in the live-updates table.
+            % Assertion: at least one row in the live-updates buffer (LogPane owns it post-Phase-1027).
+            pane = app.getLogPane();
+            testCase.verifyGreaterThanOrEqual(pane.bufferSize('live'), 1, ...
+                'Live updates buffer must contain at least one row after a SensorTag grows between two ticks');
             s2 = struct(app);
-            testCase.verifyGreaterThanOrEqual(size(s2.hLiveLogTable_.Data, 1), 1, ...
-                'Live updates table must contain at least one row after a SensorTag grows between two ticks');
             testCase.verifyTrue(s2.LiveSampleCount_.isKey('liveupd1'), ...
                 'LiveSampleCount_ must contain the tag key after the first tick');
             testCase.verifyEqual(s2.LiveSampleCount_('liveupd1'), 5, ...
@@ -641,25 +642,21 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             testCase.backupAndArmRestore_();
             app = FastSenseCompanion('Theme', 'dark');
             testCase.addTeardown(@() delete(app));
-            % Snapshot the pre-switch FontColor on a known label.
-            warnState = warning('off', 'MATLAB:structOnObject');
-            cleanup = onCleanup(@() warning(warnState)); %#ok<NASGU>
-            sBefore = struct(app);
-            beforeColor = sBefore.hLastUpdateLbl_.FontColor;
+            % Snapshot the pre-switch LogPane root background (Phase 1027:
+            % the log strip lives in LogPane, accessed via the public test helper).
+            pane = app.getLogPane();
+            beforeBg = pane.rootBackgroundColor();
             app.applyTheme('light');
             drawnow;
             testCase.verifyEqual(app.Theme, 'light');
-            sAfter = struct(app);
-            afterColor = sAfter.hLastUpdateLbl_.FontColor;
-            % Either the FontColor changed or the placeholder color
-            % exists for both presets — either way, the dark presetColor
-            % must NOT match the new label color.
-            darkColor = CompanionTheme.get('dark').PlaceholderTextColor;
-            lightColor = CompanionTheme.get('light').PlaceholderTextColor;
-            testCase.verifyNotEqual(darkColor, lightColor, ...
-                'sanity: dark and light placeholder colors must differ');
-            testCase.verifyNotEqual(afterColor, beforeColor, ...
-                'log header label must visibly recolor on theme switch');
+            afterBg = pane.rootBackgroundColor();
+            % Sanity: dark and light WidgetBackgrounds must differ at all.
+            darkBg  = CompanionTheme.get('dark').WidgetBackground;
+            lightBg = CompanionTheme.get('light').WidgetBackground;
+            testCase.verifyNotEqual(darkBg, lightBg, ...
+                'sanity: dark and light widget backgrounds must differ');
+            testCase.verifyNotEqual(afterBg, beforeBg, ...
+                'LogPane root background must visibly recolor on theme switch');
             app.close();
         end
 
@@ -729,6 +726,184 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             testCase.verifyEqual(prefs.livePeriod, 1.0);
             dlg.close(); drawnow;
             app.close();
+        end
+
+        % --- Phase 1027 ---
+
+        function testLogStateDefaultIsInline(testCase)
+        %TESTLOGSTATEDEFAULTISINLINE After construction, dropdown shows 'Inline' and row 3 has its original height.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            testCase.verifyEqual(app.getLogStateValue(), 'Inline');
+            testCase.verifyTrue(app.getLogPane().IsAttached);
+            testCase.verifyEqual(app.getRow3Height(), 360);
+        end
+
+        function testLogStateInlineToDetachedToInline(testCase)
+        %TESTLOGSTATEINLINETODETACHEDTOINLINE Round-trip: detached uifigure created and destroyed.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('Detached');
+            testCase.verifyEqual(app.getLogStateValue(), 'Detached');
+            fig = app.getDetachedLogFig();
+            testCase.verifyTrue(~isempty(fig) && isvalid(fig), ...
+                'Detached uifigure should exist');
+            testCase.verifyEqual(fig.Position(3:4), [720 480], ...
+                'Detached uifigure should be 720x480');
+            testCase.verifyEqual(app.getRow3Height(), 0, ...
+                'Row 3 should collapse to 0 when Detached');
+            app.applyLogState('Inline');
+            testCase.verifyEqual(app.getLogStateValue(), 'Inline');
+            fig2 = app.getDetachedLogFig();
+            testCase.verifyTrue(isempty(fig2) || ~isvalid(fig2), ...
+                'Detached uifigure should be gone after Inline');
+            testCase.verifyEqual(app.getRow3Height(), 360, ...
+                'Row 3 should restore on Inline');
+        end
+
+        function testLogStateInlineToHiddenToInline(testCase)
+        %TESTLOGSTATEINLINETOHIDDENTOINLINE Hidden collapses row 3 with no detached window.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('Hidden');
+            testCase.verifyEqual(app.getLogStateValue(), 'Hidden');
+            testCase.verifyEqual(app.getRow3Height(), 0);
+            fig = app.getDetachedLogFig();
+            testCase.verifyTrue(isempty(fig) || ~isvalid(fig), ...
+                'No uifigure should be spawned in Hidden state');
+            app.applyLogState('Inline');
+            testCase.verifyEqual(app.getLogStateValue(), 'Inline');
+            testCase.verifyEqual(app.getRow3Height(), 360);
+        end
+
+        function testLogEntriesSurviveHiddenState(testCase)
+        %TESTLOGENTRIESSURVIVEHIDDENSTATE Entries added during Hidden are visible after returning to Inline.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            p = app.getLogPane();
+            sizeBefore = p.bufferSize('log');
+            app.applyLogState('Hidden');
+            app.addLogEntry('info', 'hidden entry 1');
+            app.addLogEntry('warn', 'hidden entry 2');
+            app.applyLogState('Inline');
+            sizeAfter = p.bufferSize('log');
+            testCase.verifyEqual(sizeAfter - sizeBefore, 2, ...
+                'Both entries added in Hidden state should be in the buffer after returning to Inline');
+        end
+
+        function testProgrammaticCloseDrivesStateToInline(testCase)
+        %TESTPROGRAMMATICCLOSEDRIVESSTATETOINLINE Closing the detached uifigure returns state to Inline.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('Detached');
+            fig = app.getDetachedLogFig();
+            testCase.verifyTrue(~isempty(fig) && isvalid(fig));
+            % Programmatically invoke the close request -- equivalent to clicking the X.
+            crf = fig.CloseRequestFcn;
+            testCase.verifyClass(crf, 'function_handle', ...
+                'Detached uifigure must have a CloseRequestFcn');
+            crf(fig, []);
+            testCase.verifyEqual(app.getLogStateValue(), 'Inline', ...
+                'State should be Inline after detached uifigure close');
+            fig2 = app.getDetachedLogFig();
+            testCase.verifyTrue(isempty(fig2) || ~isvalid(fig2));
+        end
+
+        function testLiveButtonParentedToToolbar(testCase)
+        %TESTLIVEBUTTONPARENTEDTOTOOLBAR Phase 1027: Live button moved out of log header.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            par = app.getLiveButtonParent();
+            testCase.verifyClass(par, 'matlab.ui.container.GridLayout', ...
+                'Live button parent should be the toolbar uigridlayout');
+            % Sanity: parent's parent should be the toolbar uipanel, NOT the log panel.
+            grandpa = par.Parent;
+            testCase.verifyClass(grandpa, 'matlab.ui.container.Panel');
+        end
+
+        function testLiveButtonStillTogglesLiveMode(testCase)
+        %TESTLIVEBUTTONSTILLTOGGLESLIVEMODE Regression: button moved to toolbar but still calls toggleLiveMode.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            wasLive = app.IsLive;
+            app.toggleLiveMode();
+            testCase.verifyNotEqual(app.IsLive, wasLive, ...
+                'toggleLiveMode should flip IsLive');
+            app.toggleLiveMode();
+            testCase.verifyEqual(app.IsLive, wasLive, ...
+                'second toggle should restore IsLive');
+        end
+
+        function testThemeSwitchWhileDetached(testCase)
+        %TESTTHEMESWITCHWHILEDETACHED Theme switch while detached re-themes both the uifigure and the LogPane.
+            testCase.backupAndArmRestore_();
+            app = FastSenseCompanion('Theme', 'dark');
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('Detached');
+            fig = app.getDetachedLogFig();
+            testCase.verifyTrue(~isempty(fig) && isvalid(fig));
+            darkBg = fig.Color;
+            app.applyTheme('light');
+            fig2 = app.getDetachedLogFig();
+            testCase.verifyTrue(~isempty(fig2) && isvalid(fig2), ...
+                'Detached uifigure should survive theme switch');
+            lightBg = fig2.Color;
+            testCase.verifyNotEqual(darkBg, lightBg, ...
+                'Detached uifigure background should change on theme switch');
+            expected = CompanionTheme.get('light').DashboardBackground;
+            testCase.verifyEqual(lightBg, expected, 'AbsTol', 1e-6);
+        end
+
+        function testThemeSwitchWhileHidden(testCase)
+        %TESTTHEMESWITCHWHILEHIDDEN Theme switch during Hidden propagates on next Inline attach.
+        %   Catches the regression where attach() after Hidden forgets to honor
+        %   the latest theme. LogPane.applyTheme is a no-op while detached
+        %   (verified by TestLogPane.testApplyThemeNoOpWhenDetached), so the
+        %   companion must pass the *current* theme to attach() -- not a stale
+        %   handle captured at construction.
+            testCase.backupAndArmRestore_();
+            app = FastSenseCompanion('Theme', 'dark');
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('Hidden');
+            app.applyTheme('light');
+            app.applyLogState('Inline');
+            pane = app.getLogPane();
+            testCase.verifyTrue(pane.IsAttached, ...
+                'LogPane should be attached after returning to Inline');
+            bg = pane.rootBackgroundColor();
+            expected = CompanionTheme.get('light').DashboardBackground;
+            lightWidget = CompanionTheme.get('light').WidgetBackground;
+            matchesLight = isequal(round(bg, 3), round(expected, 3)) || ...
+                           isequal(round(bg, 3), round(lightWidget, 3));
+            testCase.verifyTrue(matchesLight, ...
+                sprintf('LogPane root background (%s) should match light theme after Hidden->theme->Inline.', mat2str(bg, 3)));
+        end
+
+        function testSetLogStateIdempotent(testCase)
+        %TESTSETLOGSTATEIDEMPOTENT Calling setLogState_ with the current state is a no-op (no thrown error, no side effects).
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('Inline');  % already Inline
+            testCase.verifyEqual(app.getLogStateValue(), 'Inline');
+            app.applyLogState('Detached');
+            fig1 = app.getDetachedLogFig();
+            app.applyLogState('Detached');  % redundant
+            fig2 = app.getDetachedLogFig();
+            % Same handle; not destroyed and recreated.
+            testCase.verifyEqual(fig1, fig2);
+        end
+
+        function testCloseWhileDetachedDoesNotRecurse(testCase)
+        %TESTCLOSEWHILEDETACHEDDOESNOTRECURSE Closing companion while log is detached cleans up without infinite recursion.
+            app = FastSenseCompanion();
+            app.applyLogState('Detached');
+            fig = app.getDetachedLogFig();
+            testCase.verifyTrue(~isempty(fig) && isvalid(fig));
+            % Should NOT throw, NOT recurse.
+            app.close();
+            testCase.verifyFalse(app.IsOpen);
+            testCase.verifyTrue(isempty(fig) || ~isvalid(fig), ...
+                'Detached uifigure should be deleted by close()');
         end
 
     end
@@ -815,5 +990,19 @@ function restorePrefs_(prefsPath, backupPath)
             delete(backupPath);
         catch
         end
+    end
+end
+
+function closeIfOpen_(app)
+%CLOSEIFOPEN_ Local helper: close the companion app if still open and valid.
+%   Replaces the pattern @() isvalid(app) && app.IsOpen && app.close()
+%   which throws MATLAB:TooManyOutputs because close() has no output and
+%   thus cannot serve as the third operand of && in a lambda.
+    try
+        if isvalid(app) && app.IsOpen
+            app.close();
+        end
+    catch
+        % Teardown must never throw.
     end
 end
