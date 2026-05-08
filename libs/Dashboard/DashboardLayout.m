@@ -582,25 +582,38 @@ classdef DashboardLayout < handle
             else
                 theme = widget.ParentTheme;
             end
+            % Background: use GroupHeaderBg (explicitly designed as a
+            % header-vs-panel contrast token — light blue-gray in light
+            % mode, slightly-lighter navy in dark mode), falling back to
+            % ToolbarBackground for older themes that don't define it.
+            if isfield(theme, 'GroupHeaderBg')
+                barBg = theme.GroupHeaderBg;
+            else
+                barBg = theme.ToolbarBackground;
+            end
             % Full-width header strip, 28px tall, anchored at the top of
-            % the widget panel. Buttons are placed at the right-hand end of
-            % the bar so they keep their familiar location while the bar
-            % background fills the full widget width — the panel itself may
-            % be normalized, so we set Units=pixels just for this child.
+            % the widget panel. Inset by 2px on left/right/top to keep the
+            % widget panel border visible.
             oldUnits = get(widget.hPanel, 'Units');
             set(widget.hPanel, 'Units', 'pixels');
             pp = get(widget.hPanel, 'Position');
             set(widget.hPanel, 'Units', oldUnits);
             barH = 28;
-            barW = pp(3);
-            x = 0;
-            y = pp(4) - barH;
+            inset = 2;
+            barW = pp(3) - 2 * inset;
+            x = inset;
+            y = pp(4) - barH - inset;
             bar = uipanel('Parent', widget.hPanel, ...
                 'Units', 'pixels', ...
                 'Position', [x y barW barH], ...
-                'BackgroundColor', theme.ToolbarBackground, ...
+                'BackgroundColor', barBg, ...
                 'BorderType', 'none', ...
                 'Tag', 'WidgetButtonBar');
+            % Reposition on panel resize so the bar tracks the widget.
+            % SizeChangedFcn fires when the panel resizes (also on first
+            % layout if Units=normalized — harmless idempotent reflow).
+            set(widget.hPanel, 'SizeChangedFcn', ...
+                @(src, ~) DashboardLayout.reflowButtonBar_(src, barH, inset));
         end
 
         function addInfoIcon(obj, widget)
@@ -654,6 +667,32 @@ classdef DashboardLayout < handle
     end
 
     methods (Static, Access = private)
+
+        function reflowButtonBar_(hPanel, barH, inset)
+        %REFLOWBUTTONBAR_ SizeChangedFcn handler — re-anchor the WidgetButtonBar
+        %   uipanel and its right-aligned buttons after the parent panel resizes.
+        %   No-op when the panel has been deleted or the bar isn't there yet.
+            if ~ishandle(hPanel), return; end
+            bar = findobj(hPanel, 'Tag', 'WidgetButtonBar', '-depth', 1);
+            if isempty(bar) || ~ishandle(bar(1)), return; end
+            bar = bar(1);
+            oldUnits = get(hPanel, 'Units');
+            set(hPanel, 'Units', 'pixels');
+            pp = get(hPanel, 'Position');
+            set(hPanel, 'Units', oldUnits);
+            barW = max(1, pp(3) - 2 * inset);
+            set(bar, 'Units', 'pixels', ...
+                'Position', [inset, pp(4) - barH - inset, barW, barH]);
+            % Re-anchor right-aligned buttons inside the bar.
+            det  = findobj(bar, 'Tag', 'DetachButton',   '-depth', 1);
+            info = findobj(bar, 'Tag', 'InfoIconButton', '-depth', 1);
+            if ~isempty(det) && ishandle(det(1))
+                set(det(1), 'Position', [barW - 24 - 4, 2, 24, 24]);
+            end
+            if ~isempty(info) && ishandle(info(1))
+                set(info(1), 'Position', [barW - 24 - 24 - 4 - 4, 2, 24, 24]);
+            end
+        end
 
         function anchorTopRight(btn, offsetFromRight)
         %ANCHORTOPRIGHT Position a pixel-sized button at the top-right of its parent.
