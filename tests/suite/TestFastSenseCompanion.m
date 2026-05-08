@@ -589,9 +589,9 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             feval(tickFcn, s.LiveTimer_, []);
             drawnow;
 
-            % Assertion: at least one row in the live-updates buffer (LogPane owns it post-Phase-1027).
-            pane = app.getLogPane();
-            testCase.verifyGreaterThanOrEqual(pane.bufferSize('live'), 1, ...
+            % Assertion: at least one row in the live-updates buffer (LiveLogPane owns it post-Phase-1027.1).
+            pane = app.getLiveLogPane();
+            testCase.verifyGreaterThanOrEqual(pane.bufferSize(), 1, ...
                 'Live updates buffer must contain at least one row after a SensorTag grows between two ticks');
             s2 = struct(app);
             testCase.verifyTrue(s2.LiveSampleCount_.isKey('liveupd1'), ...
@@ -642,9 +642,9 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             testCase.backupAndArmRestore_();
             app = FastSenseCompanion('Theme', 'dark');
             testCase.addTeardown(@() delete(app));
-            % Snapshot the pre-switch LogPane root background (Phase 1027:
-            % the log strip lives in LogPane, accessed via the public test helper).
-            pane = app.getLogPane();
+            % Snapshot the pre-switch EventsLogPane root background (Phase 1027.1:
+            % the events log lives in EventsLogPane, accessed via the public test helper).
+            pane = app.getEventsLogPane();
             beforeBg = pane.rootBackgroundColor();
             app.applyTheme('light');
             drawnow;
@@ -656,7 +656,7 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             testCase.verifyNotEqual(darkBg, lightBg, ...
                 'sanity: dark and light widget backgrounds must differ');
             testCase.verifyNotEqual(afterBg, beforeBg, ...
-                'LogPane root background must visibly recolor on theme switch');
+                'EventsLogPane root background must visibly recolor on theme switch');
             app.close();
         end
 
@@ -728,84 +728,88 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
             app.close();
         end
 
-        % --- Phase 1027 ---
+        % --- Phase 1027 / 1027.1 ---
 
-        function testLogStateDefaultIsInline(testCase)
-        %TESTLOGSTATEDEFAULTISINLINE After construction, dropdown shows 'Inline' and row 3 has its original height.
+        function testEventsAndLiveLogStateDefaultIsInline(testCase)
+        %TESTEVENTSANDLIVELOGSTATEDEFAULTISINLINE After construction, both dropdowns show 'Inline' and row 3 has its original height.
             app = FastSenseCompanion();
             testCase.addTeardown(@() app.close());
-            testCase.verifyEqual(app.getLogStateValue(), 'Inline');
-            testCase.verifyTrue(app.getLogPane().IsAttached);
+            testCase.verifyEqual(app.getEventsLogStateValue(), 'Inline');
+            testCase.verifyEqual(app.getLiveLogStateValue(), 'Inline');
+            testCase.verifyTrue(app.getEventsLogPane().IsAttached);
+            testCase.verifyTrue(app.getLiveLogPane().IsAttached);
             testCase.verifyEqual(app.getRow3Height(), 360);
         end
 
-        function testLogStateInlineToDetachedToInline(testCase)
-        %TESTLOGSTATEINLINETODETACHEDTOINLINE Round-trip: detached uifigure created and destroyed.
+        function testEventsLogStateInlineToDetachedToInline(testCase)
+        %TESTEVENTSLOGSTATEINLINETODETACHEDTOINLINE Round-trip: events detached uifigure created and destroyed.
             app = FastSenseCompanion();
             testCase.addTeardown(@() app.close());
-            app.applyLogState('Detached');
-            testCase.verifyEqual(app.getLogStateValue(), 'Detached');
-            fig = app.getDetachedLogFig();
+            app.applyLogState('events', 'Detached');
+            testCase.verifyEqual(app.getEventsLogStateValue(), 'Detached');
+            fig = app.getDetachedEventsFig();
             testCase.verifyTrue(~isempty(fig) && isvalid(fig), ...
-                'Detached uifigure should exist');
+                'Detached events uifigure should exist');
             testCase.verifyEqual(fig.Position(3:4), [720 480], ...
-                'Detached uifigure should be 720x480');
-            testCase.verifyEqual(app.getRow3Height(), 0, ...
-                'Row 3 should collapse to 0 when Detached');
-            app.applyLogState('Inline');
-            testCase.verifyEqual(app.getLogStateValue(), 'Inline');
-            fig2 = app.getDetachedLogFig();
-            testCase.verifyTrue(isempty(fig2) || ~isvalid(fig2), ...
-                'Detached uifigure should be gone after Inline');
+                'Detached events uifigure should be 720x480');
+            % Live pane still Inline -> outer row 3 unchanged at 360.
             testCase.verifyEqual(app.getRow3Height(), 360, ...
-                'Row 3 should restore on Inline');
+                'Row 3 should NOT collapse when only events is detached (live still Inline)');
+            app.applyLogState('events', 'Inline');
+            testCase.verifyEqual(app.getEventsLogStateValue(), 'Inline');
+            fig2 = app.getDetachedEventsFig();
+            testCase.verifyTrue(isempty(fig2) || ~isvalid(fig2), ...
+                'Detached events uifigure should be gone after Inline');
+            testCase.verifyEqual(app.getRow3Height(), 360, ...
+                'Row 3 should remain at 360 on Inline');
         end
 
-        function testLogStateInlineToHiddenToInline(testCase)
-        %TESTLOGSTATEINLINETOHIDDENTOINLINE Hidden collapses row 3 with no detached window.
+        function testEventsLogStateInlineToHiddenToInline(testCase)
+        %TESTEVENTSLOGSTATEINLINETOHIDDENTOINLINE Hiding events alone leaves outer row 3 unchanged because live is still Inline.
             app = FastSenseCompanion();
             testCase.addTeardown(@() app.close());
-            app.applyLogState('Hidden');
-            testCase.verifyEqual(app.getLogStateValue(), 'Hidden');
-            testCase.verifyEqual(app.getRow3Height(), 0);
-            fig = app.getDetachedLogFig();
+            app.applyLogState('events', 'Hidden');
+            testCase.verifyEqual(app.getEventsLogStateValue(), 'Hidden');
+            % Live pane still Inline -> outer row 3 stays at 360.
+            testCase.verifyEqual(app.getRow3Height(), 360);
+            fig = app.getDetachedEventsFig();
             testCase.verifyTrue(isempty(fig) || ~isvalid(fig), ...
                 'No uifigure should be spawned in Hidden state');
-            app.applyLogState('Inline');
-            testCase.verifyEqual(app.getLogStateValue(), 'Inline');
+            app.applyLogState('events', 'Inline');
+            testCase.verifyEqual(app.getEventsLogStateValue(), 'Inline');
             testCase.verifyEqual(app.getRow3Height(), 360);
         end
 
-        function testLogEntriesSurviveHiddenState(testCase)
-        %TESTLOGENTRIESSURVIVEHIDDENSTATE Entries added during Hidden are visible after returning to Inline.
+        function testEventsLogEntriesSurviveHiddenState(testCase)
+        %TESTEVENTSLOGENTRIESSURVIVEHIDDENSTATE Entries added during Hidden are visible after returning to Inline.
             app = FastSenseCompanion();
             testCase.addTeardown(@() app.close());
-            p = app.getLogPane();
-            sizeBefore = p.bufferSize('log');
-            app.applyLogState('Hidden');
+            p = app.getEventsLogPane();
+            sizeBefore = p.bufferSize();
+            app.applyLogState('events', 'Hidden');
             app.addLogEntry('info', 'hidden entry 1');
             app.addLogEntry('warn', 'hidden entry 2');
-            app.applyLogState('Inline');
-            sizeAfter = p.bufferSize('log');
+            app.applyLogState('events', 'Inline');
+            sizeAfter = p.bufferSize();
             testCase.verifyEqual(sizeAfter - sizeBefore, 2, ...
                 'Both entries added in Hidden state should be in the buffer after returning to Inline');
         end
 
-        function testProgrammaticCloseDrivesStateToInline(testCase)
-        %TESTPROGRAMMATICCLOSEDRIVESSTATETOINLINE Closing the detached uifigure returns state to Inline.
+        function testEventsProgrammaticCloseDrivesStateToInline(testCase)
+        %TESTEVENTSPROGRAMMATICCLOSEDRIVESSTATETOINLINE Closing the detached events uifigure returns the events state to Inline.
             app = FastSenseCompanion();
             testCase.addTeardown(@() app.close());
-            app.applyLogState('Detached');
-            fig = app.getDetachedLogFig();
+            app.applyLogState('events', 'Detached');
+            fig = app.getDetachedEventsFig();
             testCase.verifyTrue(~isempty(fig) && isvalid(fig));
             % Programmatically invoke the close request -- equivalent to clicking the X.
             crf = fig.CloseRequestFcn;
             testCase.verifyClass(crf, 'function_handle', ...
-                'Detached uifigure must have a CloseRequestFcn');
+                'Detached events uifigure must have a CloseRequestFcn');
             crf(fig, []);
-            testCase.verifyEqual(app.getLogStateValue(), 'Inline', ...
-                'State should be Inline after detached uifigure close');
-            fig2 = app.getDetachedLogFig();
+            testCase.verifyEqual(app.getEventsLogStateValue(), 'Inline', ...
+                'Events state should be Inline after detached uifigure close');
+            fig2 = app.getDetachedEventsFig();
             testCase.verifyTrue(isempty(fig2) || ~isvalid(fig2));
         end
 
@@ -835,21 +839,21 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
         end
 
         function testThemeSwitchWhileDetached(testCase)
-        %TESTTHEMESWITCHWHILEDETACHED Theme switch while detached re-themes both the uifigure and the LogPane.
+        %TESTTHEMESWITCHWHILEDETACHED Theme switch while events detached re-themes both the uifigure and the EventsLogPane.
             testCase.backupAndArmRestore_();
             app = FastSenseCompanion('Theme', 'dark');
             testCase.addTeardown(@() app.close());
-            app.applyLogState('Detached');
-            fig = app.getDetachedLogFig();
+            app.applyLogState('events', 'Detached');
+            fig = app.getDetachedEventsFig();
             testCase.verifyTrue(~isempty(fig) && isvalid(fig));
             darkBg = fig.Color;
             app.applyTheme('light');
-            fig2 = app.getDetachedLogFig();
+            fig2 = app.getDetachedEventsFig();
             testCase.verifyTrue(~isempty(fig2) && isvalid(fig2), ...
-                'Detached uifigure should survive theme switch');
+                'Detached events uifigure should survive theme switch');
             lightBg = fig2.Color;
             testCase.verifyNotEqual(darkBg, lightBg, ...
-                'Detached uifigure background should change on theme switch');
+                'Detached events uifigure background should change on theme switch');
             expected = CompanionTheme.get('light').DashboardBackground;
             testCase.verifyEqual(lightBg, expected, 'AbsTol', 1e-6);
         end
@@ -857,53 +861,133 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
         function testThemeSwitchWhileHidden(testCase)
         %TESTTHEMESWITCHWHILEHIDDEN Theme switch during Hidden propagates on next Inline attach.
         %   Catches the regression where attach() after Hidden forgets to honor
-        %   the latest theme. LogPane.applyTheme is a no-op while detached
-        %   (verified by TestLogPane.testApplyThemeNoOpWhenDetached), so the
-        %   companion must pass the *current* theme to attach() -- not a stale
-        %   handle captured at construction.
+        %   the latest theme. EventsLogPane.applyTheme is a no-op while detached,
+        %   so the companion must pass the *current* theme to attach() -- not a
+        %   stale handle captured at construction.
             testCase.backupAndArmRestore_();
             app = FastSenseCompanion('Theme', 'dark');
             testCase.addTeardown(@() app.close());
-            app.applyLogState('Hidden');
+            app.applyLogState('events', 'Hidden');
             app.applyTheme('light');
-            app.applyLogState('Inline');
-            pane = app.getLogPane();
+            app.applyLogState('events', 'Inline');
+            pane = app.getEventsLogPane();
             testCase.verifyTrue(pane.IsAttached, ...
-                'LogPane should be attached after returning to Inline');
+                'EventsLogPane should be attached after returning to Inline');
             bg = pane.rootBackgroundColor();
             expected = CompanionTheme.get('light').DashboardBackground;
             lightWidget = CompanionTheme.get('light').WidgetBackground;
             matchesLight = isequal(round(bg, 3), round(expected, 3)) || ...
                            isequal(round(bg, 3), round(lightWidget, 3));
             testCase.verifyTrue(matchesLight, ...
-                sprintf('LogPane root background (%s) should match light theme after Hidden->theme->Inline.', mat2str(bg, 3)));
+                sprintf('EventsLogPane root background (%s) should match light theme after Hidden->theme->Inline.', mat2str(bg, 3)));
         end
 
         function testSetLogStateIdempotent(testCase)
         %TESTSETLOGSTATEIDEMPOTENT Calling setLogState_ with the current state is a no-op (no thrown error, no side effects).
             app = FastSenseCompanion();
             testCase.addTeardown(@() app.close());
-            app.applyLogState('Inline');  % already Inline
-            testCase.verifyEqual(app.getLogStateValue(), 'Inline');
-            app.applyLogState('Detached');
-            fig1 = app.getDetachedLogFig();
-            app.applyLogState('Detached');  % redundant
-            fig2 = app.getDetachedLogFig();
+            app.applyLogState('events', 'Inline');  % already Inline
+            testCase.verifyEqual(app.getEventsLogStateValue(), 'Inline');
+            app.applyLogState('events', 'Detached');
+            fig1 = app.getDetachedEventsFig();
+            app.applyLogState('events', 'Detached');  % redundant
+            fig2 = app.getDetachedEventsFig();
             % Same handle; not destroyed and recreated.
             testCase.verifyEqual(fig1, fig2);
         end
 
         function testCloseWhileDetachedDoesNotRecurse(testCase)
-        %TESTCLOSEWHILEDETACHEDDOESNOTRECURSE Closing companion while log is detached cleans up without infinite recursion.
+        %TESTCLOSEWHILEDETACHEDDOESNOTRECURSE Closing companion while events log is detached cleans up without infinite recursion.
             app = FastSenseCompanion();
-            app.applyLogState('Detached');
-            fig = app.getDetachedLogFig();
+            app.applyLogState('events', 'Detached');
+            fig = app.getDetachedEventsFig();
             testCase.verifyTrue(~isempty(fig) && isvalid(fig));
             % Should NOT throw, NOT recurse.
             app.close();
             testCase.verifyFalse(app.IsOpen);
             testCase.verifyTrue(isempty(fig) || ~isvalid(fig), ...
-                'Detached uifigure should be deleted by close()');
+                'Detached events uifigure should be deleted by close()');
+        end
+
+        % --- Phase 1027.1 independence tests ---
+
+        function testEventsDetachedDoesNotAffectLive(testCase)
+        %TESTEVENTSDETACHEDDOESNOTAFFECTLIVE Detaching events alone leaves live Inline + outer row 3 at 360.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('events', 'Detached');
+            % Live pane should still be Inline + attached.
+            testCase.verifyEqual(app.getLiveLogStateValue(), 'Inline');
+            testCase.verifyTrue(app.getLiveLogPane().IsAttached);
+            % Outer row 3 stays at 360 (live still inline).
+            testCase.verifyEqual(app.getRow3Height(), 360);
+        end
+
+        function testLiveDetachedDoesNotAffectEvents(testCase)
+        %TESTLIVEDETACHEDDOESNOTAFFECTEVENTS Detaching live alone leaves events Inline + outer row 3 at 360.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('live', 'Detached');
+            fig = app.getDetachedLiveFig();
+            testCase.verifyTrue(~isempty(fig) && isvalid(fig));
+            testCase.verifyEqual(fig.Position(3:4), [480 360], ...
+                'Detached live uifigure should be 480x360');
+            testCase.verifyEqual(app.getEventsLogStateValue(), 'Inline');
+            testCase.verifyTrue(app.getEventsLogPane().IsAttached);
+            testCase.verifyEqual(app.getRow3Height(), 360);
+        end
+
+        function testEventsHiddenLiveInlineFillsStrip(testCase)
+        %TESTEVENTSHIDDENLIVEINLINEFILLSSTRIP When events Hidden, inner sub-grid collapses events row to 0 and live takes 1x.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('events', 'Hidden');
+            % Outer row 3 still at original height because live is still Inline.
+            testCase.verifyEqual(app.getRow3Height(), 360);
+            % Inner sub-grid: events row collapsed to 0, live row '1x'.
+            warnState = warning('off', 'MATLAB:structOnObject');
+            cleanup = onCleanup(@() warning(warnState)); %#ok<NASGU>
+            s = struct(app);
+            rh = s.hLogStripGrid_.RowHeight;
+            testCase.verifyEqual(rh{1}, 0, ...
+                'Events row in inner sub-grid should be 0 when events Hidden');
+            testCase.verifyEqual(rh{2}, '1x', ...
+                'Live row in inner sub-grid should be 1x when live Inline');
+        end
+
+        function testBothDetachedCollapsesOuterRow(testCase)
+        %TESTBOTHDETACHEDCOLLAPSESOUTERROW When both panes are not-inline, outer row 3 collapses to 0.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('events', 'Detached');
+            app.applyLogState('live',   'Detached');
+            testCase.verifyEqual(app.getRow3Height(), 0, ...
+                'Outer row 3 should collapse to 0 when both panes are not-inline');
+            figE = app.getDetachedEventsFig();
+            figL = app.getDetachedLiveFig();
+            testCase.verifyTrue(~isempty(figE) && isvalid(figE));
+            testCase.verifyTrue(~isempty(figL) && isvalid(figL));
+        end
+
+        function testCloseEventsDetachedWindowOnlyAffectsEvents(testCase)
+        %TESTCLOSEEVENTSDETACHEDWINDOWONLYAFFECTSEVENTS Closing the events detached uifigure leaves live state untouched.
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            app.applyLogState('events', 'Detached');
+            app.applyLogState('live',   'Detached');
+            figE = app.getDetachedEventsFig();
+            crf = figE.CloseRequestFcn;
+            testCase.verifyClass(crf, 'function_handle');
+            crf(figE, []);
+            drawnow;
+            % Events should be back Inline; live still Detached.
+            testCase.verifyEqual(app.getEventsLogStateValue(), 'Inline');
+            testCase.verifyEqual(app.getLiveLogStateValue(),   'Detached');
+            figE2 = app.getDetachedEventsFig();
+            testCase.verifyTrue(isempty(figE2) || ~isvalid(figE2));
+            figL2 = app.getDetachedLiveFig();
+            testCase.verifyTrue(~isempty(figL2) && isvalid(figL2), ...
+                'Live detached uifigure must NOT be torn down by the events close');
         end
 
     end
