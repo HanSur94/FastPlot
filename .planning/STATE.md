@@ -3,23 +3,24 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: FastSense Companion
 status: shipped
-last_updated: "2026-05-08T11:55:00.000Z"
-last_activity: 2026-05-08 -- Completed quick task 260508-huo: fix CI — hoist companion test runners out of private/, guard headless web() in DashboardEngine, gate R2020b MEX-heavy tests
+last_updated: "2026-05-08T14:30:00.000Z"
+last_activity: 2026-05-08 -- Completed Phase 1027 + 1027.1 (companion detachable log window with independent events/live panes) and quick task 260508-mjp (tag-column search on live log)
 progress:
   total_phases: 6
-  completed_phases: 6
-  total_plans: 18
-  completed_plans: 18
-shipped_at: 2026-04-30
+  completed_phases: 2
+  total_plans: 13
+  completed_plans: 13
 ---
 
 # State
 
 ## Current Position
 
+Phase: 1028
+Plan: Not started
 Milestone: v3.0 FastSense Companion — SHIPPED 2026-04-30
 Status: Awaiting next milestone (run `/gsd:new-milestone` to scope v3.x or v4.0)
-Last activity: 2026-05-08 -- Completed quick task 260508-huo: fix CI — hoist companion test runners out of private/, guard headless web() in DashboardEngine, gate R2020b MEX-heavy tests
+Last activity: 2026-05-08 -- Completed Phase 1027 + 1027.1 + quick task 260508-mjp (live log tag search)
 
 ### Quick Tasks Completed
 
@@ -38,6 +39,7 @@ Last activity: 2026-05-08 -- Completed quick task 260508-huo: fix CI — hoist c
 | 260508-eu2 | Restore EventStore on detached FastSenseWidget so event markers stay visible after detach | 2026-05-08 | 952ad90 | Verified | [260508-eu2-restore-eventstore-on-detached-fastsense](./quick/260508-eu2-restore-eventstore-on-detached-fastsense/) |
 | 260508-f7p | Reset button on time panel now restyles on dashboard theme switch | 2026-05-08 | 0e9c6f7 | Verified | (inline) |
 | 260508-huo | Fix CI — hoist companion test runners out of private/; guard headless web() in DashboardEngine; gate R2020b MEX-heavy tests | 2026-05-08 | 62b99ab | — | [260508-huo-fix-octave-tests-move-companion-runner-f](./quick/260508-huo-fix-octave-tests-move-companion-runner-f/) |
+| 260508-mjp | Add tag-column search field to LiveLogPane mirroring events log | 2026-05-08 | 1c258fb | — | [260508-mjp-add-tag-column-search-field-to-livelogpa](./quick/260508-mjp-add-tag-column-search-field-to-livelogpa/) |
 
 ## Progress Bar
 
