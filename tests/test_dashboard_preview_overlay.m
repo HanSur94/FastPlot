@@ -202,14 +202,15 @@ function case_event_markers_colored_by_severity()
     assert(~isequal(cols(2, :), cols(3, :)), 'sev2 and sev3 marker colors should differ');
     assert(~isequal(cols(1, :), cols(3, :)), 'sev1 and sev3 marker colors should differ');
 
-    % Identity check — each blended color must match severityColor(theme,sev)
-    % composed with the same 35/65 AxesColor blend the selector applies.
+    % Identity check — per-event-color path renders severityColor(theme,sev)
+    % at full saturation (no AxesColor blend) so severity reads against any
+    % theme background. Pinned by 260508-edd follow-up: prior 35/65 blend
+    % crushed colors into the dark theme background.
     theme = d.getCachedTheme();
-    bg = theme.AxesColor;
     expected = zeros(3, 3);
-    expected(1, :) = 0.35 * severityColor(theme, 1) + 0.65 * bg;
-    expected(2, :) = 0.35 * severityColor(theme, 2) + 0.65 * bg;
-    expected(3, :) = 0.35 * severityColor(theme, 3) + 0.65 * bg;
+    expected(1, :) = severityColor(theme, 1);
+    expected(2, :) = severityColor(theme, 2);
+    expected(3, :) = severityColor(theme, 3);
 
     tol = 1e-6;
     for k = 1:3
@@ -292,10 +293,9 @@ function case_max_severity_wins_on_duplicate_times()
     assert(abs(xd(1) - 50) < 1e-9, ...
         sprintf('expected deduped marker at t=50, got t=%g', xd(1)));
 
-    % Color must equal the sev=3 (alarm) blend, NOT the sev=1 (OK) blend.
+    % Color must equal the sev=3 (alarm) full-saturation color, NOT sev=1.
     theme = d.getCachedTheme();
-    bg = theme.AxesColor;
-    expectedAlarm = 0.35 * severityColor(theme, 3) + 0.65 * bg;
+    expectedAlarm = severityColor(theme, 3);
     actual = get(sel.hEventMarkers(1), 'Color');
     assert(max(abs(actual - expectedAlarm)) < 1e-6, ...
         sprintf('deduped marker color must be sev=3 alarm; got [%g %g %g], expected [%g %g %g]', ...

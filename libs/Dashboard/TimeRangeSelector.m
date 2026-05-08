@@ -348,23 +348,26 @@ classdef TimeRangeSelector < handle
             for i = 1:numel(times)
                 t = times(i);
                 if usePerColor
+                    % Per-event-color path: skip the AxesColor blend so the
+                    % severity color reads at full saturation. The blend was
+                    % designed for the uniform-faint marker case; under a dark
+                    % theme it crushed sev colors into near-background shades.
                     lineColor = colors(i, :);
-                    if haveBg
-                        % Same 35/65 blend the uniform path applies, just
-                        % per-row instead of once.
-                        lineColor = 0.35 * lineColor + 0.65 * bg;
-                    end
+                    lineWidth = 1.4;
                 else
                     lineColor = markerColor;
+                    lineWidth = 1;
                 end
                 h = line(obj.hAxes, [t t], [0 1], ...
-                    'Color', lineColor, 'LineWidth', 1, ...
+                    'Color', lineColor, 'LineWidth', lineWidth, ...
                     'HitTest', 'off', 'PickableParts', 'none');
                 handles(end + 1) = h; %#ok<AGROW>
             end
             obj.hEventMarkers = handles;
-            % Send markers to the BACK so the selection patch, edges, and
-            % labels stay on top. Works in MATLAB and Octave.
+            % Z-order: per-color markers go in FRONT of preview lines so the
+            % severity signal isn't obscured by the saturated full-line preview.
+            % Uniform (legacy) markers stay BEHIND so the faint translucent
+            % look matches pre-260508-edd behavior.
             if ~isempty(handles) && ishandle(obj.hAxes)
                 ch = get(obj.hAxes, 'Children');
                 mask = true(size(ch));
@@ -372,7 +375,11 @@ classdef TimeRangeSelector < handle
                     mask(ch == handles(k)) = false;
                 end
                 others = ch(mask);
-                set(obj.hAxes, 'Children', [others(:); handles(:)]);
+                if usePerColor
+                    set(obj.hAxes, 'Children', [handles(:); others(:)]);
+                else
+                    set(obj.hAxes, 'Children', [others(:); handles(:)]);
+                end
             end
         end
 
