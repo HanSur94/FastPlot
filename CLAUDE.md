@@ -253,6 +253,34 @@ An upgrade to FastSense's existing dashboard engine adding nested layout organiz
 ## Cross-Cutting Concerns
 <!-- GSD:architecture-end -->
 
+<!-- GSD:matlab-mcp-start source:CLAUDE.md/manual -->
+## Running MATLAB code
+
+A live MATLAB session is already running on the user's machine, and the matlab MCP server exposes it. Whenever you need to run, lint, or test MATLAB code, use the matlab MCP tools directly instead of asking the user to run anything in the MATLAB Command Window.
+
+Available tools:
+
+- `mcp__matlab__check_matlab_code` — static analysis of a `.m` file. Use before running anything that touches state.
+- `mcp__matlab__evaluate_matlab_code` — execute an inline MATLAB expression or short script. Best for quick smoke checks (`which`, `exist`, calling a function, listing a struct).
+- `mcp__matlab__run_matlab_file` — execute a `.m` script file. Use for example scripts and demos.
+- `mcp__matlab__run_matlab_test_file` — run a class-based test file (`tests/suite/Test*.m`) or function-based test (`tests/test_*.m`).
+- `mcp__matlab__detect_matlab_toolboxes` — list installed MATLAB toolboxes when feature availability is in doubt.
+
+Conventions in this repo:
+
+- The project is toolbox-free; before assuming a toolbox is available, check with `mcp__matlab__detect_matlab_toolboxes`.
+- All library paths are added by `install.m`. If `which FastSense` returns empty in MATLAB, run `install` via `mcp__matlab__evaluate_matlab_code` once to set up the path and (re)compile MEX.
+- The MATLAB desktop is visible to the user. **Figures appear in the MATLAB UI on the user's screen.** When code creates a figure, the user can see it directly — don't dump base64 PNGs back to the chat unless the user asks.
+- Running tests: prefer `mcp__matlab__run_matlab_test_file` on a single test file over running the whole suite, since the user is watching live and full runs are slow. Use `tests/run_all_tests.m` only when the user asks for a full pass.
+
+Safety:
+
+- Don't run untrusted code that alters the filesystem, environment variables, or MATLAB preferences without explicit user consent.
+- Avoid `clear all`, `clear classes`, or anything that resets the user's session unless they ask — they may have unsaved variables in the workspace.
+- `delete`, `rmdir`, file moves, `setpref`, and shell-out via `system()` / `!` need explicit consent.
+- If a tool call fails, surface the error to the user and ask — don't retry blindly.
+<!-- GSD:matlab-mcp-end -->
+
 <!-- GSD:workflow-start source:GSD defaults -->
 ## GSD Workflow Enforcement
 
