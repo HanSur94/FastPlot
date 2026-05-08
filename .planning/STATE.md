@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: FastSense Companion
 status: shipped
-last_updated: "2026-05-08T08:00:00.000Z"
-last_activity: 2026-05-08 -- Completed quick task 260508-edd: Per-event color in dashboard slider preview markers (sev1/2/3 -> green/orange/red)
+last_updated: "2026-05-08T09:00:00.000Z"
+last_activity: 2026-05-08 -- Completed quick task 260508-eu2: Restore EventStore on detached FastSenseWidget so event markers stay visible after detach
 progress:
   total_phases: 6
   completed_phases: 6
@@ -19,7 +19,7 @@ shipped_at: 2026-04-30
 
 Milestone: v3.0 FastSense Companion — SHIPPED 2026-04-30
 Status: Awaiting next milestone (run `/gsd:new-milestone` to scope v3.x or v4.0)
-Last activity: 2026-05-08 -- Completed quick task 260508-edd: Per-event color in dashboard slider preview markers (sev1/2/3 -> green/orange/red)
+Last activity: 2026-05-08 -- Completed quick task 260508-eu2: Restore EventStore on detached FastSenseWidget so event markers stay visible after detach
 
 ### Quick Tasks Completed
 
@@ -30,6 +30,7 @@ Last activity: 2026-05-08 -- Completed quick task 260508-edd: Per-event color in
 | 260504-sfp | Unify single-tag Open Detail through openAdHocPlot + right-click event-marker context menu | 2026-05-04 | 1d0ccd3 | — | [260504-sfp-fastsensecompanion-route-single-tag-open](./quick/260504-sfp-fastsensecompanion-route-single-tag-open/) |
 | 260508-das | Restore dashboard time-slider preview lines + event markers (backlog 999.3) | 2026-05-08 | 4110024 | Verified | [260508-das-implement-backlog-999-3-dashboard-time-s](./quick/260508-das-implement-backlog-999-3-dashboard-time-s/) |
 | 260508-edd | Color dashboard slider preview event markers per-severity (sev1/2/3 -> green/orange/red) | 2026-05-08 | 9c1ef82 | Verified | [260508-edd-color-slider-preview-event-markers-per-e](./quick/260508-edd-color-slider-preview-event-markers-per-e/) |
+| 260508-eu2 | Restore EventStore on detached FastSenseWidget so event markers stay visible after detach | 2026-05-08 | 952ad90 | Verified | [260508-eu2-restore-eventstore-on-detached-fastsense](./quick/260508-eu2-restore-eventstore-on-detached-fastsense/) |
 
 ## Progress Bar
 
