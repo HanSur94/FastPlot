@@ -87,6 +87,7 @@ classdef CompanionEventViewer < handle
         SliderReadoutStart_ = []   % uilabel showing selection start time (left)
         SliderReadoutSpan_  = []   % uilabel showing selection span (middle)
         SliderReadoutEnd_   = []   % uilabel showing selection end time (right)
+        SingleClickTimer_   = []   % Pending single-click info modal timer (cancelled by double-click)
     end
 
     methods
@@ -274,6 +275,14 @@ classdef CompanionEventViewer < handle
             catch
             end
             obj.AutoTimer_ = [];
+            try
+                if ~isempty(obj.SingleClickTimer_) && isvalid(obj.SingleClickTimer_)
+                    if strcmp(obj.SingleClickTimer_.Running, 'on'); stop(obj.SingleClickTimer_); end
+                    delete(obj.SingleClickTimer_);
+                end
+            catch
+            end
+            obj.SingleClickTimer_ = [];
             for i = 1:numel(obj.Listeners_)
                 try; delete(obj.Listeners_{i}); catch; end
             end
@@ -927,13 +936,27 @@ classdef CompanionEventViewer < handle
         end
 
         function onEventSingleClick_(obj, ev)
-        %ONEVENTSINGLECLICK_ Open the info modal for the clicked event.
+        %ONEVENTSINGLECLICK_ Defer the info modal so a follow-up double-click
+        %   can cancel it. Without the deferral the FIRST click of a double-
+        %   click sequence would already have opened the info modal before the
+        %   double-click handler runs — leaving two windows open per drill-in.
         %   Single-click info modal is Gantt-only; the Table view does not
         %   wire a CellSelectionCallback (it would conflict with column sorting).
             try
-                obj.openEventInfoModal_(ev);
+                if ~isempty(obj.SingleClickTimer_) && isvalid(obj.SingleClickTimer_)
+                    if strcmp(obj.SingleClickTimer_.Running, 'on'); stop(obj.SingleClickTimer_); end
+                    delete(obj.SingleClickTimer_);
+                end
+                obj.SingleClickTimer_ = timer( ...
+                    'ExecutionMode', 'singleShot', ...
+                    'StartDelay',    0.30, ...
+                    'TimerFcn',      @(~,~) obj.openEventInfoModal_(ev), ...
+                    'ErrorFcn',      @(~,~) []);
+                start(obj.SingleClickTimer_);
             catch
-                % Modal failures must never crash the viewer.
+                % Timer failures must never crash the viewer; fall back to
+                % opening the modal immediately.
+                try; obj.openEventInfoModal_(ev); catch; end
             end
         end
 
@@ -941,6 +964,16 @@ classdef CompanionEventViewer < handle
         %ONEVENTDOUBLECLICK_ Open a brand-new DashboardEngine with one FastSenseWidget
         %   for the event's sensor tag, X range zoomed to the event window.
         %   The Table view's DoubleClickedFcn also routes here (Task 8.6).
+            % Cancel any pending single-click info modal so the user gets ONE
+            % drill-in window (the dashboard), not info modal + dashboard.
+            try
+                if ~isempty(obj.SingleClickTimer_) && isvalid(obj.SingleClickTimer_)
+                    if strcmp(obj.SingleClickTimer_.Running, 'on'); stop(obj.SingleClickTimer_); end
+                    delete(obj.SingleClickTimer_);
+                    obj.SingleClickTimer_ = [];
+                end
+            catch
+            end
             try
                 obj.openEventDashboard_(ev);
             catch
@@ -960,8 +993,13 @@ classdef CompanionEventViewer < handle
                 'Name',        sprintf('Event Info — %s', ev.SensorName), ...
                 'Position',    [220 220 460 460], ...
                 'Color',       t.WidgetBackground, ...
-                'WindowStyle', 'modal', ...
                 'Resize',      'off');
+            % Note: NOT WindowStyle='modal'. The Gantt fires the single-click
+            % handler on the FIRST click of a double-click sequence (before
+            % the OnDoubleClick path runs), so a modal info window would block
+            % input to the dashboard that opens on the second click — leaving
+            % every MATLAB window unresponsive until the user finds and
+            % dismisses the modal. Keep this window non-blocking.
 
             grid = uigridlayout(fig, [10 2]);
             grid.RowHeight      = {28, 28, 28, 28, 28, 28, 28, 16, '1x', 36};
@@ -1079,10 +1117,12 @@ classdef CompanionEventViewer < handle
             xLim  = [ev.StartTime - pad, evEnd + pad];
 
             d = DashboardEngine(sprintf('Event — %s', ev.SensorName));
+            % Widget fills the full 24-column × 4-row grid so the sensor
+            % takes the entire dashboard viewport.
             d.addWidget('fastsense', ...
                 'Title',            sprintf('%s @ %s', ev.SensorName, obj.formatTime_(ev.StartTime)), ...
                 'Tag',              tag, ...
-                'Position',         [1 1 12 6], ...
+                'Position',         [1 1 24 4], ...
                 'EventStore',       obj.Store_, ...
                 'ShowEventMarkers', true);
             d.render();
@@ -1101,11 +1141,18 @@ classdef CompanionEventViewer < handle
 
             % macOS quirk: opening a classic figure from a uifigure callback
             % can leave the new window behind without input focus, so clicks
-            % "fall through" to the viewer below. Force the dashboard to
-            % the front and flush so it captures input correctly.
+            % fall through OR don't register. Force the dashboard's figure
+            % to the foreground via shg + figure(), then flush twice with a
+            % short pause to let the window-server finish raising the window
+            % before the next user click arrives.
             try
                 if ~isempty(d.hFigure) && isgraphics(d.hFigure)
                     set(d.hFigure, 'WindowStyle', 'normal');
+                    set(d.hFigure, 'Visible',     'on');
+                    drawnow;
+                    figure(d.hFigure);
+                    shg;
+                    pause(0.15);
                     figure(d.hFigure);
                     drawnow;
                 end

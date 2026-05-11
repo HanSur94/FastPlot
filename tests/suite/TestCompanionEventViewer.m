@@ -434,11 +434,21 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             % Drive the real single-click path (no stub).
             v.fireBarClickForTest_(1, 'normal');
 
-            % An "Event Info — ..." uifigure should now exist among root figures.
-            allFigs = findall(groot, 'Type', 'figure');
-            names   = arrayfun(@(f) get(f, 'Name'), allFigs, 'UniformOutput', false);
-            isInfo  = cellfun(@(n) startsWith(n, 'Event Info'), names);
-            infoFig = allFigs(isInfo);
+            % The single-click path is debounced via a 300 ms timer (so a
+            % follow-up double-click can cancel it). Wait for the modal to
+            % appear up to 3 s, calling drawnow inside the loop so the
+            % timer's TimerFcn (which creates the uifigure) actually runs.
+            t0 = tic;
+            infoFig = [];
+            while toc(t0) < 3.0
+                drawnow;
+                allFigs = findall(groot, 'Type', 'figure');
+                names   = arrayfun(@(f) get(f, 'Name'), allFigs, 'UniformOutput', false);
+                isInfo  = cellfun(@(n) startsWith(n, 'Event Info'), names);
+                infoFig = allFigs(isInfo);
+                if ~isempty(infoFig); break; end
+                pause(0.05);
+            end
             testCase.verifyNotEmpty(infoFig, 'Single-click must open an Event Info modal.');
             testCase.addTeardown(@() arrayfun(@(f) close(f, 'force'), infoFig));
 
