@@ -6,20 +6,31 @@ function v = smoke_event_viewer_tag_pane()
 %   work, selecting tags filters the Gantt, and the slider drag works.
     install();
 
+    nowRef = now;
+    % Synthesize 5 days of sensor data at 5-minute resolution so the
+    % drill-down dashboard's FastSense plot can overlay the event markers
+    % on a meaningful signal. ~1440 samples per sensor.
+    tStart = nowRef - 5.0;
+    tEnd   = nowRef;
+    tVec   = linspace(tStart, tEnd, 1440);
+    rng(42, 'twister');   % deterministic noise so the smoke looks the same each run
+    yPressureA    = 4 + 0.6*sin(2*pi*(tVec - tStart)/0.5) + 0.4*randn(size(tVec));
+    yPressureB    = 5 + 0.8*cos(2*pi*(tVec - tStart)/1.0) + 0.5*randn(size(tVec));
+    yTemperatureA = 22 + 3*sin(2*pi*(tVec - tStart)/2.5) + 0.7*randn(size(tVec));
+
     TagRegistry.clear();
     TagRegistry.register('pressure_a', SensorTag('pressure_a', ...
         'Name', 'Pressure A', 'Units', 'bar', ...
-        'X', 0:9, 'Y', 1:10));
+        'X', tVec, 'Y', yPressureA));
     TagRegistry.register('pressure_b', SensorTag('pressure_b', ...
         'Name', 'Pressure B', 'Units', 'bar', ...
-        'X', 0:9, 'Y', 10:-1:1));
+        'X', tVec, 'Y', yPressureB));
     TagRegistry.register('temperature_a', SensorTag('temperature_a', ...
         'Name', 'Temperature A', 'Units', 'C', ...
-        'X', 0:9, 'Y', sin(0:9)));
+        'X', tVec, 'Y', yTemperatureA));
 
     storePath = [tempname() '.mat'];
     es = EventStore(storePath);
-    nowRef = now;
     % 15 events across the 3 sensors over a 5-day window, with varied
     % severities, durations, overlap, and one open event at the end.
     rows = { ...

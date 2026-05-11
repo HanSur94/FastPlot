@@ -1113,26 +1113,43 @@ classdef CompanionEventViewer < handle
             if isempty(tag) || ~isa(tag, 'Tag'); return; end
 
             evEnd = EventGanttCanvas.eventEndOrNow(ev, now);
-            pad   = 0.1 * max(evEnd - ev.StartTime, 1);
+            % 5% padding either side — gives the user a tiny breathing room
+            % around the event without showing days of unrelated trace. The
+            % previous max(..., 1) clamp gave open / very short events a
+            % full day of padding regardless, which defeated the zoom.
+            evDur = max(evEnd - ev.StartTime, 1/86400);   % at least 1 second wide
+            pad   = 0.05 * evDur;
             xLim  = [ev.StartTime - pad, evEnd + pad];
 
             d = DashboardEngine(sprintf('Event — %s', ev.SensorName));
-            % Widget fills the full 24-column × 4-row grid so the sensor
-            % takes the entire dashboard viewport.
+            % Single-row layout so the widget fills the dashboard's full
+            % height as well as width. TotalRows = 1 with RowHeight = 1
+            % means the [1 1 24 1] position spans the entire content area.
+            d.Layout.TotalRows = 1;
+            d.Layout.RowHeight = 1.0;
             d.addWidget('fastsense', ...
                 'Title',            sprintf('%s @ %s', ev.SensorName, obj.formatTime_(ev.StartTime)), ...
                 'Tag',              tag, ...
-                'Position',         [1 1 24 4], ...
+                'Position',         [1 1 24 1], ...
                 'EventStore',       obj.Store_, ...
                 'ShowEventMarkers', true);
             d.render();
 
-            % Zoom the inner FastSense's main axes to the event window.
+            % Zoom the widget's X range to the event window. Use the widget
+            % API rather than raw XLim — it sets IsSettingTime so the inner
+            % FastSense's xlim-changed listener doesn't disable global-time
+            % tracking. Fall back to direct XLim if the widget's API is
+            % unavailable.
             try
-                if ~isempty(d.Widgets) && ~isempty(d.Widgets{1}.FastSenseObj)
-                    fp = d.Widgets{1}.FastSenseObj;
-                    if ~isempty(fp.hMainAxes) && isgraphics(fp.hMainAxes)
-                        set(fp.hMainAxes, 'XLim', xLim);
+                if ~isempty(d.Widgets)
+                    w = d.Widgets{1};
+                    if ismethod(w, 'setTimeRange')
+                        w.setTimeRange(xLim(1), xLim(2));
+                    elseif ~isempty(w.FastSenseObj)
+                        fp = w.FastSenseObj;
+                        if ~isempty(fp.hAxes) && isgraphics(fp.hAxes)
+                            xlim(fp.hAxes, xLim);
+                        end
                     end
                 end
             catch
