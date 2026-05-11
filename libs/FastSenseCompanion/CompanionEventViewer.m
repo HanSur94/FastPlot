@@ -25,6 +25,10 @@ classdef CompanionEventViewer < handle
         IsLive          = false
     end
 
+    properties (Access = public)
+        LeftPaneWidth = 260   % Width of the tag-catalog pane in pixels.
+    end
+
     properties (Access = private)
         Store_       = []
         Registry_    = []

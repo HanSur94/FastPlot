@@ -77,6 +77,14 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             testCase.verifyTrue(isgraphics(v.hFigure));
         end
 
+        function testLeftPaneWidthDefaults260(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            testCase.verifyEqual(v.LeftPaneWidth, 260);
+        end
+
         % --- Task 7: applyFilters tests ---
 
         function testFilterEmptyTagKeysMeansAll(testCase)
