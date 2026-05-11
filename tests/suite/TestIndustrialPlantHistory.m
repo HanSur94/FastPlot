@@ -124,7 +124,7 @@ classdef TestIndustrialPlantHistory < matlab.unittest.TestCase
         function testSeedHistoryPopulatesSensorsStatesAndEvents(testCase)
             % Build a minimal context: registry + EventStore + monitors,
             % WITHOUT starting the writer timer or the live pipeline.
-            here   = fileparts(mfilename('fullpath'));
+            here   = fileparts(mfilename('fullpath')); %#ok<NASGU>
             rawDir = fullfile(tempdir(), 'TestIndustrialPlantHistory_raw');
             if exist(rawDir, 'dir'), rmdir(rawDir, 's'); end
             mkdir(rawDir);
