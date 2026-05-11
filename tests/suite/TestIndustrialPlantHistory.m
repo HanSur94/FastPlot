@@ -53,5 +53,34 @@ classdef TestIndustrialPlantHistory < matlab.unittest.TestCase
             testCase.assertEqual(nClose, 7, ...
                 sprintf('expected 7 closing->closed transitions, got %d', nClose));
         end
+
+        function testSensorExcursionsBaselineMatchesSineModel(testCase)
+            cfg    = plantConfig();
+            tStart = now() - 7;
+            % 600 samples (10 min at 1 Hz) is enough to verify shape
+            % without committing to a full week here.
+            tHist  = (tStart : 1/86400 : tStart + 600/86400)';
+
+            % An unmonitored sensor: no excursions overlay, so y should
+            % be exactly baseline + noise (within RNG determinism).
+            key  = 'feedline.flow';   % unmonitored
+            rng(1015, 'twister');
+            yA = buildSensorExcursions(cfg, key, tHist);
+
+            rng(1015, 'twister');
+            yB = buildSensorExcursions(cfg, key, tHist);
+
+            testCase.assertEqual(yA, yB, ...
+                'buildSensorExcursions must be deterministic under fixed seed');
+            testCase.assertEqual(numel(yA), numel(tHist), ...
+                'output length must match input time vector');
+
+            field     = strrep(key, '.', '_');
+            sensorRng = cfg.Ranges.(field);
+            testCase.assertGreaterThanOrEqual(min(yA), sensorRng(1) - 1e-9, ...
+                'baseline below sensor range');
+            testCase.assertLessThanOrEqual(max(yA), sensorRng(2) + 1e-9, ...
+                'baseline above sensor range');
+        end
     end
 end
