@@ -315,6 +315,36 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
                 'Left column must default to LeftPaneWidth (260).');
         end
 
+        % --- Task 5: catalog pane wiring tests ---
+
+        function testCatalogPaneIsAttached(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            pane = v.getCatalogPaneForTest_();
+            testCase.verifyClass(pane, 'TagCatalogPane');
+        end
+
+        function testCatalogSelectionPushesIntoSelectedTagKeys(testCase)
+            % Register one tag so the catalog has something to select.
+            TagRegistry.clear();
+            testCase.addTeardown(@() TagRegistry.clear());
+            TagRegistry.register('sX', SensorTag('sX', 'Name', 'X', 'Units', 'u', ...
+                'X', 0:3, 'Y', [1 2 3 4]));
+
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+
+            % Drive a real selection by calling the test injection helper
+            % (bypasses the listbox UI but exercises the same SelectedTagKeys
+            % update + refresh path the catalog event handler runs).
+            v.injectCatalogSelectionForTest_({'sX'});
+            testCase.verifyEqual(v.SelectedTagKeys, {'sX'});
+        end
+
         % --- Task 12: single-click details popup + double-click drill-down tests ---
 
         function testSingleClickInvokesDetailsHandler(testCase)

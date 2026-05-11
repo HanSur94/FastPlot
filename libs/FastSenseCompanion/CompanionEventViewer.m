@@ -46,6 +46,7 @@ classdef CompanionEventViewer < handle
         RootGrid_    = []   % 1x2 uigridlayout: [left pane | right column]
         RightGrid_   = []   % 3x1 uigridlayout: [filter bar; gantt; slider]
         LeftPanel_   = []   % uipanel hosting the TagCatalogPane
+        CatalogPane_ = []   % TagCatalogPane reused from main companion app
     end
 
     methods
@@ -181,6 +182,18 @@ classdef CompanionEventViewer < handle
             obj.onSliderRangeChanged_(t1, t2);
         end
 
+        function p = getCatalogPaneForTest_(obj)
+        %GETCATALOGPANEFORTEST_ Test-only accessor for the catalog pane.
+            p = obj.CatalogPane_;
+        end
+
+        function injectCatalogSelectionForTest_(obj, keysCell)
+        %INJECTCATALOGSELECTIONFORTEST_ Test-only: simulate the catalog firing
+        %   TagSelectionChanged with a given key set. Bypasses the listbox UI.
+            obj.SelectedTagKeys = keysCell;
+            obj.refresh();
+        end
+
         function close(obj)
         %CLOSE Idempotent teardown: timer, listeners, canvas, figure.
             if isempty(obj.hFigure) || ~isgraphics(obj.hFigure)
@@ -213,6 +226,13 @@ classdef CompanionEventViewer < handle
             catch
             end
             obj.Selector_ = [];
+            try
+                if ~isempty(obj.CatalogPane_)
+                    obj.CatalogPane_.detach();
+                end
+            catch
+            end
+            obj.CatalogPane_ = [];
             try; delete(obj.hFigure); catch; end
             obj.hFigure = [];
         end
@@ -454,6 +474,12 @@ classdef CompanionEventViewer < handle
                 'OnRangeChanged', @(t1, t2) obj.onSliderRangeChanged_(t1, t2), ...
                 'Theme',          t);
 
+            % --- Tag catalog pane (left column) ----------------------
+            obj.CatalogPane_ = TagCatalogPane();
+            obj.CatalogPane_.attach(obj.LeftPanel_, obj.hFigure, obj.Registry_, t);
+            obj.Listeners_{end+1} = addlistener(obj.CatalogPane_, 'TagSelectionChanged', ...
+                @(~, ~) obj.onCatalogTagSelectionChanged_());
+
             % Live-mode coupling.
             obj.Listeners_{end+1} = addlistener(obj.Companion_, 'LiveModeChanged', ...
                 @(s, ~) obj.onCompanionLiveChanged_(s.IsLive));
@@ -518,6 +544,16 @@ classdef CompanionEventViewer < handle
                 end
                 obj.refresh();
             catch
+            end
+        end
+
+        function onCatalogTagSelectionChanged_(obj)
+        %ONCATALOGTAGSELECTIONCHANGED_ React to the catalog pane's selection event.
+            try
+                obj.SelectedTagKeys = obj.CatalogPane_.getSelectedKeys();
+                obj.refresh();
+            catch
+                % Selection routing must never crash the viewer.
             end
         end
 
