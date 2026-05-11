@@ -1098,6 +1098,19 @@ classdef CompanionEventViewer < handle
             catch
                 % Zoom is nice-to-have; failure must not suppress the dashboard.
             end
+
+            % macOS quirk: opening a classic figure from a uifigure callback
+            % can leave the new window behind without input focus, so clicks
+            % "fall through" to the viewer below. Force the dashboard to
+            % the front and flush so it captures input correctly.
+            try
+                if ~isempty(d.hFigure) && isgraphics(d.hFigure)
+                    set(d.hFigure, 'WindowStyle', 'normal');
+                    figure(d.hFigure);
+                    drawnow;
+                end
+            catch
+            end
         end
 
         function applyViewMode_(obj)
