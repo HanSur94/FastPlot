@@ -1122,11 +1122,6 @@ classdef CompanionEventViewer < handle
             xLim  = [ev.StartTime - pad, evEnd + pad];
 
             d = DashboardEngine(sprintf('Event — %s', ev.SensorName));
-            % Single-row layout so the widget fills the dashboard's full
-            % height as well as width. TotalRows = 1 with RowHeight = 1
-            % means the [1 1 24 1] position spans the entire content area.
-            d.Layout.TotalRows = 1;
-            d.Layout.RowHeight = 1.0;
             d.addWidget('fastsense', ...
                 'Title',            sprintf('%s @ %s', ev.SensorName, obj.formatTime_(ev.StartTime)), ...
                 'Tag',              tag, ...
@@ -1134,6 +1129,28 @@ classdef CompanionEventViewer < handle
                 'EventStore',       obj.Store_, ...
                 'ShowEventMarkers', true);
             d.render();
+
+            % DashboardEngine.render auto-computes RowHeight to make grid
+            % cells square in pixels — so a [1 1 24 1] widget ends up only
+            % ~100px tall. Override by stretching the widget panel to fill
+            % the entire content area (the canvas inside hViewport).
+            try
+                if ~isempty(d.Widgets)
+                    w = d.Widgets{1};
+                    if ~isempty(w.hPanel) && isgraphics(w.hPanel)
+                        oldUnits = w.hPanel.Units;
+                        w.hPanel.Units    = 'normalized';
+                        w.hPanel.Position = [0 0 1 1];   % fill the canvas
+                        w.hPanel.Units    = oldUnits;
+                        % Drawnow so the inner FastSense axes resize before
+                        % we set XLim below.
+                        drawnow;
+                    end
+                end
+            catch
+                % Layout override is nice-to-have; failures must not suppress
+                % the dashboard.
+            end
 
             % Zoom the widget's X range to the event window. Use the widget
             % API rather than raw XLim — it sets IsSettingTime so the inner
