@@ -111,6 +111,11 @@ function y = applyExcursions_(cfg, key, tHist, tRel, y) %#ok<INUSL>
     if strcmp(direction, 'lower')
         dirSign = -1;
     end
+    % Snapshot the baseline so each excursion is sized against the
+    % CLEAN baseline mean. Without this, sequential overlapping
+    % excursions would compute mean(y(idx)) on a signal already
+    % perturbed by an earlier excursion and amplify the breach.
+    yBase = y;
     for i = 1:numel(excursions)
         e = excursions(i);
         idx = (tRel >= e.tStart) & (tRel <= e.tStart + e.duration);
@@ -120,7 +125,7 @@ function y = applyExcursions_(cfg, key, tHist, tRel, y) %#ok<INUSL>
         u = (tRel(idx) - e.tStart) / max(e.duration, eps);
         ramp = 1 - 2 * abs(u - 0.5);                     % triangle 0->1->0
         % Push baseline past the trip by deltaPeak in the trip direction.
-        y(idx) = y(idx) + dirSign * (abs(tripVal - mean(y(idx))) + e.deltaPeak) .* ramp;
+        y(idx) = y(idx) + dirSign * (abs(tripVal - mean(yBase(idx))) + e.deltaPeak) .* ramp;
     end
 end
 
@@ -144,7 +149,11 @@ function band = estimateHystBand_(mDef, tripVal)
         band = max(1.0, abs(tripVal) * 0.05);    % 5% fallback
         return;
     end
-    candidates = tripVal + linspace(-tripVal*0.5, tripVal*0.5, 401);
+    % Sweep [tripVal - 50%, tripVal + 60%] of tripVal — asymmetric upper
+    % bound so a strict `> tripVal*1.5` lower-direction release condition
+    % (e.g. cooling.flow's `y > 30` with tripVal = 20) finds candidates
+    % rather than falling through to the 5% fallback.
+    candidates = tripVal + linspace(-tripVal*0.5, tripVal*0.6, 401);
     offMask = false(size(candidates));
     for k = 1:numel(candidates)
         try
