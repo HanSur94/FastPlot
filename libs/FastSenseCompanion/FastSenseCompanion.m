@@ -1347,9 +1347,9 @@ classdef FastSenseCompanion < handle
         end
 
         function openEventViewer_(obj)
-        %OPENEVENTVIEWER_ Open or bring-to-front the singleton CompanionEventViewer.
-        %   Idempotent: second call focuses the existing viewer window.
-        %   No-op when EventStore_ is empty.
+        %OPENEVENTVIEWER_ Open the singleton CompanionEventViewer.
+        %   No-op when EventStore_ is empty. While the viewer is open, the
+        %   toolbar Events button is disabled — closing the viewer re-enables it.
             if isempty(obj.EventStore_); return; end
             if ~isempty(obj.EventViewer_) && isvalid(obj.EventViewer_) && ...
                     ~isempty(obj.EventViewer_.hFigure) && isgraphics(obj.EventViewer_.hFigure)
@@ -1359,11 +1359,28 @@ classdef FastSenseCompanion < handle
             obj.EventViewer_ = CompanionEventViewer(obj.EventStore_, obj.Registry_, obj);
             obj.Listeners_{end+1} = addlistener(obj.EventViewer_, 'ObjectBeingDestroyed', ...
                 @(~,~) obj.clearEventViewerHandle_());
+            % Disable the launch button so it visually reflects that the viewer
+            % is currently open. The destruction listener re-enables it.
+            if ~isempty(obj.hEventsBtn_) && isvalid(obj.hEventsBtn_)
+                obj.hEventsBtn_.Enable  = 'off';
+                obj.hEventsBtn_.Tooltip = 'Event viewer is open';
+            end
         end
 
         function clearEventViewerHandle_(obj)
-        %CLEAREVENTVIEWERHANDLE_ ObjectBeingDestroyed callback: clear the stale handle.
-            obj.EventViewer_ = [];
+        %CLEAREVENTVIEWERHANDLE_ ObjectBeingDestroyed callback: clear the stale
+        %   handle and re-enable the launch button. Guarded against being fired
+        %   after the companion itself has been destroyed (which can happen
+        %   during shutdown when both objects' destructors race).
+            if ~isvalid(obj); return; end
+            try
+                obj.EventViewer_ = [];
+            catch
+            end
+            if ~isempty(obj.hEventsBtn_) && isvalid(obj.hEventsBtn_)
+                obj.hEventsBtn_.Enable  = 'on';
+                obj.hEventsBtn_.Tooltip = 'Open the event viewer';
+            end
         end
 
         function onOpenAdHocPlotRequested_(obj, ~, evt)
