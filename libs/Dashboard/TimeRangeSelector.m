@@ -383,6 +383,111 @@ classdef TimeRangeSelector < handle
             end
         end
 
+        function setEventBands(obj, starts, ends, colors)
+            %setEventBands  Draw a translucent rectangle per event spanning start→end.
+            %   setEventBands(starts, ends) clears any existing bands and
+            %   draws one semi-transparent rectangle per event, spanning
+            %   the start time to the end time. Non-finite values (NaN,
+            %   ±Inf) are silently dropped.
+            %
+            %   setEventBands(starts, ends, colors) accepts an optional
+            %   Nx3 RGB matrix index-matched to events. Each row supplies
+            %   the base color blended with the axes background for a
+            %   translucent fill. If `colors` is omitted, a default subtle
+            %   axes-foreground tint is used.
+            %
+            %   Bands have HitTest='off' and PickableParts='none' so they
+            %   never intercept selection-rectangle drag/pan/resize. They
+            %   are sent to the BACK of the axes children list so the
+            %   selection patch and edges remain visible on top.
+            %
+            %   This is the natural extension of setEventMarkers for
+            %   events that have a duration (start ≠ end). Empty input
+            %   simply clears the bands.
+            % Clear previous bands (reuses the hEventMarkers field — mutually
+            % exclusive with setEventMarkers; calling one clears the other).
+            for k = 1:numel(obj.hEventMarkers)
+                if ishandle(obj.hEventMarkers(k))
+                    delete(obj.hEventMarkers(k));
+                end
+            end
+            obj.hEventMarkers = [];
+
+            if nargin < 3 || isempty(starts) || isempty(ends); return; end
+            starts = starts(:);
+            ends   = ends(:);
+            if numel(starts) ~= numel(ends)
+                warning('TimeRangeSelector:bandSizeMismatch', ...
+                    'setEventBands: starts and ends must be same length; bands skipped.');
+                return;
+            end
+
+            haveColors = (nargin >= 4) && ~isempty(colors);
+            if haveColors
+                if size(colors, 1) ~= numel(starts) || size(colors, 2) ~= 3
+                    warning('TimeRangeSelector:colorSizeMismatch', ...
+                        'setEventBands: colors must be Nx3 matching starts; falling back to uniform.');
+                    haveColors = false;
+                end
+            end
+
+            % YLim of the slider axes is fixed at [0 1] by buildGraphics_.
+            % Bands span the full vertical extent.
+            yBox = [0 0 1 1];
+
+            ax = obj.hAxes;
+            if isempty(ax) || ~ishandle(ax); return; end
+
+            % Default tint: blend axes foreground with axes background.
+            try
+                axBg = get(ax, 'Color');
+                axFg = get(ax, 'XColor');
+            catch
+                axBg = [1 1 1];
+                axFg = [0 0 0];
+            end
+            defaultRGB = 0.65 * axBg + 0.35 * axFg;
+
+            handles = [];
+            for i = 1:numel(starts)
+                s = starts(i);
+                e = ends(i);
+                if ~isfinite(s); continue; end
+                if ~isfinite(e); e = obj.DataRange(2); end
+                if e < s; continue; end
+                % Clip to DataRange so off-screen bands don't widen the axes.
+                s = max(s, obj.DataRange(1));
+                e = min(e, obj.DataRange(2));
+                if e <= s; continue; end
+                if haveColors
+                    base = colors(i, :);
+                    rgb  = 0.55 * axBg + 0.45 * base;
+                else
+                    rgb = defaultRGB;
+                end
+                xv = [s e e s];
+                h = patch(ax, xv, yBox, rgb, ...
+                    'EdgeColor', 'none', ...
+                    'FaceAlpha', 0.4, ...
+                    'HitTest', 'off', ...
+                    'PickableParts', 'none', ...
+                    'Tag', 'EventBand');
+                handles(end + 1) = h; %#ok<AGROW>
+            end
+            obj.hEventMarkers = handles;
+
+            % Send bands to the BACK so the selection patch / edges stay on top.
+            if ~isempty(handles)
+                ch = get(ax, 'Children');
+                mask = true(size(ch));
+                for k = 1:numel(handles)
+                    mask(ch == handles(k)) = false;
+                end
+                others = ch(mask);
+                set(ax, 'Children', [others(:); handles(:)]);
+            end
+        end
+
         function delete(obj)
             %delete  Restore figure WindowButton* callbacks saved at construction.
             obj.restoreCallbacks_();

@@ -484,6 +484,42 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             testCase.verifyEqual(size(t.Data, 2), 8, ...
                 'Table should have 8 columns.');
         end
+
+        function testTablePopulatesWithManyEvents(testCase)
+            es = makeStore_(testCase);
+            evs = Event.empty;
+            for k = 1:12
+                e = Event(k, k + 0.5, sprintf('s%d', mod(k, 3)+1), 'lbl', 1, 'upper');
+                e.TagKeys = {sprintf('t%d', mod(k, 3)+1)};
+                e.Severity = mod(k, 3) + 1;
+                evs(end+1) = e; %#ok<AGROW>
+            end
+            es.append(evs);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            % Viewer defaults to 'All' on construction; refresh fills the table.
+            v.refresh();
+            t = v.getTableForTest_();
+            testCase.verifyEqual(size(t.Data, 1), 12);
+            % And the canvas should have 12 bars too.
+            canvas = v.getCanvasForTest_();
+            testCase.verifyEqual(numel(canvas.BarHandles), 12);
+        end
+
+        function testDefaultsToAllPreset(testCase)
+            es = makeStore_(testCase);
+            % Append events so 'all' has something to span.
+            e1 = Event(0,  1,  'sA', 'lbl', 1, 'upper'); e1.TagKeys = {'tA'}; e1.Severity = 1;
+            e2 = Event(10, 11, 'sB', 'lbl', 1, 'upper'); e2.TagKeys = {'tB'}; e2.Severity = 2;
+            es.append([e1 e2]);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            % After construction, TimeRange must span >= the [0, 11] event extent.
+            testCase.verifyLessThanOrEqual(v.TimeRange(1), 0);
+            testCase.verifyGreaterThanOrEqual(v.TimeRange(2), 11);
+        end
     end
 end
 

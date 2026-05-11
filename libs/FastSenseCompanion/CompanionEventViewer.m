@@ -109,6 +109,14 @@ classdef CompanionEventViewer < handle
             obj.AutoPeriod_ = companion.LivePeriod;
 
             obj.buildFigure_();
+
+            % Default to "All" so the viewer opens showing every event in the
+            % store. Users can narrow with presets, From/To, or the slider.
+            try
+                obj.applyPreset_('all');
+            catch
+                % Empty store or other edge — leave the default range alone.
+            end
         end
 
         function bringToFront(obj)
@@ -761,7 +769,7 @@ classdef CompanionEventViewer < handle
                         obj.Selector_.OnRangeChanged = savedCb;
                     end
                 end
-                obj.Selector_.setEventMarkers(times, colors);
+                obj.Selector_.setEventBands(times, ends, colors);
             catch
                 % Slider preview is non-critical — never crash refresh.
             end
