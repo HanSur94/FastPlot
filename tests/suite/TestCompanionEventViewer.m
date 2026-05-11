@@ -560,6 +560,48 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             testCase.verifyEqual(startLbl.Text, datestr(100, 'yyyy-mm-dd HH:MM:SS'));
             testCase.verifyEqual(endLbl.Text,   datestr(200, 'yyyy-mm-dd HH:MM:SS'));
         end
+
+        % --- Part 1: width test ---
+
+        function testDefaultFigureWidthIs1400(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            pos = v.hFigure.Position;
+            testCase.verifyEqual(pos(3), 1400, 'AbsTol', 1);
+        end
+
+        % --- Part 2: switch lives in left column test ---
+
+        function testViewSwitchLivesInLeftColumn(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            sw = findall(v.hFigure, 'Tag', 'ViewModeSwitch');
+            testCase.verifyNotEmpty(sw);
+            % Pragmatic check: get pixel position of switch and assert it's in the
+            % left third of the figure.
+            switchPx = getpixelposition(sw, true);
+            figPx = v.hFigure.Position;
+            testCase.verifyLessThan(switchPx(1) + switchPx(3)/2, figPx(3) / 3, ...
+                'View switch must live in the left third of the figure (left column).');
+        end
+
+        % --- Part 3: Gantt crosshair API test ---
+
+        function testGanttCrosshairAPIPresent(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            canvas = v.getCanvasForTest_();
+            testCase.verifyTrue(ismethod(canvas, 'installCrosshair'));
+            testCase.verifyTrue(ismethod(canvas, 'uninstallCrosshair'));
+            % The crosshair line shouldn't exist yet (only created on first mouse move).
+            testCase.verifyEmpty(canvas.hCrosshairLine);
+        end
     end
 end
 

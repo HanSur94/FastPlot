@@ -74,12 +74,13 @@ classdef CompanionEventViewer < handle
         AutoEnabled_ = true
         Listeners_   = {}
         RootGrid_     = []   % 1x2 uigridlayout: [left pane | right column]
-        RightGrid_    = []   % 4x1 uigridlayout: [toolbar; filter bar; view; slider]
-        LeftPanel_    = []   % uipanel hosting the TagCatalogPane
+        RightGrid_    = []   % 3x1 uigridlayout: [filter bar; view; slider]
+        LeftPanel_    = []   % uipanel hosting the left-column contents
+        LeftHeaderPanel_  = []   % Thin uipanel above the catalog hosting the view-mode switch
+        LeftCatalogPanel_ = []   % uipanel that the TagCatalogPane attaches into
         CatalogPane_  = []   % TagCatalogPane reused from main companion app
         TablePanel_   = []   % uipanel hosting the uitable view
         Table_        = []   % uitable handle
-        ToolbarPanel_ = []   % uipanel hosting the view-mode toggle
         ViewSwitch_   = []   % uiswitch handle
         SliderInnerPanel_   = []   % uipanel hosting the TimeRangeSelector itself (row 1 of SliderPanel_)
         SliderReadoutGrid_  = []   % uigridlayout hosting the 3 readout labels (row 2 of SliderPanel_)
@@ -279,6 +280,12 @@ classdef CompanionEventViewer < handle
             obj.Listeners_ = {};
             try
                 if ~isempty(obj.Canvas_) && isvalid(obj.Canvas_)
+                    obj.Canvas_.uninstallCrosshair();
+                end
+            catch
+            end
+            try
+                if ~isempty(obj.Canvas_) && isvalid(obj.Canvas_)
                     delete(obj.Canvas_);
                 end
             catch
@@ -304,10 +311,11 @@ classdef CompanionEventViewer < handle
             end
             obj.CatalogPane_ = [];
             try; if ~isempty(obj.Table_) && isvalid(obj.Table_); delete(obj.Table_); end; catch; end
-            obj.Table_        = [];
-            obj.ViewSwitch_   = [];
-            obj.TablePanel_   = [];
-            obj.ToolbarPanel_ = [];
+            obj.Table_             = [];
+            obj.ViewSwitch_        = [];
+            obj.TablePanel_        = [];
+            obj.LeftHeaderPanel_   = [];
+            obj.LeftCatalogPanel_  = [];
             try; delete(obj.hFigure); catch; end
             obj.hFigure = [];
         end
@@ -396,7 +404,7 @@ classdef CompanionEventViewer < handle
             obj.hFigure = uifigure( ...
                 'Name',            'FastSense — Event Viewer', ...
                 'Color',           t.DashboardBackground, ...
-                'Position',        [120 120 1100 600], ...
+                'Position',        [120 120 1400 600], ...
                 'CloseRequestFcn', @(~,~) obj.close(), ...
                 'Visible',         'on');
 
@@ -415,31 +423,61 @@ classdef CompanionEventViewer < handle
             obj.LeftPanel_.BackgroundColor = t.WidgetBackground;
             obj.LeftPanel_.BorderType      = 'none';
 
-            % Right column: 4-row nested grid (toolbar | filter bar | view | slider).
-            obj.RightGrid_ = uigridlayout(obj.RootGrid_, [4 1]);
+            % Split LeftPanel_ into [header | catalog] so the Gantt/Table
+            % switch sits directly above the catalog's tag-search bar.
+            hLeftGrid = uigridlayout(obj.LeftPanel_, [2 1]);
+            hLeftGrid.RowHeight     = {36, '1x'};
+            hLeftGrid.ColumnWidth   = {'1x'};
+            hLeftGrid.Padding       = [0 0 0 0];
+            hLeftGrid.RowSpacing    = 0;
+            hLeftGrid.BackgroundColor = t.WidgetBackground;
+
+            obj.LeftHeaderPanel_ = uipanel(hLeftGrid);
+            obj.LeftHeaderPanel_.Layout.Row    = 1;
+            obj.LeftHeaderPanel_.Layout.Column = 1;
+            obj.LeftHeaderPanel_.BackgroundColor = t.WidgetBackground;
+            obj.LeftHeaderPanel_.BorderType      = 'none';
+
+            obj.LeftCatalogPanel_ = uipanel(hLeftGrid);
+            obj.LeftCatalogPanel_.Layout.Row    = 2;
+            obj.LeftCatalogPanel_.Layout.Column = 1;
+            obj.LeftCatalogPanel_.BackgroundColor = t.WidgetBackground;
+            obj.LeftCatalogPanel_.BorderType      = 'none';
+
+            % --- View-mode switch in the left header (above the catalog) ---
+            hLeftHeaderGrid = uigridlayout(obj.LeftHeaderPanel_, [1 3]);
+            hLeftHeaderGrid.RowHeight       = {'1x'};
+            hLeftHeaderGrid.ColumnWidth     = {8, '1x', 8};   % small pad | switch fills | small pad
+            hLeftHeaderGrid.Padding         = [0 4 0 4];
+            hLeftHeaderGrid.BackgroundColor = t.WidgetBackground;
+
+            obj.ViewSwitch_ = uiswitch(hLeftHeaderGrid, 'slider');
+            obj.ViewSwitch_.Layout.Row      = 1;
+            obj.ViewSwitch_.Layout.Column   = 2;
+            obj.ViewSwitch_.Items           = {'Gantt', 'Table'};
+            obj.ViewSwitch_.Value           = 'Gantt';
+            obj.ViewSwitch_.Tag             = 'ViewModeSwitch';
+            obj.ViewSwitch_.FontColor       = t.ForegroundColor;
+            obj.ViewSwitch_.ValueChangedFcn = @(src, ~) obj.onViewSwitchChanged_(src.Value);
+
+            % Right column: 3-row nested grid (filter bar | view | slider).
+            obj.RightGrid_ = uigridlayout(obj.RootGrid_, [3 1]);
             obj.RightGrid_.Layout.Row    = 1;
             obj.RightGrid_.Layout.Column = 2;
-            obj.RightGrid_.RowHeight     = {36, 60, '1x', 110};
+            obj.RightGrid_.RowHeight     = {60, '1x', 110};
             obj.RightGrid_.ColumnWidth   = {'1x'};
             obj.RightGrid_.Padding       = [0 0 0 0];
             obj.RightGrid_.RowSpacing    = 0;
             obj.RightGrid_.BackgroundColor = t.DashboardBackground;
 
-            % Row 1: Toolbar with the Gantt/Table view-mode switch.
-            obj.ToolbarPanel_ = uipanel(obj.RightGrid_);
-            obj.ToolbarPanel_.Layout.Row      = 1;
-            obj.ToolbarPanel_.Layout.Column   = 1;
-            obj.ToolbarPanel_.BackgroundColor = t.WidgetBackground;
-            obj.ToolbarPanel_.BorderType      = 'none';
-
             obj.FilterPanel_ = uipanel(obj.RightGrid_);
-            obj.FilterPanel_.Layout.Row      = 2;
+            obj.FilterPanel_.Layout.Row      = 1;
             obj.FilterPanel_.Layout.Column   = 1;
             obj.FilterPanel_.BackgroundColor = t.WidgetBackground;
             obj.FilterPanel_.BorderType      = 'none';
 
             obj.AxesPanel_ = uipanel(obj.RightGrid_);
-            obj.AxesPanel_.Layout.Row      = 3;
+            obj.AxesPanel_.Layout.Row      = 2;
             obj.AxesPanel_.Layout.Column   = 1;
             obj.AxesPanel_.BackgroundColor = t.WidgetBackground;
             obj.AxesPanel_.BorderType      = 'none';
@@ -447,14 +485,14 @@ classdef CompanionEventViewer < handle
             % TablePanel_ overlays the same grid cell as AxesPanel_; visibility
             % toggled by ViewMode.
             obj.TablePanel_ = uipanel(obj.RightGrid_);
-            obj.TablePanel_.Layout.Row      = 3;
+            obj.TablePanel_.Layout.Row      = 2;
             obj.TablePanel_.Layout.Column   = 1;
             obj.TablePanel_.BackgroundColor = t.WidgetBackground;
             obj.TablePanel_.BorderType      = 'none';
             obj.TablePanel_.Visible         = 'off';
 
             obj.SliderPanel_ = uipanel(obj.RightGrid_);
-            obj.SliderPanel_.Layout.Row      = 4;
+            obj.SliderPanel_.Layout.Row      = 3;
             obj.SliderPanel_.Layout.Column   = 1;
             obj.SliderPanel_.BackgroundColor = t.WidgetBackground;
             obj.SliderPanel_.BorderType      = 'none';
@@ -608,22 +646,6 @@ classdef CompanionEventViewer < handle
 
             % Trailing spacer at col 17.
 
-            % --- View-mode toolbar (Gantt | Table switch) ---------------
-            hToolbarGrid = uigridlayout(obj.ToolbarPanel_, [1 3]);
-            hToolbarGrid.RowHeight       = {'1x'};
-            hToolbarGrid.ColumnWidth     = {'1x', 140, 8};   % spacer | switch | trailing pad
-            hToolbarGrid.Padding         = [0 4 0 4];
-            hToolbarGrid.BackgroundColor = t.WidgetBackground;
-
-            obj.ViewSwitch_ = uiswitch(hToolbarGrid, 'slider');
-            obj.ViewSwitch_.Layout.Row      = 1;
-            obj.ViewSwitch_.Layout.Column   = 2;
-            obj.ViewSwitch_.Items           = {'Gantt', 'Table'};
-            obj.ViewSwitch_.Value           = 'Gantt';
-            obj.ViewSwitch_.Tag             = 'ViewModeSwitch';
-            obj.ViewSwitch_.FontColor       = t.ForegroundColor;
-            obj.ViewSwitch_.ValueChangedFcn = @(src, ~) obj.onViewSwitchChanged_(src.Value);
-
             % --- Slider in bottom panel --------------------------------
             % Host the slider in row 1 of a 2-row grid; readout labels go in row 2.
             hSliderGrid = uigridlayout(obj.SliderPanel_, [2 1]);
@@ -708,9 +730,13 @@ classdef CompanionEventViewer < handle
             % Apply initial ViewMode visibility (Gantt by default).
             obj.applyViewMode_();
 
+            % Wire the Gantt crosshair (vertical line tracking cursor X with
+            % datetime readout). Chains onto the slider's existing Motion handler.
+            obj.Canvas_.installCrosshair(obj.hFigure);
+
             % --- Tag catalog pane (left column) ----------------------
             obj.CatalogPane_ = TagCatalogPane();
-            obj.CatalogPane_.attach(obj.LeftPanel_, obj.hFigure, obj.Registry_, t);
+            obj.CatalogPane_.attach(obj.LeftCatalogPanel_, obj.hFigure, obj.Registry_, t);
             obj.Listeners_{end+1} = addlistener(obj.CatalogPane_, 'TagSelectionChanged', ...
                 @(~, ~) obj.onCatalogTagSelectionChanged_());
 
