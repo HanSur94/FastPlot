@@ -88,6 +88,9 @@ classdef CompanionEventViewer < handle
         SliderReadoutSpan_  = []   % uilabel showing selection span (middle)
         SliderReadoutEnd_   = []   % uilabel showing selection end time (right)
         SingleClickTimer_   = []   % Pending single-click info modal timer (cancelled by double-click)
+        TableToolbarPanel_   = []   % uipanel above the uitable hosting the multi-select toolbar
+        PlotSelectedBtn_     = []   % uibutton 'Plot Selected (N)'
+        SelectedTableRows_   = []   % sorted unique vector of currently-highlighted table row indices
     end
 
     methods
@@ -261,6 +264,20 @@ classdef CompanionEventViewer < handle
             obj.refresh();
         end
 
+        function injectTableSelectionForTest_(obj, rows)
+        %INJECTTABLESELECTIONFORTEST_ Test-only: simulate a multi-row table
+        %   selection by feeding a synthetic Indices struct into the
+        %   selection-changed handler. Bypasses the uitable UI.
+            indices = [rows(:), ones(numel(rows), 1)];   % col 1 by convention
+            obj.onTableRowSelectionChanged_(struct('Indices', indices));
+        end
+
+        function onPlotSelectedClickedForTest_(obj)
+        %ONPLOTSELECTEDCLICKEDFORTEST_ Test-only shim that calls the private
+        %   onPlotSelectedClicked_ without exposing the method publicly.
+            obj.onPlotSelectedClicked_();
+        end
+
         function close(obj)
         %CLOSE Idempotent teardown: timer, listeners, canvas, figure.
             if isempty(obj.hFigure) || ~isgraphics(obj.hFigure)
@@ -321,6 +338,9 @@ classdef CompanionEventViewer < handle
             obj.CatalogPane_ = [];
             try; if ~isempty(obj.Table_) && isvalid(obj.Table_); delete(obj.Table_); end; catch; end
             obj.Table_             = [];
+            obj.PlotSelectedBtn_   = [];
+            obj.TableToolbarPanel_ = [];
+            obj.SelectedTableRows_ = [];
             obj.ViewSwitch_        = [];
             obj.TablePanel_        = [];
             obj.LeftHeaderPanel_   = [];
@@ -715,10 +735,42 @@ classdef CompanionEventViewer < handle
             obj.SliderReadoutEnd_.BackgroundColor = t.WidgetBackground;
             obj.SliderReadoutEnd_.FontSize      = 11;
 
-            % --- Event table view (overlays AxesPanel_'s grid cell) ----
-            obj.Table_ = uitable(obj.TablePanel_);
-            obj.Table_.Units       = 'normalized';
-            obj.Table_.Position    = [0 0 1 1];
+            % --- Event table view (overlays the Gantt's grid cell) -----
+            % Two-row layout: thin toolbar on top with the multi-select
+            % "Plot Selected" button, table below.
+            hTableGrid = uigridlayout(obj.TablePanel_, [2 1]);
+            hTableGrid.RowHeight     = {32, '1x'};
+            hTableGrid.ColumnWidth   = {'1x'};
+            hTableGrid.Padding       = [0 0 0 0];
+            hTableGrid.RowSpacing    = 4;
+            hTableGrid.BackgroundColor = t.WidgetBackground;
+
+            obj.TableToolbarPanel_ = uipanel(hTableGrid);
+            obj.TableToolbarPanel_.Layout.Row    = 1;
+            obj.TableToolbarPanel_.Layout.Column = 1;
+            obj.TableToolbarPanel_.BackgroundColor = t.WidgetBackground;
+            obj.TableToolbarPanel_.BorderType      = 'none';
+
+            hToolbarRowGrid = uigridlayout(obj.TableToolbarPanel_, [1 2]);
+            hToolbarRowGrid.RowHeight     = {'1x'};
+            hToolbarRowGrid.ColumnWidth   = {'1x', 160};
+            hToolbarRowGrid.Padding       = [8 4 8 4];
+            hToolbarRowGrid.BackgroundColor = t.WidgetBackground;
+
+            obj.PlotSelectedBtn_ = uibutton(hToolbarRowGrid, 'push');
+            obj.PlotSelectedBtn_.Layout.Row    = 1;
+            obj.PlotSelectedBtn_.Layout.Column = 2;
+            obj.PlotSelectedBtn_.Text          = 'Plot Selected';
+            obj.PlotSelectedBtn_.Tag           = 'PlotSelectedEventsBtn';
+            obj.PlotSelectedBtn_.Tooltip       = 'Open a new dashboard with one FastSense plot per selected event';
+            obj.PlotSelectedBtn_.Enable        = 'off';
+            obj.PlotSelectedBtn_.BackgroundColor = t.WidgetBorderColor;
+            obj.PlotSelectedBtn_.FontColor       = t.ForegroundColor;
+            obj.PlotSelectedBtn_.ButtonPushedFcn = @(~, ~) obj.onPlotSelectedClicked_();
+
+            obj.Table_ = uitable(hTableGrid);
+            obj.Table_.Layout.Row    = 2;
+            obj.Table_.Layout.Column = 1;
             obj.Table_.ColumnName  = ...
                 {'Start'; 'End'; 'Sensor'; 'Threshold'; 'Severity'; 'Duration'; 'Open'; 'Notes'};
             obj.Table_.ColumnEditable = [false false false false false false false true];
@@ -726,6 +778,7 @@ classdef CompanionEventViewer < handle
             obj.Table_.RowName        = {};
             obj.Table_.BackgroundColor = t.WidgetBackground;
             obj.Table_.ForegroundColor = t.ForegroundColor;
+            obj.Table_.CellSelectionCallback = @(~, ev) obj.onTableRowSelectionChanged_(ev);
             try
                 obj.Table_.DoubleClickedFcn = @(~, ev) obj.onTableDoubleClicked_(ev);
             catch
@@ -1185,6 +1238,131 @@ classdef CompanionEventViewer < handle
             % to the foreground via shg + figure(), then flush twice with a
             % short pause to let the window-server finish raising the window
             % before the next user click arrives.
+            try
+                if ~isempty(d.hFigure) && isgraphics(d.hFigure)
+                    set(d.hFigure, 'WindowStyle', 'normal');
+                    set(d.hFigure, 'Visible',     'on');
+                    drawnow;
+                    figure(d.hFigure);
+                    shg;
+                    pause(0.15);
+                    figure(d.hFigure);
+                    drawnow;
+                end
+            catch
+            end
+        end
+
+        function onTableRowSelectionChanged_(obj, evt)
+        %ONTABLEROWSELECTIONCHANGED_ Track selected rows and update Plot Selected button.
+            try
+                rows = [];
+                if isstruct(evt) && isfield(evt, 'Indices') && ~isempty(evt.Indices)
+                    rows = unique(evt.Indices(:, 1));
+                end
+                obj.SelectedTableRows_ = rows(:)';
+                n = numel(obj.SelectedTableRows_);
+                if isempty(obj.PlotSelectedBtn_) || ~isvalid(obj.PlotSelectedBtn_); return; end
+                if n == 0
+                    obj.PlotSelectedBtn_.Text   = 'Plot Selected';
+                    obj.PlotSelectedBtn_.Enable = 'off';
+                else
+                    obj.PlotSelectedBtn_.Text   = sprintf('Plot Selected (%d)', n);
+                    obj.PlotSelectedBtn_.Enable = 'on';
+                end
+            catch
+                % Selection tracking must never crash the viewer.
+            end
+        end
+
+        function onPlotSelectedClicked_(obj)
+        %ONPLOTSELECTEDCLICKED_ Open the multi-event dashboard for the selected rows.
+            try
+                if isempty(obj.SelectedTableRows_); return; end
+                evs = obj.Table_.UserData;   % filtered Event array
+                if isempty(evs); return; end
+                rows = obj.SelectedTableRows_(obj.SelectedTableRows_ >= 1 & ...
+                                              obj.SelectedTableRows_ <= numel(evs));
+                if isempty(rows); return; end
+                obj.openMultiEventDashboard_(evs(rows));
+            catch
+                % Drill-down failures must never crash the viewer.
+            end
+        end
+
+        function openMultiEventDashboard_(obj, events)
+        %OPENMULTIEVENTDASHBOARD_ Build a single dashboard with one FastSenseWidget per event.
+        %   Each widget shows the event's sensor data zoomed to its own
+        %   event window (with 5% padding either side). Widgets are stacked
+        %   vertically in a single column, filling the canvas evenly.
+            n = numel(events);
+            if n == 0; return; end
+
+            % Resolve all tags up front; skip events whose tag can't be found.
+            tags  = cell(1, n);
+            xLims = cell(1, n);
+            keep  = false(1, n);
+            for i = 1:n
+                ev = events(i);
+                tagKey = '';
+                if ~isempty(ev.TagKeys); tagKey = ev.TagKeys{1}; end
+                if isempty(tagKey); tagKey = ev.SensorName; end
+                t = [];
+                try; t = TagRegistry.get(tagKey); catch; end
+                if isempty(t) || ~isa(t, 'Tag'); continue; end
+                evEnd = EventGanttCanvas.eventEndOrNow(ev, now);
+                evDur = max(evEnd - ev.StartTime, 1/86400);
+                pad   = 0.05 * evDur;
+                tags{i}  = t;
+                xLims{i} = [ev.StartTime - pad, evEnd + pad];
+                keep(i)  = true;
+            end
+            events = events(keep);
+            tags   = tags(keep);
+            xLims  = xLims(keep);
+            n = numel(events);
+            if n == 0; return; end
+
+            d = DashboardEngine(sprintf('%d Events', n));
+            for i = 1:n
+                ev = events(i);
+                d.addWidget('fastsense', ...
+                    'Title',            sprintf('%s @ %s', ev.SensorName, obj.formatTime_(ev.StartTime)), ...
+                    'Tag',              tags{i}, ...
+                    'Position',         [1 i 24 1], ...
+                    'EventStore',       obj.Store_, ...
+                    'ShowEventMarkers', true);
+            end
+            d.render();
+
+            % Stretch each widget panel + its layout cell so the N widgets
+            % evenly fill the canvas top-to-bottom (top widget = row 1).
+            try
+                for i = 1:n
+                    w = d.Widgets{i};
+                    if isempty(w.hPanel) || ~isgraphics(w.hPanel); continue; end
+                    cellPanel = w.hPanel.Parent;
+                    if ~isempty(cellPanel) && isgraphics(cellPanel)
+                        cellPanel.Units    = 'normalized';
+                        cellPanel.Position = [0 (n-i)/n 1 1/n];
+                    end
+                    w.hPanel.Units    = 'normalized';
+                    w.hPanel.Position = [0 0 1 1];
+                end
+                drawnow;
+                % Zoom each widget to its event window (after layout settles).
+                for i = 1:n
+                    w = d.Widgets{i};
+                    if ismethod(w, 'setTimeRange')
+                        w.setTimeRange(xLims{i}(1), xLims{i}(2));
+                    end
+                end
+            catch
+                % Layout / zoom failures must not suppress the dashboard.
+            end
+
+            % macOS: bring the new dashboard to the front (same pattern as
+            % single-event drill-down).
             try
                 if ~isempty(d.hFigure) && isgraphics(d.hFigure)
                     set(d.hFigure, 'WindowStyle', 'normal');

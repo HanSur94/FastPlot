@@ -669,6 +669,61 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             % The crosshair line shouldn't exist yet (only created on first mouse move).
             testCase.verifyEmpty(canvas.hCrosshairLine);
         end
+
+        % --- Multi-event drill-down (Plot Selected) tests ---
+
+        function testTableMultiSelectEnablesPlotButton(testCase)
+            es = makeStore_(testCase);
+            for k = 1:5
+                e = Event(k, k+0.5, sprintf('s%d', k), 'lbl', 1, 'upper');
+                e.TagKeys = {sprintf('s%d', k)}; e.Severity = 1;
+                es.append(e);
+            end
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            v.refresh();
+            btn = findall(v.hFigure, 'Tag', 'PlotSelectedEventsBtn');
+            testCase.verifyNotEmpty(btn);
+            testCase.verifyEqual(char(btn.Enable), 'off');
+            v.injectTableSelectionForTest_([1 3 5]);
+            drawnow;
+            testCase.verifyEqual(char(btn.Enable), 'on');
+            testCase.verifyEqual(btn.Text, 'Plot Selected (3)');
+        end
+
+        function testPlotSelectedOpensMultiWidgetDashboard(testCase)
+            % Register tags so resolution succeeds for all selected events.
+            TagRegistry.clear();
+            testCase.addTeardown(@() TagRegistry.clear());
+            for k = 1:3
+                key = sprintf('s%d', k);
+                TagRegistry.register(key, SensorTag(key, 'Name', key, 'Units', 'u', ...
+                    'X', 0:9, 'Y', sin((1:10) + k)));
+            end
+
+            es = makeStore_(testCase);
+            for k = 1:3
+                e = Event(k, k+0.5, sprintf('s%d', k), 'lbl', 1, 'upper');
+                e.TagKeys = {sprintf('s%d', k)}; e.Severity = 1;
+                es.append(e);
+            end
+
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            v.refresh();
+            v.injectTableSelectionForTest_([1 2 3]);
+
+            allFigsBefore = findall(groot, 'Type', 'figure');
+            v.onPlotSelectedClickedForTest_();
+            drawnow;
+            allFigsAfter = findall(groot, 'Type', 'figure');
+            newFigs = setdiff(allFigsAfter, allFigsBefore);
+            testCase.verifyGreaterThanOrEqual(numel(newFigs), 1, ...
+                'Multi-event dashboard must spawn a new figure.');
+            testCase.addTeardown(@() arrayfun(@(f) close(f, 'force'), newFigs));
+        end
     end
 end
 
