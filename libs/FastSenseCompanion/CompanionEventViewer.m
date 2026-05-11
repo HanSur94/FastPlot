@@ -25,8 +25,23 @@ classdef CompanionEventViewer < handle
         IsLive          = false
     end
 
-    properties (Access = public)
+    properties (Access = public, AbortSet = true)
         LeftPaneWidth = 260   % Width of the tag-catalog pane in pixels.
+    end
+
+    methods
+        function set.LeftPaneWidth(obj, val)
+            if ~isnumeric(val) || ~isscalar(val) || ~isfinite(val) || val < 80
+                error('CompanionEventViewer:invalidLeftPaneWidth', ...
+                    'LeftPaneWidth must be a numeric scalar >= 80 pixels.');
+            end
+            obj.LeftPaneWidth = val;
+            if ~isempty(obj.RootGrid_) && isvalid(obj.RootGrid_)
+                cw = obj.RootGrid_.ColumnWidth;
+                cw{1} = val;
+                obj.RootGrid_.ColumnWidth = cw;
+            end
+        end
     end
 
     properties (Access = private)

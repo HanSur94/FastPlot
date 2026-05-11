@@ -356,6 +356,31 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             testCase.verifyEqual(v.SelectedTagKeys, {'sX'});
         end
 
+        % --- Task 7: LeftPaneWidth setter tests ---
+
+        function testLeftPaneWidthSetterPropagatesToGrid(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            v.LeftPaneWidth = 320;
+            grids = findall(v.hFigure, 'Type', 'uigridlayout');
+            isRoot = arrayfun(@(g) isequal(g.Parent, v.hFigure), grids);
+            root = grids(isRoot);
+            testCase.verifyEqual(root.ColumnWidth{1}, 320);
+        end
+
+        function testLeftPaneWidthRejectsBadValues(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            testCase.verifyError(@() setLeftPaneWidth_(v, -1),  'CompanionEventViewer:invalidLeftPaneWidth');
+            testCase.verifyError(@() setLeftPaneWidth_(v, NaN), 'CompanionEventViewer:invalidLeftPaneWidth');
+            testCase.verifyError(@() setLeftPaneWidth_(v, 'x'), 'CompanionEventViewer:invalidLeftPaneWidth');
+            testCase.verifyError(@() setLeftPaneWidth_(v, 50),  'CompanionEventViewer:invalidLeftPaneWidth');
+        end
+
         % --- Task 12: single-click details popup + double-click drill-down tests ---
 
         function testSingleClickInvokesDetailsHandler(testCase)
@@ -421,4 +446,8 @@ function evs = makeEvents_()
     e3 = Event(20, 21, 'sC', 'lbl', 1, 'upper'); e3.TagKeys = {'tA'}; e3.Severity = 3;
     e4 = Event(30, NaN, 'sD', 'lbl', 1, 'upper'); e4.TagKeys = {'tD'}; e4.IsOpen = true; e4.Severity = 2;
     evs = [e1 e2 e3 e4];
+end
+
+function setLeftPaneWidth_(v, val)
+    v.LeftPaneWidth = val;
 end
