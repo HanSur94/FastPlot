@@ -7,8 +7,13 @@ function seedHistory(store, cfg)
 %        samples from now-7d through now (synthetic sine + noise + the
 %        deterministic excursion schedule for monitored sensors), then
 %        push via tag.updateData(...).
-%     2) For each StateTag in cfg.StateKeys, build a 7-day daily-cycle
-%        schedule (idle/heating/running/cooldown/idle) and assign it.
+%     2) Build a 7-day daily-cycle schedule
+%        (idle/heating/running/cooldown/idle) via buildStateHistory and
+%        assign it to the two known StateTags (`feedline.valve_state`,
+%        `reactor.mode`). buildStateHistory is hard-wired to those two
+%        keys; if plantConfig adds a new StateTag it will be silently
+%        skipped here until both this dispatch and buildStateHistory
+%        are extended.
 %     3) Trigger each MonitorTag's detector by reading getXY() so it
 %        emits real Event objects into `store` for every actual
 %        threshold violation in the historical samples.
@@ -31,8 +36,14 @@ function seedHistory(store, cfg)
 %   See also: run_demo, registerPlantTags, buildSensorExcursions,
 %             buildStateHistory.
 
-    assert(isa(store, 'EventStore'), 'store must be an EventStore');
-    assert(isstruct(cfg), 'cfg must be a struct (plantConfig() output)');
+    if ~isa(store, 'EventStore')
+        error('IndustrialPlant:invalidStore', ...
+            'store must be an EventStore.');
+    end
+    if ~isstruct(cfg)
+        error('IndustrialPlant:invalidCfg', ...
+            'cfg must be a struct (plantConfig() output).');
+    end
 
     % --- Seed RNG, restore on exit -------------------------------------
     prevRng = rng(1015, 'twister');
