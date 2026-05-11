@@ -84,5 +84,41 @@ classdef TestIndustrialPlantHistory < matlab.unittest.TestCase
             testCase.assertLessThanOrEqual(max(yA), sensorRng(2) + 1e-9, ...
                 'baseline above sensor range');
         end
+
+        function testMonitoredSensorHasExcursions(testCase)
+            cfg    = plantConfig();
+            % Full week so the schedule is exercised.
+            tStart = now() - 7;
+            tHist  = (tStart : 1/86400 : tStart + 7 - 1/86400)';
+
+            % `reactor.pressure` has trip at y > 18.
+            rng(1015, 'twister');
+            y = buildSensorExcursions(cfg, 'reactor.pressure', tHist);
+
+            % Per spec §4: 18-28 short trips + 5-8 long + 6-10 cascade
+            % trips per monitor. Each excursion must briefly carry y above
+            % the monitor's trip value. Count samples > 18.
+            nAbove = sum(y > 18);
+            testCase.assertGreaterThan(nAbove, 50, ...
+                sprintf('expected >50 samples above 18 bar over the week, got %d', nAbove));
+            testCase.assertLessThan(nAbove, 100000, ...
+                sprintf('too many samples above 18 — sustained breach? got %d', nAbove));
+
+            % Cooling.flow has lower-direction trip at y < 20.
+            rng(1015, 'twister');
+            yCool = buildSensorExcursions(cfg, 'cooling.flow', tHist);
+            nBelow = sum(yCool < 20);
+            testCase.assertGreaterThan(nBelow, 50, ...
+                sprintf('expected >50 cooling samples below 20 L/min, got %d', nBelow));
+
+            % Unmonitored sensor: no excursions, no breaches near any
+            % imagined threshold — just verify the baseline is bounded.
+            rng(1015, 'twister');
+            yFlow = buildSensorExcursions(cfg, 'feedline.flow', tHist);
+            field = 'feedline_flow';
+            r = cfg.Ranges.(field);
+            testCase.assertGreaterThanOrEqual(min(yFlow), r(1) - 1e-9);
+            testCase.assertLessThanOrEqual(max(yFlow), r(2) + 1e-9);
+        end
     end
 end
