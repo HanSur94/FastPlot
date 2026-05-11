@@ -241,6 +241,27 @@ classdef TestIndustrialPlantHistory < matlab.unittest.TestCase
                         k, ev.StartTime, tEnd));
             end
         end
+        function testRunDemoEndToEndHasHistoricalEventsOnFirstPaint(testCase)
+            % Headless: figures are forced invisible so CI / desktop
+            % focus is preserved.
+            oldVis = get(0, 'defaultfigurevisible');
+            set(0, 'defaultfigurevisible', 'off');
+            cleanup = onCleanup(@() set(0, 'defaultfigurevisible', oldVis)); %#ok<NASGU>
+
+            ctx = run_demo('Companion', false);
+            cleanupCtx = onCleanup(@() teardownDemo(ctx)); %#ok<NASGU>
+
+            % Sensor: at least 7 days of history + a few live ticks.
+            tag = TagRegistry.get('reactor.pressure');
+            [x, ~] = tag.getXY();
+            testCase.assertGreaterThanOrEqual(numel(x), 7*86400, ...
+                'reactor.pressure should carry >=7d of samples after run_demo');
+
+            % EventStore: events present immediately, before the user does anything.
+            n = ctx.store.numEvents();
+            testCase.assertGreaterThanOrEqual(n, 80, ...
+                sprintf('expected >=80 historical events on first paint, got %d', n));
+        end
     end  % end of methods (Test)
 
     methods (Static, Access = private)
