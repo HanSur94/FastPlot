@@ -120,5 +120,67 @@ classdef TestIndustrialPlantHistory < matlab.unittest.TestCase
             testCase.assertGreaterThanOrEqual(min(yFlow), r(1) - 1e-9);
             testCase.assertLessThanOrEqual(max(yFlow), r(2) + 1e-9);
         end
+
+        function testSeedHistoryPopulatesSensorsStatesAndEvents(testCase)
+            % Build a minimal context: registry + EventStore + monitors,
+            % WITHOUT starting the writer timer or the live pipeline.
+            here   = fileparts(mfilename('fullpath'));
+            rawDir = fullfile(tempdir(), 'TestIndustrialPlantHistory_raw');
+            if exist(rawDir, 'dir'), rmdir(rawDir, 's'); end
+            mkdir(rawDir);
+
+            [store, plantHealthKey] = registerPlantTags(rawDir);  %#ok<ASGLU>
+            cleanup = onCleanup(@() TestIndustrialPlantHistory.cleanupRegistry_()); %#ok<NASGU>
+
+            cfg = plantConfig();
+
+            tBefore = now();
+            seedHistory(store, cfg);
+            tAfter  = now();
+            testCase.assertLessThan(tAfter - tBefore, 5/86400, ...
+                'seedHistory should complete in < 5 s');
+
+            % SensorTag: full week of samples.
+            sensorTag = TagRegistry.get('reactor.pressure');
+            [x, y] = sensorTag.getXY(); %#ok<ASGLU>
+            testCase.assertGreaterThanOrEqual(numel(x), 7*86400, ...
+                sprintf('expected >= %d samples, got %d', 7*86400, numel(x)));
+            testCase.assertGreaterThan(x(end) - x(1), 6.99, ...
+                'historical span < ~7 days');
+
+            % StateTag: at least 7 cycles.
+            modeTag = TagRegistry.get('reactor.mode');
+            yMode = modeTag.Y;
+            nTrans = 0;
+            for k = 2:numel(yMode)
+                if strcmp(yMode{k-1}, 'running') && strcmp(yMode{k}, 'cooldown')
+                    nTrans = nTrans + 1;
+                end
+            end
+            testCase.assertEqual(nTrans, 7);
+
+            % EventStore: real events from real violations.
+            n = store.numEvents();
+            testCase.assertGreaterThanOrEqual(n, 80, ...
+                sprintf('expected >=80 events, got %d', n));
+            testCase.assertLessThanOrEqual(n, 250, ...
+                sprintf('expected <=250 events, got %d', n));
+
+            % Time-bound check: every event sits inside the historical
+            % window (or within 1 s slack at the live edge).
+            evs = store.getEvents();
+            for k = 1:numel(evs)
+                testCase.assertGreaterThanOrEqual(evs(k).StartTime, x(1) - 1/86400);
+                if ~isnan(evs(k).EndTime)
+                    testCase.assertLessThanOrEqual(evs(k).EndTime, x(end) + 1/86400);
+                end
+            end
+        end
+    end  % end of methods (Test)
+
+    methods (Static, Access = private)
+        function cleanupRegistry_()
+            try, TagRegistry.clear(); catch, end
+        end
     end
 end
