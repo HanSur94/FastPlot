@@ -41,7 +41,8 @@ function y = buildSensorExcursions(cfg, key, tHist)
     y = max(sensorRng(1), min(sensorRng(2), y));
 end
 
-function y = applyExcursions_(cfg, key, tHist, tRel, y) %#ok<INUSL>
+function y = applyExcursions_(cfg, key, tHist, tRel, y) %#ok<INUSL,INUSD>
     %APPLYEXCURSIONS_ No-op stub; Task 3 implements the schedule.
-    %#ok<INUSD>
+    %   cfg/key/tHist/tRel are accepted now so Task 3 can add the
+    %   excursion lookup in-place without changing this signature.
 end

@@ -74,6 +74,8 @@ classdef TestIndustrialPlantHistory < matlab.unittest.TestCase
                 'buildSensorExcursions must be deterministic under fixed seed');
             testCase.assertEqual(numel(yA), numel(tHist), ...
                 'output length must match input time vector');
+            testCase.assertEqual(size(yA, 2), 1, ...
+                'output must be a column vector (callers feed tag.updateData)');
 
             field     = strrep(key, '.', '_');
             sensorRng = cfg.Ranges.(field);
