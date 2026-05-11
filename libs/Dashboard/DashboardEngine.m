@@ -80,6 +80,13 @@ classdef DashboardEngine < handle
         hStaleBannerClose    = []  % uicontrol 'X' pushbutton child of hStaleBanner
         LastTMaxPerWidget_   = []  % containers.Map: widget title -> last observed tMax
         StaleBannerDismissed_ = false  % true after user clicks X; reset when data flows again
+        % Slider overlay caches — avoid deleting/recreating line handles when
+        % the underlying data hasn't changed between ticks (260508-slider-stuck).
+        % Each cache stores the last value passed to the selector so the
+        % comparisons below can skip the expensive delete/recreate cycle.
+        EventMarkerTimesCache_  = []   % last uTimes passed to setEventMarkers
+        EventMarkerColorsCache_ = []   % last uColors (Nx3) passed to setEventMarkers
+        PreviewLinesCache_      = {}   % last linesList (cell of structs) passed to setPreviewLines
     end
 
     methods (Access = public)
@@ -236,6 +243,16 @@ classdef DashboardEngine < handle
                 obj.broadcastTimeRange(rng(1), rng(2));
             end
             % Refresh the preview envelope on the newly active page (D-07).
+            % Do NOT clear the slider overlay caches before calling compute.
+            % The dirty-check in computePreviewEnvelopeReturning_ and
+            % computeEventMarkers uses isequal() to detect whether the new
+            % page's data differs from what's currently drawn. If it differs
+            % (different widgets, different events), the compute functions
+            % invoke setPreviewLines/setEventMarkers automatically. Clearing
+            % the caches here was redundant and harmful: it forced a full
+            % delete/recreate of 129+ line handles synchronously inside
+            % switchPage(), blocking the MATLAB event queue long enough to
+            % drop the user's next mouse event (slider drag). (260508-slider-stuck)
             try obj.computePreviewEnvelope(); catch err
                 if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
             end
@@ -1658,6 +1675,13 @@ classdef DashboardEngine < handle
             if ~isempty(obj.hFigure) && ishandle(obj.hFigure)
                 obj.repositionPanels();
                 obj.repositionStaleBanner_();
+                % Invalidate slider overlay caches: nBuckets is derived from
+                % figure width, so a resize changes the bucket count and both
+                % preview lines and (potentially) event markers must refresh.
+                % (260508-slider-stuck)
+                obj.EventMarkerTimesCache_  = [];
+                obj.EventMarkerColorsCache_ = [];
+                obj.PreviewLinesCache_      = {};
             end
         end
 
@@ -2111,11 +2135,27 @@ classdef DashboardEngine < handle
                 end
             end
             if isempty(linesList)
+                % Cache check for the empty case.
+                if isempty(obj.PreviewLinesCache_)
+                    env = struct('xCenters', [], 'yMin', [], 'yMax', []);
+                    return;
+                end
+                obj.PreviewLinesCache_ = {};
                 obj.TimeRangeSelector_.setPreviewLines({});
                 env = struct('xCenters', [], 'yMin', [], 'yMax', []);
                 return;
             end
-            obj.TimeRangeSelector_.setPreviewLines(linesList);
+            % Cache check: if linesList is identical to the previous call
+            % (cache hits in every FastSenseWidget.getPreviewSeries return
+            % the same struct — isequal compares N*200 doubles, which is fast
+            % and avoids the expensive delete/recreate of N line handles per
+            % tick when data hasn't changed). (260508-slider-stuck)
+            if isequal(linesList, obj.PreviewLinesCache_)
+                % Preview lines unchanged — skip the delete/recreate cycle.
+            else
+                obj.PreviewLinesCache_ = linesList;
+                obj.TimeRangeSelector_.setPreviewLines(linesList);
+            end
             if ~haveAggSeries
                 % No widget produced exactly nBuckets buckets — return an
                 % empty envelope but keep the per-widget lines we drew.
@@ -2162,7 +2202,11 @@ classdef DashboardEngine < handle
             end
             % Honor the global Events toggle: when off, clear any existing
             % slider markers and bail before doing the per-widget aggregation.
+            % Also reset the marker cache so re-enabling the toggle forces a
+            % full redraw on the next call (260508-slider-stuck).
             if ~obj.EventMarkersVisible
+                obj.EventMarkerTimesCache_  = [];
+                obj.EventMarkerColorsCache_ = [];
                 obj.TimeRangeSelector_.setEventMarkers([]);
                 return;
             end
@@ -2251,6 +2295,12 @@ classdef DashboardEngine < handle
             end
 
             if isempty(allTimes)
+                % Cache check for the empty case.
+                if isempty(obj.EventMarkerTimesCache_)
+                    return;  % already empty — no need to clear markers again
+                end
+                obj.EventMarkerTimesCache_  = [];
+                obj.EventMarkerColorsCache_ = [];
                 obj.TimeRangeSelector_.setEventMarkers([]);
                 return;
             end
@@ -2270,6 +2320,19 @@ classdef DashboardEngine < handle
                 end
             end
 
+            % Cache check: skip the expensive delete/recreate cycle in
+            % setEventMarkers when the marker set hasn't changed since the
+            % last tick. Historical events are stable between ticks; only new
+            % live events would invalidate the cache. isequal is fast on small
+            % numeric arrays (129 events = 129 doubles + 129x3 RGB matrix).
+            % (260508-slider-stuck: creating 129+ line handles every 1-second
+            % tick blocked the MATLAB event loop long enough to cause null drags.)
+            if isequal(uTimes, obj.EventMarkerTimesCache_) && ...
+                    isequal(uColors, obj.EventMarkerColorsCache_)
+                return;  % marker set unchanged — no need to redraw
+            end
+            obj.EventMarkerTimesCache_  = uTimes;
+            obj.EventMarkerColorsCache_ = uColors;
             obj.TimeRangeSelector_.setEventMarkers(uTimes, uColors);
         end
 
