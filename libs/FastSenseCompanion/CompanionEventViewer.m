@@ -927,47 +927,176 @@ classdef CompanionEventViewer < handle
         end
 
         function onEventSingleClick_(obj, ev)
-        %ONEVENTSINGLECLICK_ Show a small details popup with editable Notes.
+        %ONEVENTSINGLECLICK_ Open the info modal for the clicked event.
+        %   Single-click info modal is Gantt-only; the Table view does not
+        %   wire a CellSelectionCallback (it would conflict with column sorting).
             try
-                msg = sprintf( ...
-                    ['Sensor:    %s\nThreshold: %s (%s @ %g)\n', ...
-                     'Severity:  %d\nStart:     %s\nEnd:       %s\n', ...
-                     'Duration:  %g\nPeak:      %g\nN points:  %d'], ...
-                    ev.SensorName, ev.ThresholdLabel, ev.Direction, ev.ThresholdValue, ...
-                    ev.Severity, ...
-                    obj.formatTime_(ev.StartTime), ...
-                    obj.formatTime_(ev.EndTime), ...
-                    obj.eventDuration_(ev), ...
-                    obj.scalarOrNaN_(ev.PeakValue), obj.scalarOrNaN_(ev.NumPoints));
-
-                answer = inputdlg({sprintf('%s\n\nNotes:', msg)}, ...
-                    sprintf('Event %s', ev.Id), [10 60], {ev.Notes});
-                if ~isempty(answer)
-                    ev.Notes = answer{1};
-                    try; obj.Store_.save(); catch; end
-                end
+                obj.openEventInfoModal_(ev);
             catch
-                % Popups must never crash the viewer.
+                % Modal failures must never crash the viewer.
             end
         end
 
         function onEventDoubleClick_(obj, ev)
-        %ONEVENTDOUBLECLICK_ Open a SensorDetailPlot zoomed to the event window.
+        %ONEVENTDOUBLECLICK_ Open a brand-new DashboardEngine with one FastSenseWidget
+        %   for the event's sensor tag, X range zoomed to the event window.
+        %   The Table view's DoubleClickedFcn also routes here (Task 8.6).
             try
-                tagKey = '';
-                if ~isempty(ev.TagKeys); tagKey = ev.TagKeys{1}; end
-                if isempty(tagKey); tagKey = ev.SensorName; end
-                tag = [];
-                try; tag = TagRegistry.get(tagKey); catch; end
-                if isempty(tag) || ~isa(tag, 'Tag'); return; end
-                sdp = SensorDetailPlot(tag);
-                evEnd = EventGanttCanvas.eventEndOrNow(ev, now);
-                pad = 0.1 * max(evEnd - ev.StartTime, 1);
-                try
-                    set(sdp.hMainAxes, 'XLim', [ev.StartTime - pad, evEnd + pad]);
-                catch
+                obj.openEventDashboard_(ev);
+            catch
+                % Drill-down failures must never crash the viewer.
+            end
+        end
+
+        function openEventInfoModal_(obj, ev)
+        %OPENEVENTINFOMODAL_ Open a uifigure showing event details with editable Notes.
+        %   Card-style layout of labelled fields (Sensor, Threshold, Severity,
+        %   Start, End, Duration, Peak) plus a textarea for Notes and Save/Close
+        %   buttons. Edited Notes are persisted via EventStore.save() on Save.
+        %   Single-click info modal is Gantt-bar only; Table CellSelectionCallback
+        %   is intentionally not wired to avoid conflicting with column sorting.
+            t = obj.Theme_;
+            fig = uifigure( ...
+                'Name',        sprintf('Event Info — %s', ev.SensorName), ...
+                'Position',    [220 220 460 460], ...
+                'Color',       t.WidgetBackground, ...
+                'WindowStyle', 'modal', ...
+                'Resize',      'off');
+
+            grid = uigridlayout(fig, [10 2]);
+            grid.RowHeight      = {28, 28, 28, 28, 28, 28, 28, 16, '1x', 36};
+            grid.ColumnWidth    = {110, '1x'};
+            grid.Padding        = [16 16 16 16];
+            grid.RowSpacing     = 6;
+            grid.ColumnSpacing  = 8;
+            grid.BackgroundColor = t.WidgetBackground;
+
+            evEnd = EventGanttCanvas.eventEndOrNow(ev, now);
+            rows = { ...
+                'Sensor',    ev.SensorName; ...
+                'Threshold', sprintf('%s (%s @ %g)', ev.ThresholdLabel, ev.Direction, ev.ThresholdValue); ...
+                'Severity',  obj.severityText_(ev.Severity); ...
+                'Start',     obj.formatTime_(ev.StartTime); ...
+                'End',       obj.formatTime_(ev.EndTime); ...
+                'Duration',  obj.formatSliderSpan_(ev.StartTime, evEnd); ...
+                'Peak',      sprintf('%g', obj.scalarOrNaN_(ev.PeakValue))};
+
+            for r = 1:size(rows, 1)
+                lblL = uilabel(grid);
+                lblL.Layout.Row          = r;
+                lblL.Layout.Column       = 1;
+                lblL.Text                = [rows{r, 1}, ':'];
+                lblL.FontColor           = t.PlaceholderTextColor;
+                lblL.FontWeight          = 'bold';
+                lblL.HorizontalAlignment = 'right';
+
+                lblR = uilabel(grid);
+                lblR.Layout.Row    = r;
+                lblR.Layout.Column = 2;
+                lblR.Text          = rows{r, 2};
+                lblR.FontColor     = t.ForegroundColor;
+            end
+
+            % Notes section header (row 8 — narrower).
+            notesLbl = uilabel(grid);
+            notesLbl.Layout.Row    = 8;
+            notesLbl.Layout.Column = [1 2];
+            notesLbl.Text          = 'Notes:';
+            notesLbl.FontColor     = t.PlaceholderTextColor;
+            notesLbl.FontWeight    = 'bold';
+
+            % Notes textarea (row 9 — flex).
+            notesArea = uitextarea(grid);
+            notesArea.Layout.Row      = 9;
+            notesArea.Layout.Column   = [1 2];
+            notesArea.Value           = ev.Notes;
+            notesArea.Tag             = 'EventInfoNotes';
+            notesArea.FontColor       = t.ForegroundColor;
+            notesArea.BackgroundColor = t.WidgetBackground;
+
+            % Button row (row 10).
+            btnGrid = uigridlayout(grid, [1 3]);
+            btnGrid.Layout.Row      = 10;
+            btnGrid.Layout.Column   = [1 2];
+            btnGrid.RowHeight       = {'1x'};
+            btnGrid.ColumnWidth     = {'1x', 90, 90};
+            btnGrid.Padding         = [0 0 0 0];
+            btnGrid.ColumnSpacing   = 8;
+            btnGrid.BackgroundColor = t.WidgetBackground;
+
+            btnSave = uibutton(btnGrid, 'push');
+            btnSave.Layout.Row      = 1;
+            btnSave.Layout.Column   = 2;
+            btnSave.Text            = 'Save';
+            btnSave.BackgroundColor = t.WidgetBorderColor;
+            btnSave.FontColor       = t.ForegroundColor;
+            btnSave.ButtonPushedFcn = @(~, ~) obj.onEventInfoSave_(fig, ev, notesArea);
+
+            btnClose = uibutton(btnGrid, 'push');
+            btnClose.Layout.Row      = 1;
+            btnClose.Layout.Column   = 3;
+            btnClose.Text            = 'Close';
+            btnClose.BackgroundColor = t.WidgetBackground;
+            btnClose.FontColor       = t.ForegroundColor;
+            btnClose.ButtonPushedFcn = @(~, ~) close(fig);
+        end
+
+        function onEventInfoSave_(obj, fig, ev, notesArea)
+        %ONEVENTINFOSAVE_ Persist the edited Notes back to the EventStore.
+            try
+                ev.Notes = strjoin(cellstr(notesArea.Value), newline);
+                try; obj.Store_.save(); catch; end
+            catch
+            end
+            try; close(fig); catch; end
+        end
+
+        function s = severityText_(~, sev)
+        %SEVERITYTEXT_ Format severity as 'N (Info|Warning|Alarm)'.
+            switch double(sev)
+                case 1, s = '1 (Info)';
+                case 2, s = '2 (Warning)';
+                case 3, s = '3 (Alarm)';
+                otherwise, s = sprintf('%g', sev);
+            end
+        end
+
+        function openEventDashboard_(obj, ev)
+        %OPENEVENTDASHBOARD_ Spin up a new DashboardEngine showing the event's sensor.
+        %   Resolves the event's tag, builds a single-widget DashboardEngine,
+        %   renders it, and zooms the inner FastSense to the event window with
+        %   10% padding either side. The new dashboard is fully independent from
+        %   the viewer — closing it does not affect the viewer.
+            tagKey = '';
+            if ~isempty(ev.TagKeys); tagKey = ev.TagKeys{1}; end
+            if isempty(tagKey); tagKey = ev.SensorName; end
+            tag = [];
+            try; tag = TagRegistry.get(tagKey); catch; end
+            if isempty(tag) || ~isa(tag, 'Tag'); return; end
+
+            evEnd = EventGanttCanvas.eventEndOrNow(ev, now);
+            pad   = 0.1 * max(evEnd - ev.StartTime, 1);
+            xLim  = [ev.StartTime - pad, evEnd + pad];
+
+            d = DashboardEngine(sprintf('Event — %s', ev.SensorName));
+            d.addWidget('fastsense', ...
+                'Title',            sprintf('%s @ %s', ev.SensorName, obj.formatTime_(ev.StartTime)), ...
+                'Tag',              tag, ...
+                'Position',         [1 1 12 6], ...
+                'EventStore',       obj.Store_, ...
+                'ShowEventMarkers', true);
+            d.render();
+
+            % Zoom the inner FastSense's main axes to the event window.
+            try
+                if ~isempty(d.Widgets) && ~isempty(d.Widgets{1}.FastSenseObj)
+                    fp = d.Widgets{1}.FastSenseObj;
+                    if ~isempty(fp.hMainAxes) && isgraphics(fp.hMainAxes)
+                        set(fp.hMainAxes, 'XLim', xLim);
+                    end
                 end
             catch
+                % Zoom is nice-to-have; failure must not suppress the dashboard.
             end
         end
 

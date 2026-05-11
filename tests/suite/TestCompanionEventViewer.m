@@ -421,6 +421,63 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             testCase.verifyTrue(any(captured.Vals));
         end
 
+        function testSingleClickOpensInfoModal(testCase)
+            es = makeStore_(testCase);
+            e = Event(0, 1, 'sA', 'lbl', 1, 'upper'); e.TagKeys = {'tA'}; e.Severity = 1;
+            es.append(e);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            v.setTimeRange(-1, 100);
+            v.refresh();
+
+            % Drive the real single-click path (no stub).
+            v.fireBarClickForTest_(1, 'normal');
+
+            % An "Event Info — ..." uifigure should now exist among root figures.
+            allFigs = findall(groot, 'Type', 'figure');
+            names   = arrayfun(@(f) get(f, 'Name'), allFigs, 'UniformOutput', false);
+            isInfo  = cellfun(@(n) startsWith(n, 'Event Info'), names);
+            infoFig = allFigs(isInfo);
+            testCase.verifyNotEmpty(infoFig, 'Single-click must open an Event Info modal.');
+            testCase.addTeardown(@() arrayfun(@(f) close(f, 'force'), infoFig));
+
+            % The Notes textarea should be present and of the right class.
+            notes = findall(infoFig(1), 'Tag', 'EventInfoNotes');
+            testCase.verifyNotEmpty(notes);
+            testCase.verifyClass(notes, 'matlab.ui.control.TextArea');
+        end
+
+        function testDoubleClickOpensDashboardEngine(testCase)
+            % Register the tag so resolution succeeds.
+            TagRegistry.clear();
+            testCase.addTeardown(@() TagRegistry.clear());
+            parent = SensorTag('sA', 'Name', 'A', 'Units', 'u', ...
+                'X', 0:5, 'Y', [1 2 3 2 1 2]);
+            TagRegistry.register('sA', parent);
+
+            es = makeStore_(testCase);
+            e = Event(0, 1, 'sA', 'lbl', 1, 'upper'); e.TagKeys = {'sA'}; e.Severity = 1;
+            es.append(e);
+
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            v.setTimeRange(-1, 100);
+            v.refresh();
+
+            allFigsBefore = findall(groot, 'Type', 'figure');
+            v.fireBarClickForTest_(1, 'open');   % 'open' selection = double click
+            allFigsAfter = findall(groot, 'Type', 'figure');
+
+            % At least one new figure should appear (the dashboard's hFigure).
+            testCase.verifyGreaterThan(numel(allFigsAfter), numel(allFigsBefore), ...
+                'Double-click must spawn a new figure (the DashboardEngine).');
+            % Clean up any new figures.
+            newFigs = setdiff(allFigsAfter, allFigsBefore);
+            testCase.addTeardown(@() arrayfun(@(f) close(f, 'force'), newFigs));
+        end
+
         % --- ViewMode toggle tests ---
 
         function testViewModeDefaultsToGantt(testCase)
