@@ -420,6 +420,70 @@ classdef TestCompanionEventViewer < matlab.unittest.TestCase
             v.fireBarClickForTest_(1, 'open');
             testCase.verifyTrue(any(captured.Vals));
         end
+
+        % --- ViewMode toggle tests ---
+
+        function testViewModeDefaultsToGantt(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            testCase.verifyEqual(v.ViewMode, 'gantt');
+        end
+
+        function testViewModeSetterTogglesPanels(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            ax = v.getAxesPanelForTest_();
+            tp = v.getTablePanelForTest_();
+            testCase.verifyTrue(strcmp(char(ax.Visible), 'on'),  'AxesPanel initially on.');
+            testCase.verifyTrue(strcmp(char(tp.Visible), 'off'), 'TablePanel initially off.');
+            v.ViewMode = 'table';
+            testCase.verifyTrue(strcmp(char(ax.Visible), 'off'), 'AxesPanel off in table mode.');
+            testCase.verifyTrue(strcmp(char(tp.Visible), 'on'),  'TablePanel on in table mode.');
+            v.ViewMode = 'gantt';
+            testCase.verifyTrue(strcmp(char(ax.Visible), 'on'),  'AxesPanel on after gantt restore.');
+            testCase.verifyTrue(strcmp(char(tp.Visible), 'off'), 'TablePanel off after gantt restore.');
+        end
+
+        function testViewModeRejectsInvalidValue(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            testCase.verifyError(@() setViewMode_(v, 'pie'), ...
+                'CompanionEventViewer:invalidViewMode');
+        end
+
+        function testTableHasExpectedColumns(testCase)
+            es = makeStore_(testCase);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            t = v.getTableForTest_();
+            testCase.verifyClass(t, 'matlab.ui.control.Table');
+            testCase.verifyEqual(t.ColumnName, ...
+                {'Start'; 'End'; 'Sensor'; 'Threshold'; 'Severity'; 'Duration'; 'Open'; 'Notes'});
+        end
+
+        function testTableRowsMatchFilteredEvents(testCase)
+            es = makeStore_(testCase);
+            e1 = Event(0,  1,  'sA', 'lbl', 1, 'upper'); e1.TagKeys = {'tA'}; e1.Severity = 1;
+            e2 = Event(10, 11, 'sB', 'lbl', 1, 'upper'); e2.TagKeys = {'tB'}; e2.Severity = 2;
+            es.append([e1 e2]);
+            comp = makeRealCompanion_(testCase);
+            v = CompanionEventViewer(es, TagRegistry, comp);
+            testCase.addTeardown(@() v.close());
+            v.setTimeRange(-1, 100);
+            v.refresh();
+            t = v.getTableForTest_();
+            testCase.verifyEqual(size(t.Data, 1), 2, ...
+                'Table should have one row per filtered event.');
+            testCase.verifyEqual(size(t.Data, 2), 8, ...
+                'Table should have 8 columns.');
+        end
     end
 end
 
@@ -450,4 +514,8 @@ end
 
 function setLeftPaneWidth_(v, val)
     v.LeftPaneWidth = val;
+end
+
+function setViewMode_(v, val)
+    v.ViewMode = val;
 end

@@ -26,7 +26,8 @@ classdef CompanionEventViewer < handle
     end
 
     properties (Access = public, AbortSet = true)
-        LeftPaneWidth = 260   % Width of the tag-catalog pane in pixels.
+        LeftPaneWidth = 260       % Width of the tag-catalog pane in pixels.
+        ViewMode      = 'gantt'   % 'gantt' | 'table' — which view is visible.
     end
 
     methods
@@ -41,6 +42,20 @@ classdef CompanionEventViewer < handle
                 cw{1} = val;
                 obj.RootGrid_.ColumnWidth = cw;
             end
+        end
+
+        function set.ViewMode(obj, val)
+            if ~ischar(val) && ~(isstring(val) && isscalar(val))
+                error('CompanionEventViewer:invalidViewMode', ...
+                    'ViewMode must be ''gantt'' or ''table''.');
+            end
+            val = char(val);
+            if ~any(strcmp(val, {'gantt', 'table'}))
+                error('CompanionEventViewer:invalidViewMode', ...
+                    'ViewMode must be ''gantt'' or ''table'' (got ''%s'').', val);
+            end
+            obj.ViewMode = val;
+            obj.applyViewMode_();
         end
     end
 
@@ -58,10 +73,14 @@ classdef CompanionEventViewer < handle
         AutoPeriod_  = 1.0
         AutoEnabled_ = true
         Listeners_   = {}
-        RootGrid_    = []   % 1x2 uigridlayout: [left pane | right column]
-        RightGrid_   = []   % 3x1 uigridlayout: [filter bar; gantt; slider]
-        LeftPanel_   = []   % uipanel hosting the TagCatalogPane
-        CatalogPane_ = []   % TagCatalogPane reused from main companion app
+        RootGrid_     = []   % 1x2 uigridlayout: [left pane | right column]
+        RightGrid_    = []   % 4x1 uigridlayout: [toolbar; filter bar; view; slider]
+        LeftPanel_    = []   % uipanel hosting the TagCatalogPane
+        CatalogPane_  = []   % TagCatalogPane reused from main companion app
+        TablePanel_   = []   % uipanel hosting the uitable view
+        Table_        = []   % uitable handle
+        ToolbarPanel_ = []   % uipanel hosting the view-mode toggle
+        ViewSwitch_   = []   % uiswitch handle
     end
 
     methods
@@ -137,13 +156,14 @@ classdef CompanionEventViewer < handle
         end
 
         function refresh(obj)
-        %REFRESH Pull from store, apply filters, redraw Gantt + slider. No-op if figure gone.
+        %REFRESH Pull from store, apply filters, redraw Gantt + table + slider. No-op if figure gone.
             if isempty(obj.hFigure) || ~isgraphics(obj.hFigure); return; end
             evs = obj.Store_.getEvents();
             if isempty(evs); evs = Event.empty; end
             filtered = CompanionEventViewer.applyFilters( ...
                 evs, obj.SelectedTagKeys, obj.SeverityMask, obj.OpenOnly, obj.TimeRange);
             obj.Canvas_.draw(filtered, obj.Theme_);
+            obj.updateTableData_(filtered);
             obj.updateSliderPreview_(evs);
         end
 
@@ -202,6 +222,21 @@ classdef CompanionEventViewer < handle
             p = obj.CatalogPane_;
         end
 
+        function p = getAxesPanelForTest_(obj)
+        %GETAXESPANELFORTEST_ Test-only accessor for the Gantt axes panel.
+            p = obj.AxesPanel_;
+        end
+
+        function p = getTablePanelForTest_(obj)
+        %GETTABLEPANELFORTEST_ Test-only accessor for the table panel.
+            p = obj.TablePanel_;
+        end
+
+        function t = getTableForTest_(obj)
+        %GETTABLEFORTEST_ Test-only accessor for the uitable.
+            t = obj.Table_;
+        end
+
         function injectCatalogSelectionForTest_(obj, keysCell)
         %INJECTCATALOGSELECTIONFORTEST_ Test-only: simulate the catalog firing
         %   TagSelectionChanged with a given key set. Bypasses the listbox UI.
@@ -248,6 +283,11 @@ classdef CompanionEventViewer < handle
             catch
             end
             obj.CatalogPane_ = [];
+            try; if ~isempty(obj.Table_) && isvalid(obj.Table_); delete(obj.Table_); end; catch; end
+            obj.Table_        = [];
+            obj.ViewSwitch_   = [];
+            obj.TablePanel_   = [];
+            obj.ToolbarPanel_ = [];
             try; delete(obj.hFigure); catch; end
             obj.hFigure = [];
         end
@@ -354,30 +394,46 @@ classdef CompanionEventViewer < handle
             obj.LeftPanel_.BackgroundColor = t.WidgetBackground;
             obj.LeftPanel_.BorderType      = 'none';
 
-            % Right column: 3-row nested grid (filter bar | gantt | slider).
-            obj.RightGrid_ = uigridlayout(obj.RootGrid_, [3 1]);
+            % Right column: 4-row nested grid (toolbar | filter bar | view | slider).
+            obj.RightGrid_ = uigridlayout(obj.RootGrid_, [4 1]);
             obj.RightGrid_.Layout.Row    = 1;
             obj.RightGrid_.Layout.Column = 2;
-            obj.RightGrid_.RowHeight     = {60, '1x', 80};
+            obj.RightGrid_.RowHeight     = {36, 60, '1x', 80};
             obj.RightGrid_.ColumnWidth   = {'1x'};
             obj.RightGrid_.Padding       = [0 0 0 0];
             obj.RightGrid_.RowSpacing    = 0;
             obj.RightGrid_.BackgroundColor = t.DashboardBackground;
 
+            % Row 1: Toolbar with the Gantt/Table view-mode switch.
+            obj.ToolbarPanel_ = uipanel(obj.RightGrid_);
+            obj.ToolbarPanel_.Layout.Row      = 1;
+            obj.ToolbarPanel_.Layout.Column   = 1;
+            obj.ToolbarPanel_.BackgroundColor = t.WidgetBackground;
+            obj.ToolbarPanel_.BorderType      = 'none';
+
             obj.FilterPanel_ = uipanel(obj.RightGrid_);
-            obj.FilterPanel_.Layout.Row      = 1;
+            obj.FilterPanel_.Layout.Row      = 2;
             obj.FilterPanel_.Layout.Column   = 1;
             obj.FilterPanel_.BackgroundColor = t.WidgetBackground;
             obj.FilterPanel_.BorderType      = 'none';
 
             obj.AxesPanel_ = uipanel(obj.RightGrid_);
-            obj.AxesPanel_.Layout.Row      = 2;
+            obj.AxesPanel_.Layout.Row      = 3;
             obj.AxesPanel_.Layout.Column   = 1;
             obj.AxesPanel_.BackgroundColor = t.WidgetBackground;
             obj.AxesPanel_.BorderType      = 'none';
 
+            % TablePanel_ overlays the same grid cell as AxesPanel_; visibility
+            % toggled by ViewMode.
+            obj.TablePanel_ = uipanel(obj.RightGrid_);
+            obj.TablePanel_.Layout.Row      = 3;
+            obj.TablePanel_.Layout.Column   = 1;
+            obj.TablePanel_.BackgroundColor = t.WidgetBackground;
+            obj.TablePanel_.BorderType      = 'none';
+            obj.TablePanel_.Visible         = 'off';
+
             obj.SliderPanel_ = uipanel(obj.RightGrid_);
-            obj.SliderPanel_.Layout.Row      = 3;
+            obj.SliderPanel_.Layout.Row      = 4;
             obj.SliderPanel_.Layout.Column   = 1;
             obj.SliderPanel_.BackgroundColor = t.WidgetBackground;
             obj.SliderPanel_.BorderType      = 'none';
@@ -531,10 +587,50 @@ classdef CompanionEventViewer < handle
 
             % Trailing spacer at col 17.
 
+            % --- View-mode toolbar (Gantt | Table switch) ---------------
+            hToolbarGrid = uigridlayout(obj.ToolbarPanel_, [1 3]);
+            hToolbarGrid.RowHeight       = {'1x'};
+            hToolbarGrid.ColumnWidth     = {'1x', 140, 8};   % spacer | switch | trailing pad
+            hToolbarGrid.Padding         = [0 4 0 4];
+            hToolbarGrid.BackgroundColor = t.WidgetBackground;
+
+            obj.ViewSwitch_ = uiswitch(hToolbarGrid, 'slider');
+            obj.ViewSwitch_.Layout.Row      = 1;
+            obj.ViewSwitch_.Layout.Column   = 2;
+            obj.ViewSwitch_.Items           = {'Gantt', 'Table'};
+            obj.ViewSwitch_.Value           = 'Gantt';
+            obj.ViewSwitch_.Tag             = 'ViewModeSwitch';
+            obj.ViewSwitch_.FontColor       = t.ForegroundColor;
+            obj.ViewSwitch_.ValueChangedFcn = @(src, ~) obj.onViewSwitchChanged_(src.Value);
+
             % --- Slider in bottom panel --------------------------------
             obj.Selector_ = TimeRangeSelector(obj.SliderPanel_, ...
                 'OnRangeChanged', @(t1, t2) obj.onSliderRangeChanged_(t1, t2), ...
                 'Theme',          t);
+
+            % --- Event table view (overlays AxesPanel_'s grid cell) ----
+            obj.Table_ = uitable(obj.TablePanel_);
+            obj.Table_.Units       = 'normalized';
+            obj.Table_.Position    = [0 0 1 1];
+            obj.Table_.ColumnName  = ...
+                {'Start'; 'End'; 'Sensor'; 'Threshold'; 'Severity'; 'Duration'; 'Open'; 'Notes'};
+            obj.Table_.ColumnEditable = [false false false false false false false true];
+            obj.Table_.ColumnSortable = [true  true  true  true  true  true  true  false];
+            obj.Table_.RowName        = {};
+            obj.Table_.BackgroundColor = t.WidgetBackground;
+            obj.Table_.ForegroundColor = t.ForegroundColor;
+            try
+                obj.Table_.DoubleClickedFcn = @(~, ev) obj.onTableDoubleClicked_(ev);
+            catch
+                % DoubleClickedFcn requires R2022a+; older releases silently skip.
+            end
+            try
+                obj.Table_.CellEditCallback = @(~, ev) obj.onTableCellEdit_(ev);
+            catch
+            end
+
+            % Apply initial ViewMode visibility (Gantt by default).
+            obj.applyViewMode_();
 
             % --- Tag catalog pane (left column) ----------------------
             obj.CatalogPane_ = TagCatalogPane();
@@ -765,6 +861,102 @@ classdef CompanionEventViewer < handle
                     set(sdp.hMainAxes, 'XLim', [ev.StartTime - pad, evEnd + pad]);
                 catch
                 end
+            catch
+            end
+        end
+
+        function applyViewMode_(obj)
+        %APPLYVIEWMODE_ Show/hide AxesPanel_/TablePanel_ based on obj.ViewMode.
+            if isempty(obj.AxesPanel_) || isempty(obj.TablePanel_); return; end
+            if strcmp(obj.ViewMode, 'gantt')
+                obj.AxesPanel_.Visible  = 'on';
+                obj.TablePanel_.Visible = 'off';
+            else
+                obj.AxesPanel_.Visible  = 'off';
+                obj.TablePanel_.Visible = 'on';
+            end
+            % Keep the toolbar switch in sync (no-op if already matches).
+            if ~isempty(obj.ViewSwitch_) && isvalid(obj.ViewSwitch_)
+                want = 'Gantt';
+                if strcmp(obj.ViewMode, 'table'); want = 'Table'; end
+                if ~strcmp(obj.ViewSwitch_.Value, want)
+                    obj.ViewSwitch_.Value = want;
+                end
+            end
+        end
+
+        function onViewSwitchChanged_(obj, sel)
+        %ONVIEWSWITCHCHANGED_ React to user toggling the Gantt/Table switch.
+            if strcmpi(sel, 'Table')
+                obj.ViewMode = 'table';
+            else
+                obj.ViewMode = 'gantt';
+            end
+        end
+
+        function updateTableData_(obj, events)
+        %UPDATETABLEDATA_ Populate the uitable from a (filtered) Event array.
+            if isempty(obj.Table_) || ~isvalid(obj.Table_); return; end
+            if isempty(events)
+                obj.Table_.Data = cell(0, 8);
+                return;
+            end
+            n = numel(events);
+            data = cell(n, 8);
+            for i = 1:n
+                ev = events(i);
+                data{i, 1} = obj.formatTime_(ev.StartTime);
+                data{i, 2} = obj.formatTime_(ev.EndTime);
+                data{i, 3} = ev.SensorName;
+                data{i, 4} = ev.ThresholdLabel;
+                data{i, 5} = double(ev.Severity);
+                if isnan(ev.EndTime)
+                    data{i, 6} = NaN;
+                else
+                    data{i, 6} = ev.EndTime - ev.StartTime;
+                end
+                data{i, 7} = logical(ev.IsOpen);
+                data{i, 8} = ev.Notes;
+            end
+            obj.Table_.Data     = data;
+            obj.Table_.UserData = events;   % retain Event refs for click handlers
+        end
+
+        function onTableDoubleClicked_(obj, ev)
+        %ONTABLEDOUBLECLICKED_ Drill down to SensorDetailPlot for the clicked row.
+            try
+                idx = [];
+                if isstruct(ev) && isfield(ev, 'InteractionInformation')
+                    info = ev.InteractionInformation;
+                    if isstruct(info) && isfield(info, 'Row') && ~isempty(info.Row)
+                        idx = info.Row(1);
+                    end
+                elseif isobject(ev) && isprop(ev, 'InteractionInformation')
+                    info = ev.InteractionInformation;
+                    if ~isempty(info) && isprop(info, 'Row')
+                        idx = info.Row;
+                        if ~isempty(idx); idx = idx(1); end
+                    end
+                end
+                if isempty(idx) || idx < 1; return; end
+                evs = obj.Table_.UserData;
+                if isempty(evs) || idx > numel(evs); return; end
+                obj.onEventDoubleClick_(evs(idx));
+            catch
+                % Drill-down must never crash the viewer.
+            end
+        end
+
+        function onTableCellEdit_(obj, ev)
+        %ONTABLECELLEDIT_ Persist Notes edits made in the uitable.
+            try
+                if ~isstruct(ev) || ~isfield(ev, 'Indices') || numel(ev.Indices) < 2; return; end
+                row = ev.Indices(1); col = ev.Indices(2);
+                if col ~= 8; return; end   % only Notes is editable
+                evs = obj.Table_.UserData;
+                if isempty(evs) || row > numel(evs); return; end
+                evs(row).Notes = char(ev.NewData);
+                try; obj.Store_.save(); catch; end
             catch
             end
         end
