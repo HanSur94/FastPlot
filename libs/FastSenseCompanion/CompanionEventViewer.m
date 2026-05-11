@@ -778,7 +778,18 @@ classdef CompanionEventViewer < handle
             obj.Table_.RowName        = {};
             obj.Table_.BackgroundColor = t.WidgetBackground;
             obj.Table_.ForegroundColor = t.ForegroundColor;
-            obj.Table_.CellSelectionCallback = @(~, ev) obj.onTableRowSelectionChanged_(ev);
+            % Row-level multi-select (Cmd-click / Shift-click). On R2023a+
+            % use the modern SelectionType + SelectionChangedFcn + Selection
+            % property which gives us a clean vector of row indices. Fall
+            % back to CellSelectionCallback on older releases (the per-cell
+            % flow still works, just without proper row highlighting).
+            try
+                obj.Table_.SelectionType    = 'row';
+                obj.Table_.Multiselect      = 'on';
+                obj.Table_.SelectionChangedFcn = @(src, ~) obj.onTableRowSelectionChanged_(src);
+            catch
+                obj.Table_.CellSelectionCallback = @(~, ev) obj.onTableRowSelectionChanged_(ev);
+            end
             try
                 obj.Table_.DoubleClickedFcn = @(~, ev) obj.onTableDoubleClicked_(ev);
             catch
@@ -1255,10 +1266,19 @@ classdef CompanionEventViewer < handle
 
         function onTableRowSelectionChanged_(obj, evt)
         %ONTABLEROWSELECTIONCHANGED_ Track selected rows and update Plot Selected button.
+        %   Accepts EITHER a struct with .Indices (legacy CellSelectionCallback)
+        %   OR the uitable handle itself (modern SelectionChangedFcn — read
+        %   t.Selection directly, which is a vector of row indices when
+        %   SelectionType='row').
             try
                 rows = [];
-                if isstruct(evt) && isfield(evt, 'Indices') && ~isempty(evt.Indices)
+                if isa(evt, 'matlab.ui.control.Table')
+                    rows = unique(evt.Selection);
+                elseif isstruct(evt) && isfield(evt, 'Indices') && ~isempty(evt.Indices)
                     rows = unique(evt.Indices(:, 1));
+                elseif ~isempty(obj.Table_) && isvalid(obj.Table_) && ...
+                        isprop(obj.Table_, 'Selection') && ~isempty(obj.Table_.Selection)
+                    rows = unique(obj.Table_.Selection);
                 end
                 obj.SelectedTableRows_ = rows(:)';
                 n = numel(obj.SelectedTableRows_);
