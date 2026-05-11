@@ -311,6 +311,14 @@ classdef CompanionEventViewer < handle
             obj.onPlotSelectedClicked_();
         end
 
+        function onTableCellEditForTest_(obj, row, col, newData)
+        %ONTABLECELLEDITFORTEST_ Test shim: synthesize a CellEditCallback event
+        %   and route it through the private onTableCellEdit_ handler. Mirrors
+        %   the shape uitable produces (struct with Indices=[row col] + NewData).
+            ev = struct('Indices', [row col], 'NewData', newData);
+            obj.onTableCellEdit_(ev);
+        end
+
         function close(obj)
         %CLOSE Idempotent teardown: timer, listeners, canvas, figure.
             if isempty(obj.hFigure) || ~isgraphics(obj.hFigure)
