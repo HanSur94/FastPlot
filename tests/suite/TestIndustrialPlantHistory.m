@@ -176,6 +176,71 @@ classdef TestIndustrialPlantHistory < matlab.unittest.TestCase
                 end
             end
         end
+        function testEventSeverityMatchesMonitorCriticality(testCase)
+            here   = fileparts(mfilename('fullpath')); %#ok<NASGU>
+            rawDir = fullfile(tempdir(), 'TestIndustrialPlantHistory_raw');
+            if exist(rawDir, 'dir'), rmdir(rawDir, 's'); end
+            mkdir(rawDir);
+            [store, ~] = registerPlantTags(rawDir);
+            cleanup = onCleanup(@() TestIndustrialPlantHistory.cleanupRegistry_()); %#ok<NASGU>
+
+            seedHistory(store, plantConfig());
+            evs = store.getEvents();
+            testCase.assertGreaterThan(numel(evs), 0);
+
+            % Sample up to 20 events; every one should have a Severity
+            % consistent with its firing monitor's Criticality.
+            sampleN = min(20, numel(evs));
+            critToSev = containers.Map( ...
+                {'low', 'medium', 'high', 'safety'}, {1, 2, 3, 3});
+            for k = 1:sampleN
+                ev  = evs(k);
+                mon = TagRegistry.get(ev.ThresholdLabel);
+                expected = critToSev(lower(char(mon.Criticality)));
+                testCase.assertEqual(ev.Severity, expected, ...
+                    sprintf('event %d (monitor=%s) expected sev=%d, got %d', ...
+                        k, ev.ThresholdLabel, expected, ev.Severity));
+            end
+        end
+
+        function testEveryEventCorrespondsToRealBreach(testCase)
+            here   = fileparts(mfilename('fullpath')); %#ok<NASGU>
+            rawDir = fullfile(tempdir(), 'TestIndustrialPlantHistory_raw');
+            if exist(rawDir, 'dir'), rmdir(rawDir, 's'); end
+            mkdir(rawDir);
+            [store, ~] = registerPlantTags(rawDir);
+            cleanup = onCleanup(@() TestIndustrialPlantHistory.cleanupRegistry_()); %#ok<NASGU>
+
+            cfg = plantConfig();
+            seedHistory(store, cfg);
+            evs = store.getEvents();
+            testCase.assertGreaterThan(numel(evs), 0);
+
+            % For every event on `reactor.pressure.critical`, the parent
+            % must contain at least one sample inside [StartTime, EndTime]
+            % whose value exceeds 18 bar (the configured trip).
+            keepIdx = false(1, numel(evs));
+            for k = 1:numel(evs)
+                if strcmp(evs(k).ThresholdLabel, 'reactor.pressure.critical')
+                    keepIdx(k) = true;
+                end
+            end
+            criticalEvs = evs(keepIdx);
+            testCase.assertGreaterThan(numel(criticalEvs), 0, ...
+                'expected at least one reactor.pressure.critical event');
+
+            parent = TagRegistry.get('reactor.pressure');
+            [px, py] = parent.getXY();
+            for k = 1:numel(criticalEvs)
+                ev = criticalEvs(k);
+                tEnd = ev.EndTime;
+                if isnan(tEnd), tEnd = ev.StartTime + 1/86400; end
+                mask = px >= ev.StartTime & px <= tEnd;
+                testCase.assertTrue(any(py(mask) > 18), ...
+                    sprintf('event %d: no parent sample > 18 in [%g, %g]', ...
+                        k, ev.StartTime, tEnd));
+            end
+        end
     end  % end of methods (Test)
 
     methods (Static, Access = private)
