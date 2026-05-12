@@ -116,13 +116,27 @@ classdef TimeRangeSelector < handle
 
         function setDataRange(obj, tMin, tMax)
             %setDataRange  Set the full extent the user can scrub over.
-            %   The current selection is rescaled proportionally so that a
-            %   50%-selected window remains 50% wide after the change.
-            %   Programmatic — does NOT fire OnRangeChanged; only user
-            %   drag interactions do.
+            %   When the new range fully contains the current selection,
+            %   the selection is preserved verbatim (its absolute time
+            %   values stay put). This is the "live mode pan-freeze" path
+            %   — every live tick extends the data range by ~1 s, and we
+            %   do not want that to shift the user's selected window.
+            %   Otherwise (range contraction or selection falls outside),
+            %   the selection is rescaled proportionally to keep its
+            %   relative position. Programmatic in either branch — does
+            %   NOT fire OnRangeChanged; only user drag interactions do.
+            %   (260512-live-mode-companion-adhoc-tail-spike)
             if ~(isfinite(tMin) && isfinite(tMax)) || tMax <= tMin
                 error('TimeRangeSelector:invalidRange', ...
                       'DataRange requires finite tMax > tMin.');
+            end
+            sel = obj.Selection;
+            if sel(1) >= tMin && sel(2) <= tMax
+                % Selection survives a strict superset extension —
+                % keep it; just refresh the bounds and redraw the track.
+                obj.DataRange = [tMin tMax];
+                obj.redraw_();
+                return;
             end
             oldSpan = obj.DataRange(2) - obj.DataRange(1);
             if oldSpan > 0
