@@ -59,8 +59,8 @@ classdef ScatterWidget < DashboardWidget
             %   - no existing handle yet (first render, or handle was deleted)
             %   - SensorColor is wired (CData must stay consistent with new n;
             %     simpler to rebuild than splice in new color rows)
-            canUpdateInPlace = ~isempty(obj.hScatter) && ishandle(obj.hScatter) ...
-                && isempty(obj.SensorColor);
+            canUpdateInPlace = ~isempty(obj.hScatter) && ishandle(obj.hScatter) && ...
+                isempty(obj.SensorColor);
             if canUpdateInPlace
                 try
                     set(obj.hScatter, 'XData', xData, 'YData', yData);
