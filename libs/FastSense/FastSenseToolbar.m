@@ -263,8 +263,12 @@ classdef FastSenseToolbar < handle
                 fp = obj.FastSenses{i};
                 if ~isa(fp, 'FastSense'); continue; end
                 if on
-                    fp.setViewMode('follow');
+                    % Snap XLim BEFORE setting LiveViewMode='follow' so that
+                    % onXLimChanged fires while LiveViewMode is still its previous
+                    % value (e.g. 'preserve'), preventing the auto-disengage hook
+                    % from immediately undoing the mode change.
                     obj.snapToTailIfNeeded_(fp);
+                    fp.setViewMode('follow');
                 else
                     fp.setViewMode('preserve');
                 end
@@ -562,6 +566,9 @@ classdef FastSenseToolbar < handle
             %SNAPTOTAILIFNEEDED_ One-shot pan to data tail when XLim misses x(end).
             %   Mirrors the math in FastSense.applyViewMode's 'follow' branch
             %   but runs immediately (rather than waiting for the next live tick).
+            %   Must be called BEFORE setViewMode('follow') so that onXLimChanged
+            %   fires with LiveViewMode still at its previous value — this prevents
+            %   the auto-disengage hook from immediately undoing the mode change.
             %   Allows onXLimChanged to fire normally so re-downsample and
             %   link propagation work correctly — no IsPropagating suppression.
             if ~fp.IsRendered || ~ishandle(fp.hAxes); return; end
