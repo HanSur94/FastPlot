@@ -1312,9 +1312,6 @@ classdef DashboardEngine < handle
             end
 
             obj.updateTimeLabels(tMin, tMax);
-            % Push the data-range labels below the slider on reset too
-            % (260512-hrn-followup).
-            obj.updateRangeLabels(tMin, tMax);
             % Refresh the preview envelope after DataTimeRange change (D-07).
             try obj.computePreviewEnvelope(); catch err
                 if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
@@ -1694,14 +1691,12 @@ classdef DashboardEngine < handle
                     obj.DataTimeRange(1), obj.DataTimeRange(2));
                 [tStart, tEnd] = obj.TimeRangeSelector_.getSelection();
                 obj.broadcastTimeRange(tStart, tEnd);
-                % Advance the data-range labels below the slider on every
-                % live tick (260512-hrn-followup). Keep the in-slider
-                % selection labels in sync too — usually no-op because the
-                % preserve-selection fix keeps Selection unchanged, but
-                % defensive against programmatic re-selection (e.g. range
-                % contraction).
-                obj.updateRangeLabels( ...
-                    obj.DataTimeRange(1), obj.DataTimeRange(2));
+                % Refresh BOTH label rows (in-axes selection labels +
+                % below-slider edge labels) with the current selection.
+                % Usually no-op because the preserve-selection fix keeps
+                % Selection unchanged across live ticks; defensive against
+                % programmatic re-selection (range contraction etc.).
+                % (260512-hrn-followup)
                 obj.updateTimeLabels(tStart, tEnd);
             end
 
@@ -2125,27 +2120,21 @@ classdef DashboardEngine < handle
         end
 
         function updateTimeLabels(obj, tStart, tEnd)
+            %UPDATETIMELABELS Push the slider selection-edge timestamps to both label rows.
+            %   Updates BOTH the in-axes selection labels (positioned at
+            %   the drag handles inside the slider) AND the new uicontrol
+            %   text labels BELOW the slider — both show the slider's
+            %   current LEFT and RIGHT selection-edge time values, so the
+            %   user can read what window is currently selected without
+            %   squinting at the handles. (260512-hrn-followup)
             if isempty(obj.TimeRangeSelector_) || ...
                     ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
                 return;
             end
-            obj.TimeRangeSelector_.setLabels( ...
-                obj.formatTimeVal(tStart), ...
-                obj.formatTimeVal(tEnd));
-        end
-
-        function updateRangeLabels(obj, tMin, tMax)
-            %UPDATERANGELABELS Push the data-range edges to the labels below the slider.
-            %   Called on every live tick (and on resetGlobalTime) so the
-            %   labels advance with the data extent regardless of where the
-            %   user has parked the selection. (260512-hrn-followup)
-            if isempty(obj.TimeRangeSelector_) || ...
-                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
-                return;
-            end
-            obj.TimeRangeSelector_.setRangeLabels( ...
-                obj.formatTimeVal(tMin), ...
-                obj.formatTimeVal(tMax));
+            leftStr  = obj.formatTimeVal(tStart);
+            rightStr = obj.formatTimeVal(tEnd);
+            obj.TimeRangeSelector_.setLabels(leftStr, rightStr);
+            obj.TimeRangeSelector_.setRangeLabels(leftStr, rightStr);
         end
 
         function computePreviewEnvelope(obj, nBuckets)

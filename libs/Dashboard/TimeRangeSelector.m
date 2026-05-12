@@ -69,8 +69,8 @@ classdef TimeRangeSelector < handle
         hLabelRight = []   % text object attached to right edge (selection)
         LeftLabelText  = ''
         RightLabelText = ''
-        hRangeLabelLeft  = []   % uicontrol text BELOW slider — data-range left edge (260512-hrn-followup)
-        hRangeLabelRight = []   % uicontrol text BELOW slider — data-range right edge
+        hRangeLabelLeft  = []   % uicontrol text BELOW slider — slider LEFT selection-edge timestamp (260512-hrn-followup)
+        hRangeLabelRight = []   % uicontrol text BELOW slider — slider RIGHT selection-edge timestamp
         RangeLeftText  = ''     % formatted timestamp shown in hRangeLabelLeft
         RangeRightText = ''     % formatted timestamp shown in hRangeLabelRight
         DataRange   = [0 1]
@@ -213,13 +213,13 @@ classdef TimeRangeSelector < handle
 
         function setRangeLabels(obj, leftText, rightText)
             %setRangeLabels  Update the date/time labels shown BELOW the slider.
-            %   These represent the data-range edges (slider extents), not
-            %   the selection — they advance on every live tick so the user
-            %   sees the current data extent at a glance. Pass empty strings
-            %   to clear.
+            %   These mirror the slider's LEFT and RIGHT selection-edge
+            %   time values — they show what window the user has selected,
+            %   not the full data extent. Pass empty strings to clear.
             %
-            %   (260512-hrn-followup) Wired from DashboardEngine.updateRangeLabels
-            %   on every live tick + on DataTimeRange changes.
+            %   (260512-hrn-followup) Pushed from DashboardEngine.updateTimeLabels
+            %   together with the in-axes setLabels so both label rows stay
+            %   in sync with the slider's drag handles.
             if nargin < 2 || isempty(leftText),  leftText  = ''; end
             if nargin < 3 || isempty(rightText), rightText = ''; end
             obj.RangeLeftText  = char(leftText);
@@ -731,11 +731,12 @@ classdef TimeRangeSelector < handle
                 'BackgroundColor', 'none', ...
                 'HitTest', 'off', 'PickableParts', 'none');
 
-            % Date/time labels BELOW the slider strip showing the data-range
-            % edges (260512-hrn-followup). These advance on every live tick
-            % so the user can see the current data extent without having to
-            % drag the slider. uicontrol text so they read the panel's
-            % background color rather than the always-white axes background.
+            % Date/time labels BELOW the slider strip showing the LEFT
+            % and RIGHT selection-edge times (the slider's drag handles).
+            % They mirror the in-axes labels above but live in the panel
+            % background area so they're more readable than the small
+            % in-axes text. Updated whenever updateTimeLabels fires (drag
+            % or programmatic selection change). (260512-hrn-followup)
             try
                 panelBg = get(obj.hPanel, 'BackgroundColor');
             catch
