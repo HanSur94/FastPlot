@@ -542,6 +542,16 @@ classdef FastSenseWidget < DashboardWidget
                     [xOut, yOut] = localMinMaxBuckets_(x, y, nBucketsEff);
                 end
 
+                % Accept BOTH 2*nb (no tail anchor) and 2*nb+1 (anchor
+                % appended by minmax cores — 260512-c5x). The slider
+                % preview only needs paired (min, max) per bucket; the
+                % anchor is informational for the main chart and is
+                % safely dropped here before the reshape (drops the
+                % single trailing anchor (x, y) pair tail).
+                if numel(xOut) == 2 * nBucketsEff + 1 && numel(yOut) == 2 * nBucketsEff + 1
+                    xOut = xOut(1:end - 1);
+                    yOut = yOut(1:end - 1);
+                end
                 if numel(xOut) ~= 2 * nBucketsEff || numel(yOut) ~= 2 * nBucketsEff
                     return;
                 end
