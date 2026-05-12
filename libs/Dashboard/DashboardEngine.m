@@ -59,7 +59,7 @@ classdef DashboardEngine < handle
         % Widget dispatch table
         WidgetTypeMap_     = []  % containers.Map: type string -> constructor function handle
         % Time control
-        TimePanelHeight = 0.06
+        TimePanelHeight = 0.085   % bumped from 0.06 to fit data-range labels below slider (260512-hrn-followup)
         DataTimeRange   = [0 1]    % [tMin tMax] across all widget data
         hTimePanel      = []
         hTimeSliderL    = []       % Shim handle — points at TimeRangeSelector_ (D-10)
@@ -1312,6 +1312,9 @@ classdef DashboardEngine < handle
             end
 
             obj.updateTimeLabels(tMin, tMax);
+            % Push the data-range labels below the slider on reset too
+            % (260512-hrn-followup).
+            obj.updateRangeLabels(tMin, tMax);
             % Refresh the preview envelope after DataTimeRange change (D-07).
             try obj.computePreviewEnvelope(); catch err
                 if obj.DebugPreview_, warning('DashboardEngine:previewFailed', 'computePreviewEnvelope: %s', err.message); end
@@ -1691,6 +1694,15 @@ classdef DashboardEngine < handle
                     obj.DataTimeRange(1), obj.DataTimeRange(2));
                 [tStart, tEnd] = obj.TimeRangeSelector_.getSelection();
                 obj.broadcastTimeRange(tStart, tEnd);
+                % Advance the data-range labels below the slider on every
+                % live tick (260512-hrn-followup). Keep the in-slider
+                % selection labels in sync too — usually no-op because the
+                % preserve-selection fix keeps Selection unchanged, but
+                % defensive against programmatic re-selection (e.g. range
+                % contraction).
+                obj.updateRangeLabels( ...
+                    obj.DataTimeRange(1), obj.DataTimeRange(2));
+                obj.updateTimeLabels(tStart, tEnd);
             end
 
             % Clear dirty flags AFTER slider broadcast to avoid re-dirtying
@@ -2122,6 +2134,20 @@ classdef DashboardEngine < handle
                 obj.formatTimeVal(tEnd));
         end
 
+        function updateRangeLabels(obj, tMin, tMax)
+            %UPDATERANGELABELS Push the data-range edges to the labels below the slider.
+            %   Called on every live tick (and on resetGlobalTime) so the
+            %   labels advance with the data extent regardless of where the
+            %   user has parked the selection. (260512-hrn-followup)
+            if isempty(obj.TimeRangeSelector_) || ...
+                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                return;
+            end
+            obj.TimeRangeSelector_.setRangeLabels( ...
+                obj.formatTimeVal(tMin), ...
+                obj.formatTimeVal(tMax));
+        end
+
         function computePreviewEnvelope(obj, nBuckets)
         %COMPUTEPREVIEWENVELOPE Aggregate per-bucket min/max across the
         %   currently active page's widgets (including nested GroupWidget
@@ -2448,29 +2474,32 @@ classdef DashboardEngine < handle
                 % Posix epoch seconds (year ~2000 - 2128).
                 % Add posix offset (days from year 0 to 1970-01-01) and convert
                 % via datevec, which is faster than datestr (no format parsing).
+                % Seconds included so live ticks are visible in slider labels.
+                % (260512-hrn-followup)
                 try
                     dv = datevec(datenum(1970, 1, 1) + t / 86400);
-                    str = sprintf('%04d-%02d-%02d %02d:%02d', ...
-                        dv(1), dv(2), dv(3), dv(4), dv(5));
+                    str = sprintf('%04d-%02d-%02d %02d:%02d:%02d', ...
+                        dv(1), dv(2), dv(3), dv(4), dv(5), floor(dv(6)));
                 catch
                     % Fallback for Octave or edge inputs.
                     str = datestr(datenum(1970, 1, 1, 0, 0, 0) + t / 86400, ...
-                                  'yyyy-mm-dd HH:MM');
+                                  'yyyy-mm-dd HH:MM:SS');
                 end
             elseif t > 700000
                 % MATLAB datenum (days since year 0000).
+                % Seconds included for live-tick visibility (260512-hrn-followup).
                 try
                     dv = datevec(t);
                     if t > 730000
-                        str = sprintf('%04d-%02d-%02d %02d:%02d', ...
-                            dv(1), dv(2), dv(3), dv(4), dv(5));
+                        str = sprintf('%04d-%02d-%02d %02d:%02d:%02d', ...
+                            dv(1), dv(2), dv(3), dv(4), dv(5), floor(dv(6)));
                     else
                         str = sprintf('%02d:%02d:%02d', dv(4), dv(5), floor(dv(6)));
                     end
                 catch
                     % Fallback for Octave or edge inputs.
                     if t > 730000
-                        str = datestr(t, 'yyyy-mm-dd HH:MM');
+                        str = datestr(t, 'yyyy-mm-dd HH:MM:SS');
                     else
                         str = datestr(t, 'HH:MM:SS');
                     end

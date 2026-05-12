@@ -65,10 +65,14 @@ classdef TimeRangeSelector < handle
         hSelection  = []   % patch for selection rectangle
         hEdgeLeft   = []   % line: left drag handle
         hEdgeRight  = []   % line: right drag handle
-        hLabelLeft  = []   % text object attached to left edge
-        hLabelRight = []   % text object attached to right edge
+        hLabelLeft  = []   % text object attached to left edge (selection)
+        hLabelRight = []   % text object attached to right edge (selection)
         LeftLabelText  = ''
         RightLabelText = ''
+        hRangeLabelLeft  = []   % uicontrol text BELOW slider — data-range left edge (260512-hrn-followup)
+        hRangeLabelRight = []   % uicontrol text BELOW slider — data-range right edge
+        RangeLeftText  = ''     % formatted timestamp shown in hRangeLabelLeft
+        RangeRightText = ''     % formatted timestamp shown in hRangeLabelRight
         DataRange   = [0 1]
         Selection   = [0 1]
         DragState   = 'idle'       % 'idle' | 'panning' | 'resizeLeft' | 'resizeRight'
@@ -205,6 +209,27 @@ classdef TimeRangeSelector < handle
             obj.LeftLabelText  = char(leftText);
             obj.RightLabelText = char(rightText);
             obj.redraw_();
+        end
+
+        function setRangeLabels(obj, leftText, rightText)
+            %setRangeLabels  Update the date/time labels shown BELOW the slider.
+            %   These represent the data-range edges (slider extents), not
+            %   the selection — they advance on every live tick so the user
+            %   sees the current data extent at a glance. Pass empty strings
+            %   to clear.
+            %
+            %   (260512-hrn-followup) Wired from DashboardEngine.updateRangeLabels
+            %   on every live tick + on DataTimeRange changes.
+            if nargin < 2 || isempty(leftText),  leftText  = ''; end
+            if nargin < 3 || isempty(rightText), rightText = ''; end
+            obj.RangeLeftText  = char(leftText);
+            obj.RangeRightText = char(rightText);
+            if ~isempty(obj.hRangeLabelLeft) && ishandle(obj.hRangeLabelLeft)
+                set(obj.hRangeLabelLeft,  'String', obj.RangeLeftText);
+            end
+            if ~isempty(obj.hRangeLabelRight) && ishandle(obj.hRangeLabelRight)
+                set(obj.hRangeLabelRight, 'String', obj.RangeRightText);
+            end
         end
 
         function setEnvelope(obj, xC, yMin, yMax)
@@ -649,9 +674,13 @@ classdef TimeRangeSelector < handle
 
         function buildGraphics_(obj)
             %buildGraphics_  Construct axes and graphics handles inside hPanel.
+            % Slider axes height reduced (was 0.85) so two date/time labels
+            % can sit below the slider strip showing the data-range edges
+            % (260512-hrn-followup). The two uicontrol text labels live in
+            % the same panel and update on every live tick from the engine.
             obj.hAxes = axes('Parent', obj.hPanel, ...
                 'Units', 'normalized', ...
-                'Position', [0.045 0.1 0.94 0.85], ...
+                'Position', [0.045 0.42 0.94 0.55], ...
                 'XTick', [], 'YTick', [], ...
                 'Box', 'on', ...
                 'YLim', [0 1], 'XLim', obj.DataRange + [-1, 1] * 0.05 * (obj.DataRange(2) - obj.DataRange(1)));
@@ -701,6 +730,39 @@ classdef TimeRangeSelector < handle
                 'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle', ...
                 'BackgroundColor', 'none', ...
                 'HitTest', 'off', 'PickableParts', 'none');
+
+            % Date/time labels BELOW the slider strip showing the data-range
+            % edges (260512-hrn-followup). These advance on every live tick
+            % so the user can see the current data extent without having to
+            % drag the slider. uicontrol text so they read the panel's
+            % background color rather than the always-white axes background.
+            try
+                panelBg = get(obj.hPanel, 'BackgroundColor');
+            catch
+                panelBg = [0.94 0.94 0.94];
+            end
+            fgColor = [0.20 0.20 0.20];
+            if isstruct(obj.Theme) && isfield(obj.Theme, 'ToolbarFontColor')
+                fgColor = obj.Theme.ToolbarFontColor;
+            end
+            obj.hRangeLabelLeft = uicontrol('Parent', obj.hPanel, ...
+                'Style', 'text', ...
+                'Units', 'normalized', ...
+                'Position', [0.045 0.05 0.45 0.32], ...
+                'String', '', ...
+                'FontSize', 9, ...
+                'HorizontalAlignment', 'left', ...
+                'ForegroundColor', fgColor, ...
+                'BackgroundColor', panelBg);
+            obj.hRangeLabelRight = uicontrol('Parent', obj.hPanel, ...
+                'Style', 'text', ...
+                'Units', 'normalized', ...
+                'Position', [0.505 0.05 0.48 0.32], ...
+                'String', '', ...
+                'FontSize', 9, ...
+                'HorizontalAlignment', 'right', ...
+                'ForegroundColor', fgColor, ...
+                'BackgroundColor', panelBg);
         end
 
         function redraw_(obj)
