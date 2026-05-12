@@ -3353,6 +3353,31 @@ classdef FastSense < handle
 
             obj.drawnowLimitRate();
             if obj.Verbose && exist('OCTAVE_VERSION', 'builtin'); fflush(stdout); end
+
+            % Auto-disengage Follow on user-initiated pan/zoom.
+            % This branch is only reached when IsPropagating=false (see early
+            % return above), so XLim was changed by the user (mouse zoom/pan
+            % or external set(hAxes,'XLim',...) from anywhere other than
+            % applyViewMode / propagateXLim / onXLimModeChanged, all of which
+            % raise IsPropagating). When the user pans while Follow is on,
+            % their intent is "I want to look at the past now" — so flip to
+            % 'preserve' and update the toolbar State so the visual stays in
+            % sync.
+            if strcmp(obj.LiveViewMode, 'follow')
+                obj.LiveViewMode = 'preserve';
+                % Find the FastSenseToolbar (stored in figure AppData by attachers)
+                % and update its Follow button. AppData key 'FastSenseToolbar' is
+                % set in FastSense.openLoupe and in all toolbar attacher sites.
+                % Some older callers may not set it — the try/catch makes that safe.
+                try
+                    tb = getappdata(obj.hFigure, 'FastSenseToolbar');
+                    if ~isempty(tb) && isvalid(tb) && ismethod(tb, 'syncFollowState')
+                        tb.syncFollowState();
+                    end
+                catch
+                    % Toolbar gone, deleted, or method missing — silent ignore.
+                end
+            end
         end
 
         function onXLimModeChanged(obj)
