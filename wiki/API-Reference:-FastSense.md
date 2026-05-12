@@ -197,6 +197,17 @@ STARTLIVE Start live mode — poll a .mat file for changes.
   fp.STARTLIVE(filepath, updateFcn, 'Interval', 2)
   fp.STARTLIVE(filepath, updateFcn, 'ViewMode', 'follow')
 
+#### `setXLimQuiet(obj, tStart, tEnd)`
+
+SETXLIMQUIET Set XLim without triggering XLimMode listener overhead.
+  fp.SETXLIMQUIET(tStart, tEnd) is a performance-optimised
+  alternative to calling xlim(ax, [tStart tEnd]) from external
+  callers (e.g. FastSenseWidget.setTimeRange). The plain
+  xlim() call fires the XLimMode PostSet listener every time,
+  which routes to onXLimModeChanged -> scheduleDeferredXLimCheck
+  and creates a new 10 ms one-shot timer per call.  That timer
+  overhead adds ~4 ms per FastSenseWidget per live tick.
+
 #### `stopLive(obj)`
 
 STOPLIVE Stop live mode polling.

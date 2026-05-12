@@ -305,9 +305,9 @@ COMPUTEPREVIEWENVELOPEFORTEST Test-only wrapper around the
 
 FORMATTIMEVAL Format a numeric time value as a human-readable string.
   Supports three numeric ranges:
-    posix epoch seconds (9e8 < t < 5e9) — converts via datenum(1970,...)+t/86400
-    MATLAB datenum (t > 700000, not posix) — uses datestr directly
-    raw numeric (t <= 700000) — formats as s/m/h/d suffix
+    posix epoch seconds (9e8 < t < 5e9) — fast arithmetic via datevec
+    MATLAB datenum (t > 700000, not posix) — fast via datevec
+    raw numeric (t <= 700000) — formats as s/m/h/d suffix via sprintf
 
 ### Static Methods
 
@@ -1203,6 +1203,8 @@ obj = DashboardToolbar(engine, hFigure, theme)
 #### `setLastUpdateTime(obj, t)`
 
 SETLASTUPDATETIME Update the last-update label with a timestamp.
+  Hot-path note: called on every live tick. Uses datevec (no format
+  string parsing) instead of datestr to avoid timefun/private overhead.
 
 #### `onNameEdit(obj, src)`
 
