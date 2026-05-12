@@ -2037,6 +2037,45 @@ classdef FastSense < handle
             obj.LiveViewMode = mode;
         end
 
+        function snapToTail(obj)
+            %SNAPTOTAIL Slide XLim window so its right edge matches the data tail.
+            %   fp.SNAPTOTAIL() does a one-shot "jump to now" — finds the
+            %   maximum X across all lines, then sets XLim to
+            %   [xMax - currentWindowWidth, xMax], keeping the current zoom
+            %   level intact. Equivalent to a single 'follow' tick from
+            %   applyViewMode without needing to wait for new data to arrive.
+            %
+            %   No-op when the FastSense is not rendered, has no lines, or
+            %   has no finite data X values.
+            %
+            %   Used by DashboardToolbar's Follow toggle to immediately snap
+            %   the chart to live tail when the user enables Follow from a
+            %   panned-away view. (260512-hrn)
+            %
+            %   See also setViewMode, applyViewMode, setXLimQuiet.
+            if ~obj.IsRendered || isempty(obj.hAxes) || ~ishandle(obj.hAxes)
+                return;
+            end
+            xMax = -Inf;
+            for i = 1:numel(obj.Lines)
+                if obj.lineNumPoints(i) > 0
+                    [~, xiMax] = obj.lineXRange(i);
+                    if xiMax > xMax
+                        xMax = xiMax;
+                    end
+                end
+            end
+            if ~isfinite(xMax)
+                return;
+            end
+            currentXLim = get(obj.hAxes, 'XLim');
+            w = currentXLim(2) - currentXLim(1);
+            if ~(isfinite(w) && w > 0)
+                return;
+            end
+            obj.setXLimQuiet(xMax - w, xMax);
+        end
+
         function runLive(obj)
             %RUNLIVE Blocking poll loop for live mode (Octave compatibility).
             %   fp.RUNLIVE() enters a blocking loop that polls LiveFile for
