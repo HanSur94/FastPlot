@@ -2038,12 +2038,14 @@ classdef FastSense < handle
         end
 
         function snapToTail(obj)
-            %SNAPTOTAIL Slide XLim window so its right edge matches the data tail.
+            %SNAPTOTAIL Slide XLim window so its right edge sits just past the data tail.
             %   fp.SNAPTOTAIL() does a one-shot "jump to now" — finds the
             %   maximum X across all lines, then sets XLim to
-            %   [xMax - currentWindowWidth, xMax], keeping the current zoom
-            %   level intact. Equivalent to a single 'follow' tick from
-            %   applyViewMode without needing to wait for new data to arrive.
+            %   [xMax - currentWindowWidth + pad, xMax + pad] where pad =
+            %   2% of the current window width. The small right-edge
+            %   padding leaves visual breathing room between the latest
+            %   data point and the chart's right border so the line tail
+            %   doesn't get clipped against the axes frame.
             %
             %   No-op when the FastSense is not rendered, has no lines, or
             %   has no finite data X values.
@@ -2073,7 +2075,8 @@ classdef FastSense < handle
             if ~(isfinite(w) && w > 0)
                 return;
             end
-            obj.setXLimQuiet(xMax - w, xMax);
+            pad = 0.02 * w;
+            obj.setXLimQuiet(xMax - w + pad, xMax + pad);
         end
 
         function runLive(obj)
@@ -3150,7 +3153,10 @@ classdef FastSense < handle
                     currentXLim = get(obj.hAxes, 'XLim');
                     windowWidth = currentXLim(2) - currentXLim(1);
                     newXMax = newX(end);
-                    newXLim = [newXMax - windowWidth, newXMax];
+                    % 2% right-edge padding so the live tail doesn't sit
+                    % right on the axes frame — matches snapToTail (260512-hrn).
+                    pad = 0.02 * windowWidth;
+                    newXLim = [newXMax - windowWidth + pad, newXMax + pad];
                     % Suppress XLim PostSet listener: updateData() will call
                     % updateLines() explicitly right after applyViewMode returns,
                     % so triggering onXLimChanged here would double the work.
