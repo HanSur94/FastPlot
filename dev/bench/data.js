@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778569088498,
+  "lastUpdate": 1778569836114,
   "repoUrl": "https://github.com/HanSur94/FastSense",
   "entries": {
     "FastPlot Performance": [
@@ -75568,6 +75568,310 @@ window.BENCHMARK_DATA = {
           {
             "name": "Dashboard broadcastTimeRange stdmean",
             "value": 0.027,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "50265832+HanSur94@users.noreply.github.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b91860b05b2057654e3c3233f5e1ff22eb1b23fe",
+          "message": "perf(dashboard): cut live-tick ~75%, cold tab-switch ~80%, load ~32% (#130)\n\nProfiler-driven performance pass on DashboardEngine covering all three lifecycle phases (initial load, tab switching, live refresh), plus defensive isvalid(obj) guards on lifecycle callbacks. Measured on demo/industrial_plant/run_demo.m (6 pages, Companion=false):\n\n  Initial load:                    8.68 s  ->  5.89 s  (-32%)\n  Cold switchPage(2):              4720 ms ->  876 ms  (-81%)\n  onLiveTick page-1 mean/median:   328/80  ->  36/35 ms\n  onLiveTick all-pages median:     86 ms   ->  20 ms\n\nHot-path fixes:\n  - ImageWidget        cache imread; in-place CData swap on subsequent ticks\n  - ScatterWidget      set(h,'XData',..,'YData',..) instead of cla+rebuild\n  - MultiStatusWidget  in-place chip updates instead of cla+fill loop\n  - DashboardEngine    formatTimeVal uses datevec+sprintf (no datestr);\n                       skip uistack on stale banner when already visible;\n                       cache PreviewNBuckets across ticks\n  - DashboardToolbar   setLastUpdateTime uses datevec+sprintf\n  - FastSense          new setXLimQuiet() suppresses XLimMode PostSet listener\n                       and the singleShot timer it spawned; applyViewMode\n                       guards XLim set with IsPropagating\n  - FastSenseWidget    setTimeRange goes through setXLimQuiet\n  - TimeRangeSelector  reuse preview line handles instead of delete+recreate\n\nLifecycle hardening:\n  - Added isObjValid_() helper (cross-platform: wraps isvalid in try/catch\n    for Octave 7+ compatibility) guarding onResize, switchPage, onLiveTick\n    against firing on a deleted engine.\n\nTests:\n  - tests/suite/TestDashboardPerfFixes.m (MATLAB)\n  - tests/test_dashboard_perf_fixes.m (Octave)\n  - 7/7 each, full dashboard suite passes\n  - Patch coverage 70%, head coverage 63.04% (up from 62.77% base)",
+          "timestamp": "2026-05-12T09:03:20+02:00",
+          "tree_id": "478ec32c270b5b6d93050419dcc1b39399f159f0",
+          "url": "https://github.com/HanSur94/FastSense/commit/b91860b05b2057654e3c3233f5e1ff22eb1b23fe"
+        },
+        "date": 1778569834380,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample mean (1M)",
+            "value": 1.179,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(1M)",
+            "value": 0.02,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (1M)",
+            "value": 152.018,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(1M)",
+            "value": 0.596,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (1M)",
+            "value": 242.256,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(1M)",
+            "value": 2.373,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (1M)",
+            "value": 13.905,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(1M)",
+            "value": 3.629,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (5M)",
+            "value": 7.267,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(5M)",
+            "value": 0.053,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (5M)",
+            "value": 168.846,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(5M)",
+            "value": 0.343,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (5M)",
+            "value": 247.66,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(5M)",
+            "value": 2.935,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (5M)",
+            "value": 14.626,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(5M)",
+            "value": 0.475,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (10M)",
+            "value": 14.691,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std10M)",
+            "value": 0.035,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (10M)",
+            "value": 193.451,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std10M)",
+            "value": 1.119,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (10M)",
+            "value": 252.093,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std10M)",
+            "value": 0.864,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (10M)",
+            "value": 14.809,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std10M)",
+            "value": 0.344,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (50M)",
+            "value": 75.692,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std50M)",
+            "value": 0.335,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (50M)",
+            "value": 1235.318,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std50M)",
+            "value": 4.56,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (50M)",
+            "value": 245.497,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std50M)",
+            "value": 2.649,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (50M)",
+            "value": 15.278,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std50M)",
+            "value": 0.342,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (100M)",
+            "value": 150.07,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 0.093,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (100M)",
+            "value": 2422.805,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 83.567,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (100M)",
+            "value": 248.04,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 1.426,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (100M)",
+            "value": 14.755,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.621,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (500M)",
+            "value": 766.31,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 4.463,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (500M)",
+            "value": 22932.351,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 390.281,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (500M)",
+            "value": 307.091,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 87.838,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (500M)",
+            "value": 16.249,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.804,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render mean",
+            "value": 511.771,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render stdmean",
+            "value": 32.621,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick mean",
+            "value": 171.585,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick stdmean",
+            "value": 4.461,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch mean",
+            "value": 173.639,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch stdmean",
+            "value": 2.336,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange mean",
+            "value": 0.134,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange stdmean",
+            "value": 0.025,
             "unit": "ms"
           }
         ]
