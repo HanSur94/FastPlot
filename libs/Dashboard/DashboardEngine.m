@@ -2120,21 +2120,62 @@ classdef DashboardEngine < handle
         end
 
         function updateTimeLabels(obj, tStart, tEnd)
-            %UPDATETIMELABELS Push the slider selection-edge timestamps to both label rows.
-            %   Updates BOTH the in-axes selection labels (positioned at
-            %   the drag handles inside the slider) AND the new uicontrol
-            %   text labels BELOW the slider — both show the slider's
-            %   current LEFT and RIGHT selection-edge time values, so the
-            %   user can read what window is currently selected without
-            %   squinting at the handles. (260512-hrn-followup)
+            %UPDATETIMELABELS Push the slider selection-edge timestamps and duration.
+            %   Updates the three uicontrol text labels BELOW the slider:
+            %     LEFT   — slider's LEFT selection-edge time
+            %     MIDDLE — selection duration (e.g. "7d", "3h 25m", "45 s")
+            %     RIGHT  — slider's RIGHT selection-edge time
+            %   The in-axes selection labels were removed in 260512-hrn-followup;
+            %   all time information now lives in the panel below the slider
+            %   strip so it stays readable regardless of selection width.
             if isempty(obj.TimeRangeSelector_) || ...
                     ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
                 return;
             end
-            leftStr  = obj.formatTimeVal(tStart);
-            rightStr = obj.formatTimeVal(tEnd);
-            obj.TimeRangeSelector_.setLabels(leftStr, rightStr);
-            obj.TimeRangeSelector_.setRangeLabels(leftStr, rightStr);
+            leftStr   = obj.formatTimeVal(tStart);
+            rightStr  = obj.formatTimeVal(tEnd);
+            middleStr = obj.formatDuration_(tEnd - tStart);
+            obj.TimeRangeSelector_.setRangeLabels(leftStr, rightStr, middleStr);
+        end
+
+        function s = formatDuration_(~, durDays)
+            %FORMATDURATION_ Render a datenum-day span as a short readable string.
+            %   "Days" granularity for >=1d, "Xh Ym" for hours, "Xm Ys"
+            %   for minutes-with-seconds, "Ns" for sub-minute. (260512-hrn-followup)
+            if ~isfinite(durDays) || durDays < 0
+                s = '';
+                return;
+            end
+            durSec = durDays * 86400;
+            if durSec < 1
+                s = sprintf('%.2f s', durSec);
+            elseif durSec < 60
+                s = sprintf('%.0f s', durSec);
+            elseif durSec < 3600
+                m = floor(durSec / 60);
+                ss = round(mod(durSec, 60));
+                if ss > 0
+                    s = sprintf('%dm %ds', m, ss);
+                else
+                    s = sprintf('%dm', m);
+                end
+            elseif durSec < 86400
+                h = floor(durSec / 3600);
+                m = floor(mod(durSec, 3600) / 60);
+                if m > 0
+                    s = sprintf('%dh %dm', h, m);
+                else
+                    s = sprintf('%dh', h);
+                end
+            else
+                d = floor(durSec / 86400);
+                h = floor(mod(durSec, 86400) / 3600);
+                if h > 0
+                    s = sprintf('%dd %dh', d, h);
+                else
+                    s = sprintf('%dd', d);
+                end
+            end
         end
 
         function computePreviewEnvelope(obj, nBuckets)

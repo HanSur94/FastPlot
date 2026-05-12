@@ -65,14 +65,12 @@ classdef TimeRangeSelector < handle
         hSelection  = []   % patch for selection rectangle
         hEdgeLeft   = []   % line: left drag handle
         hEdgeRight  = []   % line: right drag handle
-        hLabelLeft  = []   % text object attached to left edge (selection)
-        hLabelRight = []   % text object attached to right edge (selection)
-        LeftLabelText  = ''
-        RightLabelText = ''
-        hRangeLabelLeft  = []   % uicontrol text BELOW slider — slider LEFT selection-edge timestamp (260512-hrn-followup)
-        hRangeLabelRight = []   % uicontrol text BELOW slider — slider RIGHT selection-edge timestamp
-        RangeLeftText  = ''     % formatted timestamp shown in hRangeLabelLeft
-        RangeRightText = ''     % formatted timestamp shown in hRangeLabelRight
+        hRangeLabelLeft   = []   % uicontrol text BELOW slider — slider LEFT selection-edge timestamp (260512-hrn-followup)
+        hRangeLabelMiddle = []   % uicontrol text BELOW slider — selection duration (e.g. "3d 12h")
+        hRangeLabelRight  = []   % uicontrol text BELOW slider — slider RIGHT selection-edge timestamp
+        RangeLeftText   = ''     % formatted timestamp shown in hRangeLabelLeft
+        RangeMiddleText = ''     % formatted duration string in hRangeLabelMiddle
+        RangeRightText  = ''     % formatted timestamp shown in hRangeLabelRight
         DataRange   = [0 1]
         Selection   = [0 1]
         DragState   = 'idle'       % 'idle' | 'panning' | 'resizeLeft' | 'resizeRight'
@@ -200,32 +198,29 @@ classdef TimeRangeSelector < handle
             tEnd   = obj.Selection(2);
         end
 
-        function setLabels(obj, leftText, rightText)
-            %setLabels  Update the inline edge labels that track the selection.
-            %   Pass empty strings to hide a side's label. The text sits at the
-            %   mid-height of the selector, inside each edge handle.
-            if nargin < 2 || isempty(leftText),  leftText  = ''; end
-            if nargin < 3 || isempty(rightText), rightText = ''; end
-            obj.LeftLabelText  = char(leftText);
-            obj.RightLabelText = char(rightText);
-            obj.redraw_();
-        end
-
-        function setRangeLabels(obj, leftText, rightText)
+        function setRangeLabels(obj, leftText, rightText, middleText)
             %setRangeLabels  Update the date/time labels shown BELOW the slider.
-            %   These mirror the slider's LEFT and RIGHT selection-edge
-            %   time values — they show what window the user has selected,
-            %   not the full data extent. Pass empty strings to clear.
+            %   Updates three labels:
+            %     leftText   — slider's LEFT selection-edge time
+            %     rightText  — slider's RIGHT selection-edge time
+            %     middleText — (optional) selection duration string,
+            %                  shown centered between the edge labels.
+            %                  Omit or pass '' to leave the middle blank.
             %
             %   (260512-hrn-followup) Pushed from DashboardEngine.updateTimeLabels
             %   together with the in-axes setLabels so both label rows stay
             %   in sync with the slider's drag handles.
-            if nargin < 2 || isempty(leftText),  leftText  = ''; end
-            if nargin < 3 || isempty(rightText), rightText = ''; end
-            obj.RangeLeftText  = char(leftText);
-            obj.RangeRightText = char(rightText);
+            if nargin < 2 || isempty(leftText),   leftText   = ''; end
+            if nargin < 3 || isempty(rightText),  rightText  = ''; end
+            if nargin < 4 || isempty(middleText), middleText = ''; end
+            obj.RangeLeftText   = char(leftText);
+            obj.RangeRightText  = char(rightText);
+            obj.RangeMiddleText = char(middleText);
             if ~isempty(obj.hRangeLabelLeft) && ishandle(obj.hRangeLabelLeft)
                 set(obj.hRangeLabelLeft,  'String', obj.RangeLeftText);
+            end
+            if ~isempty(obj.hRangeLabelMiddle) && ishandle(obj.hRangeLabelMiddle)
+                set(obj.hRangeLabelMiddle, 'String', obj.RangeMiddleText);
             end
             if ~isempty(obj.hRangeLabelRight) && ishandle(obj.hRangeLabelRight)
                 set(obj.hRangeLabelRight, 'String', obj.RangeRightText);
@@ -711,32 +706,14 @@ classdef TimeRangeSelector < handle
             obj.hEdgeRight = line(obj.hAxes, [NaN NaN], [0 1], ...
                 'Color', selColor, 'LineWidth', 2, ...
                 'HitTest', 'off', 'PickableParts', 'none');
-            % Edge-tracking time labels: small text objects that follow
-            % the selection edges as the user drags. Positioned at the
-            % middle of the selector height; anchored so they sit to the
-            % right of the left handle and to the left of the right handle.
-            % Color: ALWAYS near-black, independent of theme — the slider
-            % axes background is always white (so it can host the colorful
-            % preview lines + event markers cleanly), so a theme-derived
-            % light label would be invisible in dark mode.
-            labelColor = [0.05 0.05 0.05];
-            obj.hLabelLeft = text(obj.hAxes, 0, 0.5, '', ...
-                'Color', labelColor, 'FontSize', 9, ...
-                'HorizontalAlignment', 'left', 'VerticalAlignment', 'middle', ...
-                'BackgroundColor', 'none', ...
-                'HitTest', 'off', 'PickableParts', 'none');
-            obj.hLabelRight = text(obj.hAxes, 0, 0.5, '', ...
-                'Color', labelColor, 'FontSize', 9, ...
-                'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle', ...
-                'BackgroundColor', 'none', ...
-                'HitTest', 'off', 'PickableParts', 'none');
-
-            % Date/time labels BELOW the slider strip showing the LEFT
-            % and RIGHT selection-edge times (the slider's drag handles).
-            % They mirror the in-axes labels above but live in the panel
-            % background area so they're more readable than the small
-            % in-axes text. Updated whenever updateTimeLabels fires (drag
-            % or programmatic selection change). (260512-hrn-followup)
+            % Date/time labels BELOW the slider strip:
+            %   - LEFT  : slider's LEFT selection-edge timestamp
+            %   - MIDDLE: selection duration (e.g. "7d", "3h 25m", "45 s")
+            %   - RIGHT : slider's RIGHT selection-edge timestamp
+            % uicontrol text so they read the panel background (not the
+            % always-white axes background). Updated whenever
+            % DashboardEngine.updateTimeLabels fires (drag or
+            % programmatic selection change). (260512-hrn-followup)
             try
                 panelBg = get(obj.hPanel, 'BackgroundColor');
             catch
@@ -749,16 +726,26 @@ classdef TimeRangeSelector < handle
             obj.hRangeLabelLeft = uicontrol('Parent', obj.hPanel, ...
                 'Style', 'text', ...
                 'Units', 'normalized', ...
-                'Position', [0.045 0.05 0.45 0.32], ...
+                'Position', [0.045 0.05 0.30 0.32], ...
                 'String', '', ...
                 'FontSize', 9, ...
                 'HorizontalAlignment', 'left', ...
                 'ForegroundColor', fgColor, ...
                 'BackgroundColor', panelBg);
+            obj.hRangeLabelMiddle = uicontrol('Parent', obj.hPanel, ...
+                'Style', 'text', ...
+                'Units', 'normalized', ...
+                'Position', [0.36 0.05 0.28 0.32], ...
+                'String', '', ...
+                'FontSize', 9, ...
+                'FontWeight', 'bold', ...
+                'HorizontalAlignment', 'center', ...
+                'ForegroundColor', fgColor, ...
+                'BackgroundColor', panelBg);
             obj.hRangeLabelRight = uicontrol('Parent', obj.hPanel, ...
                 'Style', 'text', ...
                 'Units', 'normalized', ...
-                'Position', [0.505 0.05 0.48 0.32], ...
+                'Position', [0.66 0.05 0.30 0.32], ...
                 'String', '', ...
                 'FontSize', 9, ...
                 'HorizontalAlignment', 'right', ...
@@ -779,16 +766,9 @@ classdef TimeRangeSelector < handle
             set(obj.hSelection, 'XData', [xL xL xR xR], 'YData', [0 1 1 0]);
             set(obj.hEdgeLeft,  'XData', [xL xL], 'YData', [0 1]);
             set(obj.hEdgeRight, 'XData', [xR xR], 'YData', [0 1]);
-            % Place edge labels just inside each selection edge so they
-            % stay visible even when the selection is at the full range.
-            if ishandle(obj.hLabelLeft)
-                set(obj.hLabelLeft, 'Position', [xL, 0.5, 0], ...
-                    'String', obj.LeftLabelText);
-            end
-            if ishandle(obj.hLabelRight)
-                set(obj.hLabelRight, 'Position', [xR, 0.5, 0], ...
-                    'String', obj.RightLabelText);
-            end
+            % Inline in-axes edge labels removed (260512-hrn-followup).
+            % Edge timestamps now live in the uicontrol text labels BELOW
+            % the slider — populated via setRangeLabels from the engine.
         end
 
         function installCallbacks_(obj)
