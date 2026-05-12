@@ -1253,6 +1253,27 @@ classdef DashboardEngine < handle
                     delete(w.hPanel);
                 end
             end
+            % Reinstall TimeRangeSelector callbacks NOW — with a clean WBM root
+            % — BEFORE new HoverCrosshairs install on top in Layout.realizeWidget
+            % below. Each new HC's constructor saves the figure's CURRENT WBM as
+            % its PrevWBMFcn_ and replaces WBM with its own onFigureMove_. If we
+            % reinstall AFTER the realizeWidget loop (as 260512-egv did) we
+            % wipe out the newly-installed HC chain and break per-widget
+            % HoverCrosshair. Reinstalling HERE makes WBM = trs.onButtonMotion_
+            % so new HCs save the clean trs handler as PrevWBMFcn_ and chain
+            % on top — final chain: newHcN → ... → newHc1 → trs.onButtonMotion_.
+            % Both slider drag (forwards down chain) and HoverCrosshair (each
+            % HC's onFigureMove_ on the chain) work. (260512-eu2; supersedes
+            % the end-of-method placement from 260512-egv.)
+            if ~isempty(obj.TimeRangeSelector_) && ...
+                    isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                try
+                    obj.TimeRangeSelector_.reinstallCallbacks();
+                catch err
+                    warning('DashboardEngine:trsReinstallFailed', ...
+                        'TimeRangeSelector.reinstallCallbacks failed: %s', err.message);
+                end
+            end
             totalPages = max(1, numel(obj.Pages));
             obj.Progress_ = DashboardProgress(obj.Name, numel(ws), totalPages, obj.ProgressMode);
             [pgIdx, pgName] = obj.activePageLabel();
@@ -1265,22 +1286,6 @@ classdef DashboardEngine < handle
             obj.Progress_ = [];
             % Re-wire detach callback after panel recreation (Pitfall 3 in RESEARCH.md)
             obj.Layout.DetachCallback = @(w) obj.detachWidget(w);
-            % Force TimeRangeSelector to the outermost WindowButton handlers
-            % after the per-widget HoverCrosshair chain has just been torn
-            % down and rebuilt — otherwise the figure's WindowButtonMotionFcn
-            % can end up as a dangling closure from sibling HC deletes that
-            % unwound in install-order rather than reverse, and the slider's
-            % bracket drag silently no-ops. See HoverCrosshair.delete (lines
-            % 203-228) for the chain-corruption pattern. (260512-egv)
-            if ~isempty(obj.TimeRangeSelector_) && ...
-                    isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
-                try
-                    obj.TimeRangeSelector_.reinstallCallbacks();
-                catch err
-                    warning('DashboardEngine:trsReinstallFailed', ...
-                        'TimeRangeSelector.reinstallCallbacks failed: %s', err.message);
-                end
-            end
         end
 
         function updateGlobalTimeRange(obj)
