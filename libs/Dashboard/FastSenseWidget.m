@@ -1195,4 +1195,13 @@ function [xOut, yOut] = localMinMaxBuckets_(x, y, nb)
     yOut(odd(~minFirst))  = yMaxVals(~minFirst);
     xOut(even(~minFirst)) = xMinVals(~minFirst);
     yOut(even(~minFirst)) = yMinVals(~minFirst);
+
+    % Tail-anchor (260512-c5x): mirrors minmax_core_mex.c — append
+    % (x(end), y(end)) iff its X strictly exceeds the last emitted X
+    % so the rendered line pins to the data tail. Output length:
+    % 2*nb or 2*nb+1.
+    if x(end) > xOut(end)
+        xOut(end + 1) = x(end);
+        yOut(end + 1) = y(end);
+    end
 end
