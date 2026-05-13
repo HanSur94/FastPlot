@@ -265,7 +265,12 @@ classdef DashboardToolbar < handle
                 mode = 'preserve';
             end
             try
-                obj.applyFollowToWidgets_(obj.Engine.Widgets, mode, isOn);
+                % Use allPageWidgets() not .Widgets so Follow reaches
+                % every FastSenseWidget on every page — in multi-page
+                % dashboards .Widgets is empty (widgets live on
+                % Pages{i}.Widgets). (260513-ovt)
+                ws = obj.Engine.allPageWidgets();
+                obj.applyFollowToWidgets_(ws, mode, isOn);
             catch err
                 warning('DashboardToolbar:followToggleFailed', ...
                     'Follow toggle failed: %s', err.message);

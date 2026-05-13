@@ -1826,6 +1826,39 @@ classdef DashboardEngine < handle
         end
     end
 
+    % Public page/widget accessors — moved out of the private block in
+    % 260513-ovt so DashboardToolbar (and other peers) can iterate
+    % widgets across all pages without triggering MethodRestricted
+    % errors. (Was the root cause of "Follow toggle doesn't work" on
+    % multi-page dashboards: the toolbar's try/catch silently
+    % swallowed the access error.)
+    methods (Access = public)
+        function ws = activePageWidgets(obj)
+        %ACTIVEPAGEWIDGETS Return the widget list for the currently active page.
+        %   Returns obj.Pages{obj.ActivePage}.Widgets in multi-page mode,
+        %   or obj.Widgets in single-page mode.
+            if ~isempty(obj.Pages) && obj.ActivePage >= 1
+                ws = obj.Pages{obj.ActivePage}.Widgets;
+            else
+                ws = obj.Widgets;
+            end
+        end
+
+        function ws = allPageWidgets(obj)
+        %ALLPAGEWIDGETS Return concatenation of all pages' Widgets.
+        %   Used for ReflowCallback injection and Follow toggle sweep.
+        %   When Pages is empty, returns obj.Widgets.
+            if isempty(obj.Pages)
+                ws = obj.Widgets;
+                return;
+            end
+            ws = {};
+            for i = 1:numel(obj.Pages)
+                ws = [ws, obj.Pages{i}.Widgets]; %#ok<AGROW>
+            end
+        end
+    end
+
     methods (Access = private)
 
         function tf = isObjValid_(obj)
@@ -1921,30 +1954,6 @@ classdef DashboardEngine < handle
                 end
             end
             obj.DetachedMirrors = obj.DetachedMirrors(keep);
-        end
-
-        function ws = activePageWidgets(obj)
-        %ACTIVEPAGEWIDGETS Return the widget list for the currently active page.
-        %   Returns obj.Pages{obj.ActivePage}.Widgets in multi-page mode,
-        %   or obj.Widgets in single-page mode.
-            if ~isempty(obj.Pages) && obj.ActivePage >= 1
-                ws = obj.Pages{obj.ActivePage}.Widgets;
-            else
-                ws = obj.Widgets;
-            end
-        end
-
-        function ws = allPageWidgets(obj)
-        %ALLPAGEWIDGETS Return concatenation of all pages' Widgets.
-        %   Used for ReflowCallback injection. When Pages is empty, returns obj.Widgets.
-            if isempty(obj.Pages)
-                ws = obj.Widgets;
-                return;
-            end
-            ws = {};
-            for i = 1:numel(obj.Pages)
-                ws = [ws, obj.Pages{i}.Widgets]; %#ok<AGROW>
-            end
         end
 
         function flat = flattenWidgetsForPreview_(obj, widgets, depth)
