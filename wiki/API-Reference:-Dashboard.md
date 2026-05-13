@@ -25,6 +25,7 @@ obj = DashboardEngine(name, varargin)
 | EventMarkersVisible | `true` | global toggle for event markers across all widgets (runtime UI state, not serialized) |
 | DebugPreview_ | `false` | 260508-das — opt-in: surface preview/marker pipeline failures as warnings |
 | BannerHeight | `0.035` |  |
+| EventStore | `[]` |  |
 
 ### Methods
 
@@ -383,6 +384,17 @@ ACTIVEPAGEWIDGETS Return the widget list for the currently active page.
 ALLPAGEWIDGETS Return concatenation of all pages' Widgets.
   Used for ReflowCallback injection and Follow toggle sweep.
   When Pages is empty, returns obj.Widgets.
+
+#### `notifyEventsChanged(obj)`
+
+NOTIFYEVENTSCHANGED Refresh all event-aware widgets after store mutation (260513-snt).
+  Called after CreateEventDialog persists a new event. Walks the
+  active page (recursing into GroupWidget children via
+  getNestedWidgets) and refreshes every EventTimelineWidget and
+  FastSenseWidget. Also re-aggregates the slider event-marker
+  overlay via computeEventMarkers and the slider preview lines via
+  computePreviewEnvelope so a freshly-added event becomes visible
+  on the slider strip without waiting for the next live tick.
 
 #### `str = formatTimeVal(~, t)`
 
@@ -1161,6 +1173,7 @@ obj = DashboardLayout(varargin)
 | ScrollbarWidth | `0.015` |  |
 | OnScrollCallback | `[]` | function handle: @(topRow, bottomRow) |
 | DetachCallback | `[]` | function handle: @(widget) — set by DashboardEngine |
+| CreateEventCallback | `[]` | function handle: @(widget) — set by DashboardEngine |
 | VisibleRows | `[1 Inf]` | [topRow bottomRow] currently visible |
 | hFigure | `[]` | Figure handle for popup dismiss callbacks |
 | hInfoPopup | `[]` | Handle to active info popup uipanel (at most one) |
@@ -1505,6 +1518,82 @@ TOSTRUCT Serialize widget to struct for JSON export.
 #### `ChipBarWidget.obj = fromStruct(s)`
 
 FROMSTRUCT Reconstruct ChipBarWidget from a saved struct.
+
+---
+
+## `CreateEventDialog` --- Modal dialog to create a manual annotation Event (260513-snt).
+
+> Inherits from: `handle`
+
+d = CreateEventDialog(fastSenseWidget, dashboardEngine)
+
+  Opens a modal figure pre-filled with the widget's current X view as
+  the event time range and the widget's bound Tag.Key as the tag
+  binding. On Save: appends an Event to engine.EventStore, registers
+  per-tag EventBinding entries, calls EventStore.save() and finally
+  engine.notifyEventsChanged() so EventTimelineWidget +
+  FastSenseWidget instances and the slider's event-marker overlay
+  refresh.
+
+  The dialog mirrors DashboardConfigDialog's pattern: classical
+  figure (NOT uifigure) with WindowStyle='modal', styled from the
+  engine's theme. All UI callbacks are wrapped in try/catch with
+  non-blocking errordlg so a bad input never tears down the dialog.
+
+  Properties (SetAccess = private):
+    Widget   - bound FastSenseWidget
+    Engine   - bound DashboardEngine
+    hFigure  - modal figure handle
+
+  Methods (public):
+    onSave   - validate, persist, notify, close dialog on success
+    onCancel - close dialog without writing
+    delete   - destructor, tears down figure
+
+  Methods (Static, public):
+    persistEventStatic(engine, tStart, tEnd, label, sev, cat, notes,
+                       keys, primaryName) - mock-friendly persistence
+      seam used by Task-3 tests; instance persistEvent_ delegates here.
+
+  Errors raised (all namespaced):
+    CreateEventDialog:invalidWidget    - widget is not a FastSenseWidget
+    CreateEventDialog:invalidEngine    - engine is not a DashboardEngine
+    CreateEventDialog:noStore          - engine.EventStore is empty
+    CreateEventDialog:invalidTimeRange - EndTime < StartTime (or
+                                         not finite)
+    CreateEventDialog:emptyLabel       - Label is empty after trim
+
+### Constructor
+
+```matlab
+obj = CreateEventDialog(widget, engine)
+```
+
+CREATEEVENTDIALOG Construct + show modal dialog.
+
+### Methods
+
+#### `onSave(obj, ~, ~)`
+
+ONSAVE Validate inputs, persist Event, refresh dashboard, close dialog.
+  Wraps the full pipeline in try/catch so any throw surfaces
+  via errordlg without tearing the dialog down — the user
+  can correct input and Save again. On success: deletes
+  the modal figure.
+
+#### `onCancel(obj, ~, ~)`
+
+ONCANCEL Close the dialog without writing.
+
+### Static Methods
+
+#### `CreateEventDialog.persistEventStatic(engine, tStart, tEnd, label, sev, cat, notes, keys, primaryName)`
+
+PERSISTEVENTSTATIC Persist a manual annotation Event into engine.EventStore (260513-snt).
+  Public static seam called by the instance persistEvent_
+  wrapper AND directly by Task-3 tests. Keeping the
+  write-side logic free of any figure handles makes it
+  trivially unit-testable.
 
 ---
 
