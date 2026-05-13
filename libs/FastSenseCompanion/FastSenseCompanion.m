@@ -1056,6 +1056,24 @@ classdef FastSenseCompanion < handle
             f = obj.hFig_;
         end
 
+        function figs = getOpenedFiguresForTest_(obj)
+        %GETOPENEDFIGURESFORTEST_ Test helper: return the OpenedFigures_ tracking list.
+        %   Used by test_companion_tile_close_buttons. Returns the raw column
+        %   vector of figure handles (post-prune so callers see only valid
+        %   handles). Do NOT call from production code -- this is a friend
+        %   accessor for the test suite only.
+            obj.pruneOpenedFigures_();
+            figs = obj.OpenedFigures_;
+        end
+
+        function trackOpenedFigureForTest_(obj, hFig)
+        %TRACKOPENEDFIGUREFORTEST_ Test helper: drive the private trackOpenedFigure_.
+        %   Lets test_companion_tile_close_buttons feed figure handles into
+        %   OpenedFigures_ without spinning up a real DashboardListPane. Same
+        %   dedupe + prune semantics as the production path.
+            obj.trackOpenedFigure_(hFig);
+        end
+
     end
 
     methods (Access = private)
