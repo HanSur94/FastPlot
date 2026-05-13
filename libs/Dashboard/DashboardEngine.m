@@ -69,6 +69,7 @@ classdef DashboardEngine < handle
         hTimeResetBtn   = []       % Reset button on time panel (260508-f7p — needed for theme switch)
         SliderDebounceTimer = []   % MATLAB timer for coalescing rapid slider events
         ResizeDebounceTimer = []   % MATLAB timer for coalescing rapid resize events (260513-q7w)
+        ResizeFinalRedrawTimer = [] % Longer-period backstop timer: unconditional rerenderWidgets after resize fully settles (260513-q7w fu)
         TimeRangeSelector_  = []   % TimeRangeSelector handle (replaces dual sliders)
         % [tStart tEnd] cache of most recent broadcast (260508-llw); used by
         % switchPage to re-apply the current synced window to widgets that
@@ -1750,6 +1751,13 @@ classdef DashboardEngine < handle
                 % resize-race ends up redrawing without the user having to
                 % press the toolbar's Reset button. (260513-q7w)
                 obj.scheduleResizeRefresh_();
+                % Schedule a separate longer-period backstop that fires
+                % unconditionally — equivalent to the user pressing Reset
+                % once they have clearly stopped resizing. Catches failure
+                % modes the cheap update pass doesn't (degenerate axes
+                % after long holds at very small window sizes, destroyed
+                % line handles, etc.). (260513-q7w fu)
+                obj.scheduleResizeFinalRedraw_();
             end
         end
 
@@ -1789,6 +1797,81 @@ classdef DashboardEngine < handle
                 end
                 obj.refreshActivePageWidgetsAfterResize_();
             end
+        end
+
+        function scheduleResizeFinalRedraw_(obj)
+        %SCHEDULERESIZEFINALREDRAW_ Longer-period backstop debouncer that
+        %   fires once the user has clearly stopped resizing for
+        %   ~1.2 seconds, and unconditionally calls rerenderWidgets() —
+        %   the same operation the user would have invoked manually via
+        %   the toolbar's Reset button. Runs IN PARALLEL with the cheap
+        %   scheduleResizeRefresh_ (300 ms): both timers restart on every
+        %   resize event, so during continuous drag neither fires; the
+        %   moment dragging stops, the 300 ms cheap pass runs first and
+        %   handles most cases, then this 1.2 s backstop catches any
+        %   residual failure mode (degenerate axes after holding at very
+        %   small sizes, destroyed line handles, etc.).
+        %   (260513-q7w fu)
+            if ~isempty(obj.ResizeFinalRedrawTimer)
+                try
+                    if isvalid(obj.ResizeFinalRedrawTimer)
+                        stop(obj.ResizeFinalRedrawTimer);
+                        delete(obj.ResizeFinalRedrawTimer);
+                    end
+                catch
+                end
+                obj.ResizeFinalRedrawTimer = [];
+            end
+            try
+                obj.ResizeFinalRedrawTimer = timer( ...
+                    'ExecutionMode', 'singleShot', ...
+                    'StartDelay',    1.2, ...
+                    'Tag',           'DashboardEngineResizeFinalRedraw', ...
+                    'TimerFcn',      @(~,~) obj.finalRedrawAfterResize_());
+                start(obj.ResizeFinalRedrawTimer);
+            catch err
+                % Timer creation failure (headless / -batch / Octave):
+                % fall back to immediate execution.
+                if obj.DebugPreview_
+                    warning('DashboardEngine:resizeFinalRedrawTimerFailed', ...
+                        'scheduleResizeFinalRedraw_: timer failed (%s), running inline.', err.message);
+                end
+                obj.finalRedrawAfterResize_();
+            end
+        end
+
+        function finalRedrawAfterResize_(obj)
+        %FINALREDRAWAFTERRESIZE_ Unconditional full rebuild of all panels
+        %   on the active page after resize fully settles. Equivalent to
+        %   the user pressing the toolbar's Reset button. Bulletproof
+        %   catch-all for any failure mode the cheap two-pass refresh
+        %   missed. (260513-q7w fu)
+            if ~obj.isObjValid_()
+                return;
+            end
+            if isempty(obj.hFigure) || ~ishandle(obj.hFigure)
+                return;
+            end
+            % Re-entrancy guard: SizeChangedFcn fires during initial
+            % render() (when the figure grows to accommodate the layout),
+            % so this 1.2 s timer can land mid-render — rerenderWidgets()
+            % would then clobber obj.Progress_ and the outer render()'s
+            % finish() call would explode. If a render is in flight
+            % (Progress_ non-empty), reschedule the backstop and bail.
+            % (260513-q7w fu re-entrancy fix)
+            if ~isempty(obj.Progress_)
+                obj.scheduleResizeFinalRedraw_();
+                return;
+            end
+            try
+                obj.rerenderWidgets();
+            catch err
+                if obj.DebugPreview_
+                    warning('DashboardEngine:finalRedrawFailed', ...
+                        'finalRedrawAfterResize_ rerenderWidgets failed: %s', err.message);
+                end
+            end
+            try drawnow; catch, end
         end
 
         function refreshActivePageWidgetsAfterResize_(obj)
@@ -1934,6 +2017,11 @@ classdef DashboardEngine < handle
                 try stop(obj.ResizeDebounceTimer); catch, end
                 try delete(obj.ResizeDebounceTimer); catch, end
                 obj.ResizeDebounceTimer = [];
+            end
+            if ~isempty(obj.ResizeFinalRedrawTimer)
+                try stop(obj.ResizeFinalRedrawTimer); catch, end
+                try delete(obj.ResizeFinalRedrawTimer); catch, end
+                obj.ResizeFinalRedrawTimer = [];
             end
             obj.stopLive();
             % Explicitly delete all widgets in every page so that
