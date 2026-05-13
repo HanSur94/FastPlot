@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778705368333,
+  "lastUpdate": 1778708584849,
   "repoUrl": "https://github.com/HanSur94/FastSense",
   "entries": {
     "FastPlot Performance": [
@@ -77684,6 +77684,310 @@ window.BENCHMARK_DATA = {
           {
             "name": "Dashboard broadcastTimeRange stdmean",
             "value": 0.314,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "50265832+HanSur94@users.noreply.github.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "97212c9d17e6e9c17de68670097a1810045a8946",
+          "message": "Create events from a dashboard: \"+\" button + two-click pick UX + shaded region (#139)\n\n* feat(dashboard): wire Create-Event chrome + engine plumbing (260513-snt Task 1)\n\n- DashboardWidget: extend clearPanelControls protectedTags with\n  'CreateEventButton' so the new chrome button survives panel sweeps.\n- DashboardLayout: new CreateEventCallback property + addCreateEventButton\n  helper (Tag='CreateEventButton') gated by isa(widget,'FastSenseWidget');\n  invokeCreateEventCallback_ defensive try/catch wrapper; reflowChrome_\n  extended to re-anchor the 3-button right-aligned cluster (Info, Create,\n  Detach) on resize; final reflowChrome_ call at end of realizeWidget's\n  chrome path settles Info/Create overlap.\n- DashboardEngine: new public EventStore property (default []; runtime\n  handle, NOT serialized); new public notifyEventsChanged() refreshes\n  EventTimelineWidget + FastSenseWidget instances on the active page\n  (recursing into GroupWidget via flattenEventAwareWidgets_) and\n  re-aggregates the slider event-marker overlay + preview lines; new\n  private resolveEventStore_ auto-discovers an EventStore from the first\n  EventTimelineWidget walked; new private openCreateEventDialog_ entry\n  point; Layout.CreateEventCallback wired in render() and rerenderWidgets().\n\nBackward compatible: serialized dashboards round-trip unchanged\n(EventStore not serialized); standalone FastSenseWidget without an\nengine does not gain the button; the dialog itself is added in Task 2.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(dashboard): CreateEventDialog modal for manual annotations (260513-snt Task 2)\n\n- New libs/Dashboard/CreateEventDialog.m mirrors DashboardConfigDialog's\n  classical-figure pattern (WindowStyle='modal') for theme + font\n  consistency. Pre-fills Start/End from FastSenseWidget.FastSenseObj.hAxes\n  XLim (preferring any HoverSelection appdata blob on the host figure)\n  and the Tag-keys field from widget.Tag.Key.\n- Seven input controls: Start, End, Label, Severity popup (default\n  'warn'), Category popup (default 'manual_annotation'), Tag keys\n  (comma-separated), Notes (multi-line). Cancel/Save row at the bottom.\n- onSave wraps the validate -> persist -> notify -> close pipeline in\n  try/catch with errordlg, leaving the dialog open on failure so the\n  user can correct input.\n- Static `persistEventStatic` method extracts the entire write-side\n  logic (Event construction, append, TagKeys-after-Id, EventBinding\n  loop, EventStore.save, engine.notifyEventsChanged) so Task-3 tests\n  can drive persistence without instantiating the figure. Instance\n  persistEvent_ delegates straight to the static seam.\n- Constructor validates widget + engine types with namespaced errors\n  (CreateEventDialog:invalidWidget / invalidEngine / noStore) before\n  building any graphics handles, so direct callers and Task-1's\n  errordlg path both stay clean.\n\nErrors namespaced CreateEventDialog:*.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* test(dashboard): cover Create-Event dialog + auto-discovery (260513-snt Task 3)\n\nAdds tests/test_create_event_dialog.m with 9 headless-safe cases:\n\n  1) CreateEventDialog([], []) -> CreateEventDialog:invalidWidget\n  2) CreateEventDialog(realWidget, []) -> CreateEventDialog:invalidEngine\n  3) engine without an EventStore -> CreateEventDialog:noStore\n  4) persistEventStatic happy path: Event appended with Id, Category,\n     Severity, Notes, TagKeys; EventBinding.getEventsForTag returns it\n  5) persistEventStatic with EndTime<StartTime\n     -> CreateEventDialog:invalidTimeRange\n  6) persistEventStatic with empty Label -> CreateEventDialog:emptyLabel\n  7) engine.notifyEventsChanged() is a no-throw no-op on a bare engine\n     (no widgets, no rendered figure) — the back-compat contract for\n     dashboards that never open the dialog\n  8) resolveEventStore_'s discovery walk populates engine.EventStore\n     from an EventTimelineWidget's EventStoreObj and is idempotent\n     on the cache-hit path (FilePath identity check; Octave's classdef\n     handles don't implement eq() universally so we compare via the\n     stored FilePath instead of '==')\n  9) DashboardWidget.clearPanelControls preserves a Tag='CreateEventButton'\n     uicontrol while still sweeping non-protected children\n\nAdds tests/TestClearPanelHelper_.m — minimal DashboardWidget subclass\nexposing the protected-static clearPanelControls so test 9 can drive\nit without poking at base-class internals.\n\nVerified end-to-end:\n  - 9 of 9 pass under Octave 11.1.0 on macOS arm64\n  - 9 of 9 pass under MATLAB on macOS arm64\n  - test_add_line.m still passes (regression check)\n  - TestDashboardEngine suite: 17/1 (same as pre-changes baseline; the\n    one failing test `testTimerContinuesAfterError` is a pre-existing\n    flaky timer-CI test, fully unrelated to 260513-snt)\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(demo): wire ctx.store into engine.EventStore in industrial plant demo\n\nLets the per-widget '+' Create-Event button (260513-snt) on every\nFastSenseWidget persist annotations into the same EventStore that the\nEvents page's EventTimelineWidget reads from. Auto-discovery would have\nfound it eventually via EventTimelineWidget walk; explicit wiring is\nclearer in a demo file and works for FastSenseWidgets on pages that\ndon't have a timeline widget.\n\nVerified live in MATLAB: engine.EventStore == ctx.store (handle\nidentity) after buildDashboard.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(fastsense): two-click event-pick state machine (260513-v69 Task 1)\n\n- Add 5 public state-machine properties (IsEventPicking_, EventPickT1_,\n  EventPickEngine_, PrevAxesBDFcn_, PrevFigKPFcn_); public access enables\n  Task-3 state-seam tests to drive the machine directly.\n- Add 8 new methods in the existing methods(Hidden) block of FastSense.m:\n  startEventPick_, cancelEventPick_, onPickClick_, onPickKey_,\n  completeEventPick_ plus 3 graphics helpers (drawPickHint_,\n  updatePickHint_, drawPickLine_).\n- Save/restore axes ButtonDownFcn (loupe handler) and figure\n  WindowKeyPressFcn only; HoverCrosshair's WindowButtonMotionFcn is\n  never touched, so hover crosshair keeps working during pick mode.\n- Toggle-cancel: clicking '+' while in pick mode silently cancels.\n- ESC and right-click cancel; chained KeyPressFcn fall-through.\n- Completion path: sort (min,max), call CreateEventDialog.persistEventStatic\n  (SSOT for append + EventBinding + save + notifyEventsChanged), then\n  hand off to FastSense.openEventDetails_(newEv) for Notes editing.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* refactor(dashboard): forward openCreateEventDialog_ to FastSense.startEventPick_ (260513-v69 Task 2)\n\n- DashboardEngine.openCreateEventDialog_ body rewritten. The Layout\n  '+'-button chain still routes here, the store-gate + errordlg still\n  apply, but on success the method now hands off to\n  widget.FastSenseObj.startEventPick_(obj) instead of constructing the\n  CreateEventDialog modal. The outer try/catch +\n  DashboardEngine:openCreateEventDialogFailed warning is unchanged.\n- Added FastSenseWidget guard + IsRendered guard before forwarding so\n  a stale or non-FastSense widget cannot reach startEventPick_'s\n  isa(engine,'DashboardEngine') check via the wrong path.\n- CreateEventDialog.m header gains a NOTE that the modal UI is no\n  longer the default '+' button entry point, but the class remains\n  importable as a programmatic API and persistEventStatic remains the\n  SSOT for \"persist a manual Event into engine.EventStore\" (it is\n  called by FastSense.completeEventPick_).\n\nRegression: tests/test_create_event_dialog.m passes 9/9 unchanged\n(persistEventStatic API + behavior byte-identical).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* test(fastsense): cover two-click event-pick state machine (260513-v69 Task 3)\n\n7-case function-style test suite covering the state machine added in\nTask 1:\n\n  1) startEventPick_ flips IsEventPicking_, draws EventPickHint, saves\n     the prior axes ButtonDownFcn into PrevAxesBDFcn_.\n  2) First-click bookkeeping draws exactly ONE EventPickLine + hint\n     reads 'END'.\n  3) completeEventPick_ second-click handoff: store gains 1 event with\n     Category=manual_annotation/Severity=2; temp graphics removed;\n     IsEventPicking_=false; hEventDetails_ non-empty (popup opened).\n  4) onPickKey_ Key='escape' cancels: no event appended, temp graphics\n     removed, axes ButtonDownFcn restored to prior loupe value (compared\n     via func2str).\n  5) completeEventPick_(10, 5) auto-swaps -> StartTime=5, EndTime=10.\n  6) startEventPick_ twice toggle-cancels (no throw, no event appended).\n  7) cancelEventPick_ on a non-picking instance is idempotent (no throw,\n     no axes child mutation).\n\nHeadless-safe: every figure is 'Visible','off' and torn down via\nper-handle delete() inside onCleanup. No close all force. The user's\nindustrial plant demo session is untouched.\n\nrun_all_tests.m discovers the new file via dir(test_*.m) glob; no\nmanual list update needed.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(fastsense): shaded pick-region patch + modal-persisted decoration (260513-voo)\n\nExtends the 260513-v69 two-click event-pick state machine with a translucent\nshaded patch between the start/end lines and persists the full decoration\nbehind the event-details modal until the modal closes.\n\n- 3 new public props on the v69 state-machine block: EventPickPatch_,\n  PrevFigWBMFcn_, EventPickModalListener_.\n- 7 new Hidden methods: onPickMotion_ (chained figure WBM that forwards to\n  HoverCrosshair FIRST, then updates patch geometry), onPickMotion_FromX_\n  (test seam for deterministic geometry updates without mutating\n  CurrentPoint), createPickPatch_ (zero-width orange patch, FaceAlpha 0.18,\n  HitTest='off', uistack 'bottom'), finalizePickPatch_ (snap to sorted\n  [t1,t2] x YLim), pickLineColor_ (SSOT color from EventPickLine, fallback\n  orange), restorePickCallbacks_ (axes BDF + figure KP + figure WBM\n  restore), onEventDetailsClosed_ (unified idempotent cleanup).\n- startEventPick_ saves + installs chained figure WBM.\n- onPickClick_ first click also creates the patch; second click finalizes\n  geometry before completeEventPick_.\n- completeEventPick_ flow refit: persist -> openEventDetails_ FIRST -> attach\n  ObjectBeingDestroyed listener -> restorePickCallbacks_ -> flip\n  IsEventPicking_=false. Graphics survive because they live on hAxes.\n- cancelEventPick_ rewritten as thin wrapper that delegates to\n  onEventDetailsClosed_; preserves the v69 Test 7 \"silent no-op when not\n  picking\" contract.\n\nHoverCrosshair is untouched and continues to fire while live-preview is\nactive. New warning ids namespaced FastSense:pickMotion{,Forward}Failed,\nFastSense:eventPickListenerFailed.\n\nMISS_HIT mh_lint + mh_style clean (no new warnings).\n\n* fix(fastsense): restore pick callbacks BEFORE opening event-details modal (260513-voo)\n\nT10 in test_event_pick_mode.m exposed a race: creating the popup figure\ninside openEventDetails_ can transiently focus-shift and fire a\nWindowButtonMotion event on the original dashboard figure. With our\nchained WBM still installed (PrevFigWBMFcn_ pointing at HoverCrosshair)\nand IsEventPicking_ still true, onPickMotion_FromX_ would read\nCurrentPoint on obj.hAxes (cursor was off-axes at some far data\ncoordinate) and overwrite the just-finalized patch XData.\n\nRepro: completeEventPick_(15, 35) -> openEventDetails_ -> patch XData\nbecame [15, 212.96, 212.96, 15] instead of [15, 35, 35, 15].\n\nFix: restorePickCallbacks_() + IsEventPicking_=false BEFORE\nopenEventDetails_, so the motion handler is unwired by the time the\nmodal is created. Graphics (lines, patch, hint) still survive because\nthey live on obj.hAxes regardless of input bindings; the\nObjectBeingDestroyed listener still triggers the unified cleanup when\nthe modal closes.\n\nSecondary benefit: a background click on the dashboard while the modal\nis open is now consumed by the dashboard's normal axes ButtonDownFcn,\nnot by onPickClick_ — which makes semantic sense (the user is\ninteracting with the modal, not still in pick mode).\n\nRule 1 (auto-fix bug). MISS_HIT mh_lint + mh_style still clean. After\nthis fix tests/test_event_pick_mode.m T10 passes 12/12 and\ntests/test_create_event_dialog.m regression stays at 9/9.\n\n* test(fastsense): T8-T12 for shaded pick region + retarget T3 (260513-voo)\n\nExtends tests/test_event_pick_mode.m from 7 to 12 numbered test cases\ncovering the 260513-voo shaded-region overlay and modal-persisted\ndecoration lifetime. All additions are headless-safe (Visible='off',\nper-handle delete via onCleanup; never close all force, never clear\nclasses — the user's industrial plant demo session is undisturbed).\n\nT3 retargeted: was \"after completeEventPick_ the lines/hint are gone\"\nwhich is now FALSE under the new lifetime. New T3 asserts decoration\nSURVIVES past completeEventPick_ (line+patch+hint visible behind the\nmodal) AND that delete(hEventDetails_) triggers full cleanup (sanity\nbelt; T11 is the proper coverage point).\n\nT4 (escCancels) + T6 (toggleCancel): added inline EventPickRegion==0\npatch-removal assertions for cheap extra coverage of the cancel paths.\n\nT8 — createPickPatch_(x) on click 1 creates a zero-width EventPickRegion\n     patch with HitTest='off'; cancelEventPick_ clears the handle.\nT9 — onPickMotion_FromX_(cx) test seam updates patch XData to\n     [t1, cx, cx, t1] and YData to current axes YLim.\nT10 — Click-2 production path (createPickPatch_ + finalizePickPatch_ +\n      completeEventPick_) persists 1 event, opens the modal, AND the\n      patch (XData = sorted interval) + line + hint survive behind the\n      modal. (Exposed the race fixed in commit f34663b.)\nT11 — Closing hEventDetails_ fires the ObjectBeingDestroyed listener ->\n      onEventDetailsClosed_ removes all decoration and restores axes\n      ButtonDownFcn + figure WindowButtonMotionFcn to pre-pick values.\nT12 — cancelEventPick_ mid-pick (post-click-1, pre-click-2) removes the\n      patch, clears PrevFigWBMFcn_, and restores the figure\n      WindowButtonMotionFcn so HoverCrosshair stays alive on the chain.\n\nResults: 12 passed, 0 failed (event-pick mode); regression\ntests/test_create_event_dialog.m 9 passed, 0 failed (persistEventStatic\nSSOT untouched). MISS_HIT mh_lint + mh_style clean (no new warnings;\nthe 2 pre-existing teardown_ continuation-style warnings remain\nbaseline).\n\n---------\n\nCo-authored-by: Claude Opus 4.7 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-05-13T23:35:26+02:00",
+          "tree_id": "d2f566e58f79bef32e1d0425f662ef73326c9932",
+          "url": "https://github.com/HanSur94/FastSense/commit/97212c9d17e6e9c17de68670097a1810045a8946"
+        },
+        "date": 1778708583181,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample mean (1M)",
+            "value": 1.351,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(1M)",
+            "value": 0.003,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (1M)",
+            "value": 157.014,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(1M)",
+            "value": 1.994,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (1M)",
+            "value": 246.667,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(1M)",
+            "value": 1.308,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (1M)",
+            "value": 15.042,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(1M)",
+            "value": 3.598,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (5M)",
+            "value": 7.852,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(5M)",
+            "value": 0.016,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (5M)",
+            "value": 179.718,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(5M)",
+            "value": 0.363,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (5M)",
+            "value": 252.069,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(5M)",
+            "value": 2.51,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (5M)",
+            "value": 15.05,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(5M)",
+            "value": 0.525,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (10M)",
+            "value": 15.531,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std10M)",
+            "value": 0.031,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (10M)",
+            "value": 204.868,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std10M)",
+            "value": 1.17,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (10M)",
+            "value": 253.944,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std10M)",
+            "value": 2.518,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (10M)",
+            "value": 15.093,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std10M)",
+            "value": 0.618,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (50M)",
+            "value": 81.02,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std50M)",
+            "value": 0.219,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (50M)",
+            "value": 1425.964,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std50M)",
+            "value": 6.582,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (50M)",
+            "value": 248.335,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std50M)",
+            "value": 2.699,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (50M)",
+            "value": 15.607,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std50M)",
+            "value": 0.734,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (100M)",
+            "value": 158.516,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 0.247,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (100M)",
+            "value": 2591.346,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 60.427,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (100M)",
+            "value": 253.139,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 1.619,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (100M)",
+            "value": 15.587,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.643,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (500M)",
+            "value": 790.702,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 4.214,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (500M)",
+            "value": 23169.011,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 209.482,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (500M)",
+            "value": 294.265,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 69.954,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (500M)",
+            "value": 15.536,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.86,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render mean",
+            "value": 1010.739,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render stdmean",
+            "value": 24.845,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick mean",
+            "value": 172.978,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick stdmean",
+            "value": 1.145,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch mean",
+            "value": 171.738,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch stdmean",
+            "value": 0.857,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange mean",
+            "value": 0.107,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange stdmean",
+            "value": 0.029,
             "unit": "ms"
           }
         ]
