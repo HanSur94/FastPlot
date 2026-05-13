@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778696065011,
+  "lastUpdate": 1778696092569,
   "repoUrl": "https://github.com/HanSur94/FastSense",
   "entries": {
     "FastPlot Performance": [
@@ -76776,6 +76776,310 @@ window.BENCHMARK_DATA = {
           {
             "name": "Dashboard broadcastTimeRange stdmean",
             "value": 0.215,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "50265832+HanSur94@users.noreply.github.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9f46c92bcb54e704fd60f567949fa13c67bbe836",
+          "message": "Dashboard Live/Follow preserve + resize/tab-switch zombie-panel fix (#136)\n\n* fix: live-mode chart sawtooth (bucket math) + slider auto-pan freeze\n\nLive-mode ad-hoc plots in FastSenseCompanion (\"Cooling Out temp\" et al.)\nshowed a tail sawtooth AND auto-panned XLim every tick, preventing the\nuser from inspecting historical data. Two independent root causes\n(260512-live-mode-companion-adhoc-tail-spike):\n\n1. Wide-last-bucket sawtooth. `minmax_core` (and the MEX twin) computed\n   `bucketSize = floor(n / nb)` and folded the entire remainder\n   `(n - bucketSize*nb)` into the LAST bucket. For n=604889, nb=6049\n   (typical pyramid call for 7-day 1Hz data), bucketSize=99 left a\n   6038-sample remainder ~1.7 hours wide. The last bucket's interior\n   min/max emissions sprawled across that window as a fake spike.\n   Yesterday's PR #133 tail anchor pinned the final X to the data tail\n   but did not stop the second/third-to-last interior emissions from\n   creating the sawtooth. Fix: bump `nb` to `floor(n / bucketSize)` in\n   both `minmax_core_mex.c` and the pure-MATLAB `minmax_core` so the\n   remainder is strictly less than one bucket and every bucket keeps\n   the same time-width. Demo regression: chart tail max/median dX ratio\n   dropped from 66x to ~4x; cooling.out_temp ad-hoc plot now ends at\n   the live tail with dense oscillation (n=3025 displayed points).\n\n2. Live-mode XLim hijack. `TimeRangeSelector.setDataRange` rescaled the\n   selection proportionally on every live tick, sliding XLim 1 s/tick;\n   `FastSenseWidget.LiveViewMode='reset'` (the dashboard default) was\n   also propagating to ad-hoc plots. Fixes:\n   - `TimeRangeSelector.setDataRange`: when the new range fully contains\n     the current selection (live-extension case), keep the selection\n     unchanged - only rescale proportionally on contraction or when the\n     selection falls outside.\n   - `openAdHocPlot` LinkedGrid path: pass `'LiveViewMode', 'preserve'`\n     so each FastSense in an ad-hoc plot inherits preserve-XLim default.\n     Dashboard widgets keep `'reset'` (their expected behavior).\n\nUser confirmed visually: XLim stable across 5 ticks at\n[05-05 12:20:30, 05-12 12:20:37] (width 7.000083 days, no drift), no\nsawtooth at right edge.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(quick-260512-hrn): add Follow toggle button to FastSenseToolbar\n\n- Add hFollowBtn uitoggletool between Live and Metadata buttons\n- Add setFollow(on) public method: sets LiveViewMode='follow'/'preserve' and snaps XLim to data tail when needed\n- Add syncFollowState() private helper to mirror LiveViewMode onto button Enable/State\n- Add snapToTailIfNeeded_() private helper for one-shot XLim snap on Follow enable\n- Add 'follow' icon (right-pointing triangle + tail anchor) to makeIcon/initIcons\n- Add syncFollowState() call in rebind() to sync new target's LiveViewMode\n- Add FollowAutoDisengage hook in FastSense.onXLimChanged: user-initiated pan/zoom while Follow=ON flips LiveViewMode to 'preserve' and calls syncFollowState via AppData stash\n- Stash toolbar in figure AppData('FastSenseToolbar') at all four attacher sites: FastSenseDock.render (x2), FastSenseDock.selectTab fallback, FastSenseDock.undockTab, EventViewer.openFigurePlot\n\n* feat(quick-260512-hrn): add test + fix snap ordering in setFollow\n\n- Add tests/test_fastsense_follow_toggle.m: 9 function-style tests covering\n  button existence, initial state, Enable vs LiveViewMode, setFollow(true)\n  snap-to-tail, no-snap when tail visible, setFollow(false), user-pan\n  auto-disengage, programmatic-update non-disengage, and dashboard widget default\n- Fix snap ordering in setFollow(): snapToTailIfNeeded_ is now called BEFORE\n  setViewMode('follow') so onXLimChanged fires when LiveViewMode is still the\n  previous value, preventing auto-disengage from immediately undoing the mode\n- Update snapToTailIfNeeded_ docstring to document the required call order\n\n* docs(quick-260512-hrn): record Follow toggle completion in STATE.md\n\n- Add 260512-hrn to Quick Tasks Completed table\n- Update last_activity and last_updated\n\n* feat(quick-260512-hrn): add Follow toggle to DashboardToolbar (user-visible)\n\nThe earlier commits (48dc88f, 0bb8376) put the Follow toggle on\nFastSenseToolbar — but that toolbar only attaches via FastSenseDock\n(detached/loupe path) and is not visible on:\n  - Standalone FastSense plots (no toolbar created)\n  - Dashboard tiles (FastSenseWidget inside DashboardEngine — uses\n    DashboardToolbar)\n  - Companion ad-hoc plots (DashboardEngine + FastSenseWidget — same)\n\nSo the Follow toggle was effectively invisible in the user's actual\nworkflow. This commit puts it where users can see it.\n\nChanges:\n- libs/Dashboard/DashboardToolbar.m\n    * New hFollowBtn + hFollowPanel toggle, mirroring the Live button's\n      panel-wrap-with-blue-highlight visual pattern. Placed right of\n      Live in the toolbar.\n    * onFollowToggle(src): walks every FastSenseWidget in\n      Engine.Widgets (recurses into GroupWidget children) and calls\n      FastSenseObj.setViewMode(mode) where mode is 'follow' (button on)\n      or 'preserve' (button off). When turning on, also calls\n      FastSenseObj.snapToTail() so the chart jumps to the live tail\n      immediately, instead of waiting for the next live tick.\n    * setFollowActiveIndicator(): blue highlight when on, ToolbarBG when\n      off — same idiom as setLiveActiveIndicator.\n    * Private helper applyFollowToWidgets_ does the tree walk so future\n      widget container types (GroupWidget already handled) extend\n      cleanly.\n- libs/FastSense/FastSense.m\n    * New public snapToTail() method — slides XLim window so its right\n      edge matches max(x) across all lines, keeping the current zoom\n      width. Equivalent to a single 'follow' tick from applyViewMode\n      without waiting for new data.\n\nDashboard FastSenseWidget keeps its 'reset' default — only this toolbar\ntoggle changes runtime state per-widget.\n\nVerification on the live demo:\n- Pan back 3 days, click Follow ON → XLim snaps 3.00 days right to the\n  live tail.\n- Wait 2.5 s with Follow ON → right edge advances ~2 s (tracking).\n- Click Follow OFF → next 2.5 s of ticks: XLim does not advance.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260512-hrn): leave 2% right-edge padding when snapping/following\n\nThe Follow toggle from 8e05a48 snapped XLim to [xMax - w, xMax], so the\nlatest data point sat right on the chart's right border — visually\ncramped. This patch adds a small breathing-room margin: XLim becomes\n[xMax - w + pad, xMax + pad] where pad = 2% of the current window width.\n\nApplied to both:\n- FastSense.snapToTail() — the one-shot from clicking Follow ON\n- FastSense.applyViewMode 'follow' branch — per-tick auto-pan while\n  Follow stays on (and any direct LiveViewMode='follow' caller)\n\nVerified on the live demo (cooling.out_temp ad-hoc plot, 7-day window):\nXLim(2) - xTail = 201.62 minutes, padding ratio = 0.0200 — matches the\n2% target exactly.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(quick-260512-hrn-followup): live slider edge labels below the strip\n\nUser asks for the slider preview AND time labels to refresh as live data\narrives, plus date/time labels for the slider edges to live BELOW the\nslider strip (more visible than the in-axes selection handles).\n\nChanges:\n- libs/Dashboard/TimeRangeSelector.m\n    * New hRangeLabelLeft / hRangeLabelRight (uicontrol text in the slider's\n      parent panel, positioned below the axes). Show data-range edges\n      (left = earliest, right = latest data sample), updated on every\n      live tick.\n    * New public setRangeLabels(leftText, rightText) so the engine can\n      push pre-formatted timestamps.\n    * Slider axes Position reduced from [.045 .10 .94 .85] to\n      [.045 .42 .94 .55] to leave the lower 40% of the panel for the new\n      labels.\n\n- libs/Dashboard/DashboardEngine.m\n    * TimePanelHeight default bumped from 0.06 to 0.085 (~40% more\n      vertical room) so the slider strip + new labels fit comfortably.\n    * New updateRangeLabels(tMin, tMax) — formats via formatTimeVal and\n      forwards to TimeRangeSelector.setRangeLabels.\n    * onLiveTimer: after setDataRange + broadcastTimeRange, calls\n      updateRangeLabels(DataTimeRange) AND updateTimeLabels(selection)\n      so both label rows stay in sync with the live data.\n    * resetGlobalTime: also calls updateRangeLabels for consistency on\n      the manual Sync path.\n    * formatTimeVal: format string upgraded from 'yyyy-mm-dd HH:MM' to\n      'yyyy-mm-dd HH:MM:SS'. Live ticks advance each second, so the\n      old minute precision hid the update — the labels looked frozen\n      even though they were being re-pushed.\n\nSlider preview lines were already refreshing on every live tick via the\nexisting computePreviewEnvelope path — verified during probing\n(slider's xLast tracks the data tail), no fix needed there.\n\nVerified on the live demo (cooling.out_temp ad-hoc plot, 1 Hz live\nticks, LiveInterval=1.0s):\n  t=0:  range label right=\"2026-05-12 13:43:06\"\n  t=3s: range label right=\"2026-05-12 13:43:10\"  (advanced 4s)\n  t=6s: range label right=\"2026-05-12 13:43:13\"  (advanced 3s)\nSelection labels stay at the preserved selection edge (\"13:43:01\"),\nwhich is correct — the user hasn't dragged the slider, so the selection\nshouldn't move.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260512-hrn-followup): below-slider labels mirror SELECTION, not data range\n\nPrevious commit b274375 made the new below-slider labels show the\nDATA RANGE edges (leftmost data sample, rightmost data sample).\nUser correction: they should show the SLIDER's LEFT and RIGHT\nselection-edge times (the drag-handle positions) so you can read the\ncurrently-selected window at a glance.\n\nChanges:\n- libs/Dashboard/DashboardEngine.m\n    * updateTimeLabels(tStart, tEnd): now pushes the same selection\n      values to BOTH the in-axes setLabels AND the below-slider\n      setRangeLabels — one pipeline, both label rows always in sync.\n    * Removed updateRangeLabels (its functionality merged in).\n    * onLiveTimer / resetGlobalTime updated: call updateTimeLabels with\n      the current selection (no more separate updateRangeLabels with\n      data-range args).\n- libs/Dashboard/TimeRangeSelector.m\n    * Property docstrings updated: hRangeLabelLeft/Right described as\n      \"slider LEFT/RIGHT selection-edge timestamp\" (not data range).\n    * setRangeLabels docstring updated to match.\n    * buildGraphics_ comment updated.\n\nVerified on live demo: programmatic setSelection to inner half-window\nputs both label rows at the new selection edges exactly (string-equal\nto datestr of Selection(1) and Selection(2)).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(quick-260512-hrn-followup): remove inner slider labels, add middle duration\n\nUser request: remove the in-axes selection-edge labels (visually small,\nduplicated below) and add a third label centered below the slider that\nshows the selection duration (e.g. \"7d\", \"3h 25m\", \"45 s\").\n\nChanges:\n- libs/Dashboard/TimeRangeSelector.m\n    * Removed hLabelLeft / hLabelRight (text objects inside the slider\n      axes at the selection edges) and LeftLabelText / RightLabelText.\n    * Removed setLabels public method — all label state now flows\n      through setRangeLabels(leftText, rightText, middleText).\n    * setRangeLabels gained an optional 4th positional middleText arg.\n    * New hRangeLabelMiddle (uicontrol text, centered, bold) between\n      the left and right edge labels below the slider strip.\n    * redraw_ no longer updates inner labels (cleaner — selection\n      patch + edge handles still draw at the right positions).\n    * Below-slider uicontrol Position triplets adjusted to make room\n      for the new middle label: L=[.045 .05 .30 .32], M=[.36 .05 .28 .32],\n      R=[.66 .05 .30 .32].\n- libs/Dashboard/DashboardEngine.m\n    * updateTimeLabels now formats the selection span via the new\n      formatDuration_ helper and passes it as setRangeLabels' middle arg.\n    * formatDuration_ private method: render a datenum-day span as a\n      short readable string — sub-1s with 2 decimals, <1m as \"Ns\",\n      <1h as \"Xm Ys\" (or \"Xm\" when whole), <1d as \"Xh Ym\" (or \"Xh\"\n      when whole), else \"Xd Yh\" (or \"Xd\" when whole).\n\nVerified on the live demo (programmatic drag via setSelection):\n  init / full range: M=\"7d\"\n  3-hour drag:       M=\"3h\"\n  45-min drag:       M=\"50m 24s\"  (clamped wider by MinWidthFrac)\n  back to full:      M=\"7d\"\nAnd confirmed: TimeRangeSelector no longer has hLabelLeft/hLabelRight\nproperties (isprop() returns 0 for both).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260512-hrn-followup): middle duration label shows full d/h/m/s\n\nformatDuration_ previously suppressed zero components (e.g. \"7d\" for a\n7-day window, \"3h\" for a 3-hour window). User wants the full granularity\nvisible, so the label now always renders all four units: \"Xd Yh Zm Ws\".\n\nVerified on the live demo:\n  Full 7d:                M=\"7d 0h 0m 14s\"\n  3-hour window:          M=\"0d 3h 0m 0s\"\n  Mixed 1d 5h 23m 17s:    M=\"1d 5h 23m 17s\"   (exact)\n  MinWidthFrac-clamped:   M=\"0d 0h 50m 24s\"\n\nSub-second spans still fall back to \"N.NN s\" (granularity below 1s).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260513-ovt): preserve Y-axis limits while Follow is engaged\n\nWhen the user clicks the Follow toggle in DashboardToolbar, the chart\ncorrectly snaps its X axis to the data tail. But on every subsequent\nlive tick FastSenseWidget.refresh() called autoScaleY_(y), which\nsilently recomputed YLim from the new sample window — fighting the\nuser's expectation that Follow is purely an X-side feature.\n\nFix: add a third early-return in FastSenseWidget.autoScaleY_ (after\nYLimits and UserZoomedY checks) for the case\nFastSenseObj.LiveViewMode == 'follow'. With Follow engaged, the Y\naxis stays exactly where the user left it; only X tracks the tail.\n\nBefore:\n  if ~isempty(obj.YLimits); return; end\n  if obj.UserZoomedY; return; end\n  if isempty(obj.FastSenseObj) || ~obj.FastSenseObj.IsRendered; return; end\n  ... rescale YLim from y(:) + thresholds ...\n\nAfter (new guard inserted):\n  if ~isempty(obj.YLimits); return; end\n  if obj.UserZoomedY; return; end\n  if ~isempty(obj.FastSenseObj) && isvalid(obj.FastSenseObj) ...\n          && strcmp(obj.FastSenseObj.LiveViewMode, 'follow')\n      return;\n  end\n  if isempty(obj.FastSenseObj) || ~obj.FastSenseObj.IsRendered; return; end\n  ... rescale ...\n\nVerified on industrial plant demo via mcp__matlab__: file lints clean\n(no new warnings near edit) and rehash picks up the new method body.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-ovt): record commit hash in STATE.md\n\nFill in 498a5f3 for the 260513-ovt row that was committed in the\nprevious commit with a TBD placeholder.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260513-ovt): preserve widget X and Y views across Live ticks\n\nBuilds on 498a5f3 (which preserved Y only when Follow was engaged).\nThe user wants Live mode to be strictly \"append data, never mutate\naxis limits\" — limits change only on explicit user action (mouse\npan/zoom, slider drag, Sync-All button, broadcastTimeRangeNow API,\nor the Follow toggle for X tail-tracking).\n\nTwo implicit per-tick mutations are removed:\n\n1. libs/Dashboard/FastSenseWidget.m — refresh() and update() no\n   longer call obj.autoScaleY_(y) after updateData. autoScaleY_ now\n   only runs once at widget realization via rebuildForTag_, where it\n   sets the initial Y range from the first batch of data. After\n   that, Y is the user's domain.\n\n2. libs/Dashboard/DashboardEngine.m — onLiveTick no longer calls\n   obj.broadcastTimeRange(tStart, tEnd). The surrounding\n   setDataRange (slider's data-range tracking), getSelection, and\n   updateTimeLabels (the below-slider time labels) still run so the\n   slider's own UI stays current. User-driven broadcast paths\n   remain wired:\n     • slider-drag debounced broadcast (SliderDebounceTimer)\n     • public broadcastTimeRangeNow() (tests, Sync-All button)\n     • initial-render time-range push\n\nToday's earlier 498a5f3 guard (skip autoScaleY_ when\nLiveViewMode='follow') is kept as defensive code — autoScaleY_ is no\nlonger reached during ticks, but the guard is harmless and still\ncorrect if anyone re-introduces a live-tick call to it.\n\nVerified:\n- mcp__matlab__check_matlab_code: clean (no new warnings near edits).\n- test_dashboard_time_sync_all_pages: 5/5 PASS (broadcastTimeRangeNow\n  user-driven path still drives cross-page sync).\n- test_dashboard_range_selector_integration: 2/2 PASS (slider-driven\n  broadcast + debounced timer still work end-to-end).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-ovt): record broader Live-preserve scope in STATE.md\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260513-ovt): flip default LiveViewMode to 'preserve' + make syncFollowState public\n\nAfter the user clarified \"Both X and Y frozen at user's view... Live\nticks only append data; limits never change unless user pans/zooms\",\ntwo more issues surfaced:\n\n1. FastSenseWidget.LiveViewMode default was 'reset' — every live tick\n   ran FastSense.applyViewMode('reset') which snaps XLim to\n   [newX(1), newX(end)], overwriting whatever the user had zoomed\n   to. The previous \"remove broadcastTimeRange from onLiveTick\"\n   change (ca5be95) handled the slider-driven X reset but didn't\n   touch this per-widget reset. Flipping the widget default to\n   'preserve' makes Live mode \"data flows in, my view stays put\":\n\n   - 'preserve' (DEFAULT, 260513-ovt): frozen at initial X range;\n     live ticks append data only. User opts into seeing new data via\n     Follow toggle, slider drag, or Reset/Sync-All button.\n   - 'follow':   what the Follow toolbar toggle switches to.\n   - 'reset':    former default; XLim grows to cover all samples\n     since session start (still available for short demos that want\n     auto-fill behavior).\n\n   Doc comments on the property declaration and inside render() are\n   updated to reflect the new default. Existing scripts/dashboards\n   that explicitly set LiveViewMode keep their value; serialized\n   configs do not store LiveViewMode so loaded dashboards inherit\n   the new default. test_dashboardWidgetDefaultUnchanged is renamed\n   to test_dashboardWidgetDefaultIsPreserve and updated to assert\n   'preserve'.\n\n2. FastSenseToolbar.syncFollowState was declared in a private\n   methods block. FastSense.onXLimChanged's auto-disengage hook does\n   `if ismethod(tb, 'syncFollowState'); tb.syncFollowState(); end`\n   — and ismethod() returns false for private methods, so the call\n   was silently skipped. Result: when the user panned a chart while\n   Follow was engaged, LiveViewMode correctly reverted to 'preserve'\n   but the Follow toolbar button stayed visually ON. Moved\n   syncFollowState into its own `methods (Access = public)` block;\n   the test_userPanDisengagesFollow regression now passes.\n\nVerified:\n- mcp__matlab__check_matlab_code: clean (no new warnings).\n- test_fastsense_follow_toggle: 10/10 PASS.\n- test_dashboard_time_sync_all_pages: 5/5 PASS.\n- test_dashboard_range_selector_integration: 2/2 PASS.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-ovt): record default flip + syncFollowState fix in STATE.md\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260513-ovt): Follow toggle now reaches widgets on every page\n\nTwo cooperating bugs made the Follow toolbar button silently no-op\non the industrial plant demo:\n\n1. DashboardToolbar.onFollowToggle iterated obj.Engine.Widgets — but\n   in multi-page mode (6 pages in the demo) that property is empty;\n   widgets live on obj.Engine.Pages{i}.Widgets. The intended\n   accessor was obj.Engine.allPageWidgets().\n\n2. DashboardEngine.allPageWidgets (and activePageWidgets) were\n   declared inside a `methods (Access = private)` block. So the\n   attempted fix `obj.Engine.allPageWidgets()` threw\n   `MATLAB:class:MethodRestricted`. The toolbar's try/catch caught\n   it and emitted a `DashboardToolbar:followToggleFailed` warning,\n   silently leaving every widget's LiveViewMode untouched.\n\nFix:\n- DashboardEngine.m: extracted both `activePageWidgets` and\n  `allPageWidgets` into a new `methods (Access = public)` block.\n  They're general-purpose read-only widget accessors and have no\n  reason to be private — they're now safely callable from peer\n  classes (DashboardToolbar, tests, the user's own scripts).\n- DashboardToolbar.m::onFollowToggle now calls\n  `obj.Engine.allPageWidgets()` so the per-widget LiveViewMode +\n  snapToTail sweep reaches every page.\n\nVerified on the running demo:\n- allPageWidgets() returns 29 widgets, no MethodRestricted.\n- Follow ON: XLim right edge shifted +0.140 days toward the data\n  tail; window width preserved exactly (delta = 0).\n- 2 of 2 FastSenseWidgets across all pages flipped to 'follow'.\n- 2 of 2 reverted to 'preserve' on toggle OFF.\n\n(Note: applyViewMode('follow') already pads the right edge by 2%\nof the window width — added in 21dcddc yesterday — so the live-tick\nslide keeps that gap between the latest sample and the right axes\nframe.)\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-ovt): record multi-page Follow fix in STATE.md\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260513-q7w): debounced post-resize refresh stops widgets going white\n\nSymptom: when the user drag-resizes the dashboard figure, FastSenseWidget\npanels sometimes go white/blank. They stay white until the toolbar's\nReset button is pressed (which calls rerenderWidgets()). With Live mode\nOFF, no live tick can rescue them either.\n\nLikely cause: mouse-drag resize on macOS fires many SizeChangedFcn\nevents per second. The cascade — DashboardEngine.onResize →\nrepositionPanels → cell-panel SizeChangedFcn → DashboardLayout\n.reflowChrome_ (which temporarily flips panel Units to pixels) —\ninterleaves with FastSense.getAxesPixelWidth's own transient axes-Units\nflip and any pending FastSense.updateLines call. Under the wrong\ninterleaving, lineVisibleData can return empty arrays, leaving the\nline with empty XData. Without a follow-up updateData/updateLines call\nthere is no automatic recovery.\n\nWe were not able to reproduce the bug with programmatic\n`set(figure,'Position',...)` — that fires exactly one ResizeFcn per\ncall; mouse-drag fires coalesced bursts that the synthetic test\ncannot replicate.\n\nFix: add a debounced post-resize refresh in DashboardEngine, mirroring\nthe existing SliderDebounceTimer pattern.\n\n  - New property ResizeDebounceTimer\n  - New scheduleResizeRefresh_(): stops + recreates a 0.3 s\n    singleShot timer on every resize event (debounce reset)\n  - New refreshActivePageWidgetsAfterResize_(): iterates active-page\n    widgets and calls update() on FastSenseWidget / refresh() on\n    others. update() goes through updateData -> updateLines, which\n    re-pushes data through the line and restores XData/YData\n  - onResize calls obj.scheduleResizeRefresh_() at the end\n  - delete() tears down the timer next to SliderDebounceTimer\n\nWhy update() not rerenderWidgets(): rerenderWidgets is the heavy\nhammer used by the Reset button — it tears down + rebuilds every\npanel. update() is a cheap data-refresh that fixes a \"line data was\nwiped\" symptom without the visible rebuild blink.\n\nWhy 300 ms: drag-release events finish well within 300 ms on macOS,\nso the timer reliably fires once after the user stops resizing.\nMatches the SliderDebounceTimer cadence.\n\nVerified:\n- mcp__matlab__check_matlab_code: clean (no new warnings near edits).\n- Source verification: all 5 grep assertions pass.\n- test_dashboard_range_selector_integration: 2/2 PASS.\n- test_dashboard_time_sync_all_pages: completes without throwing.\n- Live engine: ResizeDebounceTimer property present, scheduled\n  on resize (Tag='DashboardEngineResizeDebounce', StartDelay=0.30,\n  Running='on'), restarts cleanly on a second resize within the\n  window (no double-fire), and Running='off' after 0.5 s. delete()\n  tears it down without error.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-q7w): record debounced post-resize refresh in STATE.md\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-q7w): add row to Quick Tasks Completed table\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260513-q7w): two-pass post-resize refresh — detect + escalate white widgets\n\nFollow-up to 577bf95. The user reports the cheap update() pass still\nleaves \"some widgets white\" when the figure is dragged really small.\nDiagnosis: at very small figure sizes the axes XLim can be transiently\nclobbered (axes pixel position degenerate, MATLAB auto-recomputes,\netc.) so lineVisibleData returns empty arrays and updateLines writes\nempty XData to the line — and our cheap update() re-runs the same path\nwhich produces the same empty result.\n\nSolution: make refreshActivePageWidgetsAfterResize_ a two-pass refresh.\n\n  Pass 1 (cheap): call w.update() / w.refresh() on every realized\n                  active-page widget (unchanged from 577bf95). Fixes\n                  ~99% of cases.\n\n  Pass 2 (escalation): for every FastSenseWidget, check whether the\n                       first line is \"white\" — XData empty AND the\n                       bound Tag actually has samples. If so:\n                         a. try per-widget w.refresh() (the full\n                            rebuildForTag_ path).\n                         b. if still white, escalate to\n                            obj.rerenderWidgets() — the same heavy\n                            hammer the user would have pressed via the\n                            toolbar's Reset button.\n\nThe detection is conservative: only flags widgets whose Tag has data\nbut whose line lost it. Tag-less widgets, sensors-still-loading widgets,\nand the case where XLim is just zoomed past the data won't trigger\nescalation.\n\nVerified on the live demo via a synthetic white-widget test:\n- Forced XData=[] on a real widget's line (941 -> 0)\n- isWidgetLineWhite_(w) returned 1 (detection correct)\n- refreshActivePageWidgetsAfterResize_() restored XData (0 -> 941)\n- isWidgetLineWhite_(w) returned 0 after\n\nRegression tests: test_dashboard_time_sync_all_pages 5/5 PASS,\ntest_dashboard_range_selector_integration 2/2 PASS.\n\nStatic analysis clean — no new warnings in the modified region.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-q7w): record two-pass escalation in STATE.md\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260513-q7w): add 1.2s rerenderWidgets backstop timer\n\nUser reported: even with the 300ms two-pass refresh (99c8808), dragging\nthe dashboard small and holding for a long time still leaves widgets\nwhite. Diagnosis: at very small sizes other failure modes happen that\nisWidgetLineWhite_'s \"empty XData + Tag has data\" detection misses —\ne.g. destroyed line handles, degenerate axes Position cached at\nnearly-zero pixel size, or some MATLAB internal state that survives\ninto the next resize.\n\nSolution suggested by the user: \"on resize mouse press release, add\nan final redraw\". MATLAB doesn't fire window-frame mouse events for\nfigure-corner drags, so we approximate \"drag release\" via a second,\nlonger debounce timer that fires unconditionally — equivalent to the\nuser pressing Reset once they have clearly stopped resizing.\n\nLayout (mirrors the existing SliderDebounceTimer pattern):\n\n- New property ResizeFinalRedrawTimer\n- scheduleResizeFinalRedraw_(): 1.2 s singleShot, restarts on every\n  resize event. Both this and the existing 300 ms ResizeDebounceTimer\n  run in parallel.\n- finalRedrawAfterResize_(): calls obj.rerenderWidgets() unconditionally\n- onResize calls BOTH scheduleResizeRefresh_() AND\n  scheduleResizeFinalRedraw_()\n- delete() tears down ResizeFinalRedrawTimer next to ResizeDebounceTimer\n\nWhen the user stops resizing for >= 1.2 s, the full rebuild fires.\nDuring continuous drag, both timers keep restarting and neither fires —\nso this doesn't hammer the dashboard mid-drag.\n\nRe-entrancy guard: SizeChangedFcn fires during initial render() (figure\ngrows to accommodate the layout), which schedules this 1.2 s timer.\nThe timer fires ~1.2 s later — if render is still in flight at that\npoint (rare but observed), rerenderWidgets would clobber obj.Progress_\nand outer render's Progress_.finish() would explode. The guard checks\nobj.Progress_; if non-empty, the timer reschedules itself and bails.\n\nVerified: timers fire cleanly within 1.5 s, rerenderWidgets runs as the\nsecond progress trace, demo state remains healthy.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-q7w): record backstop timer + re-entrancy guard in STATE.md\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260513-q7w): cancel resize timers on tab switch + guard against rerender cascade\n\nUser reported: after the 1.2s backstop (4eda604), switching dashboard\ntabs shows only white widgets. Diagnosis via live-engine probe showed\ntwo interacting failures:\n\n1. **Stale backstop fires on wrong page.** User resized → both timers\n   scheduled. User clicked a different tab within 1.2s. switchPage\n   set ActivePage = 2 and realized page 2 widgets. ~1.2s later the\n   backstop fired and called rerenderWidgets() — which uses\n   activePageWidgets(), so it rebuilt page 2 (not the page the resize\n   originated on). Mid-flight panel teardown left the just-realized\n   page 2 widgets WHITE.\n\n2. **rerenderWidgets cascade.** The panel teardown + recreate inside\n   rerenderWidgets fires SizeChangedFcn events of its own, which\n   onResize handled by scheduling NEW resize timers, which fired\n   another rerenderWidgets, ... potential infinite loop.\n\nFix (three coordinated changes):\n\nA. **Cancel resize timers in switchPage.** New helper\n   `cancelResizeTimers_()` stops + deletes both ResizeDebounceTimer\n   and ResizeFinalRedrawTimer. switchPage calls it at the start\n   (BEFORE setting ActivePage). Stale backstop from prior resize\n   can no longer fire on the new tab.\n\nB. **IsRerendering_ flag suppresses scheduling.** New property\n   IsRerendering_ on DashboardEngine. rerenderWidgets sets it to\n   true at the start (under onCleanup so it lands false even if\n   the method throws) and cancels any existing timers. onResize\n   early-returns when IsRerendering_ is true — no new timers\n   scheduled during the rerender cascade.\n\nC. **Re-entrancy guard aborts instead of self-rescheduling.**\n   finalRedrawAfterResize_ previously self-rescheduled when\n   Progress_ was non-empty (initial render in flight). That kept\n   deferring the backstop until after switchPage, landing on the\n   wrong page. Now: Progress_ non-empty OR IsRerendering_ true →\n   bail entirely; any actual subsequent resize will schedule\n   fresh.\n\nVerified on live demo via reproduction script:\n- After resize: 1 backstop scheduled (expected)\n- After switchPage within 1.2s: 0 backstop (cancelled by switchPage)\n- After 1.5s wait: 0 backstop (none fired late)\n- Page 2 widgets: 0 white, panels intact, XData populated\n- Explicit rerenderWidgets(): IsRerendering_ returns to 0 via\n  onCleanup, no leftover timers\n- Static analysis: no new warnings\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-q7w): record switchPage cancel + IsRerendering_ guard in STATE.md\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260513-q7w): switchPage waits for in-flight rerenderWidgets\n\nUser reports: even after bc305dc (cancelResizeTimers_ in switchPage),\nresizing then switching tabs still leaves old tab widgets visible AND\nnew tab widgets white.\n\nDiagnosis: rerenderWidgets uses drawnow internally (via DashboardProgress\nticks + realizeBatch). That drawnow lets MATLAB process pending UI\nevents — including a uicontrol callback from the user clicking a tab\nbutton. So switchPage can interrupt rerenderWidgets MID-LOOP. The\ncaptured local `ws = activePageWidgets()` inside rerenderWidgets points\nat the OLD page; switchPage then changes ActivePage and toggles\nvisibility. rerenderWidgets resumes and continues realizing widgets\nfor the old page (which switchPage just hid), creating chrome inside\ntheir cell panels with rendering side effects on the canvas.\n\nNet result: the old page's panels end up visible (rerender's realize\nloop re-shows them as it builds chrome) while the new page's widgets\nappear white (the canvas state was disturbed mid-flight).\n\nFix: serialize. At the start of switchPage, if IsRerendering_ is true,\nspin drawnow until it clears (3 s safety timeout). This blocks the\ntab change until the in-flight rerender finishes; the user perceives\na brief pause, but the layout stays consistent.\n\ncancelResizeTimers_ remains as the earlier line of defense — it stops\nthe backstop timer BEFORE it has had a chance to fire if the user\nclicks quickly. The new wait-for-rerender block handles the harder\ncase where the rerender has already started.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-q7w): record switchPage wait-for-rerender in STATE.md\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* fix(quick-260513-q7w): rerenderWidgets must delete the OUTER cell panel, not the inner content panel\n\nThis was the actual root cause of the \"old tab widgets still visible\nafter switching tabs\" bug.\n\nBackground: at widget realization time, DashboardLayout.realizeWidget\ncaptures the outer cell handle into widget.hCellPanel, calls\nwidget.render(contentPanel), and the widget's render method\nreassigns widget.hPanel = contentPanel (the INNER content panel,\nparented inside the outer cell). After realization:\n\n  - widget.hCellPanel  = outer cell uipanel (parented to hCanvas)\n  - widget.hPanel      = inner content uipanel (sibling of WidgetButtonBar)\n\nrerenderWidgets did `delete(w.hPanel)` — which deleted ONLY the inner\ncontent panel. The outer cell + its WidgetButtonBar (with the i / ^\nbuttons) survived as a \"ZOMBIE\" still parented to the canvas with\nVisible='on'.\n\nallocatePanels then created NEW outer cells for the same widgets,\nstacking on top. Each subsequent rerender added another zombie.\nAfter several resize + tab-switch cycles the canvas had ~69 children\nwhere ~10 were live and the rest were zombies stacking up at\noverlapping z-positions, painting over freshly switched-to pages.\n\nVisible symptom: white widgets with i / ^ buttons in title bars\n(zombie's WidgetButtonBar) and blank content area (the legitimate\nnew content panel sits behind the zombie).\n\nFix: delete the OUTER cell panel. `hCellPanel` is set at realization\ntime; before realization `hPanel` IS the outer cell (set by\nallocatePanels). After delete cascades to all children, clear both\nhandles so the widget is in a clean \"unrealized\" state.\n\n  outer = w.hCellPanel;\n  if isempty(outer) || ~ishandle(outer)\n      outer = w.hPanel;  % pre-realization\n  end\n  if ~isempty(outer) && ishandle(outer)\n      delete(outer);\n  end\n  w.hPanel = [];\n  w.hCellPanel = [];\n\nVerified on the live demo via a canary that counts canvas children\nacross 4 explicit rerenders + a resize-triggered backstop + a\nswitchPage(4):\n\n  Initial render            -> 29 canvas children\n  After 1 rerender          -> 29\n  After 4 rerenders         -> 29\n  After resize + 1.5 s wait -> 29\n  After switchPage(4)       -> 29\n\nNo accumulation. Static analysis clean.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-q7w): record zombie-panel root-cause fix in STATE.md\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.7 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-05-13T20:06:51+02:00",
+          "tree_id": "4f7ac1075fa73f5b55c4e83c6bc38164a697673a",
+          "url": "https://github.com/HanSur94/FastSense/commit/9f46c92bcb54e704fd60f567949fa13c67bbe836"
+        },
+        "date": 1778696090300,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample mean (1M)",
+            "value": 1.163,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(1M)",
+            "value": 0.017,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (1M)",
+            "value": 151.006,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(1M)",
+            "value": 0.583,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (1M)",
+            "value": 241.297,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(1M)",
+            "value": 1.762,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (1M)",
+            "value": 14.127,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(1M)",
+            "value": 3.545,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (5M)",
+            "value": 7.32,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(5M)",
+            "value": 0.101,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (5M)",
+            "value": 170.566,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(5M)",
+            "value": 1.358,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (5M)",
+            "value": 244.558,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(5M)",
+            "value": 1.48,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (5M)",
+            "value": 13.998,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(5M)",
+            "value": 0.791,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (10M)",
+            "value": 15.113,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std10M)",
+            "value": 0.07,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (10M)",
+            "value": 193.793,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std10M)",
+            "value": 1.72,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (10M)",
+            "value": 251.185,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std10M)",
+            "value": 1.979,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (10M)",
+            "value": 14.225,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std10M)",
+            "value": 0.481,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (50M)",
+            "value": 76.023,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std50M)",
+            "value": 0.219,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (50M)",
+            "value": 1238.876,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std50M)",
+            "value": 8.756,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (50M)",
+            "value": 240.969,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std50M)",
+            "value": 2.136,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (50M)",
+            "value": 13.852,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std50M)",
+            "value": 0.735,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (100M)",
+            "value": 149.25,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 0.346,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (100M)",
+            "value": 2299.154,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 95.897,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (100M)",
+            "value": 245.119,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 1.319,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (100M)",
+            "value": 13.998,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.632,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (500M)",
+            "value": 748.201,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 3.61,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (500M)",
+            "value": 21833.22,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 69.007,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (500M)",
+            "value": 279.202,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 2.443,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (500M)",
+            "value": 14.311,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.696,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render mean",
+            "value": 958.177,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render stdmean",
+            "value": 1.244,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick mean",
+            "value": 165.399,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick stdmean",
+            "value": 1.237,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch mean",
+            "value": 162.112,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch stdmean",
+            "value": 0.787,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange mean",
+            "value": 0.143,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange stdmean",
+            "value": 0.034,
             "unit": "ms"
           }
         ]
