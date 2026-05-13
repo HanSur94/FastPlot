@@ -229,6 +229,17 @@ SETVIEWMODE Change the live view mode at runtime.
   fp.SETVIEWMODE(mode) sets the LiveViewMode property, which
   controls how the X-axis adjusts when new data arrives.
 
+#### `snapToTail(obj)`
+
+SNAPTOTAIL Slide XLim window so its right edge sits just past the data tail.
+  fp.SNAPTOTAIL() does a one-shot "jump to now" — finds the
+  maximum X across all lines, then sets XLim to
+  [xMax - currentWindowWidth + pad, xMax + pad] where pad =
+  2% of the current window width. The small right-edge
+  padding leaves visual breathing room between the latest
+  data point and the chart's right border so the line tail
+  doesn't get clipped against the axes frame.
+
 #### `runLive(obj)`
 
 RUNLIVE Blocking poll loop for live mode (Octave compatibility).
@@ -505,6 +516,7 @@ Adds a uitoolbar with data cursor, crosshair, grid/legend toggles,
     Export Data  — save raw data as CSV or MAT with file dialog
     Refresh      — manual one-shot data reload
     Live Mode    — toggle automatic file polling
+    Follow       — auto-pan X-axis to show the data tail
     Metadata     — show/hide metadata in data cursor tooltips
     Violations   — toggle violation marker visibility
 
@@ -564,6 +576,14 @@ REFRESH Trigger a manual data refresh.
 
 TOGGLELIVE Toggle live mode on/off.
 
+#### `setFollow(obj, on)`
+
+SETFOLLOW Enable or disable Follow auto-pan-to-tail.
+  tb.setFollow(true)  — set LiveViewMode='follow' and immediately
+                        snap XLim to [x(end)-w, x(end)] if the
+                        current XLim does not already include x(end).
+  tb.setFollow(false) — set LiveViewMode='preserve' (XLim unchanged).
+
 #### `setMetadata(obj, on)`
 
 SETMETADATA Enable or disable metadata display in tooltips.
@@ -590,6 +610,13 @@ BUILDCURSORLABEL Build the text label for data cursor.
 
 SNAPTONEAREST Find the closest data point to a click position.
   [sx, sy, lineIdx] = tb.snapToNearest(fp, xClick, yClick)
+
+#### `syncFollowState(obj)`
+
+SYNCFOLLOWSTATE Mirror target's LiveViewMode onto the Follow button.
+  Sets State='on' when LiveViewMode='follow', 'off' otherwise.
+  Sets Enable='off' when LiveViewMode is empty (no live wiring),
+  'on' otherwise. Safe to call before/after rebind.
 
 ### Static Methods
 
