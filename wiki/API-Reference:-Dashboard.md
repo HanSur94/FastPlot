@@ -612,6 +612,7 @@ obj = FastSenseWidget(varargin)
 | ShowEventMarkers | `false` | Phase 1012 — toggle event round-marker overlay |
 | EventStore | `[]` | Phase 1012 — EventStore handle forwarded to inner FastSense |
 | LiveViewMode | `'preserve'` |  |
+| YLimitMode | `'auto-visible'` |  |
 
 ### Methods
 
@@ -641,6 +642,14 @@ SETEVENTMARKERSVISIBLE Pass-through to FastSense event-marker toggle.
   which re-draws the overlay in place without disturbing
   zoom state or live refresh cadence.
 
+#### `setYLimitMode(obj, mode)`
+
+SETYLIMITMODE Set the Y-axis rescale strategy and re-fit if rendered.
+  mode is one of:
+    'auto-visible' - rescale to data inside the current X window
+    'auto-all'     - rescale to all data the bound Tag exposes
+    'locked'       - freeze YLim; no further rescale on tick/refresh
+
 #### `autoScaleY_(obj, y)`
 
 AUTOSCALEY_ Rescale the Y axis to cover current data + thresholds.
@@ -655,7 +664,8 @@ AUTOSCALEY_ Rescale the Y axis to cover current data + thresholds.
       (FastSenseObj.LiveViewMode == 'follow') — Follow is an
       explicit user intent to track the data tail in X only and
       keep the rest of the view (including Y) frozen. (260513-ovt)
-  so we never fight an explicit human interaction.
+    - YLimitMode == 'locked' — the user explicitly froze Y limits
+      via the L button on the WidgetButtonBar (260513-sfp).
 
 #### `onYLimChanged(obj)`
 
@@ -1256,6 +1266,23 @@ REFLOWCHROME_ SizeChangedFcn handler — re-anchor the WidgetButtonBar
   resizes. Public so tests can drive a deterministic resize without
   relying on SizeChangedFcn firing under -batch.
   No-op when the cell has been deleted or chrome isn't there yet.
+
+#### `DashboardLayout.bg = chooseYLimitActiveBg_(theme)`
+
+CHOOSEYLIMITACTIVEBG_ Pick the highlight color for the active YLimit button.
+  Tries PressedBg / SelectedBg / AccentColor in order, falling
+  back to ToolbarBackground brightened by 0.15 per channel
+  (capped at 1) when none are present. No new theme fields are
+  introduced by 260513-sfp; future themes can opt into a
+  dedicated PressedBg token without touching layout code.
+
+#### `DashboardLayout.syncYLimitButtonsState_(bar, mode)`
+
+SYNCYLIMITBUTTONSSTATE_ Visually highlight the YLimit button matching mode.
+  The active button's BackgroundColor becomes the value stashed on
+  bar.UserData.YLimitActiveBg by addYLimitButtons_; the other two
+  revert to the theme's ToolbarBackground. Tolerates missing
+  buttons (no-op if the bar's UserData was never primed).
 
 #### `DashboardLayout.reflowButtonBar_(hCell, barH, inset)`
 
