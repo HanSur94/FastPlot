@@ -4,7 +4,7 @@ milestone: v3.0
 milestone_name: FastSense Companion
 status: shipped
 last_updated: "2026-05-12T09:20:00.000Z"
-last_activity: 2026-05-13 -- Quick task 260513-ovt: Preserve Y-axis limits when Follow toggle is engaged — added FastSenseObj.LiveViewMode=='follow' early-return in FastSenseWidget.autoScaleY_ so live ticks no longer rescale YLim while Follow tracks the data tail in X
+last_activity: 2026-05-13 -- Quick task 260513-ovt: Preserve widget X and Y views across Live ticks — removed autoScaleY_(y) from FastSenseWidget.refresh/update and broadcastTimeRange from DashboardEngine.onLiveTick. Live mode now strictly appends data; axis limits change only on explicit user action (mouse, slider drag, Follow, Sync-All, broadcastTimeRangeNow API).
 progress:
   total_phases: 6
   completed_phases: 2
@@ -20,7 +20,7 @@ Phase: 1028
 Plan: Not started
 Milestone: v3.0 FastSense Companion — SHIPPED 2026-04-30
 Status: Awaiting next milestone (run `/gsd:new-milestone` to scope v3.x or v4.0)
-Last activity: 2026-05-13 - Completed quick task 260513-ovt: Preserve Y-axis limits when Follow toggle is engaged. Added a third early-return to FastSenseWidget.autoScaleY_ — when FastSenseObj.LiveViewMode == 'follow', skip Y rescale. Follow now controls only X-axis tail tracking; Y stays exactly where the user left it.
+Last activity: 2026-05-13 - Completed quick task 260513-ovt: Preserve widget X and Y views across Live ticks. Initial commit 498a5f3 added a LiveViewMode='follow' guard inside FastSenseWidget.autoScaleY_; follow-up commit ca5be95 broadened the fix per user clarification — removed autoScaleY_(y) calls from refresh/update entirely (initial Y still set via rebuildForTag_'s autoScaleY_(yInit)) and removed the per-tick broadcastTimeRange call from DashboardEngine.onLiveTick. Live mode is now "append data only"; axes change only on explicit user action. test_dashboard_time_sync_all_pages 5/5 PASS, test_dashboard_range_selector_integration 2/2 PASS.
 
 ### Quick Tasks Completed
 
@@ -62,7 +62,7 @@ Last activity: 2026-05-13 - Completed quick task 260513-ovt: Preserve Y-axis lim
 | 260512-eu2 | Restore HoverCrosshair after Reset (260512-egv follow-up) — move TRS.reinstallCallbacks from end of rerenderWidgets to BETWEEN the delete-old-panels loop and the allocate-new-panels block. New chain post-rerender: newHcN→...→newHc1→trs.onButtonMotion_. Both slider drag AND per-widget HoverCrosshair work after Reset. Verified on live demo: POST-RESET WBM = HC's onFigureMove_, synth drag moves Selection by ~1.74 days, 2 live HoverCrosshair instances alive on active page | 2026-05-12 | dc84454 | Verified | [260512-eu2-restore-hovercrosshair-after-reset-by-mo](./quick/260512-eu2-restore-hovercrosshair-after-reset-by-mo/) |
 | 260512-fd9 | Industrial plant demo opens with Live mode OFF by default — removed `engine.startLive()` from buildDashboard.m. Both dashboard and companion now start idle (engine.IsLive=0, companion.IsLive=0); user opts in via the top-toolbar "Live" button. Aligns the two windows on the same default; data writer + LiveTagPipeline keep running independently in the background | 2026-05-12 | ac0baaa | Verified | (inline) |
 | 260512-hrn | Add Follow uitoggletool to FastSenseToolbar — between Live and Metadata — with setFollow(), syncFollowState(), IsPropagating-aware auto-disengage in FastSense.onXLimChanged, AppData stash at 4 attacher sites, and 9 function-style tests (test_fastsense_follow_toggle.m) | 2026-05-12 | 596d399, 0a4a516 | — | [260512-hrn-add-follow-toggle-button-to-fastsense-to](./quick/260512-hrn-add-follow-toggle-button-to-fastsense-to/) |
-| 260513-ovt | Preserve Y-axis limits when Follow toggle is engaged — added third early-return in FastSenseWidget.autoScaleY_ (after YLimits and UserZoomedY checks): when `FastSenseObj.LiveViewMode == 'follow'`, skip the per-tick YLim recompute. Follow is now strictly an X-tail-tracking feature; user's Y view is preserved | 2026-05-13 | 498a5f3 | — | [260513-ovt-when-follow-button-is-pressed-y-axis-lim](./quick/260513-ovt-when-follow-button-is-pressed-y-axis-lim/) |
+| 260513-ovt | Preserve widget X and Y views across Live ticks — (1) added LiveViewMode='follow' guard inside FastSenseWidget.autoScaleY_, then (2) per user clarification removed `autoScaleY_(y)` calls from FastSenseWidget.refresh/update entirely (initial Y still set via rebuildForTag_), and (3) removed `broadcastTimeRange(tStart, tEnd)` from DashboardEngine.onLiveTick. Live mode now appends data only; axis limits change strictly on explicit user action (mouse, slider drag, Follow, Sync-All, broadcastTimeRangeNow API). test_dashboard_time_sync_all_pages 5/5, test_dashboard_range_selector_integration 2/2 | 2026-05-13 | 498a5f3, ca5be95 | — | [260513-ovt-when-follow-button-is-pressed-y-axis-lim](./quick/260513-ovt-when-follow-button-is-pressed-y-axis-lim/) |
 
 ## Progress Bar
 
