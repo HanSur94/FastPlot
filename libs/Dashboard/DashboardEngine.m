@@ -68,6 +68,7 @@ classdef DashboardEngine < handle
         hTimeEnd        = []
         hTimeResetBtn   = []       % Reset button on time panel (260508-f7p — needed for theme switch)
         SliderDebounceTimer = []   % MATLAB timer for coalescing rapid slider events
+        ResizeDebounceTimer = []   % MATLAB timer for coalescing rapid resize events (260513-q7w)
         TimeRangeSelector_  = []   % TimeRangeSelector handle (replaces dual sliders)
         % [tStart tEnd] cache of most recent broadcast (260508-llw); used by
         % switchPage to re-apply the current synced window to widgets that
@@ -1744,7 +1745,89 @@ classdef DashboardEngine < handle
                 obj.EventMarkerTimesCache_  = [];
                 obj.EventMarkerColorsCache_ = [];
                 obj.PreviewLinesCache_      = {};
+                % Schedule a debounced data-refresh sweep across active-page
+                % widgets so any FastSenseWidget that lost its line data to a
+                % resize-race ends up redrawing without the user having to
+                % press the toolbar's Reset button. (260513-q7w)
+                obj.scheduleResizeRefresh_();
             end
+        end
+
+        function scheduleResizeRefresh_(obj)
+        %SCHEDULERESIZEREFRESH_ Coalesce rapid resize events into a single
+        %   deferred refresh, mirroring the SliderDebounceTimer pattern.
+        %   Drag-resize on macOS fires many SizeChangedFcn events per
+        %   second; doing a full widget refresh on each would be expensive
+        %   and visibly stutter. Instead, restart a 300 ms one-shot timer
+        %   on every resize event — once the user stops dragging, the
+        %   timer fires and refreshes all active-page widgets one time.
+        %   (260513-q7w)
+            if ~isempty(obj.ResizeDebounceTimer)
+                try
+                    if isvalid(obj.ResizeDebounceTimer)
+                        stop(obj.ResizeDebounceTimer);
+                        delete(obj.ResizeDebounceTimer);
+                    end
+                catch
+                end
+                obj.ResizeDebounceTimer = [];
+            end
+            try
+                obj.ResizeDebounceTimer = timer( ...
+                    'ExecutionMode', 'singleShot', ...
+                    'StartDelay',    0.3, ...
+                    'Tag',           'DashboardEngineResizeDebounce', ...
+                    'TimerFcn',      @(~,~) obj.refreshActivePageWidgetsAfterResize_());
+                start(obj.ResizeDebounceTimer);
+            catch err
+                % Timer creation can fail (e.g. headless / -batch / Octave).
+                % Fall back to an immediate refresh in that case — better
+                % to do the work synchronously than to skip it entirely.
+                if obj.DebugPreview_
+                    warning('DashboardEngine:resizeDebounceTimerFailed', ...
+                        'scheduleResizeRefresh_: timer failed (%s), running inline.', err.message);
+                end
+                obj.refreshActivePageWidgetsAfterResize_();
+            end
+        end
+
+        function refreshActivePageWidgetsAfterResize_(obj)
+        %REFRESHACTIVEPAGEWIDGETSAFTERRESIZE_ Re-push data through every
+        %   realized widget on the active page after a resize, so any
+        %   widget whose line data was wiped by a resize-race recovers
+        %   without the user having to press Reset. (260513-q7w)
+        %
+        %   Uses the cheap update()/refresh() path — no panel teardown,
+        %   no rerenderWidgets sledgehammer. Safe to call multiple times.
+            if ~obj.isObjValid_()
+                return;
+            end
+            if isempty(obj.hFigure) || ~ishandle(obj.hFigure)
+                return;
+            end
+            ws = obj.activePageWidgets();
+            for i = 1:numel(ws)
+                w = ws{i};
+                if isempty(w) || ~isvalid(w)
+                    continue;
+                end
+                if ~w.Realized || isempty(w.hPanel) || ~ishandle(w.hPanel)
+                    continue;
+                end
+                try
+                    if isa(w, 'FastSenseWidget')
+                        w.update();
+                    else
+                        w.refresh();
+                    end
+                catch err
+                    if obj.DebugPreview_
+                        warning('DashboardEngine:postResizeRefreshFailed', ...
+                            'post-resize refresh failed for "%s": %s', w.Title, err.message);
+                    end
+                end
+            end
+            try drawnow; catch, end
         end
 
         function delete(obj)
@@ -1771,6 +1854,11 @@ classdef DashboardEngine < handle
                 try stop(obj.SliderDebounceTimer); catch, end
                 try delete(obj.SliderDebounceTimer); catch, end
                 obj.SliderDebounceTimer = [];
+            end
+            if ~isempty(obj.ResizeDebounceTimer)
+                try stop(obj.ResizeDebounceTimer); catch, end
+                try delete(obj.ResizeDebounceTimer); catch, end
+                obj.ResizeDebounceTimer = [];
             end
             obj.stopLive();
             % Explicitly delete all widgets in every page so that
