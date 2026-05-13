@@ -1283,9 +1283,29 @@ classdef DashboardEngine < handle
             for i = 1:numel(ws)
                 w = ws{i};
                 w.markUnrealized();
-                if ~isempty(w.hPanel) && ishandle(w.hPanel)
-                    delete(w.hPanel);
+                % Delete the OUTER cell panel. After realization,
+                % w.hPanel was reassigned to the INNER content panel
+                % (line 356 of DashboardLayout.realizeWidget), so
+                % deleting only w.hPanel leaves the outer cell —
+                % which still owns the WidgetButtonBar — alive on
+                % the canvas as a ZOMBIE. Stacked across multiple
+                % rerenders these zombies covered the canvas at
+                % overlapping z-positions and painted over freshly
+                % switched-to pages (visible symptom: a tab change
+                % shows panels with chrome i/^ buttons but blank
+                % white content). hCellPanel is the outer handle
+                % when set; falls back to hPanel for pre-realization
+                % widgets where hPanel IS the outer cell.
+                % (260513-q7w fu4)
+                outer = w.hCellPanel;
+                if isempty(outer) || ~ishandle(outer)
+                    outer = w.hPanel;
                 end
+                if ~isempty(outer) && ishandle(outer)
+                    delete(outer);
+                end
+                w.hPanel = [];
+                w.hCellPanel = [];
             end
             % Reinstall TimeRangeSelector callbacks NOW — with a clean WBM root
             % — BEFORE new HoverCrosshairs install on top in Layout.realizeWidget
