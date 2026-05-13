@@ -761,14 +761,16 @@ classdef DashboardLayout < handle
         end
 
         function addYLimitButtons_(obj, widget)
-        %ADDYLIMITBUTTONS_ Inject the 3-button Y-limit-mode cluster (260513-sfp).
+        %ADDYLIMITBUTTONS_ Inject the 2-button Y-limit-mode cluster.
         %   Only invoked from realizeWidget when ismethod(widget,'setYLimitMode').
-        %   Buttons (V, A, L) are left-anchored relative to the EXISTING
+        %   Buttons (V, A) are left-anchored relative to the EXISTING
         %   right-anchored Info/Detach buttons, with a 4-px gap between the
-        %   clusters. Pixel positions match the <interfaces> block of
-        %   260513-sfp-PLAN.md:
-        %     [V][A][L]  ...4px gap...  [Info][Detach]
-        %       24  24  24                 24    24
+        %   clusters:
+        %     [V][A]  ...4px gap...  [Info][Detach]
+        %       24  24                 24    24
+        %
+        %   The 'locked' YLimitMode remains a valid programmatic mode on
+        %   FastSenseWidget (setYLimitMode('locked')) but has no UI button.
         %
         %   Active mode is visually highlighted (the button matching
         %   widget.YLimitMode shows the "pressed" background). The active
@@ -786,18 +788,16 @@ classdef DashboardLayout < handle
             barW = barPos(3);
 
             % Layout (left-to-right):
-            %   [V][A][L]   ...4px gap...   [Info][Detach]
+            %   [V][A]   ...4px gap...   [Info][Detach]
             bw  = 24;
             gap = 4;
             % Right-anchor math mirrors addInfoIcon / addDetachButton.
             % Detach:        x = barW - bw - gap
             % Info:          x = barW - bw - bw - gap - gap   (Info uses 28-spacing pre-existing)
-            % YLimit-Lock:   x = barW - bw - gap - bw - gap - gap - bw
-            % YLimit-All:    xLock - bw
-            % YLimit-Visible:xAll  - bw
-            xLock    = barW - bw - gap - bw - gap - gap - bw;
-            xAll     = xLock - bw;
-            xVisible = xAll  - bw;
+            % YLimit-All:    x = barW - bw - gap - bw - gap - gap - bw
+            % YLimit-Visible:xAll - bw
+            xAll     = barW - bw - gap - bw - gap - gap - bw;
+            xVisible = xAll - bw;
 
             activeBg = DashboardLayout.chooseYLimitActiveBg_(theme);
 
@@ -805,8 +805,6 @@ classdef DashboardLayout < handle
                 'V', 'Auto-fit Y to visible X range', theme, 'YLimitVisibleBtn');
             obj.addYLimitButton_(bar, widget, 'auto-all', xAll, ...
                 'A', 'Auto-fit Y to all data', theme, 'YLimitAllBtn');
-            obj.addYLimitButton_(bar, widget, 'locked', xLock, ...
-                'L', 'Lock Y limits (no rescale on live tick)', theme, 'YLimitLockBtn');
 
             % Stash the active-bg + widget handle on the bar's UserData so
             % the static reflowChrome_ handler can restyle/re-anchor after
@@ -883,18 +881,13 @@ classdef DashboardLayout < handle
                 if ~isempty(info) && ishandle(info(1))
                     set(info(1), 'Position', [barW - 24 - 24 - 4 - 4, 2, 24, 24]);
                 end
-                % 260513-sfp — re-anchor the V/A/L cluster. Math must match
+                % Re-anchor the V/A cluster. Math must match
                 % addYLimitButtons_ exactly so resize does not introduce drift.
                 bw  = 24; gap = 4;
-                lockBtn    = findobj(bar(1), 'Tag', 'YLimitLockBtn',    '-depth', 1);
                 allBtn     = findobj(bar(1), 'Tag', 'YLimitAllBtn',     '-depth', 1);
                 visibleBtn = findobj(bar(1), 'Tag', 'YLimitVisibleBtn', '-depth', 1);
-                xLock    = barW - bw - gap - bw - gap - gap - bw;
-                xAll     = xLock - bw;
-                xVisible = xAll  - bw;
-                if ~isempty(lockBtn)    && ishandle(lockBtn(1))
-                    set(lockBtn(1),    'Position', [xLock,    2, bw, bw]);
-                end
+                xAll     = barW - bw - gap - bw - gap - gap - bw;
+                xVisible = xAll - bw;
                 if ~isempty(allBtn)     && ishandle(allBtn(1))
                     set(allBtn(1),     'Position', [xAll,     2, bw, bw]);
                 end
@@ -965,8 +958,7 @@ classdef DashboardLayout < handle
             end
             tagsAndModes = { ...
                 'YLimitVisibleBtn', 'auto-visible'; ...
-                'YLimitAllBtn',     'auto-all'; ...
-                'YLimitLockBtn',    'locked' };
+                'YLimitAllBtn',     'auto-all' };
             for i = 1:size(tagsAndModes, 1)
                 btn = findobj(bar, 'Tag', tagsAndModes{i, 1}, '-depth', 1);
                 if isempty(btn) || ~ishandle(btn(1)), continue; end
