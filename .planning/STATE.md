@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Plant Log Integration
-status: executing
-stopped_at: Completed 1030-02-import-dialog-PLAN.md
-last_updated: "2026-05-13T22:33:05.668Z"
-last_activity: 2026-05-14 -- Plan 1030-02 (import dialog) shipped; PlantLogImportDialog modal uifigure live; 18/18 tests PASS on MATLAB
+status: verifying
+stopped_at: "Completed 1030-03-open-interactive-and-smoke-PLAN.md (Phase 1030 closed; ready for /gsd:verify-phase 1030)"
+last_updated: "2026-05-13T22:48:41.260Z"
+last_activity: 2026-05-14 -- Plan 1030-03 (openInteractive + integration smoke) shipped; Phase 1030 closed; PLOG-IM-01..08 all integration-proven; ready for /gsd:verify-phase 1030
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # State
@@ -26,24 +26,24 @@ toolbox dependencies.
 
 ## Current Position
 
-Phase: 1030 (CSV/XLSX Import + Mapping Dialog) — EXECUTING
-Plan: 3 of 3
+Phase: 1030 (CSV/XLSX Import + Mapping Dialog) — COMPLETE
+Plan: 3 of 3 (all shipped)
 Milestone: v3.1 Plant Log Integration
-Status: Ready to execute
-Last activity: 2026-05-14 -- Plan 1030-02 (import dialog) shipped; PlantLogImportDialog modal uifigure live; 18/18 tests PASS on MATLAB
+Status: Phase complete — ready for verification (run /gsd:verify-phase 1030)
+Last activity: 2026-05-14 -- Plan 1030-03 (openInteractive + integration smoke) shipped; Phase 1030 closed; PLOG-IM-01..08 integration-proven
 
 ## Progress Bar
 
 v3.1 Plant Log Integration:
 
 - [x] Phase 1029: Plant Log Storage Foundation — 3/3 plans
-- [ ] Phase 1030: CSV/XLSX Import + Mapping Dialog — 2/3 plans
+- [x] Phase 1030: CSV/XLSX Import + Mapping Dialog — 3/3 plans (executing complete; verify pending)
 - [ ] Phase 1031: Live Tail + Slider Preview Overlay — 0/? plans
 - [ ] Phase 1032: Per-Widget Plant Log Overlay — 0/? plans
 - [ ] Phase 1033: Dashboard + Companion Integration & Serialization — 0/? plans
 
-Phases complete: 1/5
-Plans complete: 2/3 (67%) in Phase 1030
+Phases complete: 2/5 (executing); 1/5 verified
+Plans complete: 6/6 (100%) across closed phases
 
 ## Accumulated Context
 
@@ -155,33 +155,43 @@ separate REQ-IDs:
 
 ## Session Continuity
 
-- **Resume point:** Phase 1029 is **closed**. Next step: run `/gsd:verify-phase 1029`
-  to confirm every PLOG-ST-* requirement has matching test evidence, then
-  `/gsd:start-phase 1030` to begin the CSV/XLSX importer (which will consume
-  `PlantLogStore.computeEntryHash` and `PlantLogStore.addEntries` directly).
+- **Resume point:** Phase 1030 is **closed**. Next step: run `/gsd:verify-phase 1030`
+  to confirm every PLOG-IM-* requirement has matching test evidence, then
+  `/gsd:start-phase 1031` to begin the live-tail + slider preview overlay
+  (which will consume `PlantLogReader.openInteractive('Headless', true, 'Mapping', savedMapping)`
+  on every timer tick).
 
-- **Order of phases:** 1029 ✅ → 1030 → 1031 → 1032 → 1033 (each phase depends on
+- **Order of phases:** 1029 ✅ → 1030 ✅ → 1031 → 1032 → 1033 (each phase depends on
   prior phases; no parallel execution paths).
 
 - **Coverage:** 32/32 active PLOG-* requirements mapped to phases — verified
   during roadmap creation. PLOG-ST-01..05 (5/32) have unit + integration
   proof (Phase 1029); PLOG-IM-01..05 (5/32) have headless-reader proof
   (Phase 1030 Plan 01); PLOG-IM-06..08 (3/32) have modal-dialog proof
-  (Phase 1030 Plan 02). 19 requirements remaining across Phase 1030
-  Plan 03, 1031, 1032, 1033.
+  (Phase 1030 Plan 02); PLOG-IM-01 + 02 + 06 + 08 have additional
+  integration-level proof (Phase 1030 Plan 03 — openInteractive +
+  integration smoke). All PLOG-IM-* (8/32) integration-proven at runtime.
+  16 requirements remaining across Phases 1031, 1032, 1033.
 
-- **Stopped at:** Completed 1030-02-import-dialog-PLAN.md
-  `PlantLogImportDialog` modal uifigure now ships
-  (`libs/PlantLog/PlantLogImportDialog.m`, ~370 LOC) with `runModal()`
-  blocking via `uiwait` and returning either the confirmed mapping struct
-  (`TimestampColumn`/`MessageColumn`/`TimestampFormat`) or `[]` on
-  cancel/close. Confirm gated on `parseTimestampLadder` >= 0.9 success
-  ratio. Same-column safeguard ships per CHECKER REVISION. 9/9
-  function-style + 9/9 class-based tests PASS on MATLAB; checkcode clean
-  on all 3 new files. Plan 1030-03 (`openInteractive` + integration smoke)
-  is now unblocked: it will construct `PlantLogReader.openInteractive` as
-  the orchestrator that runs `readtablePortable` -> `autoDetect` ->
-  `PlantLogImportDialog.runModal` -> `PlantLogReader.readFile`.
+- **Stopped at:** Completed 1030-03-open-interactive-and-smoke-PLAN.md
+  (Phase 1030 closed; ready for /gsd:verify-phase 1030).
+  `PlantLogReader.openInteractive(filePath, varargin)` ships as the third
+  static method, wiring `readtablePortable` → `autoDetect` →
+  `PlantLogImportDialog` → `readFile` into the v3.1 public entry point.
+  Headless+Mapping mode is the live-tail / serialization-resume contract
+  Phase 1031 + 1033 will both call. Empty-file path in interactive mode
+  surfaces a non-blocking uialert via a transient uifigure with a
+  CloseFcn routed through the named `safeDeleteDialog_` helper (anonymous
+  functions cannot wrap try/catch — CHECKER REVISION applied). The
+  helper is generalized to handle both `PlantLogImportDialog` and raw
+  uigraphics handles. 8/8 function-style + 8/8 class-based PASS on MATLAB
+  (incl. XLSX happy path via writetable round-trip — PLOG-IM-02 runtime
+  proof). Full Phase 1030 surface 32+27 = 59/59 PASS; Phase 1029
+  regression intact (47+44 = 91/91 PASS); checkcode clean on the modified
+  PlantLogReader.m and both new test files. Both smoke files deliberately
+  omit any manual `addpath(libs/PlantLog)` — relies on Phase 1029 Plan
+  03's install.m libs-block edit (regression gate via
+  `which('PlantLogReader')`).
 
 ## Decisions Log
 
@@ -287,3 +297,58 @@ separate REQ-IDs:
   MATLAB; checkcode reports clean on all 3 new files; zero edits to existing
   files. PLOG-IM-06..08 completed. See
   `.planning/phases/1030-csv-xlsx-import-mapping-dialog/1030-02-import-dialog-SUMMARY.md`.
+
+- **Plan 03 (openInteractive + smoke, 2026-05-14)** — Shipped
+  `PlantLogReader.openInteractive(filePath, varargin)` as the third
+  static method on the existing `PlantLogReader` handle class
+  (`libs/PlantLog/PlantLogReader.m`, +151 lines). Default form runs the
+  full pipeline: `readtablePortable(filePath)` → `autoDetect(T)` →
+  `PlantLogImportDialog(filePath, T, autoMap, 'Theme', opts.Theme)` →
+  `dlg.runModal()` → `readFile(filePath, confirmedMapping)`. Returns
+  `PlantLogEntry[]` on Confirm or `[]` on Cancel/close.
+  `'Headless', true, 'Mapping', struct(...)` short-circuits the dialog
+  and delegates straight to `readFile` — this is the live-tail /
+  serialization-resume contract Phase 1031 + 1033 will both call.
+  `Headless=true` without `Mapping` throws `PlantLogReader:invalidInput`.
+  Empty-file path in interactive mode surfaces a non-blocking uialert
+  via a transient uifigure with a CloseFcn routed through the named
+  `safeDeleteDialog_` helper (anonymous functions cannot wrap try/catch
+  — CHECKER REVISION applied to plan); falls back to
+  `warning('PlantLogReader:emptyFile', ...)` when uifigure is unavailable
+  (Octave / older MATLAB). Headless mode SKIPS the alert. The
+  `safeDeleteDialog_` local function (added after the classdef closing
+  `end`) is generalized to handle both `PlantLogImportDialog` instances
+  AND raw uigraphics handles via `isa(h, 'PlantLogImportDialog')` /
+  `isgraphics(h)` dispatch — one helper, two cleanup call sites.
+  Caller-supplied partial Mapping in interactive mode merges with
+  `autoDetect` output to ensure shape (Phase 1033 may pass partially-
+  remembered choices). Function-style smoke
+  `tests/test_plant_log_import_smoke.m` ships 8 sub-tests (cross-runtime
+  headless: path pickup × 2, end-to-end + store round-trip, no-mapping
+  throws, missing-file throws, unsupported-format throws, empty CSV
+  returns [], dedup-via-store). Class-based suite
+  `tests/suite/TestPlantLogImportSmoke.m` ships 8 test methods mirroring
+  the function-style coverage AND adding three MATLAB-only tests:
+  programmatic Confirm via `confirmBtn.ButtonPushedFcn([], [])` direct
+  invocation, programmatic Cancel via the same pattern, and the XLSX
+  happy path via `writetable(T, '*.xlsx')` round-trip with
+  `testCase.assumeFail` fallback (PLOG-IM-02 runtime proof on MATLAB
+  R2024b's built-in Excel writer; clean skip on Octave / older MATLAB).
+  Both smoke files deliberately omit any manual `addpath(libs/PlantLog)`
+  — relies on Phase 1029 Plan 03's install.m libs-block edit (regression
+  gate via `which('PlantLogReader')`). Class-based interactive tests
+  bypass `runModal` to avoid hanging the test runner on `uiwait`.
+  Auto-fixed during execution: stripped `%#ok<NASGU>` suppressions on
+  `cleanup = onCleanup(...)` lines (R2024b checkcode no longer emits
+  NASGU on those — same Rule 1 fix Plans 1030-01 and 1030-02 applied
+  uniformly). 8/8 function-style + 8/8 class-based PASS on MATLAB;
+  full Phase 1030 surface 32+27 = 59/59 PASS; Phase 1029 regression
+  intact (47+44 = 91/91 PASS); checkcode clean on the modified
+  PlantLogReader.m and both new test files. Octave 11.1.0 lacks
+  `readtable` (no `io` package — same pre-existing env issue Plan 01
+  documented); function-style smoke is otherwise Octave-compatible.
+  PLOG-IM-01 + PLOG-IM-02 + PLOG-IM-06 + PLOG-IM-08 all have
+  integration-level runtime proof beyond the unit-level coverage from
+  Plans 01 + 02. **Phase 1030 closed; ready for /gsd:verify-phase 1030.**
+  See
+  `.planning/phases/1030-csv-xlsx-import-mapping-dialog/1030-03-open-interactive-and-smoke-SUMMARY.md`.
