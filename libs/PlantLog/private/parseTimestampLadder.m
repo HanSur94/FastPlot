@@ -53,11 +53,31 @@ function [tsOut, successRatio] = parseTimestampLadder(values, formatHint)
         tsOut(~isfinite(tsOut)) = NaN;
         return;
     end
+    % MATLAB's readtable can auto-promote ISO timestamps to datetime objects;
+    % handle that path before the string/cell coercion below.
+    if isa(values, 'datetime')
+        tsOut = NaN(numel(values), 1);
+        try
+            tsOut = datenum(values(:)); %#ok<DATNM>
+        catch
+            % element-wise fallback
+            for k = 1:numel(values)
+                try
+                    tsOut(k) = datenum(values(k)); %#ok<DATNM>
+                catch
+                    tsOut(k) = NaN;
+                end
+            end
+        end
+        successRatio = sum(isfinite(tsOut)) / max(numel(tsOut), 1);
+        tsOut(~isfinite(tsOut)) = NaN;
+        return;
+    end
     if isstring(values); values = cellstr(values); end
     if ischar(values);   values = cellstr(values); end
     if ~iscell(values)
         error('PlantLogReader:invalidInput', ...
-            'parseTimestampLadder: values must be string/cell/numeric; got %s.', class(values));
+            'parseTimestampLadder: values must be string/cell/numeric/datetime; got %s.', class(values));
     end
     nVals = numel(values);
     if nVals == 0
