@@ -3069,12 +3069,23 @@ classdef FastSense < handle
                 obj.onEventDetailsClosed_();
                 return;
             end
-            % 260513-voo: open the modal FIRST so the decoration (lines+patch+hint)
-            % stays painted behind it. Attach an ObjectBeingDestroyed listener
-            % to cleanly remove the decoration when the modal closes. Restore
-            % figure/axes callbacks now so HoverCrosshair / zoom / global ESC
-            % work normally while the modal is open; graphics survive because
-            % they live on obj.hAxes regardless of input bindings.
+            % 260513-voo: restore figure/axes callbacks AND flip
+            % IsEventPicking_=false BEFORE opening the modal. Two reasons:
+            %   (1) creating the popup figure can transiently focus-shift
+            %       and fire WindowButtonMotion events on the original
+            %       figure; with our chained WBM still installed plus
+            %       IsEventPicking_=true, onPickMotion_FromX_ would
+            %       overwrite the just-finalized patch geometry with the
+            %       current cursor position. Restoring + flipping early
+            %       short-circuits the motion handler.
+            %   (2) the user is now interacting with the modal, not the
+            %       axes — leaving onPickClick_ wired would consume a
+            %       background click meant for the dashboard.
+            % Graphics (lines, patch, hint) survive because they live on
+            % obj.hAxes regardless of input bindings; the
+            % ObjectBeingDestroyed listener tears them down on modal close.
+            obj.restorePickCallbacks_();
+            obj.IsEventPicking_ = false;
             if ~isempty(newEv)
                 try
                     obj.openEventDetails_(newEv);
@@ -3085,8 +3096,6 @@ classdef FastSense < handle
                 if ~isempty(obj.hEventDetails_) && ishandle(obj.hEventDetails_)
                     obj.EventPickModalListener_ = addlistener(obj.hEventDetails_, ...
                         'ObjectBeingDestroyed', @(~,~) obj.onEventDetailsClosed_());
-                    obj.restorePickCallbacks_();
-                    obj.IsEventPicking_ = false;
                 else
                     % Modal didn't open (edge case — openEventDetails_ aborted
                     % silently or hFigure invalid). Clean up immediately so no
