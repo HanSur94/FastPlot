@@ -931,6 +931,18 @@ classdef FastSenseCompanion < handle
             obj.openEventViewer_();
         end
 
+        function trackOpenedFigure(obj, hFig)
+        %TRACKOPENEDFIGURE Register a figure the companion opened so Tile / Close all see it.
+        %   Public hook for code paths that spawn figures DIRECTLY (bypassing the
+        %   OpenAdHocPlotRequested event flow) — for example InspectorPane's single-tag
+        %   "Open Detail" handler, which calls openAdHocPlot inline. Pass the returned
+        %   classical figure handle and the companion will dedupe + prune-aware-append
+        %   it to OpenedFigures_.
+        %
+        %   Silently no-ops on empty / invalid handles.
+            obj.trackOpenedFigure_(hFig);
+        end
+
         function tileOpenedWindows(obj)
         %TILEOPENEDWINDOWS Arrange every figure the companion opened in a grid.
         %   Computes a roughly-square ceil(sqrt(N)) tiling on the monitor the

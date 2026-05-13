@@ -29,6 +29,7 @@ function test_companion_tile_close_buttons()
     [p, t] = test_outside_figures_not_touched_();  nPassed = nPassed + p; nTotal = nTotal + t;
     [p, t] = test_toolbar_buttons_present_();      nPassed = nPassed + p; nTotal = nTotal + t;
     [p, t] = test_sync_pulls_prerendered_engine_();nPassed = nPassed + p; nTotal = nTotal + t;
+    [p, t] = test_public_trackopenedfigure_hook_();nPassed = nPassed + p; nTotal = nTotal + t;
 
     if nPassed == nTotal
         fprintf('    All %d tests passed.\n', nTotal);
@@ -278,6 +279,44 @@ function [passed, total] = test_sync_pulls_prerendered_engine_()
     app.closeAllOpenedWindows();
     assert(~ishandle(hFigSnap), ...
         'closeAllOpenedWindows must close the pre-rendered engine''s figure');
+
+    passed = 1;
+end
+
+function [passed, total] = test_public_trackopenedfigure_hook_()
+%TEST_PUBLIC_TRACKOPENEDFIGURE_HOOK_ Public trackOpenedFigure surfaces a foreign figure.
+%   Reproduces the live-demo gap reported after the sync fix shipped: a user
+%   opens a sensor detail plot via the inspector's "Open detail" button, which
+%   calls openAdHocPlot DIRECTLY (not via the OpenAdHocPlotRequested event).
+%   The pane now captures the returned hFig and forwards to the orchestrator's
+%   PUBLIC trackOpenedFigure method. Same hook is used by CompanionEventViewer's
+%   openEventDashboard_. This test exercises the public hook itself.
+    total = 1; passed = 0;
+    [app, cleanup] = make_app_(); %#ok<ASGLU>
+
+    f = figure('Visible', 'off', 'Name', 'S0Y-public-hook');
+    figCleanup = onCleanup(@() safe_delete_fig_(f)); %#ok<NASGU>
+
+    % BEFORE the public hook is called -- not tracked.
+    pre = app.getOpenedFiguresForTest_();
+    assert(isempty(pre), 'expected empty pre, got %d', numel(pre));
+
+    % Public hook -- the same call InspectorPane.onOpenDetail_ and
+    % CompanionEventViewer.openEventDashboard_ make.
+    app.trackOpenedFigure(f);
+
+    post = app.getOpenedFiguresForTest_();
+    assert(numel(post) == 1, 'expected 1 tracked figure, got %d', numel(post));
+    assert(post(1) == f, 'tracked figure must equal the one we passed in');
+
+    % Dedupe: calling the public hook twice on the same handle still yields 1.
+    app.trackOpenedFigure(f);
+    post2 = app.getOpenedFiguresForTest_();
+    assert(numel(post2) == 1, 'expected dedupe, got %d', numel(post2));
+
+    % Close all closes it.
+    app.closeAllOpenedWindows();
+    assert(~ishandle(f), 'closeAllOpenedWindows must close the publicly tracked figure');
 
     passed = 1;
 end
