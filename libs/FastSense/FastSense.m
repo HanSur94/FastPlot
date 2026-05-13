@@ -162,6 +162,9 @@ classdef FastSense < handle
         EventPickEngine_      = []        % DashboardEngine handle (needed for persist + store)
         PrevAxesBDFcn_        = []        % saved hAxes.ButtonDownFcn during pick mode
         PrevFigKPFcn_         = []        % saved figure WindowKeyPressFcn during pick mode
+        EventPickPatch_         = []      % patch handle (Tag='EventPickRegion') for shaded region during pick (260513-voo)
+        PrevFigWBMFcn_          = []      % saved figure WindowButtonMotionFcn during pick mode (260513-voo)
+        EventPickModalListener_ = []      % event.listener on hEventDetails_ ObjectBeingDestroyed (260513-voo)
     end
 
     % Phase 1012 event-details popup handle — test-readable
@@ -2941,42 +2944,24 @@ classdef FastSense < handle
             if ~isempty(hFig) && ishandle(hFig)
                 obj.PrevFigKPFcn_ = get(hFig, 'WindowKeyPressFcn');
                 set(hFig, 'WindowKeyPressFcn', @(s,e) obj.onPickKey_(s, e));
+                % 260513-voo: chain figure WindowButtonMotionFcn so we get
+                % live-preview motion while HoverCrosshair continues to work.
+                obj.PrevFigWBMFcn_ = get(hFig, 'WindowButtonMotionFcn');
+                set(hFig, 'WindowButtonMotionFcn', @(s,e) obj.onPickMotion_(s, e));
             end
             obj.drawPickHint_('Click START of event (Right-click or ESC to cancel)...');
             obj.IsEventPicking_ = true;
         end
 
         function cancelEventPick_(obj)
-            %CANCELEVENTPICK_ Exit pick mode + cleanup temp graphics. Idempotent.
-            if ~obj.IsEventPicking_, return; end
-            try
-                hHints = findall(obj.hAxes, 'Tag', 'EventPickHint');
-                if ~isempty(hHints), delete(hHints); end
-            catch
+            %CANCELEVENTPICK_ Exit pick mode + cleanup. Idempotent. Delegates to onEventDetailsClosed_ (260513-voo).
+            %   Preserves the v69 Test 7 contract: silent no-op when not
+            %   picking AND no patch alive (axes children count unchanged).
+            patchAlive = ~isempty(obj.EventPickPatch_) && ishandle(obj.EventPickPatch_);
+            if ~obj.IsEventPicking_ && ~patchAlive
+                return;
             end
-            try
-                hLines = findall(obj.hAxes, 'Tag', 'EventPickLine');
-                if ~isempty(hLines), delete(hLines); end
-            catch
-            end
-            try
-                if ~isempty(obj.hAxes) && ishandle(obj.hAxes)
-                    set(obj.hAxes, 'ButtonDownFcn', obj.PrevAxesBDFcn_);
-                end
-            catch
-            end
-            try
-                hFig = ancestor(obj.hAxes, 'figure');
-                if ~isempty(hFig) && ishandle(hFig)
-                    set(hFig, 'WindowKeyPressFcn', obj.PrevFigKPFcn_);
-                end
-            catch
-            end
-            obj.IsEventPicking_  = false;
-            obj.EventPickT1_     = [];
-            obj.EventPickEngine_ = [];
-            obj.PrevAxesBDFcn_   = [];
-            obj.PrevFigKPFcn_    = [];
+            obj.onEventDetailsClosed_();
         end
 
         function onPickClick_(obj, ~, ~)
@@ -3003,8 +2988,12 @@ classdef FastSense < handle
             if isempty(obj.EventPickT1_)
                 obj.EventPickT1_ = x;
                 obj.drawPickLine_(x);
+                obj.createPickPatch_(x);          % 260513-voo: zero-width shaded region
                 obj.updatePickHint_('Click END of event (Right-click or ESC to cancel)...');
             else
+                % 260513-voo: snap the patch to the final sorted interval BEFORE
+                % handing off, so the modal opens with correct decoration.
+                obj.finalizePickPatch_(obj.EventPickT1_, x);
                 obj.completeEventPick_(obj.EventPickT1_, x);
             end
         end
@@ -3077,13 +3066,37 @@ classdef FastSense < handle
                     errordlg(ME.message, 'Create Event');
                 catch
                 end
-                obj.cancelEventPick_();
+                obj.onEventDetailsClosed_();
                 return;
             end
-            obj.cancelEventPick_();          % restores axes BDFcn + KP before details open
+            % 260513-voo: open the modal FIRST so the decoration (lines+patch+hint)
+            % stays painted behind it. Attach an ObjectBeingDestroyed listener
+            % to cleanly remove the decoration when the modal closes. Restore
+            % figure/axes callbacks now so HoverCrosshair / zoom / global ESC
+            % work normally while the modal is open; graphics survive because
+            % they live on obj.hAxes regardless of input bindings.
             if ~isempty(newEv)
                 try
                     obj.openEventDetails_(newEv);
+                catch
+                end
+            end
+            try
+                if ~isempty(obj.hEventDetails_) && ishandle(obj.hEventDetails_)
+                    obj.EventPickModalListener_ = addlistener(obj.hEventDetails_, ...
+                        'ObjectBeingDestroyed', @(~,~) obj.onEventDetailsClosed_());
+                    obj.restorePickCallbacks_();
+                    obj.IsEventPicking_ = false;
+                else
+                    % Modal didn't open (edge case — openEventDetails_ aborted
+                    % silently or hFigure invalid). Clean up immediately so no
+                    % orphan decoration is left on screen.
+                    obj.onEventDetailsClosed_();
+                end
+            catch ME
+                warning('FastSense:eventPickListenerFailed', '%s', ME.message);
+                try
+                    obj.onEventDetailsClosed_();
                 catch
                 end
             end
@@ -3143,6 +3156,190 @@ classdef FastSense < handle
                     'HandleVisibility', 'off');
             catch
             end
+        end
+
+        % ============================================================
+        % 260513-voo - Shaded-region overlay + live-preview motion +
+        % modal-persisted decoration + unified cleanup helper. All
+        % additive on top of the 260513-v69 state machine above.
+        % ============================================================
+        function onPickMotion_(obj, src, evt)
+            %ONPICKMOTION_ Chained figure WindowButtonMotionFcn during pick mode (260513-voo).
+            %   FIRST forward to the saved handler so HoverCrosshair keeps
+            %   working. THEN, while in the post-click-1 pre-click-2 sub-
+            %   state, update the shaded patch XData to track the cursor.
+            %   Wrapped in try/catch so our chained handler never breaks
+            %   HoverCrosshair downstream.
+            if isa(obj.PrevFigWBMFcn_, 'function_handle')
+                try
+                    obj.PrevFigWBMFcn_(src, evt);
+                catch ME
+                    warning('FastSense:pickMotionForwardFailed', '%s', ME.message);
+                end
+            elseif iscell(obj.PrevFigWBMFcn_) && ~isempty(obj.PrevFigWBMFcn_) && ...
+                    isa(obj.PrevFigWBMFcn_{1}, 'function_handle')
+                try
+                    feval(obj.PrevFigWBMFcn_{1}, src, evt, obj.PrevFigWBMFcn_{2:end});
+                catch ME
+                    warning('FastSense:pickMotionForwardFailed', '%s', ME.message);
+                end
+            end
+            try
+                if ~obj.IsEventPicking_, return; end
+                if isempty(obj.EventPickT1_), return; end
+                if isempty(obj.EventPickPatch_) || ~ishandle(obj.EventPickPatch_), return; end
+                if isempty(obj.hAxes) || ~ishandle(obj.hAxes), return; end
+                cp = get(obj.hAxes, 'CurrentPoint');
+                cx = cp(1, 1);
+                obj.onPickMotion_FromX_(cx);
+            catch ME
+                warning('FastSense:pickMotionFailed', '%s', ME.message);
+            end
+        end
+
+        function onPickMotion_FromX_(obj, cx)
+            %ONPICKMOTION_FROMX_ Update patch geometry to span [EventPickT1_, cx] x current YLim (260513-voo).
+            %   Pulled out of onPickMotion_ so tests can drive geometry
+            %   updates deterministically without having to mutate
+            %   CurrentPoint (which is read-only on MATLAB).
+            if isempty(obj.EventPickT1_), return; end
+            if isempty(obj.EventPickPatch_) || ~ishandle(obj.EventPickPatch_), return; end
+            if isempty(obj.hAxes) || ~ishandle(obj.hAxes), return; end
+            yLim = get(obj.hAxes, 'YLim');
+            t1   = obj.EventPickT1_;
+            set(obj.EventPickPatch_, ...
+                'XData', [t1 cx cx t1], ...
+                'YData', [yLim(1) yLim(1) yLim(2) yLim(2)]);
+        end
+
+        function createPickPatch_(obj, x)
+            %CREATEPICKPATCH_ Create the EventPickRegion patch at zero width (260513-voo).
+            %   FaceColor is read from the just-drawn EventPickLine (SSOT)
+            %   with fallback to the canonical [1.0 0.55 0.0] orange. The
+            %   patch is pushed to the back of axes Children so the lines
+            %   and plotted signal stay in front. HitTest='off' +
+            %   PickableParts='none' so click 2 reaches the axes
+            %   underneath this patch.
+            if isempty(obj.hAxes) || ~ishandle(obj.hAxes), return; end
+            c = obj.pickLineColor_();
+            yLim = get(obj.hAxes, 'YLim');
+            wasHeld = ishold(obj.hAxes);
+            hold(obj.hAxes, 'on');
+            obj.EventPickPatch_ = patch(obj.hAxes, ...
+                'XData',         [x x x x], ...
+                'YData',         [yLim(1) yLim(1) yLim(2) yLim(2)], ...
+                'FaceColor',     c, ...
+                'FaceAlpha',     0.18, ...
+                'EdgeColor',     'none', ...
+                'HitTest',       'off', ...
+                'PickableParts', 'none', ...
+                'HandleVisibility', 'off', ...
+                'Tag',           'EventPickRegion');
+            if ~wasHeld, hold(obj.hAxes, 'off'); end
+            try
+                uistack(obj.EventPickPatch_, 'bottom');
+            catch
+                % Octave may not support uistack on all releases — non-fatal.
+            end
+        end
+
+        function finalizePickPatch_(obj, tStart, tEnd)
+            %FINALIZEPICKPATCH_ Snap the patch to sorted [tStart, tEnd] x current YLim (260513-voo).
+            if isempty(obj.EventPickPatch_) || ~ishandle(obj.EventPickPatch_), return; end
+            if isempty(obj.hAxes) || ~ishandle(obj.hAxes), return; end
+            t1 = min(tStart, tEnd);
+            t2 = max(tStart, tEnd);
+            yLim = get(obj.hAxes, 'YLim');
+            set(obj.EventPickPatch_, ...
+                'XData', [t1 t2 t2 t1], ...
+                'YData', [yLim(1) yLim(1) yLim(2) yLim(2)]);
+        end
+
+        function c = pickLineColor_(obj)
+            %PICKLINECOLOR_ Resolve patch FaceColor from a live EventPickLine, fallback orange.
+            c = [1.0 0.55 0.0];
+            try
+                hLines = findobj(obj.hAxes, 'Tag', 'EventPickLine');
+                if ~isempty(hLines) && ishandle(hLines(1))
+                    cc = get(hLines(1), 'Color');
+                    if isnumeric(cc) && numel(cc) == 3
+                        c = double(cc(:)');
+                    end
+                end
+            catch
+                % keep fallback
+            end
+        end
+
+        function restorePickCallbacks_(obj)
+            %RESTOREPICKCALLBACKS_ Restore axes BDF + figure KP + figure WBM to pre-pick values (260513-voo).
+            try
+                if ~isempty(obj.hAxes) && ishandle(obj.hAxes)
+                    set(obj.hAxes, 'ButtonDownFcn', obj.PrevAxesBDFcn_);
+                end
+            catch
+            end
+            try
+                hFig = ancestor(obj.hAxes, 'figure');
+                if ~isempty(hFig) && ishandle(hFig)
+                    set(hFig, 'WindowKeyPressFcn', obj.PrevFigKPFcn_);
+                    set(hFig, 'WindowButtonMotionFcn', obj.PrevFigWBMFcn_);
+                end
+            catch
+            end
+        end
+
+        function onEventDetailsClosed_(obj)
+            %ONEVENTDETAILSCLOSED_ Unified pick-mode cleanup (260513-voo).
+            %   Idempotent. Called from three paths:
+            %     - addlistener on hEventDetails_ ObjectBeingDestroyed (modal close)
+            %     - cancelEventPick_ (toggle / ESC / right-click)
+            %     - completeEventPick_ catch fallback when modal couldn't open
+            %   First-line guard returns silently when nothing is in flight.
+            noPatch = isempty(obj.EventPickPatch_) || ~ishandle(obj.EventPickPatch_);
+            noLines = true;
+            noHints = true;
+            try
+                noLines = isempty(findall(obj.hAxes, 'Tag', 'EventPickLine'));
+                noHints = isempty(findall(obj.hAxes, 'Tag', 'EventPickHint'));
+            catch
+            end
+            if noPatch && noLines && noHints && ~obj.IsEventPicking_
+                obj.EventPickModalListener_ = [];   % stale-listener safety
+                return;
+            end
+            try
+                hLines = findall(obj.hAxes, 'Tag', 'EventPickLine');
+                if ~isempty(hLines), delete(hLines); end
+            catch
+            end
+            try
+                hHints = findall(obj.hAxes, 'Tag', 'EventPickHint');
+                if ~isempty(hHints), delete(hHints); end
+            catch
+            end
+            try
+                if ~isempty(obj.EventPickPatch_) && ishandle(obj.EventPickPatch_)
+                    delete(obj.EventPickPatch_);
+                end
+            catch
+            end
+            obj.EventPickPatch_ = [];
+            obj.restorePickCallbacks_();
+            obj.IsEventPicking_  = false;
+            obj.EventPickT1_     = [];
+            obj.EventPickEngine_ = [];
+            obj.PrevAxesBDFcn_   = [];
+            obj.PrevFigKPFcn_    = [];
+            obj.PrevFigWBMFcn_   = [];
+            try
+                if ~isempty(obj.EventPickModalListener_) && ...
+                        isa(obj.EventPickModalListener_, 'event.listener')
+                    delete(obj.EventPickModalListener_);
+                end
+            catch
+            end
+            obj.EventPickModalListener_ = [];
         end
     end
 
