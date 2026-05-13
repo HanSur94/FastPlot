@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778705363027,
+  "lastUpdate": 1778705368333,
   "repoUrl": "https://github.com/HanSur94/FastSense",
   "entries": {
     "FastPlot Performance": [
@@ -77380,6 +77380,310 @@ window.BENCHMARK_DATA = {
           {
             "name": "Dashboard broadcastTimeRange stdmean",
             "value": 0.111,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "50265832+HanSur94@users.noreply.github.com",
+            "name": "Hannes Suhr",
+            "username": "HanSur94"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c373ce1129eef27a71484a6918279cead2078b7",
+          "message": "feat(dashboard): auto-y-limit V/A buttons on FastSenseWidget WidgetButtonBar (#138)\n\n* test(260513-sfp-01): add failing tests for FastSenseWidget.YLimitMode\n\n- 11 cases covering YLimitMode default, validation, visible/all/locked\n  dispatch, UserZoomedY clear-on-click, YLimits pin precedence, struct\n  round-trip, legacy struct backward-compat, and Follow-mode override\n  (260513-ovt regression guard).\n- RED phase of 260513-sfp task 1: 4/11 fail as expected (property\n  and method missing); 6 skip headless via usejava('desktop') guard;\n  1 incidental pass (toStruct omits default mode -> field absent).\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(260513-sfp-01): YLimitMode property + setYLimitMode + mode dispatch on FastSenseWidget\n\n- Add YLimitMode public property with values 'auto-visible' | 'auto-all'\n  | 'locked' (default 'auto-visible' reproduces pre-260513-sfp behaviour).\n- Add setYLimitMode(mode) — validates against namespace\n  FastSenseWidget:invalidYLimitMode; clears UserZoomedY (explicit click\n  re-engages autoscale); fetches y for the new mode and calls autoScaleY_\n  so the Y axis snaps immediately.\n- Refactor autoScaleY_ to dispatch on YLimitMode AFTER the existing\n  guards (YLimits pin / UserZoomedY / FastSense.LiveViewMode=='follow'),\n  so precedence is unchanged. 'locked' short-circuits; 'auto-all'\n  replaces y with full tag data so caller's window filter is bypassed.\n- Add getYFromTagOrInline_ and getYInVisibleXWindow_ private helpers.\n- toStruct emits yLimitMode only when non-default (JSON-size minimal\n  + invisible diff for legacy dashboards).\n- fromStruct restores yLimitMode via setYLimitMode (silently ignores\n  invalid serialized values, defaulting to 'auto-visible').\n- Public signature of autoScaleY_(obj, y) unchanged — callers\n  (render, rebuildForTag_, plus future button click handlers) keep\n  working unchanged.\n- Tests: 11/11 pass under matlab -batch on macOS arm64.\n  Notes:\n    - test_fastsense_widget_ylimit_modes.m uses canRenderFigures_()\n      guard (loosened from usejava('desktop')) so the rendered cases\n      execute under -batch / -nodisplay rather than skip.\n    - test_fastsense_follow_toggle.m still uses the stricter\n      usejava('desktop') guard (touches uitoggletool) and will\n      regress-check in the interactive verify step.\n    - test_fastsense_widget_tag.m 7/7 still pass.\n\nRefs: 260513-sfp SFP-01\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* feat(260513-sfp-02): YLimit V/A/L button cluster on WidgetButtonBar\n\nDashboardLayout.m:\n- Extend needsBar to also trigger for widgets exposing setYLimitMode so\n  duck-typed YLimit widgets always get a chrome strip to host their buttons.\n- realizeWidget: invoke addYLimitButtons_(widget) inside the needsBar\n  branch when ismethod(widget,'setYLimitMode'). Today this is only\n  FastSenseWidget; the duck-type keeps the chrome generic for future\n  widgets that expose Y-rescale modes.\n- New private addYLimitButtons_(widget) builds the [V][A][L] cluster:\n    Tags: YLimitVisibleBtn / YLimitAllBtn / YLimitLockBtn\n    Position math mirrors the plan's <interfaces> block exactly:\n      xLock    = barW - bw - gap - bw - gap - gap - bw\n      xAll     = xLock - bw\n      xVisible = xAll  - bw\n    (bw = 24, gap = 4). The cluster's right edge butts against\n    addInfoIcon's left edge — see the SUMMARY for the 4-px-gap caveat\n    caused by the pre-existing 28-px Info typo (out of scope to fix).\n- New private addYLimitButton_ + onYLimitButtonClicked_ helpers wire\n  callbacks via @(~,~) obj.onYLimitButtonClicked_(widget, mode, bar).\n  Click handler call setYLimitMode then syncYLimitButtonsState_ to\n  update the visual pressed state; errors are warned via\n  'DashboardLayout:yLimitClickFailed' (never throw inside the refresh\n  loop).\n- New static chooseYLimitActiveBg_ picks PressedBg | SelectedBg |\n  AccentColor in order, falling back to a brightened ToolbarBackground.\n  No new theme tokens are introduced (deliberately — leaves a clean\n  follow-up to add theme.PressedBg if reviewers want).\n- New static syncYLimitButtonsState_ visually highlights the active\n  button (using bar.UserData.YLimitActiveBg stashed by\n  addYLimitButtons_) and resets the other two to the theme's\n  ToolbarBackground.\n- reflowChrome_ now re-anchors the three new buttons in addition to\n  Info/Detach so resize never leaves them stranded.\n\nDashboardWidget.m:\n- clearPanelControls protectedTags extended to include the three new\n  YLimit tags so any future panel-control sweep preserves them.\n\nSmoke + regression:\n- live demo dashboard renders all 3 buttons on the bar; clicks update\n  YLimitMode (auto-visible -> auto-all -> locked) and the pressed-state\n  highlight follows.\n- reflowChrome_ keeps all 5 buttons cleanly positioned across a\n  600 -> 1200 px figure resize (V/A/L butt, L butts to Info, no\n  overlap with Detach).\n- tests/test_fastsense_widget_ylimit_modes.m   11/11 PASS\n- tests/test_fastsense_widget_tag.m            7/7  PASS\n- tests/test_dashboard_time_sync_all_pages.m   5/5  PASS\n- tests/test_dashboard_range_selector_integration.m Case 1 PASS,\n  Case 2 PRE-EXISTING failure under matlab -batch (deferred — see\n  .planning/quick/260513-sfp-.../deferred-items.md)\n\nRefs: 260513-sfp SFP-02, SFP-03, SFP-05\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* docs(quick-260513-sfp): add auto-y-limit V/A/L buttons to FastSenseWidget\n\nQuick task 260513-sfp artifacts:\n- PLAN.md: 2-task plan (FastSenseWidget YLimitMode + dispatch, DashboardLayout\n  V/A/L button cluster) + human-verify checkpoint on industrial-plant demo.\n- SUMMARY.md: execution report — 11/11 new tests pass, 7/7 widget-tag\n  regression pass, 10/10 follow-toggle regression pass, 5/5 time-sync\n  regression pass; commits 4db9138, cc18c7f, a9cc181; APPROVED on live\n  demo across all 8 verification scenarios.\n- deferred-items.md: pre-existing range-selector Case 2 -batch failure\n  (reproduced via git stash on parent — NOT caused by 260513-sfp).\n- STATE.md: Quick Tasks Completed row + last_activity update.\n\nKnown caveat: V/A/L cluster butts against Info button (0-px gap) —\ninherited from pre-existing addInfoIcon 28-px typo, explicitly out-of-scope\nper plan's <interfaces> block.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n* refactor(dashboard): drop L (lock) button from FastSenseWidget Y-limit cluster\n\nKeep YLimitMode='locked' as a valid programmatic mode on FastSenseWidget\n(setYLimitMode('locked') still works) — just remove the UI button. The\nWidgetButtonBar now hosts only V (auto-visible) and A (auto-all), with\nthe same right-anchored layout math the L slot used to occupy taken by A.\n\n- DashboardLayout.addYLimitButtons_: drop L creation, collapse pixel math\n- DashboardLayout.reflowChrome_: drop L re-anchor\n- DashboardLayout.syncYLimitButtonsState_: drop L from tagsAndModes\n- DashboardWidget.clearPanelControls: drop YLimitLockBtn from protectedTags\n\ntests/test_fastsense_widget_ylimit_modes.m: 11/11 PASS (uses setYLimitMode\nprogrammatically, not via UI — no changes needed).\ntests/test_dashboard_time_sync_all_pages.m: 5/5 PASS.\n\nCo-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.7 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-05-13T22:41:49+02:00",
+          "tree_id": "af329a091a80677f404931f195836eaa3aa91590",
+          "url": "https://github.com/HanSur94/FastSense/commit/1c373ce1129eef27a71484a6918279cead2078b7"
+        },
+        "date": 1778705366697,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Downsample mean (1M)",
+            "value": 1.181,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(1M)",
+            "value": 0.003,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (1M)",
+            "value": 153.962,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(1M)",
+            "value": 0.851,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (1M)",
+            "value": 242.521,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(1M)",
+            "value": 0.901,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (1M)",
+            "value": 13.866,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(1M)",
+            "value": 3.547,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (5M)",
+            "value": 8.756,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean std(5M)",
+            "value": 0.221,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (5M)",
+            "value": 174.514,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean std(5M)",
+            "value": 0.881,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (5M)",
+            "value": 251.827,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean std(5M)",
+            "value": 2.327,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (5M)",
+            "value": 14.324,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean std(5M)",
+            "value": 0.67,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (10M)",
+            "value": 17.974,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std10M)",
+            "value": 0.506,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (10M)",
+            "value": 198.236,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std10M)",
+            "value": 3.053,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (10M)",
+            "value": 254.714,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std10M)",
+            "value": 2.485,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (10M)",
+            "value": 13.984,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std10M)",
+            "value": 0.545,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (50M)",
+            "value": 88.526,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean  std50M)",
+            "value": 1.173,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (50M)",
+            "value": 1321.389,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean  std50M)",
+            "value": 10.271,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (50M)",
+            "value": 246.308,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean  std50M)",
+            "value": 1.59,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (50M)",
+            "value": 13.973,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean  std50M)",
+            "value": 0.799,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (100M)",
+            "value": 179.182,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 2.155,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (100M)",
+            "value": 2294.081,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 79.459,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (100M)",
+            "value": 254.777,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 2.454,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (100M)",
+            "value": 14.332,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 0.562,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean (500M)",
+            "value": 865.214,
+            "unit": "ms"
+          },
+          {
+            "name": "Downsample mean ( std00M)",
+            "value": 6.486,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean (500M)",
+            "value": 22924.615,
+            "unit": "ms"
+          },
+          {
+            "name": "Instantiation mean ( std00M)",
+            "value": 588.062,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean (500M)",
+            "value": 291.463,
+            "unit": "ms"
+          },
+          {
+            "name": "Render mean ( std00M)",
+            "value": 3.432,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean (500M)",
+            "value": 14.166,
+            "unit": "ms"
+          },
+          {
+            "name": "Zoom cycle mean ( std00M)",
+            "value": 1.005,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render mean",
+            "value": 978.426,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard create+render stdmean",
+            "value": 5.219,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick mean",
+            "value": 169.469,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard live tick stdmean",
+            "value": 2.388,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch mean",
+            "value": 172.681,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard page switch stdmean",
+            "value": 2.217,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange mean",
+            "value": 0.114,
+            "unit": "ms"
+          },
+          {
+            "name": "Dashboard broadcastTimeRange stdmean",
+            "value": 0.314,
             "unit": "ms"
           }
         ]
