@@ -9,7 +9,7 @@ function test_fastsense_follow_toggle()
 %     - setFollow(false) reverts to 'preserve'
 %     - User-initiated pan auto-disengages Follow
 %     - Live-tick (applyViewMode) does NOT auto-disengage
-%     - FastSenseWidget.LiveViewMode default ('reset') is untouched
+%     - FastSenseWidget.LiveViewMode default ('preserve' per 260513-ovt) is untouched
 
     addpath(fullfile(fileparts(mfilename('fullpath')), '..')); install();
 
@@ -162,14 +162,16 @@ function test_fastsense_follow_toggle()
         nFailed = nFailed + 1; fprintf('    FAIL test_programmaticPanDoesNotDisengage: %s\n', err.message);
     end
 
-    % --- test_dashboardWidgetDefaultUnchanged ---
+    % --- test_dashboardWidgetDefaultIsPreserve ---
+    % Default flipped from 'reset' to 'preserve' in 260513-ovt so Live mode
+    % no longer silently resets the user's X view every tick.
     try
         w = FastSenseWidget('XData', 1:100, 'YData', sin(1:100));
-        assert(strcmp(w.LiveViewMode, 'reset'), ...
-            sprintf('FastSenseWidget.LiveViewMode default must stay reset, got %s', w.LiveViewMode));
+        assert(strcmp(w.LiveViewMode, 'preserve'), ...
+            sprintf('FastSenseWidget.LiveViewMode default must be preserve, got %s', w.LiveViewMode));
         nPassed = nPassed + 1;
     catch err
-        nFailed = nFailed + 1; fprintf('    FAIL test_dashboardWidgetDefaultUnchanged: %s\n', err.message);
+        nFailed = nFailed + 1; fprintf('    FAIL test_dashboardWidgetDefaultIsPreserve: %s\n', err.message);
     end
 
     % --- Summary ---

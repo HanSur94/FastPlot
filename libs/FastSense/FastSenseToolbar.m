@@ -426,6 +426,37 @@ classdef FastSenseToolbar < handle
         end
     end
 
+    % syncFollowState is called from FastSense.onXLimChanged's
+    % auto-disengage hook (via getappdata) so it must be public —
+    % ismethod() returns false for private methods, which previously
+    % caused the button-state mirror to silently no-op when the user
+    % panned out of Follow mode. (260513-ovt regression fix)
+    methods (Access = public)
+        function syncFollowState(obj)
+            %SYNCFOLLOWSTATE Mirror target's LiveViewMode onto the Follow button.
+            %   Sets State='on' when LiveViewMode='follow', 'off' otherwise.
+            %   Sets Enable='off' when LiveViewMode is empty (no live wiring),
+            %   'on' otherwise. Safe to call before/after rebind.
+            if isempty(obj.hFollowBtn) || ~ishandle(obj.hFollowBtn); return; end
+            target = obj.Target;
+            if isempty(target) || ~isprop(target, 'LiveViewMode')
+                set(obj.hFollowBtn, 'Enable', 'off', 'State', 'off');
+                return;
+            end
+            mode = target.LiveViewMode;
+            if isempty(mode)
+                set(obj.hFollowBtn, 'Enable', 'off', 'State', 'off');
+            else
+                set(obj.hFollowBtn, 'Enable', 'on');
+                if strcmp(mode, 'follow')
+                    set(obj.hFollowBtn, 'State', 'on');
+                else
+                    set(obj.hFollowBtn, 'State', 'off');
+                end
+            end
+        end
+    end
+
     % ======================== PRIVATE METHODS ============================
     % Mouse event handlers, crosshair/cursor drawing, and cleanup.
     methods (Access = private)
@@ -536,30 +567,6 @@ classdef FastSenseToolbar < handle
         function onFollowOff(obj)
             %ONFOLLOWOFF Callback: disable Follow auto-pan.
             obj.setFollow(false);
-        end
-
-        function syncFollowState(obj)
-            %SYNCFOLLOWSTATE Mirror target's LiveViewMode onto the Follow button.
-            %   Sets State='on' when LiveViewMode='follow', 'off' otherwise.
-            %   Sets Enable='off' when LiveViewMode is empty (no live wiring),
-            %   'on' otherwise. Safe to call before/after rebind.
-            if isempty(obj.hFollowBtn) || ~ishandle(obj.hFollowBtn); return; end
-            target = obj.Target;
-            if isempty(target) || ~isprop(target, 'LiveViewMode')
-                set(obj.hFollowBtn, 'Enable', 'off', 'State', 'off');
-                return;
-            end
-            mode = target.LiveViewMode;
-            if isempty(mode)
-                set(obj.hFollowBtn, 'Enable', 'off', 'State', 'off');
-            else
-                set(obj.hFollowBtn, 'Enable', 'on');
-                if strcmp(mode, 'follow')
-                    set(obj.hFollowBtn, 'State', 'on');
-                else
-                    set(obj.hFollowBtn, 'State', 'off');
-                end
-            end
         end
 
         function snapToTailIfNeeded_(~, fp)
