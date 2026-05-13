@@ -26,9 +26,10 @@ classdef TestLockfileMex < matlab.unittest.TestCase
             addpath(root);
             install();
             addpath(fullfile(root, 'libs', 'Concurrency'));
-            addpath(fullfile(root, 'libs', 'Concurrency', 'private'));
 
             % Octave platform-tag subdirectory (Pitfall E)
+            % On Octave, MEX goes to private/octave-<tag>/ so add that path.
+            % On MATLAB, MEX goes to libs/Concurrency/ root (already added above).
             try
                 if exist('OCTAVE_VERSION', 'builtin') == 5
                     arch = lower(computer('arch'));
@@ -49,9 +50,7 @@ classdef TestLockfileMex < matlab.unittest.TestCase
 
             % Build MEX if not yet compiled
             if exist('lockfile_mex', 'file') ~= 3
-                addpath(fullfile(root, 'libs', 'Concurrency'));
                 build_concurrency_mex();
-                addpath(fullfile(root, 'libs', 'Concurrency', 'private'));
             end
 
             testCase.TempDir = tempname();
