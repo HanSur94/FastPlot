@@ -943,7 +943,7 @@ classdef FastSenseCompanion < handle
         %
         %   Errors: surfaced via uialert + log entry; never throws.
             try
-                obj.pruneOpenedFigures_();
+                obj.syncOpenedFigures_();
                 figs = obj.OpenedFigures_;
                 n = numel(figs);
                 if n == 0
@@ -1013,7 +1013,7 @@ classdef FastSenseCompanion < handle
         %   Figures opened outside the companion are not affected -- tracking is
         %   the only source of truth.
             try
-                obj.pruneOpenedFigures_();
+                obj.syncOpenedFigures_();
                 figs = obj.OpenedFigures_;    % snapshot -- close() callbacks may mutate
                 n = numel(figs);
                 if n == 0
@@ -1537,6 +1537,36 @@ classdef FastSenseCompanion < handle
             keep = arrayfun(@(h) ishandle(h) && isgraphics(h, 'figure'), ...
                 obj.OpenedFigures_);
             obj.OpenedFigures_ = obj.OpenedFigures_(keep);
+        end
+
+        function syncOpenedFigures_(obj)
+        %SYNCOPENEDFIGURES_ Reconcile OpenedFigures_ with reality before iterating.
+        %   Two reasons we need this before every Tile / Close-all click:
+        %     1. DashboardListPane fires OpenDashboardRequested BEFORE it calls
+        %        engine.render(), so the synchronous listener sees hFigure=[]
+        %        and can't track on first open.
+        %     2. Engines passed into the constructor (or attached via setProject)
+        %        may have already been rendered by the caller — they were never
+        %        opened "through" the companion at all.
+        %   Both cases are covered by pulling every Engines_{k}.hFigure that is
+        %   currently alive into OpenedFigures_. Dead handles are pruned first;
+        %   already-tracked handles are skipped (handle-equality dedupe).
+            obj.pruneOpenedFigures_();
+            for k = 1:numel(obj.Engines_)
+                e = obj.Engines_{k};
+                if isempty(e) || ~isvalid(e); continue; end
+                hFig = e.hFigure;
+                if isempty(hFig) || ~ishandle(hFig); continue; end
+                already = false;
+                for j = 1:numel(obj.OpenedFigures_)
+                    if obj.OpenedFigures_(j) == hFig
+                        already = true; break;
+                    end
+                end
+                if ~already
+                    obj.OpenedFigures_(end+1, 1) = hFig;
+                end
+            end
         end
 
         function onOpenAdHocPlotRequested_(obj, ~, evt)

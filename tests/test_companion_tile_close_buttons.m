@@ -28,6 +28,7 @@ function test_companion_tile_close_buttons()
     [p, t] = test_close_all_clears_tracking_();    nPassed = nPassed + p; nTotal = nTotal + t;
     [p, t] = test_outside_figures_not_touched_();  nPassed = nPassed + p; nTotal = nTotal + t;
     [p, t] = test_toolbar_buttons_present_();      nPassed = nPassed + p; nTotal = nTotal + t;
+    [p, t] = test_sync_pulls_prerendered_engine_();nPassed = nPassed + p; nTotal = nTotal + t;
 
     if nPassed == nTotal
         fprintf('    All %d tests passed.\n', nTotal);
@@ -225,6 +226,58 @@ function [passed, total] = test_toolbar_buttons_present_()
         'toolbar: Tile button missing. Found buttons: %s', strjoin(texts, ', '));
     assert(any(strcmp(texts, 'Close all')), ...
         'toolbar: Close all button missing. Found buttons: %s', strjoin(texts, ', '));
+
+    passed = 1;
+end
+
+function [passed, total] = test_sync_pulls_prerendered_engine_()
+%TEST_SYNC_PULLS_PRERENDERED_ENGINE_ Engines rendered BEFORE construction get tracked.
+%   Reproduces the live-demo bug: run_demo builds + renders a DashboardEngine,
+%   THEN passes it to FastSenseCompanion. The OpenDashboardRequested event
+%   never fires for that engine, so the lazy tracking hook misses it. The
+%   eager syncOpenedFigures_ helper (called at the top of tileOpenedWindows
+%   and closeAllOpenedWindows) must pull the figure from Engines_ on first
+%   click so Tile / Close all work for the demo's initial dashboard.
+    total = 1; passed = 0;
+
+    % Build + render the engine BEFORE the companion exists.
+    d = DashboardEngine('S0Y-sync-prerender');
+    d.render();
+    set(d.hFigure, 'Visible', 'off');
+    figCleanup = onCleanup(@() safe_delete_fig_(d.hFigure)); %#ok<NASGU>
+
+    % Construct companion over the already-rendered engine; do not fire
+    % OpenDashboardRequested ourselves.
+    app = FastSenseCompanion('Dashboards', {d}, 'Theme', 'dark');
+    try
+        fig = app.getFigForTest_();
+        if ~isempty(fig) && isvalid(fig); fig.Visible = 'off'; end
+    catch
+    end
+    appCleanup = onCleanup(@() safe_close_app_(app)); %#ok<NASGU>
+
+    % Before any sync, OpenedFigures_ is empty -- nothing has tracked yet.
+    pre = app.getOpenedFiguresForTest_();
+    assert(isempty(pre), ...
+        'expected OpenedFigures_ empty before first sync, got %d entries', numel(pre));
+
+    % Calling tile triggers syncOpenedFigures_, which pulls d.hFigure from
+    % Engines_. Read the tracking list right after and verify.
+    app.tileOpenedWindows();
+    post = app.getOpenedFiguresForTest_();
+    assert(numel(post) == 1, ...
+        'sync must surface 1 engine figure on Tile, got %d', numel(post));
+    assert(post(1) == d.hFigure, ...
+        'tracked figure must equal the engine''s hFigure');
+
+    % Snapshot the figure handle BEFORE closeAll -- DashboardEngine's
+    % CloseRequestFcn (stopLive + delete) may clear d.hFigure, leaving
+    % d.hFigure == [], and ishandle([]) returns [] which is not convertible
+    % to a scalar logical for assert().
+    hFigSnap = d.hFigure;
+    app.closeAllOpenedWindows();
+    assert(~ishandle(hFigSnap), ...
+        'closeAllOpenedWindows must close the pre-rendered engine''s figure');
 
     passed = 1;
 end
