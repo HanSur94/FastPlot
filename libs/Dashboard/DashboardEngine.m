@@ -70,6 +70,7 @@ classdef DashboardEngine < handle
         SliderDebounceTimer = []   % MATLAB timer for coalescing rapid slider events
         ResizeDebounceTimer = []   % MATLAB timer for coalescing rapid resize events (260513-q7w)
         ResizeFinalRedrawTimer = [] % Longer-period backstop timer: unconditional rerenderWidgets after resize fully settles (260513-q7w fu)
+        IsRerendering_ = false   % true while rerenderWidgets is in flight — suppresses spurious resize-timer scheduling that the panel teardown/recreate cascade would otherwise trigger (260513-q7w fu2)
         TimeRangeSelector_  = []   % TimeRangeSelector handle (replaces dual sliders)
         % [tStart tEnd] cache of most recent broadcast (260508-llw); used by
         % switchPage to re-apply the current synced window to widgets that
@@ -187,6 +188,13 @@ classdef DashboardEngine < handle
             if pageIdx < 1 || pageIdx > numel(obj.Pages)
                 return;
             end
+            % Cancel any pending resize-debounce timers from a prior resize.
+            % If the user resized then immediately clicked a different tab,
+            % the in-flight backstop would fire ~1.2s later and rerender
+            % the wrong page (the NEW active page), destroying its
+            % freshly-realized panels mid-flight and leaving widgets
+            % white. (260513-q7w fu2)
+            obj.cancelResizeTimers_();
             obj.ActivePage = pageIdx;
             % Update button colors if PageBar exists
             if ~isempty(obj.hPageButtons)
@@ -1246,6 +1254,15 @@ classdef DashboardEngine < handle
 
         function rerenderWidgets(obj)
         %RERENDERWIDGETS Delete all widget panels and recreate them.
+            % Mark in-flight so the SizeChangedFcn that fires during
+            % panel teardown/recreate doesn't schedule new resize-debounce
+            % timers — that would cause a recursive rerender cascade.
+            % Also cancel any timers that ARE currently scheduled — they
+            % are about to be invalidated by this rerender anyway.
+            % (260513-q7w fu2)
+            obj.IsRerendering_ = true;
+            obj.cancelResizeTimers_();
+            rerenderCleanup = onCleanup(@() obj.clearRerenderFlag_());
             theme = obj.getCachedTheme();
             ws = obj.activePageWidgets();
             for i = 1:numel(ws)
@@ -1733,6 +1750,15 @@ classdef DashboardEngine < handle
             if ~obj.isObjValid_()
                 return;  % SizeChangedFcn fired after engine was deleted
             end
+            % If a rerenderWidgets is currently in flight, the panel
+            % teardown + recreate cascade fires its own SizeChangedFcn
+            % events. Scheduling new debounce timers from inside that
+            % cascade leads to recursive rerenders. Skip the entire
+            % onResize body — the in-progress rerenderWidgets will leave
+            % the layout consistent. (260513-q7w fu2)
+            if obj.IsRerendering_
+                return;
+            end
             if ~isempty(obj.hFigure) && ishandle(obj.hFigure)
                 obj.repositionPanels();
                 obj.repositionStaleBanner_();
@@ -1758,6 +1784,48 @@ classdef DashboardEngine < handle
                 % after long holds at very small window sizes, destroyed
                 % line handles, etc.). (260513-q7w fu)
                 obj.scheduleResizeFinalRedraw_();
+            end
+        end
+
+        function clearRerenderFlag_(obj)
+        %CLEARRERENDERFLAG_ Reset IsRerendering_ via onCleanup so it
+        %   always lands false even if rerenderWidgets throws.
+        %   (260513-q7w fu2)
+            try
+                if isvalid(obj)
+                    obj.IsRerendering_ = false;
+                end
+            catch
+            end
+        end
+
+        function cancelResizeTimers_(obj)
+        %CANCELRESIZETIMERS_ Stop + delete both resize-related debounce
+        %   timers. Called from switchPage so a stale backstop scheduled
+        %   for the previous page doesn't fire after the user has moved
+        %   to a different tab; also called from rerenderWidgets so the
+        %   spurious SizeChangedFcn that fires during panel teardown
+        %   doesn't reschedule us into a cascade.
+        %   (260513-q7w fu2)
+            if ~isempty(obj.ResizeDebounceTimer)
+                try
+                    if isvalid(obj.ResizeDebounceTimer)
+                        stop(obj.ResizeDebounceTimer);
+                        delete(obj.ResizeDebounceTimer);
+                    end
+                catch
+                end
+                obj.ResizeDebounceTimer = [];
+            end
+            if ~isempty(obj.ResizeFinalRedrawTimer)
+                try
+                    if isvalid(obj.ResizeFinalRedrawTimer)
+                        stop(obj.ResizeFinalRedrawTimer);
+                        delete(obj.ResizeFinalRedrawTimer);
+                    end
+                catch
+                end
+                obj.ResizeFinalRedrawTimer = [];
             end
         end
 
@@ -1852,15 +1920,14 @@ classdef DashboardEngine < handle
             if isempty(obj.hFigure) || ~ishandle(obj.hFigure)
                 return;
             end
-            % Re-entrancy guard: SizeChangedFcn fires during initial
-            % render() (when the figure grows to accommodate the layout),
-            % so this 1.2 s timer can land mid-render — rerenderWidgets()
-            % would then clobber obj.Progress_ and the outer render()'s
-            % finish() call would explode. If a render is in flight
-            % (Progress_ non-empty), reschedule the backstop and bail.
-            % (260513-q7w fu re-entrancy fix)
-            if ~isempty(obj.Progress_)
-                obj.scheduleResizeFinalRedraw_();
+            % Re-entrancy guard: if a render is currently in flight
+            % (Progress_ non-empty), or rerenderWidgets is mid-flight,
+            % bail entirely — the in-progress operation will leave the
+            % layout consistent. Self-rescheduling here was the original
+            % design but interacted badly with switchPage: the deferred
+            % backstop kept landing AFTER the user navigated, on the
+            % wrong page. (260513-q7w fu2)
+            if ~isempty(obj.Progress_) || obj.IsRerendering_
                 return;
             end
             try
