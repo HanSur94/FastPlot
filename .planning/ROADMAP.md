@@ -10,10 +10,22 @@
 - 📋 **v2.1 Tag-API Tech Debt Cleanup** — Phases 1012-1017 (carry-forward, parallel — not active)
 - ✅ **v3.0 FastSense Companion** — Phases 1018-1023 + 1023.1 gap closure (shipped 2026-04-30)
 - 🚧 **Pending milestone** — Phases 1025-1028 (promoted from backlog 2026-05-08, awaiting milestone scoping; 1024 closed via quick task 260508-d7k)
+- 🚧 **v3.1 Plant Log Integration** — Phases 1029-1033 (started 2026-05-13)
 
 ## Phases
 
 <details open>
+<summary>🚧 v3.1 Plant Log Integration (Phases 1029-1033) — started 2026-05-13</summary>
+
+- [ ] **Phase 1029: Plant Log Storage Foundation** — `PlantLogStore` class with time-range queries and timestamp+row-hash dedup
+- [ ] **Phase 1030: CSV/XLSX Import + Mapping Dialog** — File reader with auto-detected timestamp/message columns and a uifigure override dialog
+- [ ] **Phase 1031: Live Tail + Slider Preview Overlay** — Periodic re-read timer plus black plant-log lines on the dashboard slider with hover tooltips
+- [ ] **Phase 1032: Per-Widget Plant Log Overlay** — Opt-in `ShowPlantLog` toggle that draws black plant-log lines on FastSenseWidget axes with full-metadata tooltips
+- [ ] **Phase 1033: Dashboard + Companion Integration & Serialization** — `attachPlantLog`/`detachPlantLog` API, JSON/.m persistence of source path and mapping, and Companion "Open Plant Log…" toolbar entry
+
+</details>
+
+<details>
 <summary>🚧 Pending milestone (Phases 1025-1028) — promoted from backlog 2026-05-08</summary>
 
 - [x] Phase 1024: Fix companion app dark mode — closed via quick task [260508-d7k](./quick/260508-d7k-fix-companion-app-dark-mode-switching-th/) (2026-05-08)
@@ -116,78 +128,90 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 | 1027. Companion detachable log window | pending | 5/5 | Complete    | 2026-05-08 |
 | 1027.1. Independent events/live log detach | pending | 8/8 | Complete    | 2026-05-08 |
 | 1028. Tag update perf — MEX + SIMD | pending | 0/? | Not started | — |
+| 1029. Plant Log Storage Foundation | v3.1 | 1/3 | In Progress|  |
+| 1030. CSV/XLSX Import + Mapping Dialog | v3.1 | 0/? | Not started | — |
+| 1031. Live Tail + Slider Preview Overlay | v3.1 | 0/? | Not started | — |
+| 1032. Per-Widget Plant Log Overlay | v3.1 | 0/? | Not started | — |
+| 1033. Dashboard + Companion Integration & Serialization | v3.1 | 0/? | Not started | — |
 
-## Phase Details (Pending Milestone)
+## Phase Details (v3.1 Plant Log Integration)
 
-### Phase 1024: Fix companion app dark mode — CLOSED
+### Phase 1029: Plant Log Storage Foundation
 
-**Status:** Closed 2026-05-08 via quick task [260508-d7k](./quick/260508-d7k-fix-companion-app-dark-mode-switching-th/).
+**Goal:** Establish a separate `PlantLogStore` data model — parallel to `EventStore` but never merged into it — that holds imported plant-log entries, dedupes by timestamp + row-content hash, and exposes time-range queries plus a count API.
 
-**Root cause:** `applyThemeToChildren_` walker silently skipped widget classes without an explicit `case`. `uilistbox` (TagCatalogPane Row 7 — the tag list) was the visible casualty.
+**Depends on:** Nothing (foundation phase for v3.1)
+**Requirements:** PLOG-ST-01, PLOG-ST-02, PLOG-ST-03, PLOG-ST-04, PLOG-ST-05
+**Success Criteria** (what must be TRUE):
+  1. User can construct an empty `PlantLogStore` and add entries that carry a timestamp, message text, and an arbitrary map of metadata column values; every stored entry returns its message and full metadata map on read.
+  2. User can query the store by `[t0, t1]` and receive every entry whose timestamp lies in that range, and can query the total entry count independently.
+  3. Re-adding rows with identical timestamp + row-content hash produces zero duplicate entries; the store's count stays stable across repeated identical adds.
+  4. No code path causes a plant-log entry to appear in `EventStore.getEvents()` — `PlantLogStore` and `EventStore` are confirmed as fully independent stores in tests.
+  5. `PlantLogStore:*` namespaced errors fire on invalid inputs, and pure-logic helpers (hashing, dedup, range filter) ship with unit tests that pass on both MATLAB and Octave.
+**Plans:** 1/3 plans executed
+- [x] 1029-01-entry-and-hash-PLAN.md — PlantLogEntry value class + djb2/computeRowHash private helpers + tests
+- [ ] 1029-02-store-PLAN.md — PlantLogStore handle class (reuses FastSense binary_search for ordered insert) + tests
+- [ ] 1029-03-install-and-smoke-PLAN.md — install.m wiring + end-to-end integration smoke test
 
-**Fix:** Added 8 widget cases to the walker (`ListBox`, `TextArea`, `CheckBox`, `NumericEditField`, `StateButton`, `ToggleButton`, `RadioButton`, `ButtonGroup`). Regression test asserts dark→light→dark flip across all classes.
+### Phase 1030: CSV/XLSX Import + Mapping Dialog
 
-**Promoted from:** Backlog 999.1 (2026-05-08)
+**Goal:** Build the one-shot import pipeline — a CSV/XLSX reader that auto-detects timestamp and message columns, preserves remaining columns as metadata, and surfaces a uifigure mapping dialog with a 10-row preview so the user can override auto-detection before confirming.
 
-### Phase 1025: FastSense hover crosshair + datatip
+**Depends on:** Phase 1029 (writes into `PlantLogStore`)
+**Requirements:** PLOG-IM-01, PLOG-IM-02, PLOG-IM-03, PLOG-IM-04, PLOG-IM-05, PLOG-IM-06, PLOG-IM-07, PLOG-IM-08
+**Success Criteria** (what must be TRUE):
+  1. User can point the importer at a `.csv` file and have every row become a plant-log entry; on MATLAB R2020b+, user can also import a `.xlsx` file (Octave XLSX support is gated on `usejava('jvm')` + `which xlsread` and tests skip cleanly when unavailable).
+  2. On import, the system auto-selects the timestamp column as the first column whose values parse cleanly as dates/times, and auto-selects the message column as the first non-timestamp text column; every other column is preserved as metadata on each entry.
+  3. After auto-detection, the user sees a modal uifigure mapping dialog listing the detected timestamp column, message column, metadata columns, and a 10-row preview of the parsed result — and can override the timestamp column, message column, or explicit timestamp format string before confirming.
+  4. If no parseable timestamp column is detected, the user sees a non-blocking `uialert` and the dialog blocks confirmation until they pick a valid column manually.
+  5. `PlantLogReader:*` / `PlantLogImportDialog:*` namespaced errors fire on malformed inputs, all dialog callbacks are wrapped in try/catch with non-blocking `uialert`, and unit tests for the pure auto-detect helper pass on both MATLAB and Octave.
+**Plans:** TBD
+**UI hint**: yes
 
-**Goal:** Add a vertical crosshair line that follows the mouse when hovering over a FastSense plot/widget, with a context datatip window showing the values of all lines at the hovered x position.
+### Phase 1031: Live Tail + Slider Preview Overlay
 
-**Promoted from:** Backlog 999.2 (2026-05-08)
-**Requirements:** TBD
-**Plans:** 0 plans
+**Goal:** Add a periodic re-read live-tail timer that appends only newly-discovered rows to the store, and render every entry in the dashboard's bottom slider preview track as a black vertical line — visually distinct from existing sev1/2/3 markers — with a hover tooltip showing timestamp + message and a `MarkerPlantLog` theme token sourcing the color.
 
-### Phase 1026: Dashboard time slider preview
+**Depends on:** Phase 1029 (store), Phase 1030 (re-uses reader for re-reads)
+**Requirements:** PLOG-LT-01, PLOG-LT-02, PLOG-LT-03, PLOG-LT-04, PLOG-LT-05, PLOG-VIZ-01, PLOG-VIZ-02, PLOG-VIZ-06, PLOG-VIZ-08, PLOG-VIZ-09
+**Success Criteria** (what must be TRUE):
+  1. User can enable live tail on a `PlantLogStore`, choose a re-read interval (default 5 s), and watch the slider preview gain black vertical lines as new rows appear in the source file without any duplicate entries across re-reads.
+  2. When the user stops live tail (or closes the dashboard), the timer is stopped + deleted via the existing `Listeners_` + `stop(t); delete(t);` cleanup pattern; `timerfindall` shows no orphan timers and the cleanup path is exercised by tests.
+  3. Whenever a `PlantLogStore` is attached to a dashboard, the bottom slider preview track shows a 1px, full-opacity black vertical line for every entry within the slider's visible range — the existing sev1/2/3 colored markers remain unchanged and the black plant-log lines are visually distinguishable from them.
+  4. Hovering a plant-log line on the slider preview pops a small tooltip showing the entry's timestamp and message; new live-tail rows appear on the slider preview without a full dashboard re-render.
+  5. The line color is sourced from a new theme token `MarkerPlantLog` (default black on both light and dark themes), parse errors during live-tail re-read surface via non-blocking `uialert`/`warning` without crashing the dashboard or stopping the timer, and the slider-overlay insertion path reuses the existing event-marker hook in `TimeRangeSelector` (verified against the sev1/2/3 marker code path).
+**Plans:** TBD
+**UI hint**: yes
 
-**Goal:** Fix the lower dashboard time slider so it shows a preview overlay of all graphed plot lines and detected events across the full time range. Currently the slider track is empty — investigate why the preview rendering isn't happening and restore it.
+### Phase 1032: Per-Widget Plant Log Overlay
 
-**Promoted from:** Backlog 999.3 (2026-05-08)
-**Requirements:** TBD
-**Plans:** 0 plans
+**Goal:** Give every `FastSenseWidget` a `ShowPlantLog` toggle (default off) that, when enabled, draws black plant-log vertical lines on the widget's axes for entries within its current x-axis range, with a hover tooltip exposing timestamp + message + every metadata column value, and a button-bar icon to toggle the overlay per widget.
 
-### Phase 1027: Companion detachable log window
+**Depends on:** Phase 1029 (store), Phase 1031 (live-refresh contract + theme token)
+**Requirements:** PLOG-VIZ-03, PLOG-VIZ-04, PLOG-VIZ-05, PLOG-VIZ-07
+**Success Criteria** (what must be TRUE):
+  1. Every `FastSenseWidget` exposes a `ShowPlantLog` boolean property that defaults to `false`; existing dashboards continue to render with no plant-log lines on any widget unless the user opts in.
+  2. When a `PlantLogStore` is attached to the dashboard and a widget's `ShowPlantLog` is `true`, the widget's axes show a black vertical line at each entry timestamp within the widget's current x-axis range — color is sourced from the same `MarkerPlantLog` theme token introduced in Phase 1031.
+  3. User can toggle `ShowPlantLog` per widget via an icon button in the widget button bar; the overlay appears or disappears immediately on toggle.
+  4. Hovering a plant-log line on a widget pops a small tooltip showing the entry's timestamp, message, and every metadata column value; new live-tail rows appear on every `ShowPlantLog=true` widget without a full re-render (extending the Phase 1031 refresh contract to widget overlays).
+  5. The widget-overlay insertion path reuses the existing tag-bound event-marker hook in `FastSenseWidget` (verified against the existing event-marker draw path) and the icon-button callback is wrapped in try/catch with non-blocking `uialert`.
+**Plans:** TBD
+**UI hint**: yes
 
-**Goal:** In the FastSense Companion app, make the log panel detachable into its own draggable, resizable window — same pop-out pattern as detachable widgets in the main dashboard. Implementation extracts the log strip into a `LogPane` class (mirrors existing pane pattern) with an `Inline`/`Detached`/`Hidden` state machine driven by a top-toolbar dropdown.
+### Phase 1033: Dashboard + Companion Integration & Serialization
 
-**Promoted from:** Backlog 999.4 (2026-05-08)
-**Requirements:** TBD
-**Plans:** 5/5 plans complete
+**Goal:** Wire plant logs into the dashboard and Companion as a first-class feature — `DashboardEngine.attachPlantLog(path, opts)` / `detachPlantLog()`, JSON and `.m` serialization of source path + column mapping + live-tail interval + per-widget `ShowPlantLog`, re-import on load, and a `FastSenseCompanion` toolbar "Open Plant Log…" entry that attaches to every managed dashboard.
 
-Plans:
-- [x] 1027-01-create-logpane-class-PLAN.md — extract self-contained `LogPane` class (UI + buffers + filter + theme + DetachRequested event)
-- [x] 1027-02-test-logpane-PLAN.md — class-based unit suite covering attach/detach lifecycle, buffer preservation, theme switch, 500-row cap, event firing
-- [x] 1027-03-integrate-logpane-companion-PLAN.md — wire `LogPane` into `FastSenseCompanion`, add toolbar `Live` button + `Log:` dropdown, implement `setLogState_` state machine, update theme walker to skip LogPaneRoot
-- [x] 1027-04-extend-companion-tests-PLAN.md — add 10 state-machine + Live-button-relocation + theme-while-detached tests to `TestFastSenseCompanion`
-- [x] 1027-05-update-walker-test-PLAN.md — add LogPaneRoot skip-rule assertions to `test_companion_apply_theme_walker`
-
-
-### Phase 1027.1: Independent events/live log detach (gap closure)
-
-**Goal:** Make the events log and the live updates log independently detachable. Phase 1027 detached them as one unit; this phase splits the contract so each log has its own `Inline`/`Detached`/`Hidden` state, its own pop-out icon, its own detached `uifigure`, and its own toolbar dropdown. Inline strip rebalances so the still-inline log fills the row.
-
-**Source:** User feedback after Phase 1027 demo (2026-05-08) — "we have 2 logs right? I want both separately detachable."
-**Spec:** [docs/superpowers/specs/2026-05-08-independent-log-detach-design.md](../../docs/superpowers/specs/2026-05-08-independent-log-detach-design.md)
-**Requirements:** none — CONTEXT.md acceptance criteria are the contract
-**Plans:** 8/8 plans complete
-
-Plans:
-- [x] 1027.1-01-create-events-log-pane-PLAN.md — port events-half of LogPane into self-contained `EventsLogPane` class (Wave 1, parallel-safe)
-- [x] 1027.1-02-create-live-log-pane-PLAN.md — port live-half of LogPane into self-contained `LiveLogPane` class with own pop-out icon (Wave 1, parallel-safe)
-- [x] 1027.1-03-test-events-log-pane-PLAN.md — class-based unit suite for EventsLogPane (Wave 2, depends on 01)
-- [x] 1027.1-04-test-live-log-pane-PLAN.md — class-based unit suite for LiveLogPane (Wave 2, depends on 02)
-- [x] 1027.1-05-companion-integration-PLAN.md — heavy: replace LogPane with two panes, two dropdowns, two detached uifigures, parameterized `setLogState_(which, newState)`, `rebalanceLogStrip_()` (Wave 3, depends on 01+02)
-- [x] 1027.1-06-delete-old-logpane-PLAN.md — delete `libs/FastSenseCompanion/LogPane.m` and `tests/suite/TestLogPane.m` (Wave 4, depends on 05)
-- [x] 1027.1-07-update-companion-tests-PLAN.md — migrate Phase 1027 accessors and add 5 independence tests to `TestFastSenseCompanion` (Wave 4, depends on 05)
-- [x] 1027.1-08-update-walker-test-PLAN.md — assert two-panel LogPaneRoot skip-rule in walker test (Wave 4, depends on 05)
-
-
-### Phase 1028: Tag update perf — MEX + SIMD
-
-**Goal:** Profile and accelerate the tag update path (SensorTag/StateTag/MonitorTag/CompositeTag streaming + recompute). Identify hot spots and replace with C MEX kernels using SIMD (AVX2 / NEON) where it pays off, consistent with existing FastSense MEX patterns.
-
-**Promoted from:** Backlog 999.5 (2026-05-08)
-**Requirements:** TBD
-**Plans:** 0 plans
+**Depends on:** Phase 1029 (store), Phase 1030 (importer), Phase 1031 (slider overlay + live tail), Phase 1032 (widget overlay)
+**Requirements:** PLOG-INT-01, PLOG-INT-02, PLOG-INT-03, PLOG-INT-04, PLOG-INT-05
+**Success Criteria** (what must be TRUE):
+  1. User can call `engine.attachPlantLog(filePath, opts)` and immediately see the slider preview black-line overlay activate on that dashboard; `engine.detachPlantLog()` removes all slider and widget overlays and cleanly stops any active live tail (timer stopped + deleted, no orphans in `timerfindall`).
+  2. User can click `FastSenseCompanion`'s toolbar "Open Plant Log…" entry, pick a file in the resulting dialog, and have the resulting `PlantLogStore` attach to every open `DashboardEngine` instance the Companion is managing.
+  3. Saving a dashboard via `DashboardSerializer` (both JSON and `.m` export) writes the plant-log source path, the column mapping (timestamp/message/metadata + explicit format if overridden), the live-tail interval, and each widget's `ShowPlantLog` flag — but does NOT serialize the imported entries themselves.
+  4. Loading a serialized dashboard re-imports the plant log from the saved source path using the saved column mapping, restores each widget's `ShowPlantLog` state, and the slider overlay reappears with the freshly-imported entries; existing v1.0–v3.0 serialized dashboards (with no plant-log section) continue to load without error.
+  5. All new public APIs raise `PlantLogStore:*` / `PlantLogReader:*` namespaced errors on invalid inputs, every Companion toolbar callback is wrapped in try/catch with non-blocking `uialert`, and the round-trip "attach → save → load → re-attach" path is covered by tests that pass on both MATLAB and Octave (with XLSX gated where necessary).
+**Plans:** TBD
+**UI hint**: yes
 
 ## Backlog
 
