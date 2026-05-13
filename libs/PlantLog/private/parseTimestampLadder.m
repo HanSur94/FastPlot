@@ -47,10 +47,15 @@ function [tsOut, successRatio] = parseTimestampLadder(values, formatHint)
 
     % Coerce input to cellstr
     if isnumeric(values)
-        % Already datenum-like: validate finite, return mask
+        % Already datenum-like: only accept values that plausibly are
+        % datenums (finite AND > 1e5). 1e5 in datenum-epoch is around
+        % 1873-10-15, well before any plant-log file's plausible range.
+        % This prevents tiny numeric columns (e.g. counts 1..1000) from
+        % being misclassified as the timestamp column by autoDetect.
         tsOut = double(values(:));
-        successRatio = sum(isfinite(tsOut)) / max(numel(tsOut), 1);
-        tsOut(~isfinite(tsOut)) = NaN;
+        plausible = isfinite(tsOut) & tsOut > 1e5;
+        tsOut(~plausible) = NaN;
+        successRatio = sum(plausible) / max(numel(tsOut), 1);
         return;
     end
     % MATLAB's readtable can auto-promote ISO timestamps to datetime objects;
