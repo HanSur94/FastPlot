@@ -17,7 +17,7 @@
 <details open>
 <summary>🚧 v3.1 Plant Log Integration (Phases 1029-1033) — started 2026-05-13</summary>
 
-- [ ] **Phase 1029: Plant Log Storage Foundation** — `PlantLogStore` class with time-range queries and timestamp+row-hash dedup
+- [x] **Phase 1029: Plant Log Storage Foundation** — `PlantLogStore` class with time-range queries and timestamp+row-hash dedup (3/3 plans complete, 2026-05-13)
 - [ ] **Phase 1030: CSV/XLSX Import + Mapping Dialog** — File reader with auto-detected timestamp/message columns and a uifigure override dialog
 - [ ] **Phase 1031: Live Tail + Slider Preview Overlay** — Periodic re-read timer plus black plant-log lines on the dashboard slider with hover tooltips
 - [ ] **Phase 1032: Per-Widget Plant Log Overlay** — Opt-in `ShowPlantLog` toggle that draws black plant-log lines on FastSenseWidget axes with full-metadata tooltips
@@ -128,7 +128,7 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 | 1027. Companion detachable log window | pending | 5/5 | Complete    | 2026-05-08 |
 | 1027.1. Independent events/live log detach | pending | 8/8 | Complete    | 2026-05-08 |
 | 1028. Tag update perf — MEX + SIMD | pending | 0/? | Not started | — |
-| 1029. Plant Log Storage Foundation | v3.1 | 2/3 | In Progress|  |
+| 1029. Plant Log Storage Foundation | v3.1 | 3/3 | Complete   | 2026-05-13 |
 | 1030. CSV/XLSX Import + Mapping Dialog | v3.1 | 0/? | Not started | — |
 | 1031. Live Tail + Slider Preview Overlay | v3.1 | 0/? | Not started | — |
 | 1032. Per-Widget Plant Log Overlay | v3.1 | 0/? | Not started | — |
@@ -148,10 +148,10 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
   3. Re-adding rows with identical timestamp + row-content hash produces zero duplicate entries; the store's count stays stable across repeated identical adds.
   4. No code path causes a plant-log entry to appear in `EventStore.getEvents()` — `PlantLogStore` and `EventStore` are confirmed as fully independent stores in tests.
   5. `PlantLogStore:*` namespaced errors fire on invalid inputs, and pure-logic helpers (hashing, dedup, range filter) ship with unit tests that pass on both MATLAB and Octave.
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 - [x] 1029-01-entry-and-hash-PLAN.md — PlantLogEntry value class + djb2/computeRowHash private helpers + tests
 - [x] 1029-02-store-PLAN.md — PlantLogStore handle class (reuses FastSense binary_search for ordered insert) + tests
-- [ ] 1029-03-install-and-smoke-PLAN.md — install.m wiring + end-to-end integration smoke test
+- [x] 1029-03-install-and-smoke-PLAN.md — install.m wiring + end-to-end integration smoke test
 
 ### Phase 1030: CSV/XLSX Import + Mapping Dialog
 

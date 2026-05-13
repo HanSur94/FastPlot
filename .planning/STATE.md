@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Plant Log Integration
-status: executing
-last_updated: "2026-05-13T21:08:27.874Z"
+status: verifying
+stopped_at: Completed 1029-03-install-and-smoke-PLAN.md — Phase 1029 closed
+last_updated: "2026-05-13T21:18:26.320Z"
 last_activity: 2026-05-13
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # State
@@ -25,24 +26,24 @@ toolbox dependencies.
 
 ## Current Position
 
-Phase: 1029 (Plant Log Storage Foundation) — EXECUTING
-Plan: 3 of 3
+Phase: 1029 (Plant Log Storage Foundation) — COMPLETE
+Plan: 3 of 3 (Phase 1029 closed)
 Milestone: v3.1 Plant Log Integration
-Status: Plan 02 complete, ready for Plan 03 (install.m wiring + integration smoke)
-Last activity: 2026-05-13 -- Plan 1029-02 (store) complete
+Status: Phase complete — ready for `/gsd:verify-phase 1029` then `/gsd:start-phase 1030`
+Last activity: 2026-05-13 -- Plan 1029-03 (install + smoke) complete; Phase 1029 closed
 
 ## Progress Bar
 
 v3.1 Plant Log Integration:
 
-- [ ] Phase 1029: Plant Log Storage Foundation — 2/3 plans
+- [x] Phase 1029: Plant Log Storage Foundation — 3/3 plans
 - [ ] Phase 1030: CSV/XLSX Import + Mapping Dialog — 0/? plans
 - [ ] Phase 1031: Live Tail + Slider Preview Overlay — 0/? plans
 - [ ] Phase 1032: Per-Widget Plant Log Overlay — 0/? plans
 - [ ] Phase 1033: Dashboard + Companion Integration & Serialization — 0/? plans
 
-Phases complete: 0/5
-Plans complete: 2/3 (67%) in Phase 1029
+Phases complete: 1/5
+Plans complete: 3/3 (100%) in Phase 1029
 
 ## Accumulated Context
 
@@ -154,23 +155,22 @@ separate REQ-IDs:
 
 ## Session Continuity
 
-- **Resume point:** Phase 1029 — Plan 03 `install.m wiring + integration smoke`.
-  `PlantLogEntry`, the private hash helpers (`djb2Hash`, `computeRowHash`), and
-  `PlantLogStore` are all available under `libs/PlantLog/`. Run
-  `/gsd:execute-phase 1029` (or directly execute `1029-03-install-and-smoke-PLAN.md`)
-  to wire the library directory into the global `install.m` path loop and to
-  add the end-to-end integration smoke test that exercises the full pipeline
-  without explicit `addpath` helpers.
+- **Resume point:** Phase 1029 is **closed**. Next step: run `/gsd:verify-phase 1029`
+  to confirm every PLOG-ST-* requirement has matching test evidence, then
+  `/gsd:start-phase 1030` to begin the CSV/XLSX importer (which will consume
+  `PlantLogStore.computeEntryHash` and `PlantLogStore.addEntries` directly).
 
-- **Order of phases:** 1029 → 1030 → 1031 → 1032 → 1033 (each phase depends on
+- **Order of phases:** 1029 ✅ → 1030 → 1031 → 1032 → 1033 (each phase depends on
   prior phases; no parallel execution paths).
 
 - **Coverage:** 32/32 active PLOG-* requirements mapped to phases — verified
-  during roadmap creation.
+  during roadmap creation. PLOG-ST-01..05 (5/32) now have unit + integration proof.
 
-- **Stopped at:** 2026-05-13 -- Completed 1029-02-store-PLAN.md (PlantLogStore
-  handle class + cross-runtime tests; 21/21 PASS on both MATLAB and Octave).
-  Plan 03 (install.m wiring + integration smoke) next.
+- **Stopped at:** 2026-05-13 -- Completed 1029-03-install-and-smoke-PLAN.md;
+  Phase 1029 closed. install.m wired with libs/PlantLog/; integration smokes
+  (function-style + class-based) shipped; full Phase 1029 surface 44/44
+  class-based + 47/47 function-style PASS on MATLAB and 47/47 function-style
+  PASS on Octave.
 
 ## Decisions Log
 
@@ -206,3 +206,21 @@ separate REQ-IDs:
   21/21 function-style + 21/21 class-based tests PASS on MATLAB; 21/21
   function-style PASS on Octave. See
   `.planning/phases/1029-plant-log-storage-foundation/1029-02-store-SUMMARY.md`.
+
+- **Plan 03 (install + smoke, 2026-05-13)** — Wired `libs/PlantLog/` into
+  `install.m` with a two-line edit: one documentation entry under the
+  "Directories added" comment block (line 25), one `addpath(fullfile(root,
+  'libs', 'PlantLog'))` in the libs-block (line 59), both directly after the
+  FastSenseCompanion entries. `verify_installation` was deliberately NOT
+  expanded with PlantLogStore (locked decision) — the integration smoke owns
+  the `which('PlantLogStore')` verification, which is hard-failure semantics
+  vs. the warning-only semantics of `verify_installation`'s `core_classes`.
+  Shipped `tests/test_plant_log_integration_smoke.m` (9 assertions in one
+  flow) and `tests/suite/TestPlantLogIntegrationSmoke.m` (7 Test methods) —
+  both deliberately omit any manual `addpath(fullfile(..., 'libs', 'PlantLog'))`
+  so a regression to the install.m edit fails fast at the very first `which()`
+  assertion. Phase 1029 closure: 44/44 class-based tests + 47/47
+  function-style assertions green on MATLAB; 47/47 function-style assertions
+  green on Octave. All 5 PLOG-ST-* requirements integration-proven (multiple
+  distinct test paths each). See
+  `.planning/phases/1029-plant-log-storage-foundation/1029-03-install-and-smoke-SUMMARY.md`.
