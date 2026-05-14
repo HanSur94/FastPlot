@@ -30,6 +30,11 @@ classdef EventLog < handle
 %     EventLog:invalidTagKey     — tagKey is empty or non-char/string
 %     EventLog:invalidEvent      — eventStruct is not a non-empty scalar struct
 %     EventLog:openFailed        — fopen() returned a negative file descriptor
+%     EventLog:lockContended     — reserved for callers that prefer a hard error on
+%                                  contention; the default ok=false return is the
+%                                  skip-and-defer path (Phase 1030-01 SUMMARY contract).
+%                                  Callers may throw this ID from their retry loop on
+%                                  LastAppendSkipped exceeding a threshold.
 %
 %   Phase 1031 contingency (SC6): this implementation uses a SINGLE per-tag
 %   NDJSON file. If SMB-atomicity stress on the target file server shows torn
