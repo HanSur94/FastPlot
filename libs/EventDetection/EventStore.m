@@ -370,7 +370,7 @@ classdef EventStore < handle
                     if isfield(id, 'epoch')
                         ep = id.epoch;
                         if isa(ep, 'datetime')
-                            identityEpoch = datenum(ep);
+                            identityEpoch = datenum(ep); %#ok<DATNM>
                         else
                             identityEpoch = double(ep);
                         end
@@ -432,7 +432,7 @@ classdef EventStore < handle
                 if isempty(obj.acks_)
                     obj.acks_ = ack;
                 else
-                    obj.acks_(end+1) = ack; %#ok<AGROW>
+                    obj.acks_(end+1) = ack;
                 end
             end
         end
