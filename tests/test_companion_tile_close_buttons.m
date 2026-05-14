@@ -28,8 +28,8 @@ function test_companion_tile_close_buttons()
     [p, t] = test_close_all_clears_tracking_();    nPassed = nPassed + p; nTotal = nTotal + t;
     [p, t] = test_outside_figures_not_touched_();  nPassed = nPassed + p; nTotal = nTotal + t;
     [p, t] = test_toolbar_buttons_present_();      nPassed = nPassed + p; nTotal = nTotal + t;
-    [p, t] = test_sync_pulls_prerendered_engine_();nPassed = nPassed + p; nTotal = nTotal + t;
-    [p, t] = test_public_trackopenedfigure_hook_();nPassed = nPassed + p; nTotal = nTotal + t;
+    [p, t] = test_sync_pulls_prerendered_engine_(); nPassed = nPassed + p; nTotal = nTotal + t;
+    [p, t] = test_public_trackopenedfigure_hook_(); nPassed = nPassed + p; nTotal = nTotal + t;
 
     if nPassed == nTotal
         fprintf('    All %d tests passed.\n', nTotal);
