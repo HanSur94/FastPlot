@@ -1188,6 +1188,83 @@ classdef TestFastSenseCompanion < matlab.unittest.TestCase
                 'ObjectBeingDestroyed listener must clear EventViewer_.');
         end
 
+        % ---- Phase 1033 Plan 01: SharedRoot / Cluster-mode wiring ----
+
+        function testSingleUserModeUnchanged(testCase)
+        %TESTSINGLEUSERMODEUNCHANGED OPS-01: zero 'SharedRoot' NV-pair = single-user byte-identical.
+            TagRegistry.clear();
+            testCase.addTeardown(@() TagRegistry.clear());
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() app.close());
+            testCase.verifyFalse(app.IsClusterMode, ...
+                'testSingleUserModeUnchanged: IsClusterMode must be false with no SharedRoot');
+            testCase.verifyEqual(app.SharedRoot, '', ...
+                'testSingleUserModeUnchanged: SharedRoot must be empty with no NV-pair');
+            testCase.verifyFalse(app.getIsClusterMode(), ...
+                'testSingleUserModeUnchanged: getIsClusterMode() mismatch');
+            testCase.verifyEqual(app.getSharedRoot(), '', ...
+                'testSingleUserModeUnchanged: getSharedRoot() mismatch');
+            testCase.verifyEqual(app.getLastContentionNoticeText(), '', ...
+                'testSingleUserModeUnchanged: contention banner must be empty at construction');
+        end
+
+        function testSharedRootPropagation(testCase)
+        %TESTSHAREDROOTPROPAGATION OPS-01: SharedRoot NV-pair upgrades EventStore to cluster mode.
+            if exist('mksqlite', 'file') ~= 3
+                testCase.assumeFail('mksqlite MEX not available -- skipping cluster test');
+            end
+            % Use a clean registry to defeat registry auto-discovery.
+            TagRegistry.clear();
+            testCase.addTeardown(@() TagRegistry.clear());
+            % Build a temp SharedRoot per TestEventStoreCluster pattern.
+            root = fullfile(tempdir(), sprintf('fsc_%d', round(rand()*1e9)));
+            mkdir(root);
+            testCase.addTeardown(@() rmdir(root, 's'));
+            app = FastSenseCompanion('SharedRoot', root);
+            testCase.addTeardown(@() app.close());
+            testCase.verifyTrue(app.IsClusterMode, ...
+                'testSharedRootPropagation: IsClusterMode must be true');
+            testCase.verifyEqual(app.SharedRoot, root, ...
+                'testSharedRootPropagation: SharedRoot property mismatch');
+            store = app.getEventStore();
+            testCase.verifyNotEmpty(store, ...
+                'testSharedRootPropagation: EventStore must be constructed in cluster mode');
+            testCase.verifyClass(store, 'EventStore', ...
+                'testSharedRootPropagation: EventStore must be an EventStore handle');
+            % Cluster-mode behaviour smoke: getAckRecords must not throw in cluster mode.
+            testCase.verifyWarningFree( ...
+                @() store.getAckRecords(), ...
+                'testSharedRootPropagation: getAckRecords must not warn in cluster mode');
+        end
+
+        function testSharedRootValidation(testCase)
+        %TESTSHAREDROOTVALIDATION OPS-01: nonexistent SharedRoot throws sharedRootUnreachable.
+            bogus = fullfile(tempdir(), 'fsc_definitely_does_not_exist_xyz123abc');
+            testCase.verifyError( ...
+                @() FastSenseCompanion('SharedRoot', bogus), ...
+                'Concurrency:sharedRootUnreachable', ...
+                'testSharedRootValidation: nonexistent SharedRoot must throw');
+        end
+
+        function testExplicitEventStoreWins(testCase)
+        %TESTEXPLICITEVENTSTOREWINS OPS-01: explicit EventStore overrides cluster discovery.
+            if exist('mksqlite', 'file') ~= 3
+                testCase.assumeFail('mksqlite MEX not available -- skipping cluster EventStore test');
+            end
+            % Build a vanilla single-user EventStore explicitly.
+            evFile = fullfile(tempdir(), sprintf('fsc_evt_%d.mat', round(rand()*1e9)));
+            testCase.addTeardown(@() delete(evFile));
+            myStore = EventStore(evFile);
+            % Cluster root exists but should NOT cause re-wrap.
+            root = fullfile(tempdir(), sprintf('fsc_or_%d', round(rand()*1e9)));
+            mkdir(root);
+            testCase.addTeardown(@() rmdir(root, 's'));
+            app = FastSenseCompanion('SharedRoot', root, 'EventStore', myStore);
+            testCase.addTeardown(@() app.close());
+            testCase.verifySameHandle(app.getEventStore(), myStore, ...
+                'testExplicitEventStoreWins: explicit EventStore must win over cluster discovery');
+        end
+
     end
 
     methods (Access = private)
