@@ -92,6 +92,13 @@ classdef DashboardEngine < handle
         EventMarkerColorsCache_ = []   % last uColors (Nx3) passed to setEventMarkers
         PreviewLinesCache_      = {}   % last linesList (cell of structs) passed to setPreviewLines
         FigureDestroyedListener_ = []  % event.listener — fires onFigureDestroyed_ when obj.hFigure is destroyed (260511-mjb)
+        % Phase 1031 PLOG-VIZ-01..09: plant-log slider overlay test seam.
+        % These three properties are the temporary integration point used by
+        % setPlantLogStoreForTest_ / setPlantLogLiveTailForTest_; Phase 1033
+        % will replace the seam with the public attachPlantLog/detachPlantLog API.
+        PlantLogStoreInternal_    = []  % PlantLogStore handle (or [])
+        PlantLogLiveTailInternal_ = []  % PlantLogLiveTail handle (or [])
+        PlantLogTickListener_     = []  % addlistener handle for PlantLogLiveTail.PlantLogTailTick
     end
 
     methods (Access = public)
@@ -145,6 +152,10 @@ classdef DashboardEngine < handle
             try obj.computeEventMarkers();    catch err
                 if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
             end
+            % Phase 1031 PLOG-VIZ-01/08: refresh plant-log slider markers too.
+            try obj.computePlantLogMarkers(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:plantLogMarkersFailed', 'computePlantLogMarkers: %s', err.message); end
+            end
         end
 
         function setEventMarkersVisible(obj, tf)
@@ -176,6 +187,10 @@ classdef DashboardEngine < handle
             % reflected in the time-panel track too (260508 follow-up).
             try obj.computeEventMarkers(); catch err
                 if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
+            end
+            % Phase 1031 PLOG-VIZ-01/08: refresh plant-log slider markers too.
+            try obj.computePlantLogMarkers(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:plantLogMarkersFailed', 'computePlantLogMarkers: %s', err.message); end
             end
         end
 
@@ -288,6 +303,10 @@ classdef DashboardEngine < handle
             end
             try obj.computeEventMarkers();    catch err
                 if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
+            end
+            % Phase 1031 PLOG-VIZ-01/08: refresh plant-log slider markers too.
+            try obj.computePlantLogMarkers(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:plantLogMarkersFailed', 'computePlantLogMarkers: %s', err.message); end
             end
         end
 
@@ -1373,6 +1392,10 @@ classdef DashboardEngine < handle
             try obj.computeEventMarkers();    catch err
                 if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
             end
+            % Phase 1031 PLOG-VIZ-01/08: refresh plant-log slider markers too.
+            try obj.computePlantLogMarkers(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:plantLogMarkersFailed', 'computePlantLogMarkers: %s', err.message); end
+            end
         end
 
         function updateLiveTimeRange(obj)
@@ -1770,6 +1793,10 @@ classdef DashboardEngine < handle
             try obj.computeEventMarkers();    catch err
                 if obj.DebugPreview_, warning('DashboardEngine:eventMarkersFailed', 'computeEventMarkers: %s', err.message); end
             end
+            % Phase 1031 PLOG-VIZ-01/08: refresh plant-log slider markers too.
+            try obj.computePlantLogMarkers(); catch err
+                if obj.DebugPreview_, warning('DashboardEngine:plantLogMarkersFailed', 'computePlantLogMarkers: %s', err.message); end
+            end
         end
 
         function markAllDirty(obj)
@@ -2144,6 +2171,14 @@ classdef DashboardEngine < handle
                 try delete(obj.InfoModalFigure_); catch, end
             end
             obj.InfoModalFigure_ = [];
+            % Phase 1031 PLOG-VIZ-08: tear down plant-log live-tail listener.
+            try
+                if ~isempty(obj.PlantLogTickListener_) && isvalid(obj.PlantLogTickListener_)
+                    delete(obj.PlantLogTickListener_);
+                end
+            catch
+            end
+            obj.PlantLogTickListener_ = [];
         end
     end
 
@@ -2176,6 +2211,58 @@ classdef DashboardEngine < handle
         %   own width-derived default.
             if nargin < 2, nBuckets = []; end
             env = obj.computePreviewEnvelopeReturning_(nBuckets);
+        end
+
+        function setPlantLogStoreForTest_(obj, store)
+        %SETPLANTLOGSTOREFORTEST_ Phase 1031 test seam — replaced by attachPlantLog in Phase 1033.
+        %   Inject a PlantLogStore (or [] to detach) and immediately recompute
+        %   plant-log slider markers so callers can assert on the slider state
+        %   right after attach without waiting for a refresh hook.
+            if ~isempty(store) && ~isa(store, 'PlantLogStore')
+                error('DashboardEngine:invalidPlantLogStore', ...
+                    'store must be empty or a PlantLogStore; got %s.', class(store));
+            end
+            obj.PlantLogStoreInternal_ = store;
+            obj.computePlantLogMarkers();
+        end
+
+        function setPlantLogLiveTailForTest_(obj, tail)
+        %SETPLANTLOGLIVETAILFORTEST_ Phase 1031 test seam — wires PlantLogTailTick to refresh.
+        %   Inject a PlantLogLiveTail (or [] to detach + tear down listener).
+        %   When non-empty, installs an addlistener that calls
+        %   computePlantLogMarkers on every PlantLogTailTick so the slider
+        %   refreshes without a full dashboard re-render (PLOG-VIZ-08).
+            if ~isempty(tail) && ~isa(tail, 'PlantLogLiveTail')
+                error('DashboardEngine:invalidPlantLogLiveTail', ...
+                    'tail must be empty or a PlantLogLiveTail; got %s.', class(tail));
+            end
+            try
+                if ~isempty(obj.PlantLogTickListener_) && isvalid(obj.PlantLogTickListener_)
+                    delete(obj.PlantLogTickListener_);
+                end
+            catch
+            end
+            obj.PlantLogTickListener_ = [];
+            obj.PlantLogLiveTailInternal_ = tail;
+            if ~isempty(tail)
+                obj.PlantLogTickListener_ = addlistener(tail, 'PlantLogTailTick', ...
+                    @(~,~) obj.computePlantLogMarkers());
+            end
+        end
+
+        function setTimeRangeSelectorForTest_(obj, sel)
+        %SETTIMERANGESELECTORFORTEST_ Phase 1031 test seam — inject a
+        %   TimeRangeSelector handle without going through render(). Used by
+        %   TestPlantLogSliderOverlay to assert hPlantLogMarkers state without
+        %   paying full-dashboard render cost. The TimeRangeSelector_ property
+        %   is Access = private, so direct assignment from a test is impossible
+        %   — this hidden setter is the documented seam. Phase 1033's review
+        %   may remove it once render() pathways cover the new test cases.
+            if ~isempty(sel) && ~isa(sel, 'TimeRangeSelector')
+                error('DashboardEngine:invalidTimeRangeSelector', ...
+                    'sel must be empty or a TimeRangeSelector; got %s.', class(sel));
+            end
+            obj.TimeRangeSelector_ = sel;
         end
     end
 
@@ -2829,6 +2916,44 @@ classdef DashboardEngine < handle
             obj.EventMarkerTimesCache_  = uTimes;
             obj.EventMarkerColorsCache_ = uColors;
             obj.TimeRangeSelector_.setEventMarkers(uTimes, uColors);
+        end
+
+        function computePlantLogMarkers(obj)
+        %COMPUTEPLANTLOGMARKERS Push current plant-log entry timestamps onto the slider.
+        %   Phase 1031 PLOG-VIZ-01..02 + 08: plant-log overlay on TimeRangeSelector.
+        %   Mirrors computeEventMarkers' guard pattern (no-op before render or when
+        %   no store is attached). When PlantLogStoreInternal_ is empty the markers
+        %   are explicitly cleared so detach takes effect immediately.
+        %
+        %   Called at the same hook sites as computeEventMarkers (addPage,
+        %   setEventMarkersVisible, rerenderWidgets, both live-tick paths) plus
+        %   from setPlantLogStoreForTest_ and from the PlantLogTickListener_
+        %   callback installed by setPlantLogLiveTailForTest_.
+            if isempty(obj.TimeRangeSelector_) || ...
+                    ~isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+                return;
+            end
+            if isempty(obj.PlantLogStoreInternal_) || ...
+                    ~isa(obj.PlantLogStoreInternal_, 'PlantLogStore')
+                try
+                    obj.TimeRangeSelector_.setPlantLogMarkers([]);
+                catch
+                end
+                return;
+            end
+            try
+                t0 = obj.TimeRangeSelector_.DataRange(1);
+                t1 = obj.TimeRangeSelector_.DataRange(2);
+                entries = obj.PlantLogStoreInternal_.getEntriesInRange(t0, t1);
+                if isempty(entries)
+                    obj.TimeRangeSelector_.setPlantLogMarkers([]);
+                    return;
+                end
+                times = [entries.Timestamp];
+                obj.TimeRangeSelector_.setPlantLogMarkers(times);
+            catch err
+                fprintf('[ENGINE WARN] computePlantLogMarkers: %s\n', err.message);
+            end
         end
 
     end
