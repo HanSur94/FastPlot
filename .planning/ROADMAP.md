@@ -132,7 +132,7 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 | 1030. TagWriteCoordinator + LiveTagPipeline cluster mode | v4.0 | 2/2 | Complete    | 2026-05-14 |
 | 1031. EventLog + EventStore rollback-mode migration | v4.0 | 4/4 | Complete    | 2026-05-14 |
 | 1032. Single-Source MonitorTag Events + ack workflow | v4.0 | 5/5 | Complete    | 2026-05-14 |
-| 1033. Companion Integration + Acceptance Test | v4.0 | 2/4 | In Progress|  |
+| 1033. Companion Integration + Acceptance Test | v4.0 | 3/4 | In Progress|  |
 
 ## Phase Details (v4.0 Multi-User LAN Concurrency)
 
@@ -257,12 +257,12 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 5. **Lock contention surfaces in the Companion UI** as a non-blocking notice ("Tag P-101 is being updated by alice@plant-a (5s ago)") and `pipeline.SkippedTickCount` is visible as a status badge — verified by `TestFastSenseCompanion.testClusterStatusSurface`.
 6. **Existing single-user `.m` scripts and examples run unchanged** with no `'SharedRoot'` set — every cluster code path is structurally dormant (gated behind `if obj.IsClusterMode_`).
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 1033-01-companion-shared-root-PLAN.md — FastSenseCompanion 'SharedRoot' NV-pair + companionDiscoverEventStore cluster upgrade + 4 SharedRoot regression tests (Wave 1, no deps) (OPS-01 partial)
 - [x] 1033-02-event-log-consolidator-PLAN.md — libs/Concurrency/EventLogConsolidator.m leader-elected NDJSON→snapshot writer + 5-test suite (Wave 1, no deps)
-- [ ] 1033-03-operator-docs-PLAN.md — examples/cluster-setup/{README,smb-disable-oplocks.ps1,smb-disable-oplocks.conf,multicast-firewall.md} + ClusterConfig NFSv3 detection + TestClusterConfigNfsv3 (Wave 1, no deps) (OPS-02 full)
+- [x] 1033-03-operator-docs-PLAN.md — examples/cluster-setup/{README,smb-disable-oplocks.ps1,smb-disable-oplocks.conf,multicast-firewall.md} + ClusterConfig NFSv3 detection + TestClusterConfigNfsv3 (Wave 1, no deps) (OPS-02 full)
 - [ ] 1033-04-acceptance-and-recovery-PLAN.md — Companion pipeline-observer + share-loss state machine + TestShareLossRecovery + gated Test50CompanionAcceptance with p50/p95/p99 at 1/10/25/50 (Wave 2, depends on 01 + 02) (OPS-01 full)
 
 **UI hint**: yes

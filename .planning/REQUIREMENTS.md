@@ -44,7 +44,7 @@ User-facing event acknowledgement workflow + single-source event emission across
 System-level survivability and the documented contract operators need to trust the system.
 
 - [x] **OPS-01**: A temporary loss of the shared file share (network blip, server reboot) does not crash any Companion. Companions enter a degraded "read-only / waiting for share" state, retry transparently, and resume on share return. Existing single-user `.m` scripts run unchanged with no shared share.
-- [ ] **OPS-02**: An operator-facing document (`examples/cluster-setup/README` or equivalent) specifies: (a) the eventual-consistency contract ("you may see ack propagation lag up to ~5s"), (b) the SMB-over-NFS recommendation on mixed-OS LANs, (c) the SMB-oplocks-must-be-disabled-on-EventStore-directory operational requirement with Windows-Server and Samba syntax, (d) the multicast firewall rule for `udpport` notification hints, (e) the NFSv3-detection startup warning.
+- [x] **OPS-02**: An operator-facing document (`examples/cluster-setup/README` or equivalent) specifies: (a) the eventual-consistency contract ("you may see ack propagation lag up to ~5s"), (b) the SMB-over-NFS recommendation on mixed-OS LANs, (c) the SMB-oplocks-must-be-disabled-on-EventStore-directory operational requirement with Windows-Server and Samba syntax, (d) the multicast firewall rule for `udpport` notification hints, (e) the NFSv3-detection startup warning.
 
 ## v2 Requirements (deferred to v4.1+)
 
