@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Plant Log Integration
-status: planning
-stopped_at: Phase 1031 closed; advancing to Phase 1032
-last_updated: "2026-05-19T00:00:00.000Z"
+status: executing
+stopped_at: Completed 1032-01-widget-property-and-draw-PLAN.md (Phase 1032 Plan 01 of 3)
+last_updated: "2026-05-19T08:22:24.311Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 12
+  completed_plans: 10
 ---
 
 # State
@@ -26,11 +26,11 @@ toolbox dependencies.
 
 ## Current Position
 
-Phase: 1032 (Per-Widget Plant Log Overlay) — STARTING
-Plan: pending
+Phase: 1032 (Per-Widget Plant Log Overlay) — EXECUTING
+Plan: 2 of 3 (Plan 01 complete; Plan 02 next)
 Milestone: v3.1 Plant Log Integration
-Status: Phases 1029-1031 closed; entering Phase 1032 discuss
-Last activity: 2026-05-19
+Status: Ready to execute Plan 02 (toggle button + hover tooltip)
+Last activity: 2026-05-19 — Completed Phase 1032 Plan 01 (widget property + draw)
 
 ## Progress Bar
 
@@ -39,11 +39,11 @@ v3.1 Plant Log Integration:
 - [x] Phase 1029: Plant Log Storage Foundation — 3/3 plans
 - [x] Phase 1030: CSV/XLSX Import + Mapping Dialog — 3/3 plans
 - [x] Phase 1031: Live Tail + Slider Preview Overlay — 3/3 plans
-- [ ] Phase 1032: Per-Widget Plant Log Overlay — 0/? plans
+- [ ] Phase 1032: Per-Widget Plant Log Overlay — 1/3 plans
 - [ ] Phase 1033: Dashboard + Companion Integration & Serialization — 0/? plans
 
 Phases complete: 3/5
-Plans complete: 9/9 (100%) across closed phases
+Plans complete: 10/12 (83%) — Phase 1032 Plan 01 shipped 2026-05-19
 
 ## Accumulated Context
 
@@ -155,11 +155,11 @@ separate REQ-IDs:
 
 ## Session Continuity
 
-- **Resume point:** Phase 1030 is **closed**. Next step: run `/gsd:verify-phase 1030`
-  to confirm every PLOG-IM-* requirement has matching test evidence, then
-  `/gsd:start-phase 1031` to begin the live-tail + slider preview overlay
-  (which will consume `PlantLogReader.openInteractive('Headless', true, 'Mapping', savedMapping)`
-  on every timer tick).
+- **Resume point:** Phase 1032 Plan 01 (widget property + draw) is **shipped** (2026-05-19).
+  Next step: execute Phase 1032 Plan 02 (toggle button + hover tooltip), which
+  consumes the public surface delivered here: `FastSenseWidget.ShowPlantLog`,
+  `FastSenseWidget.setShowPlantLog(tf, engine)`, `FastSenseWidget.setPlantLogMarkers`,
+  and the engine fan-out via `onPlantLogTailTick_`.
 
 - **Order of phases:** 1029 ✅ → 1030 ✅ → 1031 → 1032 → 1033 (each phase depends on
   prior phases; no parallel execution paths).
@@ -173,7 +173,7 @@ separate REQ-IDs:
   integration smoke). All PLOG-IM-* (8/32) integration-proven at runtime.
   16 requirements remaining across Phases 1031, 1032, 1033.
 
-- **Stopped at:** Completed 1031-03-hover-tooltip-and-smoke-PLAN.md
+- **Stopped at:** Completed 1032-01-widget-property-and-draw-PLAN.md (Phase 1032 Plan 01 of 3)
   (Phase 1030 closed; ready for /gsd:verify-phase 1030).
   `PlantLogReader.openInteractive(filePath, varargin)` ships as the third
   static method, wiring `readtablePortable` → `autoDetect` →
@@ -352,3 +352,56 @@ separate REQ-IDs:
   Plans 01 + 02. **Phase 1030 closed; ready for /gsd:verify-phase 1030.**
   See
   `.planning/phases/1030-csv-xlsx-import-mapping-dialog/1030-03-open-interactive-and-smoke-SUMMARY.md`.
+
+### Phase 1032 — Per-Widget Plant Log Overlay
+
+- **Plan 01 (widget property + draw, 2026-05-19)** — FastSenseWidget gains
+  a public `ShowPlantLog` boolean property (default false) anchored after
+  ShowEventMarkers, mirroring the Phase 1012 precedent shape. A new
+  `PlantLogXLimListener_` property lives in its own properties block with
+  `SetAccess = {?DashboardEngine, ?FastSenseWidget, ?matlab.unittest.TestCase}`
+  so the engine's `attachPlantLogXLimListener_` can write the handle while
+  public READ stays available (Rule 3 deviation: plan put it in
+  `SetAccess = private`, which made the engine's `addlistener`
+  assignment fail). `setPlantLogMarkers(times, entries)` draws one
+  `xline` per finite timestamp with `Tag='WidgetPlantLogMarker'`,
+  `Color=theme.MarkerPlantLog` (default `[0 0 0]`), `LineWidth=1`,
+  `HitTest='on'`, `PickableParts='all'`. Empty / no-arg input clears
+  via tag-based delete. Non-finite timestamps silently dropped.
+  uistack z-order: sensor trace -> plant-log -> event badges.
+  `setShowPlantLog(tf, engine)` flips the property with prior-state
+  revert + `FastSenseWidget:plantLogToggleFailed` namespaced warning
+  on failure. `delete(widget)` releases the listener BEFORE FastSense
+  teardown deletes the axes. `toStruct`/`fromStruct` round-trip the
+  `showPlantLog` key (default omitted so older serialized dashboards
+  stay byte-identical). DashboardEngine gains three friend-restricted
+  methods in a new
+  `methods (Access = {?FastSenseWidget, ?matlab.unittest.TestCase})`
+  block: `refreshPlantLogOverlayForWidget_` (clear -> store range query
+  -> sub-pixel coalesce `floor(double(times) * pixelsPerDataUnit)`
+  unique-bucket reduction -> `widget.setPlantLogMarkers`),
+  `clearPlantLogOverlaysOnAllWidgets_` (walks `allPageWidgets()` AND
+  `DetachedMirrors`, wipes markers WITHOUT flipping ShowPlantLog),
+  and `attachPlantLogXLimListener_` (XLim PostSet listener that fires
+  refresh). Plan literal `Access = {?FastSenseWidget}` was extended to
+  also include `?matlab.unittest.TestCase` so class-based suite tests
+  can call these directly (Rule 3 deviation; substring intact for the
+  grep acceptance criterion). New private `onPlantLogTailTick_`
+  callback wraps `computePlantLogMarkers` (slider path) + fans out to
+  every ShowPlantLog=true widget across pages + DetachedMirrors
+  (decision G full parity). `setPlantLogLiveTailForTest_` rewired
+  single-line to route the `PlantLogTickListener_` through
+  `onPlantLogTailTick_` so every live-tail tick refreshes both slider
+  AND per-widget overlays. Three new Hidden test seams
+  (`refreshPlantLogOverlayForWidgetForTest_`,
+  `clearPlantLogOverlaysOnAllWidgetsForTest_`,
+  `attachPlantLogXLimListenerForTest_`) route function-style tests to
+  the friend-restricted methods (Phase 1031 idiom). 20/20 function-style
+
+  + 20/20 class-based on MATLAB; Phase 1031 regression intact (22/22
+  class + 19/19 function-style); Phase 1029-1031 broader regression
+  52/52. checkcode reports zero NEW Error- or Critical-level
+  diagnostics on either modified production file (23 pre-existing
+  DashboardEngine warnings unchanged). PLOG-VIZ-03 + PLOG-VIZ-04
+  completed. See
+  `.planning/phases/1032-per-widget-plant-log-overlay/1032-01-widget-property-and-draw-SUMMARY.md`.
