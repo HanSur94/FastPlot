@@ -257,6 +257,101 @@ classdef TestTagStatusTableWindow < matlab.unittest.TestCase
                     'contain an HH:MM:SS timestamp after a tick, got ''%s'''], lbl));
         end
 
+        function testSetPollingActive_falseStopsTimer(testCase)
+            %TESTSETPOLLINGACTIVE_FALSESTOPSTIMER setPollingActive(false) stops RefreshTimer_.
+            %   The timer must move from Running='on' to Running='off' but
+            %   must NOT be deleted (close() still cleans it up). 260519-bs4-05.
+            registerTwoSensors_();
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() safeClose_(app));
+            testCase.addTeardown(@() TagRegistry.clear());
+
+            w = app.openTagStatusTable();
+            tBefore = w.refreshTimerForTest();
+            testCase.verifyNotEmpty(tBefore, ...
+                'testSetPollingActive_falseStopsTimer: timer must exist after open');
+            testCase.verifyEqual(get(tBefore, 'Running'), 'on', ...
+                'testSetPollingActive_falseStopsTimer: timer must be running pre-pause');
+
+            w.setPollingActive(false);
+
+            tAfter = w.refreshTimerForTest();
+            testCase.verifyNotEmpty(tAfter, ...
+                'testSetPollingActive_falseStopsTimer: timer must still exist (not deleted) after pause');
+            testCase.verifyEqual(get(tAfter, 'Running'), 'off', ...
+                'testSetPollingActive_falseStopsTimer: timer state must be off after pause');
+        end
+
+        function testSetPollingActive_trueRestartsTimer(testCase)
+            %TESTSETPOLLINGACTIVE_TRUERESTARTSTIMER setPollingActive(true) re-starts the timer.
+            registerTwoSensors_();
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() safeClose_(app));
+            testCase.addTeardown(@() TagRegistry.clear());
+
+            w = app.openTagStatusTable();
+            w.setPollingActive(false);
+            t = w.refreshTimerForTest();
+            testCase.verifyEqual(get(t, 'Running'), 'off', ...
+                'precondition: timer must be off after pause');
+
+            w.setPollingActive(true);
+
+            tAfter = w.refreshTimerForTest();
+            testCase.verifyNotEmpty(tAfter, ...
+                'testSetPollingActive_trueRestartsTimer: timer must exist after resume');
+            testCase.verifyEqual(get(tAfter, 'Running'), 'on', ...
+                'testSetPollingActive_trueRestartsTimer: timer state must be on after resume');
+        end
+
+        function testMarkTagsDirty_noOpWhilePaused(testCase)
+            %TESTMARKTAGSDIRTY_NOOPWHILEPAUSED markTagsDirty must not mutate Data while paused.
+            registerTwoSensors_();
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() safeClose_(app));
+            testCase.addTeardown(@() TagRegistry.clear());
+
+            w = app.openTagStatusTable();
+            % Snapshot the table.Data BEFORE pausing.
+            hFig = w.getFigForTest();
+            hTbl = findall(hFig, 'Type', 'uitable');
+            testCase.verifyNotEmpty(hTbl, ...
+                'precondition: uitable handle must be discoverable');
+            dataBefore = hTbl.Data;
+
+            w.setPollingActive(false);
+
+            % While paused, mutate one of the underlying tags and call
+            % markTagsDirty -- it MUST be inert.
+            tA = TagRegistry.get('press_a');
+            tA.updateData([1 2 3 4 5 6], [10 11 12 13 14 99]);
+            w.markTagsDirty({'press_a'});
+
+            dataAfter = hTbl.Data;
+            testCase.verifyEqual(dataAfter, dataBefore, ...
+                'testMarkTagsDirty_noOpWhilePaused: table.Data must be unchanged while paused');
+        end
+
+        function testPauseBtnLabelFlips(testCase)
+            %TESTPAUSEBTNLABELFLIPS Button text toggles via setPollingActive.
+            registerTwoSensors_();
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() safeClose_(app));
+            testCase.addTeardown(@() TagRegistry.clear());
+
+            w = app.openTagStatusTable();
+            testCase.verifyEqual(w.pauseBtnLabelForTest(), 'Pause polling', ...
+                'testPauseBtnLabelFlips: initial label must be ''Pause polling''');
+
+            w.setPollingActive(false);
+            testCase.verifyEqual(w.pauseBtnLabelForTest(), 'Resume polling', ...
+                'testPauseBtnLabelFlips: label must read ''Resume polling'' when paused');
+
+            w.setPollingActive(true);
+            testCase.verifyEqual(w.pauseBtnLabelForTest(), 'Pause polling', ...
+                'testPauseBtnLabelFlips: label must revert to ''Pause polling'' after resume');
+        end
+
         function testRefreshTimerStoppedAndDeletedOnClose(testCase)
             %TESTREFRESHTIMERSTOPPEDANDDELETEDONCLOSE Window close must stop AND delete its timer.
             registerTwoSensors_();

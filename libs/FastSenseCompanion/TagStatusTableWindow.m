@@ -48,6 +48,8 @@ classdef TagStatusTableWindow < handle
         hSearchLbl_   = []        % "Search:" label
         hHeaderLbl_   = []        % "Tags" right-side header label
         hLastRefreshLbl_ = []     % "Last refreshed: HH:MM:SS" label (260519-bs4-04 patch)
+        hPauseBtn_       = []     % "Pause polling"/"Resume polling" uicontrol pushbutton (260519-bs4-05 patch)
+        PollingActive_   = true   % true = RefreshTimer_ running + markTagsDirty live; false = frozen (260519-bs4-05 patch)
         hChipsType_     = []      % 1x5 array of uicontrol pushbuttons (Sensor/Monitor/Composite/State/Derived)
         hChipsCrit_     = []      % 1x4 array of uicontrol pushbuttons (Low/Medium/High/Safety)
         hChipsActivity_ = []      % 1x2 array of uicontrol pushbuttons (Live/Inactive)
@@ -140,16 +142,33 @@ classdef TagStatusTableWindow < handle
             % --- Last-refreshed label (top-left, small muted text). ---
             % Style mirrors EventsLogPane.setLastUpdated convention:
             % small font, Menlo monospace, PlaceholderTextColor.
+            % Width reduced to leave room for the Pause/Resume polling
+            % button on the right edge of the same row (260519-bs4-05).
             obj.hLastRefreshLbl_ = uicontrol(obj.hFig_, ...
                 'Style',               'text', ...
                 'Units',               'normalized', ...
-                'Position',            [0.01 0.945 0.98 0.04], ...
+                'Position',            [0.01 0.945 0.85 0.04], ...
                 'String',              'Last refreshed: --:--:--', ...
                 'HorizontalAlignment', 'left', ...
                 'BackgroundColor',     t.WidgetBackground, ...
                 'ForegroundColor',     t.PlaceholderTextColor, ...
                 'FontName',            'Menlo', ...
                 'FontSize',            10);
+
+            % --- Pause/Resume polling button (right edge, same row). ---
+            % Same widget family as the other controls (uicontrol pushbutton)
+            % so the classical-figure window stays consistent. Initial label
+            % matches the default PollingActive_=true state ("Pause polling").
+            % 260519-bs4-05 patch.
+            obj.hPauseBtn_ = uicontrol(obj.hFig_, ...
+                'Style',               'pushbutton', ...
+                'Units',               'normalized', ...
+                'Position',            [0.87 0.945 0.12 0.04], ...
+                'String',              'Pause polling', ...
+                'BackgroundColor',     t.WidgetBackground, ...
+                'ForegroundColor',     t.ForegroundColor, ...
+                'FontSize',            10, ...
+                'Callback',            @(~,~) obj.setPollingActive(~obj.PollingActive_));
 
             % --- Search strip ---
             obj.hSearchLbl_ = uicontrol(obj.hFig_, ...
@@ -244,9 +263,13 @@ classdef TagStatusTableWindow < handle
 
         function markTagsDirty(obj, keys)
         %MARKTAGSDIRTY Refresh only rows for the listed tag keys.
-        %   keys -- cellstr or single char. No-op when ~IsOpen. Whole body
-        %   wrapped in try/catch so a live tick can never crash via this path.
+        %   keys -- cellstr or single char. No-op when ~IsOpen or when
+        %   PollingActive_ is false (paused -> table is frozen, mirroring
+        %   the user's "polling off = nothing moves" mental model;
+        %   260519-bs4-05 patch). Whole body wrapped in try/catch so a
+        %   live tick can never crash via this path.
             if ~obj.IsOpen; return; end
+            if ~obj.PollingActive_; return; end
             if isempty(keys); return; end
             if ischar(keys); keys = {keys}; end
             if ~iscell(keys); return; end
@@ -304,6 +327,10 @@ classdef TagStatusTableWindow < handle
                     obj.hLastRefreshLbl_.BackgroundColor = t.WidgetBackground;
                     obj.hLastRefreshLbl_.ForegroundColor = t.PlaceholderTextColor;
                 end
+                if ~isempty(obj.hPauseBtn_) && isvalid(obj.hPauseBtn_)
+                    obj.hPauseBtn_.BackgroundColor = t.WidgetBackground;
+                    obj.hPauseBtn_.ForegroundColor = t.ForegroundColor;
+                end
                 % Re-apply chip active/inactive styling -- pulls Accent
                 % from the freshly-stored theme.
                 obj.applyChipStyles_();
@@ -314,6 +341,74 @@ classdef TagStatusTableWindow < handle
                 end
             catch
                 % Theme propagation must never throw.
+            end
+        end
+
+        function setPollingActive(obj, tf)
+        %SETPOLLINGACTIVE Pause or resume the window's refresh polling.
+        %   setPollingActive(true)  -> starts RefreshTimer_ (if not running),
+        %                              fires one immediate synchronous
+        %                              onRefreshTick_ so the user sees fresh
+        %                              data right away, sets the button
+        %                              label to 'Pause polling' and drops
+        %                              the '(paused)' suffix from the
+        %                              header label.
+        %   setPollingActive(false) -> stops RefreshTimer_ (without deleting
+        %                              it -- close() still cleans up via
+        %                              stopRefreshTimer_), sets the button
+        %                              label to 'Resume polling' and adds
+        %                              the '(paused)' suffix to the header
+        %                              label so the user sees WHEN the
+        %                              polling stopped.
+        %
+        %   While paused, markTagsDirty() is a no-op: the table is frozen.
+        %   No-op when ~IsOpen. Whole body wrapped in try/catch so a stray
+        %   click cannot crash the window. 260519-bs4-05 patch.
+            if ~obj.IsOpen; return; end
+            if ~islogical(tf) || ~isscalar(tf)
+                error('FastSenseCompanion:tagStatusTableInvalidPollingFlag', ...
+                    'setPollingActive requires a scalar logical argument.');
+            end
+            try
+                obj.PollingActive_ = tf;
+                if tf
+                    % Resume: restart timer (if it died, recreate via
+                    % startRefreshTimer_; if it just stopped, start() it).
+                    if ~isempty(obj.RefreshTimer_) && isvalid(obj.RefreshTimer_)
+                        try
+                            if strcmp(get(obj.RefreshTimer_, 'Running'), 'off')
+                                start(obj.RefreshTimer_);
+                            end
+                        catch
+                            % If start() fails (e.g. timer in a weird state),
+                            % rebuild it cleanly.
+                            obj.startRefreshTimer_();
+                        end
+                    else
+                        obj.startRefreshTimer_();
+                    end
+                    % Immediate one-shot refresh on resume so the user sees
+                    % freshness right away rather than waiting up to
+                    % RefreshPeriod_ seconds for the timer tick.
+                    obj.onRefreshTick_();
+                else
+                    % Pause: stop the timer but DO NOT delete it -- we want
+                    % to be able to re-start the same timer on resume.
+                    % Close-path teardown still runs stopRefreshTimer_
+                    % regardless of paused state.
+                    if ~isempty(obj.RefreshTimer_) && isvalid(obj.RefreshTimer_)
+                        try
+                            if strcmp(get(obj.RefreshTimer_, 'Running'), 'on')
+                                stop(obj.RefreshTimer_);
+                            end
+                        catch
+                            % Best-effort; never throw out of a UI click.
+                        end
+                    end
+                end
+                obj.refreshPauseUi_();
+            catch
+                % UI click handler must never throw.
             end
         end
 
@@ -370,6 +465,26 @@ classdef TagStatusTableWindow < handle
             obj.onRefreshTick_();
         end
 
+        function s = pauseBtnLabelForTest(obj)
+        %PAUSEBTNLABELFORTEST Test helper: read the Pause/Resume button text.
+        %   Returns '' when the window is detached or the button is invalid.
+        %   260519-bs4-05 patch.
+            s = '';
+            if ~isempty(obj.hPauseBtn_) && isvalid(obj.hPauseBtn_)
+                s = obj.hPauseBtn_.String;
+            end
+        end
+
+        function t = refreshTimerForTest(obj)
+        %REFRESHTIMERFORTEST Test helper: return the underlying RefreshTimer_.
+        %   Returns [] when the window is detached or the timer is invalid.
+        %   260519-bs4-05 patch.
+            t = [];
+            if ~isempty(obj.RefreshTimer_) && isvalid(obj.RefreshTimer_)
+                t = obj.RefreshTimer_;
+            end
+        end
+
     end
 
     methods (Access = private)
@@ -410,6 +525,7 @@ classdef TagStatusTableWindow < handle
             obj.hSearchLbl_      = [];
             obj.hHeaderLbl_      = [];
             obj.hLastRefreshLbl_ = [];
+            obj.hPauseBtn_       = [];
             obj.hChipsType_      = [];
             obj.hChipsCrit_      = [];
             obj.hChipsActivity_  = [];
@@ -611,7 +727,12 @@ classdef TagStatusTableWindow < handle
         function setLastRefreshedNow_(obj)
         %SETLASTREFRESHEDNOW_ Update the "Last refreshed: HH:MM:SS" label to now.
         %   24h clock, second precision, local time. No-op when the label
-        %   is invalid (window detached). 260519-bs4-04 patch.
+        %   is invalid (window detached). When paused, appends " (paused)"
+        %   suffix so the user sees the freshness state -- but the timer
+        %   does not tick while paused, so this branch is only reached
+        %   from the synchronous resume path (where the suffix is dropped
+        %   right after by refreshPauseUi_) and from defensive callers.
+        %   260519-bs4-04 patch; paused-suffix added in 260519-bs4-05.
             if isempty(obj.hLastRefreshLbl_) || ~isvalid(obj.hLastRefreshLbl_)
                 return;
             end
@@ -621,7 +742,44 @@ classdef TagStatusTableWindow < handle
                 % Octave / stripped MATLAB fallback.
                 ts = datestr(now, 'HH:MM:SS');  %#ok<DATST,TNOW1>
             end
-            obj.hLastRefreshLbl_.String = sprintf('Last refreshed: %s', ts);
+            if obj.PollingActive_
+                obj.hLastRefreshLbl_.String = sprintf('Last refreshed: %s', ts);
+            else
+                obj.hLastRefreshLbl_.String = sprintf('Last refreshed: %s (paused)', ts);
+            end
+        end
+
+        function refreshPauseUi_(obj)
+        %REFRESHPAUSEUI_ Sync the Pause/Resume button label and header suffix.
+        %   Called from setPollingActive after PollingActive_ flips. Does
+        %   NOT update the "Last refreshed" timestamp -- it only rewrites
+        %   the suffix in-place so the previous HH:MM:SS is preserved
+        %   (the user can see WHEN the polling stopped, per the spec).
+        %   260519-bs4-05 patch.
+            % --- Button label ---
+            if ~isempty(obj.hPauseBtn_) && isvalid(obj.hPauseBtn_)
+                if obj.PollingActive_
+                    obj.hPauseBtn_.String = 'Pause polling';
+                else
+                    obj.hPauseBtn_.String = 'Resume polling';
+                end
+            end
+            % --- Header label "(paused)" suffix maintenance ---
+            if isempty(obj.hLastRefreshLbl_) || ~isvalid(obj.hLastRefreshLbl_)
+                return;
+            end
+            cur = obj.hLastRefreshLbl_.String;
+            if ~ischar(cur)
+                return;
+            end
+            hasSuffix = ~isempty(regexp(cur, '\(paused\)\s*$', 'once'));
+            if obj.PollingActive_ && hasSuffix
+                % Drop the trailing " (paused)".
+                obj.hLastRefreshLbl_.String = regexprep(cur, '\s*\(paused\)\s*$', '');
+            elseif ~obj.PollingActive_ && ~hasSuffix
+                % Add the " (paused)" suffix to the existing timestamp.
+                obj.hLastRefreshLbl_.String = [strtrim(cur), ' (paused)'];
+            end
         end
 
         function startRefreshTimer_(obj)
