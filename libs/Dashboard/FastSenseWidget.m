@@ -463,11 +463,13 @@ classdef FastSenseWidget < DashboardWidget
                 if obj.ShowPlantLog
                     engine.attachPlantLogXLimListener_(obj);
                     engine.refreshPlantLogOverlayForWidget_(obj);
+                    engine.attachPlantLogWidgetHover_(obj);  % Phase 1032 PLOG-VIZ-07
                 else
                     if ~isempty(obj.PlantLogXLimListener_)
                         try delete(obj.PlantLogXLimListener_); catch, end
                         obj.PlantLogXLimListener_ = [];
                     end
+                    engine.detachPlantLogWidgetHover_(obj);  % Phase 1032 PLOG-VIZ-07
                     obj.setPlantLogMarkers([], []);  % clear without engine round-trip
                 end
             catch ME

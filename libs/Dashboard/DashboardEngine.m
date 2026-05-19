@@ -107,6 +107,21 @@ classdef DashboardEngine < handle
         PlantLogSliderHover_      = []  % PlantLogSliderHover handle (or [])
     end
 
+    % Phase 1032 PLOG-VIZ-07: per-widget hover tooltips. Cell of
+    % {widget, PlantLogWidgetHover} pairs. Lazily populated in
+    % attachPlantLogWidgetHover_ when widget.setShowPlantLog(true, engine)
+    % runs against a widget whose engine has a store attached. Torn down
+    % by detachPlantLogWidgetHover_ on setShowPlantLog(false, engine) AND
+    % in delete() BEFORE the TRS teardown (matching the Phase 1031
+    % hover-before-selector ordering rule).
+    %
+    % Public READ + restricted WRITE: tests + downstream consumers can
+    % observe attached hovers, but only the engine itself + FastSenseWidget
+    % (via the friend access list) can mutate the cell.
+    properties (SetAccess = {?DashboardEngine, ?FastSenseWidget, ?matlab.unittest.TestCase})
+        WidgetHovers_             = {}
+    end
+
     methods (Access = public)
         function obj = DashboardEngine(name, varargin)
             if nargin >= 1
@@ -2141,6 +2156,19 @@ classdef DashboardEngine < handle
             % stale closure). teardownPlantLogSliderHover_ is idempotent
             % (safe to call again at the end of delete()).
             obj.teardownPlantLogSliderHover_();
+            % Phase 1032 PLOG-VIZ-07: tear down per-widget hovers BEFORE TRS
+            % so any chained WBMFcn restore lands on a still-alive figure
+            % and selector. Mirrors the slider-hover ordering rule.
+            for hi = 1:numel(obj.WidgetHovers_)
+                try
+                    pair = obj.WidgetHovers_{hi};
+                    if numel(pair) == 2 && ~isempty(pair{2}) && isvalid(pair{2})
+                        delete(pair{2});
+                    end
+                catch
+                end
+            end
+            obj.WidgetHovers_ = {};
             % Tear down the selector first so its figure-level callback
             % restore happens before the figure/panel potentially go away.
             if ~isempty(obj.TimeRangeSelector_) && ...
@@ -2506,6 +2534,84 @@ classdef DashboardEngine < handle
                 warning('DashboardEngine:plantLogOverlayFailed', ...
                     'attachPlantLogXLimListener_ failed: %s', err.message);
             end
+        end
+
+        function attachPlantLogWidgetHover_(obj, widget)
+        %ATTACHPLANTLOGWIDGETHOVER_ Lazy-construct a PlantLogWidgetHover for one widget (Phase 1032 PLOG-VIZ-07).
+        %   Tears down any prior hover for this widget first (idempotent),
+        %   then builds a new PlantLogWidgetHover parented to the widget's
+        %   uifigure ancestor and storing the lookup closure that routes
+        %   through obj.lookupPlantLogEntries_ (re-reads the store at call
+        %   time so subsequent swaps are reflected immediately).
+        %
+        %   Early returns:
+        %     - widget is empty or not a FastSenseWidget
+        %     - widget.FastSenseObj is empty / not rendered
+        %     - engine has no PlantLogStoreInternal_
+        %     - widget.FastSenseObj.hAxes is missing / invalid
+        %
+        %   On failure, fires DashboardEngine:plantLogOverlayFailed warning.
+            if isempty(widget) || ~isa(widget, 'FastSenseWidget'), return; end
+            if isempty(widget.FastSenseObj) || ~widget.FastSenseObj.IsRendered
+                return;
+            end
+            % Tear down any prior hover for this widget.
+            obj.detachPlantLogWidgetHover_(widget);
+            % Require a store attached.
+            if isempty(obj.PlantLogStoreInternal_) || ...
+                    ~isa(obj.PlantLogStoreInternal_, 'PlantLogStore')
+                return;
+            end
+            try
+                ax = widget.FastSenseObj.hAxes;
+                if isempty(ax) || ~ishandle(ax), return; end
+                fig = ancestor(ax, 'figure');
+                if isempty(fig) || ~ishandle(fig), return; end
+                hover = PlantLogWidgetHover(fig, ax, ...
+                    @(t0, t1) obj.lookupPlantLogEntries_(t0, t1));
+                obj.WidgetHovers_{end+1} = {widget, hover};
+            catch err
+                warning('DashboardEngine:plantLogOverlayFailed', ...
+                    'attachPlantLogWidgetHover_ failed: %s', err.message);
+            end
+        end
+
+        function detachPlantLogWidgetHover_(obj, widget)
+        %DETACHPLANTLOGWIDGETHOVER_ Tear down + remove a widget's hover (Phase 1032 PLOG-VIZ-07).
+        %   Idempotent: safe when widget has no hover currently registered.
+        %   Also sweeps stale-widget pairs (widget already destroyed) so the
+        %   WidgetHovers_ list stays compact.
+            if isempty(widget), return; end
+            keep = true(1, numel(obj.WidgetHovers_));
+            for i = 1:numel(obj.WidgetHovers_)
+                pair = obj.WidgetHovers_{i};
+                if isempty(pair) || numel(pair) ~= 2
+                    keep(i) = false;
+                    continue;
+                end
+                pairWidget = pair{1};
+                pairHover  = pair{2};
+                if isempty(pairWidget) || ~isvalid(pairWidget)
+                    try
+                        if ~isempty(pairHover) && isvalid(pairHover)
+                            delete(pairHover);
+                        end
+                    catch
+                    end
+                    keep(i) = false;
+                    continue;
+                end
+                if pairWidget == widget
+                    try
+                        if ~isempty(pairHover) && isvalid(pairHover)
+                            delete(pairHover);
+                        end
+                    catch
+                    end
+                    keep(i) = false;
+                end
+            end
+            obj.WidgetHovers_ = obj.WidgetHovers_(keep);
         end
 
     end
