@@ -63,6 +63,14 @@ classdef BatchTagPipeline < handle
                                     %   in this code path), so the flag is currently shape-only; the
                                     %   setCoalesceActiveForTesting_ Hidden setter exists so future
                                     %   append-mode batch wiring can be configured uniformly with Live.
+        fsCoalesceActive_ = true    % Phase 1028 plan 06: production-default for symmetry with
+                                    %   LiveTagPipeline. BatchTagPipeline.run() does not currently
+                                    %   issue per-tag exist/dir/datenum stat calls (it parses each raw
+                                    %   file once via parseOrCache_ and that's the only fs work), so the
+                                    %   flag is currently shape-only; the setFsCoalesceForTesting_ Hidden
+                                    %   setter exists so future append-mode batch wiring (or any code
+                                    %   path that grows per-tag fs-stat cost) can be configured
+                                    %   uniformly with Live.
     end
 
     methods
@@ -191,6 +199,21 @@ classdef BatchTagPipeline < handle
             end
             obj.writeFn_ = fn;
             obj.writeFnIsProduction_ = false;
+        end
+
+        function setFsCoalesceForTesting_(obj, tf)
+            %SETFSCOALESCEFORTESTING_ Shape-parity setter mirroring LiveTagPipeline (plan 06).
+            %   Phase 1028 plan 06: BatchTagPipeline.run() does not currently
+            %   issue per-tag exist/dir/datenum syscalls (parsing happens via
+            %   parseOrCache_, which uses ext-based dispatch, not file stats),
+            %   so fs-stat coalescing is a no-op here. The setter exists for
+            %   symmetry with LiveTagPipeline so tests/bench scripts can
+            %   configure both pipelines uniformly. Hidden (D-10).
+            if ~(islogical(tf) && isscalar(tf))
+                error('TagPipeline:invalidFsCoalesce', ...
+                    'setFsCoalesceForTesting_ requires a logical scalar (got %s).', class(tf));
+            end
+            obj.fsCoalesceActive_ = tf;
         end
 
         function setCoalesceActiveForTesting_(obj, tf)

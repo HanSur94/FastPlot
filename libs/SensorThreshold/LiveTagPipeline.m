@@ -52,6 +52,12 @@ classdef LiveTagPipeline < handle
     properties (SetAccess = private)
         LastTickReport     = struct('succeeded', {{}}, 'failed', struct([]))
         LastFileParseCount = 0   % Major-2 / revision-1 dedup observability (mirrors BatchTagPipeline)
+        LastFsStatCount    = 0   % Phase 1028 plan 06: number of fs-stat syscalls in the most recent
+                                 %   tick. With fsCoalesceActive_=true this equals the number of UNIQUE
+                                 %   parent directories enumerated in the tick (one dir() per parent).
+                                 %   With fsCoalesceActive_=false this equals the number of per-tag
+                                 %   exist+dir calls (≈ 2 × #eligible-tags). Captured BEFORE the per-tick
+                                 %   fsCache goes out of scope. Mirrors LastFileParseCount.
     end
 
     properties (Dependent)
@@ -100,6 +106,25 @@ classdef LiveTagPipeline < handle
                                     %   downstream MonitorTags/CompositeTags ARE wired against pipeline
                                     %   sensors (the Companion / dashboard wiring). See VERIFICATION.md
                                     %   §"Post-Plan-05 tBreakdown" for measured before/after numbers.
+        fsCoalesceActive_ = true    % Phase 1028 plan 06: production-default for per-tick filesystem
+                                    %   stat coalescing. When true, onTick_ pre-builds a per-tick map
+                                    %   of `parent directory -> map(basename -> struct('mtime', datenum))`
+                                    %   via ONE dir(parentDir) call per unique parent directory, and
+                                    %   processTag_ consults that map instead of issuing per-tag
+                                    %   exist/dir/datenum calls. At 1000-tag scale with 8 source CSV
+                                    %   files (the bench fixture), this reduces ~1000 syscalls/tick
+                                    %   (1000 × {exist, dir} = 2000 stats) to ONE dir() per unique
+                                    %   parent directory (8 in the bench) -- ~250× reduction in
+                                    %   per-tag fs-stat overhead. The mid-tick snapshot is FROZEN:
+                                    %   a file appearing or having its mtime advance between the
+                                    %   tick-start dir() and a later per-tag lookup is NOT visible
+                                    %   in this tick, and is picked up on the NEXT tick. This matches
+                                    %   the de facto semantics already in place — the per-tag mtime
+                                    %   check vs lastModTime serialises ingestion at tick boundaries.
+                                    %   Hidden setFsCoalesceForTesting_ flips the flag for the bench's
+                                    %   --fs-coalesce-off regression measurement; production is on.
+                                    %   Mirrors Plan 02b setWriteFnForTesting_ / Plan 02d
+                                    %   setCacheActiveForTesting_ / Plan 05 setCoalesceActiveForTesting_.
     end
 
     methods
@@ -241,6 +266,30 @@ classdef LiveTagPipeline < handle
             obj.writeFnIsProduction_ = false;
         end
 
+        function setFsCoalesceForTesting_(obj, tf)
+            %SETFSCOALESCEFORTESTING_ Internal-only setter for per-tick fs-stat coalescing.
+            %   Phase 1028 plan 06: enable/disable the per-tick coalesced
+            %   filesystem-stat lookup inside onTick_. When ON (production
+            %   default), onTick_ issues ONE dir(parentDir) call per unique
+            %   raw-source parent directory at tick start and stores the
+            %   resulting basename->struct map; processTag_ consults that map
+            %   instead of issuing per-tag exist/dir/datenum syscalls. When
+            %   OFF, the per-tag fallback path runs (one exist + one dir per
+            %   tag) — used by the benchmark to isolate the coalescing win.
+            %
+            %   Production callers MUST NOT use this — fs-coalesce is the
+            %   production default (D-10). The bench flips it off for the
+            %   `--fs-coalesce-off` measurement. Hidden so it does not appear
+            %   in tab-completion / doc(). Mirrors the plan-02b
+            %   setWriteFnForTesting_, plan-02d setCacheActiveForTesting_,
+            %   and plan-05 setCoalesceActiveForTesting_ patterns.
+            if ~(islogical(tf) && isscalar(tf))
+                error('TagPipeline:invalidFsCoalesce', ...
+                    'setFsCoalesceForTesting_ requires a logical scalar (got %s).', class(tf));
+            end
+            obj.fsCoalesceActive_ = tf;
+        end
+
         function setCoalesceActiveForTesting_(obj, tf)
             %SETCOALESCEACTIVEFORTESTING_ Internal-only setter for end-of-tick listener coalescing.
             %   Phase 1028 plan 05: enable/disable the A1+A2 end-of-tick
@@ -326,6 +375,16 @@ classdef LiveTagPipeline < handle
             %   pointer (in-memory propagation refactor).
             report = struct('succeeded', {{}}, 'failed', struct([]));
             tickCache = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            % Phase 1028 plan 06: per-tick fs-stat cache. Keyed by parent
+            % directory (absolute path). Value: containers.Map from basename
+            % (char) to struct('mtime', datenum, 'fullpath', char). Built
+            % lazily inside processTag_ via lookupFsEntry_; one dir(parentDir)
+            % per unique parent directory. fsStatCount_ counts the actual
+            % syscalls used (one per unique parent dir in coalesce-on mode;
+            % one per tag in coalesce-off mode) so the bench can verify the
+            % expected reduction in the CI artifact.
+            fsCache = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            fsStatCount = 0;
             updatedSet = {};   % collect tag handles with processed==true
             try
                 tags = obj.eligibleTags_();
@@ -336,7 +395,7 @@ classdef LiveTagPipeline < handle
                     key = char(t.Key);
                     rs  = t.RawSource;
                     try
-                        processed = obj.processTag_(t, rs, key, tickCache);
+                        [processed, fsStatCount] = obj.processTag_(t, rs, key, tickCache, fsCache, fsStatCount);
                         if processed
                             report.succeeded{end+1} = key; %#ok<AGROW>
                             updatedSet{end+1} = t;          %#ok<AGROW>
@@ -382,11 +441,23 @@ classdef LiveTagPipeline < handle
             % Set OUTSIDE the outer try/catch so the property is updated even
             % on partial failure (tests read it directly post-tickOnce()).
             obj.LastFileParseCount = double(tickCache.Count);
+            % Phase 1028 plan 06: expose fs-stat syscall count so the bench
+            % artifact can verify the expected O(#parent-dirs) coalesced cost
+            % vs the O(#tags) un-coalesced baseline.
+            obj.LastFsStatCount    = fsStatCount;
             obj.LastTickReport     = report;
         end
 
-        function processed = processTag_(obj, t, rs, key, tickCache)
+        function [processed, fsStatCount] = processTag_(obj, t, rs, key, tickCache, fsCache, fsStatCount)
             %PROCESSTAG_ Handle one tag within a tick. Returns true iff a write occurred.
+            %   Phase 1028 plan 06: takes fsCache + fsStatCount as in/out
+            %   arguments so the per-tick fs-stat coalescing can amortise
+            %   the dir() syscall across all tags sharing a parent directory.
+            %   fsCache is a containers.Map keyed by parent-directory absolute
+            %   path; value is itself a containers.Map from basename -> struct
+            %   ('mtime', datenum, 'fullpath', abspath). When fsCoalesceActive_
+            %   is false, the per-tag exist+dir fallback path runs (legacy
+            %   behaviour, used by the bench --fs-coalesce-off measurement).
             processed = false;
             abspath = obj.absPath_(rs.file);
 
@@ -396,15 +467,13 @@ classdef LiveTagPipeline < handle
             end
             state = obj.tagState_(key);
 
-            if ~exist(abspath, 'file')
+            % Phase 1028 plan 06: resolve file existence + mtime via the
+            % per-tick coalesced fs cache. fsStatCount is incremented inside
+            % lookupFsEntry_ only when a real dir()/exist() syscall is issued.
+            [exists, modTime, fsStatCount] = obj.lookupFsEntry_(abspath, fsCache, fsStatCount);
+            if ~exists
                 return;
             end
-
-            info = dir(abspath);
-            if isempty(info)
-                return;
-            end
-            modTime = info(1).datenum;
             if modTime <= state.lastModTime
                 return;
             end
@@ -497,6 +566,75 @@ classdef LiveTagPipeline < handle
             state.lastIndex   = total;
             obj.tagState_(key) = state;
             processed = true;
+        end
+
+        function [exists, modTime, fsStatCount] = lookupFsEntry_(obj, abspath, fsCache, fsStatCount)
+            %LOOKUPFSENTRY_ Resolve (exists, mtime) for abspath via per-tick fs cache.
+            %   Phase 1028 plan 06: when fsCoalesceActive_ is true, one
+            %   dir(parentDir) call enumerates ALL files in the parent
+            %   directory the first time any tag asks; subsequent tags whose
+            %   raw file lives in the same parent directory consult the
+            %   pre-built map of basename -> modtime.
+            %
+            %   When fsCoalesceActive_ is false, falls back to the legacy
+            %   per-tag exist+dir code path (used by --fs-coalesce-off).
+            %
+            %   Returns:
+            %     exists      logical scalar
+            %     modTime     numeric (datenum); 0 when ~exists
+            %     fsStatCount updated counter (each real syscall increments)
+            %
+            %   The mid-tick freeze: a file that materialises after the first
+            %   dir() of its parent directory in this tick will NOT be visible
+            %   in this tick (the map was sampled then). The next tick re-runs
+            %   the fs-cache build from scratch, so the next-tick refresh
+            %   semantic is preserved.
+            exists  = false;
+            modTime = 0;
+            if ~obj.fsCoalesceActive_
+                % Legacy fallback path (--fs-coalesce-off): per-tag stat.
+                fsStatCount = fsStatCount + 1;   % exist()
+                if ~exist(abspath, 'file')
+                    return;
+                end
+                fsStatCount = fsStatCount + 1;   % dir()
+                info = dir(abspath);
+                if isempty(info)
+                    return;
+                end
+                exists  = true;
+                modTime = info(1).datenum;
+                return;
+            end
+
+            % Coalesced path: build parent-directory listing lazily.
+            [parentDir, base, ext] = fileparts(abspath);
+            basename = [base ext];
+            if isempty(parentDir)
+                parentDir = pwd();
+            end
+            if fsCache.isKey(parentDir)
+                entries = fsCache(parentDir);
+            else
+                % One dir() syscall per unique parent directory per tick.
+                fsStatCount = fsStatCount + 1;
+                listing = dir(parentDir);
+                entries = containers.Map('KeyType', 'char', 'ValueType', 'any');
+                for j = 1:numel(listing)
+                    if listing(j).isdir
+                        continue;
+                    end
+                    entries(listing(j).name) = struct( ...
+                        'mtime',    listing(j).datenum, ...
+                        'fullpath', fullfile(parentDir, listing(j).name));
+                end
+                fsCache(parentDir) = entries;
+            end
+            if entries.isKey(basename)
+                hit     = entries(basename);
+                exists  = true;
+                modTime = hit.mtime;
+            end
         end
 
         function parsed = dispatchParse_(obj, abspath)  %#ok<INUSL>
