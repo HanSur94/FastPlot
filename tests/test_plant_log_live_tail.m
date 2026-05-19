@@ -247,6 +247,11 @@ function n = test_tick_ingests_rows()
 end
 
 function n = test_tick_dedup_silent()
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('  SKIP: test_tick_dedup_silent (Octave: readtable/notify unavailable).\n');
+        n = 0;
+        return;
+    end
     p = make_temp_csv_path_();
     cleanupP = onCleanup(@() try_delete(p));
     write_csv_(p, { ...
@@ -269,6 +274,11 @@ function n = test_tick_dedup_silent()
 end
 
 function n = test_tick_appended_rows()
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('  SKIP: test_tick_appended_rows (Octave: readtable/notify unavailable).\n');
+        n = 0;
+        return;
+    end
     p = make_temp_csv_path_();
     cleanupP = onCleanup(@() try_delete(p));
     write_csv_(p, { ...
@@ -294,6 +304,11 @@ function n = test_tick_appended_rows()
 end
 
 function n = test_tick_error_increments_count()
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('  SKIP: test_tick_error_increments_count (Octave: tick_() needs notify).\n');
+        n = 0;
+        return;
+    end
     s = PlantLogStore('bogus');
     m = default_mapping_();
     bogusPath = '/nonexistent/path/to/nothing.csv';
@@ -312,6 +327,11 @@ function n = test_tick_error_increments_count()
 end
 
 function n = test_tail_tick_event_fires()
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('  SKIP: test_tail_tick_event_fires (Octave: readtable/notify unavailable).\n');
+        n = 0;
+        return;
+    end
     p = make_temp_csv_path_();
     cleanupP = onCleanup(@() try_delete(p));
     write_csv_(p, { ...
