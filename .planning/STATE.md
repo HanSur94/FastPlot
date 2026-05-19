@@ -1,782 +1,180 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.1
-milestone_name: Plant Log Integration
-status: verifying
-stopped_at: Completed 1033-03-companion-toolbar-and-smoke-PLAN.md
-last_updated: "2026-05-19T13:06:26.810Z"
-last_activity: 2026-05-19
+milestone: v4.0
+milestone_name: Multi-User LAN Concurrency
+status: shipping
+stopped_at: PR #152 ready for merge (v4.0); PR #114 (Phase 1028 perf) shipped 2026-05-19 on parallel branch.
+last_updated: "2026-05-19T10:00:00Z"
+last_activity: 2026-05-19 -- Phase 1028 (Tag update perf — MEX + SIMD) COMPLETE on parallel branch claude/adoring-ishizaka-edc93c; v4.0 milestone separately shipping via PR #152.
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
+  total_phases: 12
+  completed_phases: 6
+  total_plans: 26
+  completed_plans: 30
 ---
 
 # State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (created 2026-05-13)
+See: .planning/PROJECT.md (updated 2026-05-13)
 
-**Core value:** Engineers can render millions of sensor points smoothly, organize
-them into navigable dashboards, and surface anomalies — all in pure MATLAB with no
-toolbox dependencies.
-**Current focus:** Phase 1033 — Dashboard + Companion Integration & Serialization
+**Core value:** A MATLAB engineer can ingest a million-sample sensor stream, monitor thresholds, build sub-second-responsive dashboards, and navigate it all from a single Companion app — without leaving MATLAB and without external toolboxes.
+**Current focus:** Phase 1029 — Concurrency Foundation
 
 ## Current Position
 
-Phase: 1033
-Plan: Not started
-Milestone: v3.1 Plant Log Integration — EXECUTION COMPLETE, ready for verification
-Status: All 3 plans of Phase 1033 closed; Phase 1033 ready for /gsd:verify-phase 1033; milestone v3.1 ready for /gsd:complete-milestone
-Last activity: 2026-05-19
+Phase: 1028 (tag-update-perf-mex-simd) — COMPLETE 2026-05-19 (this branch)
+Plan: 6 of 6 executed (with 03/04 deferred per Plan 02d data). Shipped plans: 01, 02, 02b, 02d, 05, 06.
+Milestone: v3.0 FastSense Companion — SHIPPED 2026-04-30; v4.0 Multi-User LAN Concurrency — shipping via PR #152 (parallel branch); v1.0 perf line tracks phase 1028 — now COMPLETE via PR #114.
+Status: Phase 1028 closed. WithIO `tickMin` reduced 4497 ms → 3603 ms (−19.9%) on Octave Linux x86_64 CI run 26089658442, almost entirely from Plan 02d's in-memory prior-state cache. Plan 06 ships per-tick fs-stat coalescing reducing 1600 → 1 syscalls/tick (−99.94% mechanism-level; wall-time +3.2% within variance on tmpfs CI). PR #114 carries the phase. Follow-up candidates for a future perf phase: in-memory propagation refactor; `containers.Map` → struct-array refactor; `.mat` save-side optimization. K2/K3/K4 deferred per data (target regions bucket as 0 ms post-cache).
+Last activity: 2026-05-19 — Completed phase 1028: Tag update perf — MEX + SIMD. Plan 06 shipped per-tick fs-stat coalescing seam (1600 → 1 syscall/tick = −99.94% reduction; wall-time within variance), phase wrap docs (VERIFICATION.md Final Result, ROADMAP.md, STATE.md, 1028-06-SUMMARY.md). Cumulative phase win: WithIO −19.9% from Plan 02d's read-side cache. K2/K3/K4 deferred per data; in-memory propagation + Map refactor remain as candidates for a follow-up perf phase.
+
+### Note on parallel v4.0 work (main branch state)
+
+While Phase 1028 was in flight on this branch, main shipped v4.0 Multi-User LAN Concurrency (phases 1029-1033) via PR #152. The two efforts touched some shared files (`LiveTagPipeline.m`, `build_mex.m`) — merged here on this commit with both feature sets preserved:
+- Plan 02d in-memory prior-state cache + Plan 06 fs-stat coalescing live in the single-user code path of `LiveTagPipeline.processTag_`.
+- v4.0 cluster-mode (TagWriteCoordinator + AtomicWriter) lives in the `if obj.IsClusterMode_` branch.
+- `bench_tag_pipeline_1k` continues to drive the single-user path (no SharedRoot set).
+- v4.0's STATE.md / ROADMAP.md entries (phases 1029-1033 Complete) preserved verbatim; phase 1028 Complete entry added alongside.
+
+Three main PRs touched files v4.0 also modified — all auto/manually merged without functional conflict:
+- PR #143 (260513-s0y) — Tile + Close all toolbar buttons. Tracking fixes (syncOpenedFigures_ Engines_ walk, public trackOpenedFigure hook, de-maximize + Units=pixels coercion) live alongside v4.0 cluster-mode wiring.
+- PR #149 (260519-bs4) — Tag Status Table window. TagStatusTableWindow handle + Tags toolbar button live alongside v4.0 cluster-mode + pipeline-observer state.
+
+Other main PRs (#138, #139, #141, #144, #145, #146) auto-merged without conflict during the earlier sync.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260504-rcw | Fix isempty(containers.Map) guard in FastSenseCompanion.scanLiveTagUpdates_ | 2026-05-04 | cb83b51 | — | [260504-rcw-fix-isempty-containers-map-guard-in-fast](./quick/260504-rcw-fix-isempty-containers-map-guard-in-fast/) |
+| 260504-sgt | Implement Companion Settings Dialog (Theme + Live period) | 2026-05-04 | c522988 | Verified | [260504-sgt-implement-companion-settings-dialog-them](./quick/260504-sgt-implement-companion-settings-dialog-them/) |
+| 260504-sfp | Unify single-tag Open Detail through openAdHocPlot + right-click event-marker context menu | 2026-05-04 | 1d0ccd3 | — | [260504-sfp-fastsensecompanion-route-single-tag-open](./quick/260504-sfp-fastsensecompanion-route-single-tag-open/) |
+| 260508-b8m | Refresh CLAUDE.md for Tag-based API and add Running MATLAB code section | 2026-05-08 | 90d9c03 | — | [260508-b8m-refresh-claude-md-for-tag-based-api-and-](./quick/260508-b8m-refresh-claude-md-for-tag-based-api-and-/) |
+| 260508-bju | Lock down WebBridge CORS to localhost with env-var override | 2026-05-08 | 518b778 | Verified | [260508-bju-lock-down-webbridge-cors-to-localhost-on](./quick/260508-bju-lock-down-webbridge-cors-to-localhost-on/) |
+| 260508-bxh | Gate WebSocket /ws endpoint with same origin policy as HTTP CORS | 2026-05-08 | e1aeebc | — | [260508-bxh-gate-websocket-ws-endpoint-with-same-ori](./quick/260508-bxh-gate-websocket-ws-endpoint-with-same-ori/) |
+| 260508-d7k | Fix companion app dark mode — add uilistbox + 7 widget classes to theme walker | 2026-05-08 | 4472cc2 | Verified | [260508-d7k-fix-companion-app-dark-mode-switching-th](./quick/260508-d7k-fix-companion-app-dark-mode-switching-th/) |
+| 260508-d8y | FastSense hover crosshair + datatip | 2026-05-08 | 0221795 | — | [260508-d8y-fastsense-hover-crosshair-datatip](./quick/260508-d8y-fastsense-hover-crosshair-datatip/) |
+| 260508-das | Restore dashboard time-slider preview lines + event markers (backlog 999.3) | 2026-05-08 | 4110024 | Verified | [260508-das-implement-backlog-999-3-dashboard-time-s](./quick/260508-das-implement-backlog-999-3-dashboard-time-s/) |
+| 260508-edd | Color dashboard slider preview event markers per-severity (sev1/2/3 -> green/orange/red) | 2026-05-08 | 9c1ef82 | Verified | [260508-edd-color-slider-preview-event-markers-per-e](./quick/260508-edd-color-slider-preview-event-markers-per-e/) |
+| 260508-eu2 | Restore EventStore on detached FastSenseWidget so event markers stay visible after detach | 2026-05-08 | 952ad90 | Verified | [260508-eu2-restore-eventstore-on-detached-fastsense](./quick/260508-eu2-restore-eventstore-on-detached-fastsense/) |
+| 260508-f7p | Reset button on time panel now restyles on dashboard theme switch | 2026-05-08 | 0e9c6f7 | Verified | (inline) |
+| 260508-jf1 | Fix orange stale-data banner overlapping multi-page tab strip in DashboardEngine | 2026-05-08 | 66fbfbc | — | [260508-jf1-fix-orange-no-data-banner-overlapping-da](./quick/260508-jf1-fix-orange-no-data-banner-overlapping-da/) |
+| 260508-jyh | Reserve permanent top strip for stale-data banner (banner no longer overlays toolbar / tabs / widgets) | 2026-05-08 | bdf1dc5 | Verified | [260508-jyh-stale-banner-reserved-strip-atop-dashboa](./quick/260508-jyh-stale-banner-reserved-strip-atop-dashboa/) |
+| 260508-kau | Slider preview aggregates lines + event markers across ALL pages (KAU-01) | 2026-05-08 | 70c3c4c | — | [260508-kau-slider-preview-aggregates-all-pages-widg](./quick/260508-kau-slider-preview-aggregates-all-pages-widg/) |
+| 260508-kov | Revert slider preview/markers to active-page-only iteration (supersedes kau via forward-fix; KOV-01) | 2026-05-08 | ac5d4df | — | [260508-kov-revert-slider-preview-to-active-page-onl](./quick/260508-kov-revert-slider-preview-to-active-page-onl/) |
+| 260508-l2k | Slider preview + event-marker iteration recurses into GroupWidget children, scoped to active page (L2K-01) | 2026-05-08 | 5cd3e27 | — | [260508-l2k-preview-iteration-recurses-into-groupwid](./quick/260508-l2k-preview-iteration-recurses-into-groupwid/) |
+| 260508-llw | Broadcast time range across ALL pages (broadcastTimeRange + resetGlobalTime) and re-broadcast on tab-switch so realized widgets inherit synced range (LLW-01/02/03) | 2026-05-08 | ed66ec5 | Verified | [260508-llw-broadcast-time-range-across-all-pages-wi](./quick/260508-llw-broadcast-time-range-across-all-pages-wi/) |
+| 260508-m52 | Shrink WidgetButtonBar from full-width to 64px right-anchored strip so widget titles below it become visible (M52-01/02) | 2026-05-08 | 1410524 | Superseded by mhv | [260508-m52-shrink-widget-button-bar-to-right-anchor](./quick/260508-m52-shrink-widget-button-bar-to-right-anchor/) |
+| 260508-mhv | Restore full-width WidgetButtonBar; render widget content into WidgetContentPanel sub-panel below the bar so titles/axes never truncate (MHV-01/02) | 2026-05-08 | 6860bad | Verified | [260508-mhv-full-width-widget-bar-with-content-panel](./quick/260508-mhv-full-width-widget-bar-with-content-panel/) |
+| 260508-n3u | FastSenseWidget.getPreviewSeries skips downsampling for sensors with <=100 samples (raw fidelity below threshold, downsample above) (N3U-01) | 2026-05-08 | 4a260ef | — | [260508-n3u-preview-skips-downsampling-under-100-sam](./quick/260508-n3u-preview-skips-downsampling-under-100-sam/) |
+| 260508-ng1 | Add Reset button to DashboardToolbar that triggers DashboardEngine.rerenderWidgets() | 2026-05-08 | fb80f4b | Verified | [260508-ng1-add-reset-button-to-dashboard-toolbar](./quick/260508-ng1-add-reset-button-to-dashboard-toolbar/) |
+| 260508-ny6 | switchPage marks active-page widgets dirty + refreshes them, incl. nested GroupWidget children; isolates per-widget refresh failures (NY6-01/02/03) | 2026-05-08 | 31a7b94 | Superseded by od4 | [260508-ny6-tab-switch-marks-active-page-widgets-dir](./quick/260508-ny6-tab-switch-marks-active-page-widgets-dir/) |
+| 260508-od4 | Roll back ny6 (switchPage markDirty+refresh sweep didn't fix stuck-widget symptom and added per-tab cost) + fix HoverCrosshair.onFigureMove_ invalid-object guard (OD4-01/02) | 2026-05-08 | 6ef1a86, 936feac | — | [260508-od4-rollback-ny6-sweep-and-fix-hovercrosshai](./quick/260508-od4-rollback-ny6-sweep-and-fix-hovercrosshai/) |
+| 260508-huo | Fix CI — hoist companion test runners out of private/; guard headless web() in DashboardEngine; gate R2020b MEX-heavy tests | 2026-05-08 | 62b99ab | — | [260508-huo-fix-octave-tests-move-companion-runner-f](./quick/260508-huo-fix-octave-tests-move-companion-runner-f/) |
+| 260508-mjp | Add tag-column search field to LiveLogPane mirroring events log | 2026-05-08 | 1c258fb | — | [260508-mjp-add-tag-column-search-field-to-livelogpa](./quick/260508-mjp-add-tag-column-search-field-to-livelogpa/) |
+| 260508-n8h | Dashboard Info button opens modal in-app uifigure (uihtml) instead of system browser | 2026-05-08 | 8b525a8 | — | [260508-n8h-dashboard-info-button-opens-modal-render](./quick/260508-n8h-dashboard-info-button-opens-modal-render/) |
+| 260511-ldu | PR #125 followup polish — extract bringFigureToFront_, tighten crosshair visibility, +2 tests, doc fixes | 2026-05-11 | 134a0d9 | — | [260511-ldu-pr-125-followup-polish-extract-bringfigu](./quick/260511-ldu-pr-125-followup-polish-extract-bringfigu/) |
+| 260511-mjb | Fix 2 pre-existing TestFastSenseCompanion failures — findobj→findall for uifigure lookup; ObjectBeingDestroyed safety-net listener on DashboardEngine.hFigure (stops LiveTimer for delete(fig)/close all force paths) | 2026-05-11 | 8df1a67 | Verified | [260511-mjb-fix-2-pre-existing-testfastsensecompanio](./quick/260511-mjb-fix-2-pre-existing-testfastsensecompanio/) |
+| 260511-n1r | Sever FigureDestroyedListener_ at top of DashboardEngine.delete() — fixes R2021b CI segfault in TestDashboardDirtyFlag (listener captured engine handle; on R2021b GC could destroy engine before its hFigure, then listener fired on deleted handle inside MATLAB's C++ dispatch layer) | 2026-05-11 | e7026bb | Verified | [260511-n1r-fix-r2021b-segfault-delete-figuredestroy](./quick/260511-n1r-fix-r2021b-segfault-delete-figuredestroy/) |
+| 260512-c5x | Fix tail-truncation artifact in FastSense MinMax downsampling — append (segX(end), segY(end)) anchor in all four cores (MEX/pure-MATLAB/log-X/slider-preview) when bucket's min/max miss segX(end). Industrial plant demo reactor.pressure tail delta 10580s→0.97s; n=2*nb+1 when anchor needed | 2026-05-12 | c932acd | Verified | [260512-c5x-fix-tail-truncation-artifact-in-fastsens](./quick/260512-c5x-fix-tail-truncation-artifact-in-fastsens/) |
+| 260512-cxc | Fix slider preview tail stuck at interior bucket midpoint (260512-c5x follow-up) — in getPreviewSeries capture anchorX before dropping the trailing point, then override xCenters(end):=anchorX so the slider tail tracks live data growth. Industrial plant demo slider-tail delta 414s→0.00s; tracks tick-for-tick after Reset | 2026-05-12 | f79642a | Verified | [260512-cxc-fix-slider-preview-tail-stuck-at-interio](./quick/260512-cxc-fix-slider-preview-tail-stuck-at-interio/) |
+| 260512-egv | Fix slider drag broken after top-toolbar Reset — add TimeRangeSelector.reinstallCallbacks + call at end of DashboardEngine.rerenderWidgets. Root cause: HoverCrosshair's chained WBM pattern unwinds in install order (not LIFO) when rerenderWidgets deletes widget panels 1..N, leaving a dangling-handle closure on the figure WBM that swallows motion events before they reach trs.onButtonMotion_. Re-installing TRS callbacks at the outermost layer restores drag. Acknowledged trade-off: per-widget HoverCrosshair goes inert until next instantiation (out-of-scope refactor) | 2026-05-12 | 7ab7584 | Verified | [260512-egv-fix-slider-drag-broken-after-reset-due-t](./quick/260512-egv-fix-slider-drag-broken-after-reset-due-t/) |
+| 260512-eu2 | Restore HoverCrosshair after Reset (260512-egv follow-up) — move TRS.reinstallCallbacks from end of rerenderWidgets to BETWEEN the delete-old-panels loop and the allocate-new-panels block. New chain post-rerender: newHcN→...→newHc1→trs.onButtonMotion_. Both slider drag AND per-widget HoverCrosshair work after Reset. Verified on live demo: POST-RESET WBM = HC's onFigureMove_, synth drag moves Selection by ~1.74 days, 2 live HoverCrosshair instances alive on active page | 2026-05-12 | dc84454 | Verified | [260512-eu2-restore-hovercrosshair-after-reset-by-mo](./quick/260512-eu2-restore-hovercrosshair-after-reset-by-mo/) |
+| 260512-fd9 | Industrial plant demo opens with Live mode OFF by default — removed `engine.startLive()` from buildDashboard.m. Both dashboard and companion now start idle (engine.IsLive=0, companion.IsLive=0); user opts in via the top-toolbar "Live" button. Aligns the two windows on the same default; data writer + LiveTagPipeline keep running independently in the background | 2026-05-12 | ac0baaa | Verified | (inline) |
+| 260512-hrn | Add Follow uitoggletool to FastSenseToolbar — between Live and Metadata — with setFollow(), syncFollowState(), IsPropagating-aware auto-disengage in FastSense.onXLimChanged, AppData stash at 4 attacher sites, and 9 function-style tests (test_fastsense_follow_toggle.m) | 2026-05-12 | 596d399, 0a4a516 | — | [260512-hrn-add-follow-toggle-button-to-fastsense-to](./quick/260512-hrn-add-follow-toggle-button-to-fastsense-to/) |
+| 260513-ovt | Preserve widget X and Y views across Live ticks + Follow toggle reaches every page — (1) added LiveViewMode='follow' guard inside FastSenseWidget.autoScaleY_, (2) removed `autoScaleY_(y)` from FastSenseWidget.refresh/update, (3) removed `broadcastTimeRange(tStart, tEnd)` from DashboardEngine.onLiveTick, (4) flipped FastSenseWidget.LiveViewMode default 'reset'→'preserve', (5) made FastSenseToolbar.syncFollowState public so FastSense.onXLimChanged's auto-disengage hook actually syncs the Follow button, (6) made DashboardEngine.{allPageWidgets,activePageWidgets} public + onFollowToggle uses allPageWidgets() so Follow actually flips every FastSenseWidget across all pages on multi-page dashboards (was silently no-op via swallowed MethodRestricted). Live mode is now strictly "append data only"; Follow does width-preserving slide with 2% right-edge gap. test_fastsense_follow_toggle 10/10, test_dashboard_time_sync_all_pages 5/5, test_dashboard_range_selector_integration 2/2; verified end-to-end on industrial plant demo (Follow ON: XLim+0.140d toward tail, width preserved exactly, 2/2 widgets switched; OFF: 2/2 reverted) | 2026-05-13 | 498a5f3, ca5be95, 8d41c48, 63cdff4 | — | [260513-ovt-when-follow-button-is-pressed-y-axis-lim](./quick/260513-ovt-when-follow-button-is-pressed-y-axis-lim/) |
+| 260513-q7w | Debounced post-resize refresh + ZOMBIE-PANEL fix that stops widgets going white during drag-resize and tab switching — TWO parallel timers on every figure resize event (300 ms cheap two-pass refresh + 1.2 s unconditional rerenderWidgets backstop). switchPage cancels both timers AND waits up to 3 s for in-flight rerenderWidgets to complete before mutating state. `IsRerendering_` flag prevents rerender-cascade scheduling. Re-entrancy guard aborts instead of self-rescheduling. **Root-cause fix**: rerenderWidgets now deletes the OUTER cell panel (via hCellPanel, falling back to hPanel for pre-realization widgets) — previous code deleted only `hPanel` which after realization points to the INNER content panel, leaving the outer cell + its WidgetButtonBar chrome alive on the canvas as "zombies" that stacked up over multiple rerenders and painted over freshly switched-to pages. test_dashboard_range_selector_integration 2/2, test_dashboard_time_sync_all_pages 5/5; canvas-children-count canary verifies zero zombie accumulation across 4 rerenders + resize + tab switch (constant 29) | 2026-05-13 | 577bf95, 99c8808, 4eda604, bc305dc, 54d5aa0, 20bcd4c | — | [260513-q7w-during-dashboard-figure-resize-fastsense](./quick/260513-q7w-during-dashboard-figure-resize-fastsense/) |
+| 260513-sfp | Add auto-y-limit control buttons (V/A/L) to FastSenseWidget WidgetButtonBar — new YLimitMode property (auto-visible / auto-all / locked, default 'auto-visible' reproduces pre-260513-sfp behaviour), setYLimitMode public method (clears UserZoomedY on explicit click so click re-engages autoscale), autoScaleY_ refactored to dispatch on mode AFTER existing precedence guards (YLimits pin / UserZoomedY / FastSense.LiveViewMode=='follow') so 260513-ovt Follow semantics are preserved. DashboardLayout duck-types widget chrome via ismethod(widget,'setYLimitMode'), so future widgets that expose Y-rescale modes opt in without touching DashboardLayout. ASCII glyphs (V/A/L) match existing Info/Detach. reflowChrome_ re-anchors on resize. toStruct omits the default so legacy dashboards stay diff-invisible. test_fastsense_widget_ylimit_modes 11/11, test_fastsense_widget_tag 7/7, test_fastsense_follow_toggle 10/10, test_dashboard_time_sync_all_pages 5/5. Verified on live industrial-plant demo, all 8 scenarios approved. Known caveat: V/A/L cluster butts against Info button (0-px gap) — inherited from pre-existing addInfoIcon 28-px-typo, explicitly out-of-scope per plan; logged in deferred-items.md | 2026-05-13 | 4db9138, cc18c7f, a9cc181 | Verified | [260513-sfp-add-auto-y-limit-control-buttons-to-fast](./quick/260513-sfp-add-auto-y-limit-control-buttons-to-fast/) |
+| 260513-s0y | Add Tile + Close all buttons to FastSenseCompanion top toolbar — private OpenedFigures_ tracking + syncOpenedFigures_ (walks Engines_ before tile/close-all) + public trackOpenedFigure hook (InspectorPane.onOpenDetail_ and CompanionEventViewer.openEventDashboard_ forward their figure handles). tileOpenedWindows: ceil(sqrt(N))×ceil(N/cols) grid on monitor containing the companion, 24px margin, 8px gutter, row-major top-down. Before set(Position), coerces each figure to WindowState='normal' + Units='pixels' — root cause of initial "Tile does nothing" report was DashboardEngine.render defaulting to Units='normalized' (pixel rects got treated as screen fractions, pushing figures off-canvas). closeAllOpenedWindows: snapshot + close(h) per handle (honors each figure's CloseRequestFcn). Inner toolbar grid 1×4→1×6 (Events / Live / Tile / Close all / spacer / gear; gear Layout.Column 4→6). 9 sub-tests in test_companion_tile_close_buttons.m PASS; TestFastSenseCompanion regression 64/64 PASS. Verified on live industrial-plant demo. Shipped as PR #143. | 2026-05-14 | 182d6f1, 2867caa, 1be2cc8, e58bc35, c47c0c1, db9ef88 | Shipped (PR #143) | [260513-s0y-add-tile-windows-and-close-all-windows-b](./quick/260513-s0y-add-tile-windows-and-close-all-windows-b/) |
+| 260519-bs4 | Add Tag Status Table window to FastSenseCompanion — new `TagStatusTableWindow.m` (classical figure, not uifigure, per CONTEXT.md), opened via new **Tags ↗** button on companion top toolbar (col 3 in the post-merge 1×7 grid: Events / Live / Tags / Tile / Close all / spacer / gear). Detached-only window with 12-column `uitable`: Key, Name, Type, Criticality, Units, Latest, Status (smart per-type — Monitor→OK/ALARM, State→state label, others→—), Last updated (X(end) timestamp), Activity (Live/Inactive at 5-min threshold), Events (count from EventStore), Samples, Labels. All 18 demo tags listed (snapshot from `TagRegistry.find(@(t)true)`). Two parallel refresh paths: (a) push-on-write via existing `FastSenseCompanion.scanLiveTagUpdates_` → `markStatusTableDirty_(keys)` when companion is in Live mode, (b) window-owned `RefreshTimer_` (1s fixedSpacing, unique UUID name, BusyMode='drop', self-stop after 2 consecutive tick errors) so the table refreshes regardless of companion's IsLive — addresses user feedback that Activity/Last updated must stay correct when companion is idle. Pause/Resume polling toggle freezes both paths (markTagsDirty becomes a no-op while paused; header shows "Last refreshed: HH:MM:SS (paused)"). "Last refreshed" heartbeat label updates every tick. Filter chips mirror TagCatalogPane pattern: Type (Sensor/Monitor/Composite/State/Derived), Criticality (Low/Medium/High/Safety), Activity (Live/Inactive) — multi-toggle, AND-across-groups / OR-within-group; broadened free-text search across Key+Name+Units+Labels. Push-on-write hook in companion stays — both mechanisms run in parallel. Six atomic commits + 1 merge: 01 base class + 11 pure-logic tests; 02 companion wiring + 7 lifecycle tests; 03 Activity column + own timer (+5 logic + 2 lifecycle tests, deviation from "push-on-write only" CONTEXT decision per user); 04 last-refreshed header + chip filters + broader search (+4 logic + 2 lifecycle tests); 05 Pause/Resume polling toggle (+4 lifecycle tests); 06 Events count column (+4 logic + 1 lifecycle test); 07 merge with main (PR #143 toolbar grid conflict). Final test counts post-merge: `test_companion_tag_status_table` 24/24 (pure-logic), `TestTagStatusTableWindow` 16/16 (UI lifecycle), `test_companion_tile_close_buttons` 9/9 (main's new test still PASS), `TestFastSenseCompanion` 64/64 (no regression) = 113/113 total. Verified end-to-end on live industrial-plant demo: 4 MonitorTags showed real event counts (29/32/33/35), 14 others showed 0; Activity flipped Live→Inactive at exactly 5-min boundary via static buildRow_ proof; companion IsLive=0 throughout (window polled itself). Deferred / out-of-scope: (1) polling-scope clarification dismissed by user (heartbeat-only vs. passive-observation vs. only-update-changed-cells — left as-is, table updates all cells every tick); (2) Info button + markdown help — scoped up to a milestone-sized "unified in-app help/wiki" effort, parked as backlog 999.1. | 2026-05-19 | b2ed937, e8a1be5, 43d2d3b, 2a24965, 50d464c, 10df740, 73a3bf1 | Verified | [260519-bs4-implement-a-new-table-view-in-the-compan](./quick/260519-bs4-implement-a-new-table-view-in-the-compan/) |
 
 ## Progress Bar
 
-v3.1 Plant Log Integration:
-
-- [x] Phase 1029: Plant Log Storage Foundation — 3/3 plans
-- [x] Phase 1030: CSV/XLSX Import + Mapping Dialog — 3/3 plans
-- [x] Phase 1031: Live Tail + Slider Preview Overlay — 3/3 plans
-- [x] Phase 1032: Per-Widget Plant Log Overlay — 3/3 plans
-- [x] Phase 1033: Dashboard + Companion Integration & Serialization — 3/3 plans
-
-Phases complete: 5/5 (100%) — Plan 1033-03 closed 2026-05-19 — milestone v3.1 EXECUTION COMPLETE
-Plans complete: 15/15 (100%)
+```
+v3.0 FastSense Companion
+Phase 1018 [██████████] 100% (3/3 plans complete in Phase 1018; 1/6 phases complete overall)
+Phase 1019 [██████████] 100% (3/3 plans complete in Phase 1019; 6/6 plans complete overall)
+```
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
-- 2026-04-29 — Milestone v3.0 FastSense Companion started (programmatic MATLAB
-  uifigure companion app)
+- 2026-04-29 — Milestone v3.0 FastSense Companion started (programmatic MATLAB uifigure companion app; design brainstormed prior; v2.1 Tag-API Tech Debt Cleanup carried forward in parallel)
+- 2026-04-29 — v3.0 roadmap created: 5 phases (1018-1022) covering 28 REQ-IDs across COMPSHELL, CATALOG, BROWSER, INSPECT, ADHOC categories
+- 2026-04-29 — v3.0 phase 1023 added (Industrial Plant Demo Integration): wraps `demo/industrial_plant/run_demo.m` in `FastSenseCompanion`; 4 new COMPDEMO REQ-IDs; total now 6 phases / 32 REQ-IDs
+- 2026-05-13 — Milestone v4.0 Multi-User LAN Concurrency started; PROJECT.md updated, REQUIREMENTS.md created (14 P1 REQ-IDs across CONC/IDENT/EVTLOG/ACK/OPS categories; 6 P2 deferred to v4.1); research/ phase produced SUMMARY/STACK/FEATURES/ARCHITECTURE/PITFALLS markdown
+- 2026-05-13 — v4.0 roadmap created: 5 phases (1029-1033) covering all 14 P1 REQ-IDs, full coverage no orphans; phase structure mirrors research-recommended build order (Foundation → TagWriteCoordinator → EventLog → Single-Source Events → Companion Integration); three PITFALLS corrections (OFD locks, mtime heartbeat, lock-serialised appends) baked into Phase 1029 success criteria
 
-- 2026-04-30 — v3.0 SHIPPED at phase 1023.1
-- 2026-05-08 — Five floating phases (1024–1028) promoted from backlog into a
-  "Pending milestone" bucket; most closed via quick tasks over the following days
+### Phase Numbering Note
 
-- 2026-05-13 — Milestone v3.1 Plant Log Integration started; phases start at 1029
-  to avoid collision with floating phase 1028 (Tag update perf, still open)
+v2.1 phases in the phases/ directory extend to 1017 (1012, 1013, 1014, 1017). v3.0 phases extended to 1023.1. Pending unscoped phases 1025-1028 are carry-forward from a backlog promotion (NOT v4.0). v4.0 phases start at **1029** to leave room for the pending carry-forward and avoid collision.
 
-- 2026-05-13 — v3.1 roadmap defined: 5 phases (1029–1033), 32 PLOG-* requirements
-  mapped to phases, no orphans
+### Brainstorm Outcomes (v3.0)
 
-### Brainstorm Outcomes (v3.1)
+Design decisions locked during the v3.0 brainstorm conversation (2026-04-29):
 
-Design decisions locked during the v3.1 milestone scoping conversation (2026-05-13):
+- **Scope:** A + B + C combined — library browser + live monitoring + tag-first explorer. **Not** D (no in-app dashboard authoring/editing).
+- **UI tech:** Programmatic `uifigure` (no App Designer, no `.mlapp`).
+- **Connection contract:** Loose handoff via constructor: `FastSenseCompanion('Dashboards', {d1, d2}, 'Registry', TagRegistry)`. Tags pulled from `TagRegistry` singleton by default; pass `'Registry', reg` to override. Single project per app instance (no multi-project switcher).
+- **Dashboard rendering:** Opening a dashboard pops it into its own MATLAB figure via existing `DashboardEngine.render()`. Companion is purely a control panel / navigator. Zero changes required to `DashboardEngine`.
+- **Layout:** Three-pane window — left = searchable tag catalog with multi-select checkboxes and filter pills; middle = dashboard list; right = adaptive inspector.
+- **Inspector states:** `welcome` (empty) / `tag` (single tag selected — metadata, thresholds, "used in" cross-references, "Plot this tag" → `SensorDetailPlot`) / `multitag` (N>1 — plot composer with Linked grid / Overlay, time range All / Last 1h, Live Off/2s/5s) / `dashboard` (dashboard tile selected — summary + open + live toggle). Most-recent click wins (`LastInteraction = 'tags' | 'dashboard'`).
+- **Tag grouping:** Derived from `Tag.Labels` (existing property; no new model field). Filter pills also reflect `Tag.Criticality`.
+- **Ad-hoc plotting modes:** Linked grid (`FastSenseGrid` with shared `LinkGroup`) and Overlay (single `FastSense` instance with multiple lines). Dropped "Separate figures" as YAGNI.
+- **Live refresh:** Companion does **not** own a refresh timer for dashboards — uses each `DashboardEngine`'s own `LiveInterval` and start/stop. For ad-hoc plots, companion runs a `timer` that calls `tag.getXY()` and `updateData()` on the open figure; timer stored on figure `UserData`, stops on figure close.
+- **File structure:**
+  - `libs/FastSenseCompanion/FastSenseCompanion.m` (orchestrator, public API)
+  - `libs/FastSenseCompanion/TagCatalogPane.m` (left pane)
+  - `libs/FastSenseCompanion/DashboardListPane.m` (middle pane)
+  - `libs/FastSenseCompanion/InspectorPane.m` (right pane)
+  - `libs/FastSenseCompanion/CompanionTheme.m` (static color/font helper, mirrors `DashboardTheme`)
+  - `libs/FastSenseCompanion/private/companionUsageIndex.m` (tag → dashboards map)
+  - `libs/FastSenseCompanion/private/filterTags.m` (search + filter pure logic)
+  - `libs/FastSenseCompanion/private/openAdHocPlot.m` (figure factory)
+- **Event wiring:** MATLAB `events`/`notify`. Pane events: `TagSelectionChanged`, `DashboardSelected`, `OpenSensorDetail`, `OpenAdHocPlot`, `OpenDashboard`. Orchestrator owns selection state (`SelectedTagKeys`, `SelectedDashboardIdx`, `LastInteraction`).
+- **Public API:** `FastSenseCompanion(name-value)`, `setProject(dashboards, registry)`, `addDashboard(d)`, `removeDashboard(key)`, `selectTags(keys)`, `close()`. Private: pane handles. Not on surface: live-refresh control (delegates to `DashboardEngine`), dashboard creation/edit (out of scope).
+- **Errors:** All namespaced `FastSenseCompanion:*`. Constructor / `setProject` validate eagerly. Every event callback wrapped in try/catch → `uialert(fig, ...)`. Downstream throws (e.g., `DashboardEngine.render`) never crash the companion.
+- **Testing:** Pure-logic unit tests (`tests/test_companion_filter_tags.m`, `tests/test_companion_usage_index.m`). Class-based integration suite (`tests/suite/TestFastSenseCompanion.m`) — hidden `uifigure('Visible','off')`, drives state via `selectTags`, mocks `openAdHocPlot` via DI seam (constructor accepts a callable, defaults to real helper). No pixel-perfect UI tests.
+- **Out of scope (v1 of Companion):** dashboard authoring; multi-project; cross-session persistence; status strip with global KPIs; custom time-range picker; detachable panes; WebBridge integration.
 
-- **File formats:** CSV and Excel (XLSX). Other formats deferred.
-- **Visual style:** Plant-log entries always render as **black vertical lines** on
-  the slider preview and on opt-in FastSenseWidgets. Visually distinct from the
-  existing sev1/2/3 colored event markers (green/orange/red).
+### Cross-Cutting Engineering Constraints (locked in Phase 1018)
 
-- **Storage:** Separate `PlantLogStore` class, parallel to `EventStore`. **Not**
-  merged into `EventStore` — preserves clean separation from auto-detected events.
+These apply to every phase and are reflected in phase success criteria rather than separate REQ-IDs:
 
-- **Ingest:** One-shot import + live tail. Live tail re-reads the source file on a
-  timer and appends only new rows.
-
-- **Dedup:** Timestamp + row-hash. Safe under append, prepend, file rotation.
-- **Column mapping:** Auto-detect timestamp column (parses dates) + message column
-  (first non-timestamp text column); remaining columns become metadata. User can
-  override via a uifigure mapping dialog at import time.
-
-- **Slider preview:** Always shows plant-log lines (black) when a `PlantLogStore`
-  is attached to the dashboard.
-
-- **Widget overlay:** Per-`FastSenseWidget` `ShowPlantLog` boolean property,
-  default `false`. When `true`, the widget draws black vertical lines on its axes
-  for every entry in its current time range.
-
-- **Hover tooltip:** Hovering a plant-log line shows a small datatip with
-  timestamp + message + metadata columns. Works on both slider and widget overlays.
-
-- **Dashboard integration:** `DashboardEngine.attachPlantLog(path, opts)` /
-  `detachPlantLog()` / `PlantLogStore` property. Serialization saves source path
-
-  + column mapping (NOT the imported data — re-imported from source on load).
-- **Companion integration:** `FastSenseCompanion` toolbar gains an "Open Plant
-  Log…" entry that imports a file and attaches to all open dashboards.
-
-### Cross-Cutting Engineering Constraints (v3.1)
-
-These apply to every phase and are reflected in phase success criteria rather than
-separate REQ-IDs:
-
-- Live-tail timer follows the existing pattern: `Listeners_` cell + `stop(t); delete(t);` in
-  cleanup; never `kill(t)`. CloseRequestFcn safe.
-
-- Errors namespaced `PlantLogStore:*` / `PlantLogReader:*` / `PlantLogImportDialog:*`
-- Every callback wrapped in try/catch + non-blocking `uialert` (or `warning` for
-  non-uifigure contexts)
-
-- MATLAB + Octave compatibility — Octave's `readtable` reads CSV but not XLSX;
-  XLSX path may be MATLAB-only and tests gated on `usejava('jvm')` + `which xlsread`
-
-- Theme-aware: black line color comes from the theme's `MarkerPlantLog` token
-  (added in v3.1) so dark theme can override if needed — default black on both
-  themes
-
-- Pure-logic helpers (`parsePlantLog_`, `dedupEntries_`, column auto-detect) ship
-  with unit tests
+- `Listeners_` cell array on every class that calls `addlistener`; `delete(obj.Listeners_)` in `CloseRequestFcn`
+- `stop(t); delete(t);` always in that order for every timer (companion and ad-hoc)
+- Companion is the only `uifigure`; all spawned figures are classical `figure` — never parent one inside the other
+- `axes(uipanel)` not `uiaxes(uipanel)` for embedded plots (9x performance difference)
+- Errors namespaced `FastSenseCompanion:*`; every callback wrapped in try/catch + non-blocking `uialert`
+- Pure-logic helpers (`filterTags_`, `flattenWidgets_`) ship with unit tests
 
 ### Research Flags for Planning
 
-- **Phase 1029 planning:** Read `libs/EventDetection/EventStore.m` and
-  `libs/EventDetection/Event.m` to mirror the `EventStore` shape (constructor,
-  add/query/count API) into `PlantLogStore` without coupling them.
+- **Phase 1020 planning:** Read `libs/Dashboard/DashboardPage.m` and `libs/Dashboard/GroupWidget.m` to confirm `Widgets` and `Children` GetAccess. Determines whether `DashboardEngine.getWidgets()` wrapper is required or if `d.Widgets`/`d.Pages{i}.Widgets` suffices.
+- **Phase 1021 planning:** Run 20-line scratch test of `SensorDetailPlot(tag, 'Parent', uipanelHandle)` to verify resize behavior under embedded panel parenting.
+- **Phase 1022 planning:** Write standalone 50-line `FastSenseGrid` + `timer` + `CloseRequestFcn` prototype before full implementation; verify zero orphan timers in `timerfindall` after close.
+- **Phase 1029 planning (v4.0):** `lockfile_mex.c` OFD-vs-`F_SETLK` branching; Win32 `LockFileEx` flag combinations; `F_OFD_SETLK` re-acquire behaviour from same process (LOW confidence per SUMMARY.md); empirical `staleTimeout` calibration on target office LAN; mksqlite `extended_result_codes` pass-through probe (feeds Phase 1032's retry wrapper).
+- **Phase 1031 planning (v4.0):** SMB atomicity stress test on the target file server (Pitfalls 4 + 5 + 12); phase budget includes contingency to re-architect to per-writer-file + merge if SMB atomicity fails.
+- **Phase 1032 planning (v4.0):** SQLite `BUSY_SNAPSHOT` retry semantics under 50-writer contention; retry-loop tuning needs 20-process write-contention test.
 
-- **Phase 1030 planning:** Run a 20-line scratch test of `readtable` against an
-  XLSX file in headless MATLAB + Octave to confirm XLSX availability per
-  platform/runtime. Determines whether XLSX support is MATLAB-only (then Octave
-  tests gated) or fully cross-runtime.
+### Decisions (Phase 1020)
 
-- **Phase 1031 planning:** Read `libs/Dashboard/TimeRangeSelector.m` to confirm
-  the exact hook point used by the existing event-marker overlay (sev1/2/3) —
-  reuse the same insertion path to avoid disturbing the slider preview pipeline.
-  Also read `libs/EventDetection/LiveEventPipeline.m` for the timer + cleanup
-  precedent (`Listeners_` + `stop(t); delete(t);`).
+- **1020-02:** applyFilter_() is the single rebuild path for DashboardListPane row list; onRowClicked_ sets SelectedIdx_ then calls applyFilter_() for highlight rather than painting individual buttons
+- **1020-02:** addDashboard uses handle identity (==) for duplicate detection; removeDashboard uses Name (case-sensitive strcmp) for lookup per CONTEXT.md
+- **1020-02:** Listeners re-wired in setProject after detach clears them; SelectedDashboardIdx_ clamped to 0 in refresh() when engine list shrinks
 
-- **Phase 1032 planning:** Read `libs/Dashboard/FastSenseWidget.m` to confirm
-  where the existing tag-bound event markers are drawn on the widget axes;
-  plant-log overlay should integrate at the same point with a different color +
-  hover behavior. Read `libs/FastSense/FastSenseToolbar.m` for the widget
-  button-bar icon-button precedent.
+### Decisions (Phase 1028)
 
-- **Phase 1033 planning:** Read `libs/Dashboard/DashboardSerializer.m` for the
-  JSON + `.m` export hook points, and `libs/FastSenseCompanion/FastSenseCompanion.m`
-  for the toolbar entry + multi-dashboard fan-out pattern.
+- **1028-02b/02d/05/06 DI-seam pattern:** All four mid-phase architectural levers share a single shape — `Access = private` flag (production default true) + `Hidden setFooForTesting_(tf)` setter that validates `logical scalar`. This preserves D-10 (no public API), gives the harness a single flip-point per lever, and makes the test surface uniform. Future phases that add a switchable behaviour to a Tag-pipeline class should follow this pattern.
+- **1028-02d in-memory cache mechanism:** The big win in the phase was a read-side cache, not a write-side coalesce. The original Plan 02d framing ("coalesce within-tick semantics") was wrong — `processTag_` already calls `writeFn_` exactly once per tag per tick. The actual mechanism is a `containers.Map` of `tag.Key -> struct('X', priorX, 'Y', priorY)` populated lazily and refreshed after every write, skipping the per-tick `load()` inside `writeTagMat_('append',...)`. Crash-recovery semantics preserved because `save()` cadence is unchanged.
+- **1028-03/04 deferral was data-driven, not a scope cut:** K2/K3/K4 kernel target regions bucket as 0 ms in the post-cache `tBreakdown` profile. Plans 03/04 PLAN.md files exist on disk and are valid pickup points if a future profile pass with direct `tic/toc` probes finds those regions to be non-trivial. The deferral is documented in VERIFICATION.md and the 1028-06-SUMMARY.md retrospective.
+- **1028-05 null-result ship-the-seam pattern:** When a planned architectural lever's expected mechanism doesn't materialise empirically, ship the lever as an internal seam and surface the null result in VERIFICATION.md. Avoid the false dichotomy of "meets ship-criterion → ship" vs "doesn't → revert"; the third option is "ships as forward-compat, doesn't move today's number". Establishes a precedent for honest measurement reporting.
+- **1028-06 fs-stat coalesce mechanism:** One `dir(parentDir)` per unique parent directory per tick, keyed map populated lazily on first lookup, frozen for the rest of that tick. Octave-safe (no MATLAB-specific syntax). Trade-off: a file appearing mid-tick is NOT visible in that tick. Acceptable because the per-tag mtime check vs `lastModTime` already serialises ingestion at tick boundaries.
 
-### Carry-Forward (independent of v3.1)
+### Carry-Forward
 
-- **v2.1 Tag-API Tech Debt Cleanup** — phases 1012–1017 (in flight, not blocking)
-- **Floating phase 1028** — Tag update perf (MEX + SIMD); not started, not part of v3.1
-
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260519-l99 | Wire a plant log into the industrial plant demo (seedPlantLog helper + run_demo attachPlantLog) | 2026-05-19 | 2a8cdf1 | [260519-l99-create-a-plant-log-for-the-industrial-pl](./quick/260519-l99-create-a-plant-log-for-the-industrial-pl/) |
-
-## Session Continuity
-
-- **Resume point:** Phase 1033 Plan 03 (Companion toolbar + integration
-  smoke) is **shipped** (2026-05-19) — milestone v3.1 EXECUTION COMPLETE.
-  `PlantLogReader.openInteractive` now supports `[entries, varargout] =
-  openInteractive(...)` with the second optional output being the
-  confirmed mapping struct (echoed for headless; from dialog for
-  interactive; [] for cancel/empty-file). All four return sites guard
-  with `if nargout >= 2; varargout{1} = ...; end` so existing Phase
-  1030 + 1031 single-output callers continue to work unchanged.
-  `FastSenseCompanion` toolbar grid expanded from `[1 4]` `{110, 110,
-  '1x', 36}` to `[1 5]` `{110, 110, 130, '1x', 36}`. New `hPlantLogBtn_`
-  private property + new uibutton at col 3 with Tag=CompanionPlantLogBtn,
-  Text=`['Plant Log', char(8230)]` ("Plant Log…"), FontSize=11,
-  FontWeight=bold, Tooltip="Attach a plant log to every open dashboard".
-  Enable=on with >=1 engine + Enable=off with tooltip "No dashboards
-  open" otherwise. `hSettingsBtn_.Layout.Column` moved 4 -> 5. New
-  private `openPlantLogDialog_` method: outer try/catch +
-  final-safety-net uialert + empty-Engines_ branch + cancel branch +
-  empty-file branch + best-effort fan-out loop with per-engine try/catch
-  raising `FastSenseCompanion:plantLogAttachFailed` + partial-failure
-  uialert at loop end (success path silent). Public test shims
-  `openPlantLogDialogInternalForTest` + `getPlantLogBtnForTest_` mirror
-  the openEventViewer_internalForTest idiom. Four new test files: 9
-  function-style + 11 class-based toolbar tests (MATLAB-only with
-  Octave SKIP gate); 9 function-style + 13 class-based integration
-  smoke tests (cross-runtime where possible, Companion-touching tests
-  MATLAB-only). The v3.1 milestone capstone test
-  `testEndToEndDashboardLifecycle` exercises the FULL surface: attach
-  -> save JSON -> save .m -> load JSON -> load .m -> detach all ->
-  timerfindall back to baseline (zero orphans). Auto-fixed during
-  execution: (1) matlab.lang.OnOffSwitchState class mismatch in
-  verifyEqual (Rule 1 -- R2025b's Enable is enum, switched to
-  `verifyTrue(strcmp(char(btn.Enable), 'on'))`); (2) stale
-  `%#ok<NASGU>` + `catch ME` cleanup (Rule 2 hygiene). 209/209 PASS
-  across the full v3.1 plant-log surface (17 test classes); 64/64
-  existing TestFastSenseCompanion unchanged. PLOG-INT-03 complete.
-  Phase 1033 ready for `/gsd:verify-phase 1033`; milestone v3.1 ready
-  for `/gsd:complete-milestone`.
-
-- **Order of phases:** 1029 ✅ → 1030 ✅ → 1031 ✅ → 1032 ✅ → 1033 ✅ (all 3 plans complete). Each phase depended on prior phases; no parallel execution paths.
-
-- **Coverage:** 32/32 active PLOG-* requirements integration-proven end-to-end.
-  Phase 1029 (PLOG-ST-01..05) + Phase 1030 (PLOG-IM-01..08) + Phase 1031
-  (PLOG-LT-* + PLOG-VIZ-01/02/06/08/09) + Phase 1032 (PLOG-VIZ-03/04/05/07) +
-  Phase 1033 (PLOG-INT-01..05). Plan 03 closure adds PLOG-INT-03 (Companion
-  toolbar fan-out) on top of Plan 01 (PLOG-INT-01/02 attach/detach API) and
-  Plan 02 (PLOG-INT-04/05 serialization + load-time degrade-to-warning).
-  v3.1 milestone EXECUTION COMPLETE.
-
-- **Stopped at:** Completed 1033-03-companion-toolbar-and-smoke-PLAN.md
-  (Phase 1033 Plan 03 of 3 closed; Phase 1033 + milestone v3.1
-  EXECUTION COMPLETE). `PlantLogReader.openInteractive` extended with
-  varargout second-output mapping; FastSenseCompanion toolbar gains
-  1x5 grid with new "Plant Log…" button at col 3; new
-  `openPlantLogDialog_` private callback wraps the file picker +
-  best-effort fan-out across `obj.Engines_` with per-engine try/catch
-  and namespaced warning routing. Phase 1033 end-to-end smoke
-  (`testEndToEndDashboardLifecycle`) proves the v3.1 capstone:
-  engine.attachPlantLog -> save JSON -> save .m -> load JSON -> load
-  .m -> detach all -> zero orphan timers. 209/209 PASS across the
-  full v3.1 plant-log test surface; PLOG-INT-03 + all 32/32 v3.1
-  requirements integration-proven end-to-end. Auto-fixed during
-  execution: (1) matlab.lang.OnOffSwitchState class mismatch on three
-  class-based `verifyEqual(btn.Enable, 'on')` calls (Rule 1 — switched
-  to `verifyTrue(strcmp(char(btn.Enable), 'on'))`); (2) checkcode
-  hygiene cleanup on stale `%#ok<NASGU>` + `catch ME` lines (Rule 2).
-  All four new test files checkcode-clean. Phase 1033 ready for
-  `/gsd:verify-phase 1033`; milestone v3.1 ready for
-  `/gsd:complete-milestone`.
-
-- **Plan 02 surface preserved (Phase 1033 Plan 02 historic note):** `DashboardSerializer`
-
-  + `DashboardEngine` extended to round-trip the engine's plant-log state
-  through JSON and .m-script paths with byte-identical back-compat for
-  every v1.0-v3.0 dashboard. Save side: new `stampPlantLogIntoConfig_`
-  private helper on `DashboardEngine` writes the plantLog block onto cfg
-  AFTER widgetsToConfig builds it (omit-when-empty when
-  `PlantLogStoreInternal_` OR `PlantLogSourcePath_` is empty). New
-  `encodePlantLogBlock_` static helper on `DashboardSerializer`
-  hand-encodes the JSON object bypassing `jsonencode`'s cell-of-cells
-  ambiguity for `metadataCols`. New `linesForPlantLog_` static private
-  helper is shared by all three .m-script export paths
-  (`DashboardSerializer.save` legacy, `exportScript` modern,
-  `exportScriptPages` multi-page); uses double-brace
-  `metadataCols, {{...}}` literal so `struct()` preserves the cell shape
-  on feval reload. Per-widget `'ShowPlantLog', true` NV pair forks BOTH
-  the legacy single-line writer AND the modern `linesForWidget` case
-  'fastsense' across all four sub-cases (sensor/file/data/otherwise +
-  no-source fallback). Load side: `DashboardEngine.attachPlantLog`
-  accepts hidden `ContinueOnReadError` opt (default false). New
-  `surfacePlantLogLoadFailure_` private helper routes
-  `PlantLogReader:fileNotFound` to
-  `warning('DashboardEngine:plantLogPathMissing', ...)`, other read
-  failures to `warning('DashboardEngine:plantLogReadFailed', ...)`.
-  `PlantLogReader:unknownColumn` triggers inline mapping-mismatch
-  recovery: re-run `autoDetectFromFile`,
-  `warning('DashboardEngine:plantLogMappingMismatch', ...)`, retry
-  `openInteractive` with the new mapping; on second failure warn
-  plantLogReadFailed. `DashboardEngine.load` JSON branch pre-flights
-  `exist(sourcePath, 'file')` (covers the case where user supplied an
-  explicit Mapping that bypasses the autoDetect path), validates schema
-  (`error('DashboardSerializer:plantLogSchemaInvalid', ...)` on
-  malformed plantLog block), and dispatches `attachPlantLog` with
-  `ContinueOnReadError=true`. v1.0-v3.0 back-compat: missing plantLog
-  key skips entirely with zero warnings. 14/14 function-style + 17/17
-  class-based PASS on MATLAB R2025b (including 3 rendered round-trip
-  tests:`testRoundTripWidgetShowPlantLog`,
-  `testRoundTripPerWidgetShowPlantLogScriptPath`,
-  `testReAttachAfterLoadIsIdempotent`); Phase 1029-1032 regression
-  intact (TestPlantLogIntegrationSmoke 9/9 + TestPhase1031IntegrationSmoke
-  7/7 + TestPhase1032IntegrationSmoke 9/9 + TestDashboardEngineAttachPlantLog
-  18/18 + TestDashboardMSerializer 10/10); checkcode 4 advisory AGROW
-  warnings on new `wLines{end+1}` lines matching existing `linesForWidget`
-  style, zero NEW Error/Critical-level. Auto-fixed during execution:
-  dashboard name "TestWidgetNoShowPlantLog" → "TestWidgetDefault" (Rule 1
-  — substring match on dashboard name produced false-positive assertion
-  failure); 6 stale `%#ok<AGROW>` suppressions stripped from
-  `attachArgs{end+1}` lines (Rule 2 hygiene — R2025b no longer emits AGROW
-  on these patterns, same pattern as Plans 1030-1032).
-
-## Decisions Log
-
-### Phase 1029 — Plant Log Storage Foundation
-
-- **Plan 01 (entry + hash, 2026-05-13)** — djb2 hash uses `lo32/hi32` split + double-precision
-  intermediates so MATLAB (saturating uint64) and Octave (wrapping uint64) produce
-  bit-identical 16-char lowercase hex. `PlantLogEntry` is a value class (no `< handle`)
-  with `SetAccess = private` on every property; ID assignment uses `withId(newId)` which
-  returns a copy. Metadata fields are sorted by fieldname and joined by `char(31)`
-  before hashing — field-order-independent dedup contract that downstream phases
-  (1030 import, 1031 live tail, 1033 serializer) rely on. Private hash helpers are
-  tested indirectly via `PlantLogEntry.RowHash` because functions under `libs/PlantLog/private/`
-  cannot be called from `tests/`. See `.planning/phases/1029-plant-log-storage-foundation/1029-01-entry-and-hash-SUMMARY.md`.
-
-- **Plan 02 (store, 2026-05-13)** — `PlantLogStore` handle class reuses
-  `libs/FastSense/binary_search.m` for the ordered-insert position lookup
-  (`'left'` direction) and for the inclusive range-query bounds in
-  `getEntriesInRange` (`'left'` for lo, `'right'` for hi); no new
-  `binarySearchInsert.m` helper was added. Silent dedup on the composite key
-  `(Timestamp, RowHash)` via a Timestamp-pre-filtered linear scan (O(k)
-  effective for plant-log volumes); `nextId_` is `uint64` and advances only
-  after the dedup check passes so re-adding identical sets does not burn ids.
-  Static `PlantLogStore.computeEntryHash(message, metadata)` exposes the
-  hash entry point for tests and the Phase 1030 reader. Cross-runtime fix:
-  switched private `entries_` default from `PlantLogEntry.empty` to `[]`
-  because Octave does not implement classdef `.empty`; every `[obj.entries_.Timestamp]`
-  expression is already guarded by `isempty(obj.entries_)`. Independence from
-  EventStore is enforced at the file level — zero code-level constructor calls
-  or method invocations to `Event*`, only doc-comment mentions; verified by
-  three relaxed-regex grep acceptance checks plus an explicit runtime test
-  (`test_independence_from_event_store` / `testIndependenceFromEventStore`).
-  21/21 function-style + 21/21 class-based tests PASS on MATLAB; 21/21
-  function-style PASS on Octave. See
-  `.planning/phases/1029-plant-log-storage-foundation/1029-02-store-SUMMARY.md`.
-
-- **Plan 03 (install + smoke, 2026-05-13)** — Wired `libs/PlantLog/` into
-  `install.m` with a two-line edit: one documentation entry under the
-  "Directories added" comment block (line 25), one `addpath(fullfile(root,
-  'libs', 'PlantLog'))` in the libs-block (line 59), both directly after the
-  FastSenseCompanion entries. `verify_installation` was deliberately NOT
-  expanded with PlantLogStore (locked decision) — the integration smoke owns
-  the `which('PlantLogStore')` verification, which is hard-failure semantics
-  vs. the warning-only semantics of `verify_installation`'s `core_classes`.
-  Shipped `tests/test_plant_log_integration_smoke.m` (9 assertions in one
-  flow) and `tests/suite/TestPlantLogIntegrationSmoke.m` (7 Test methods) —
-  both deliberately omit any manual `addpath(fullfile(..., 'libs', 'PlantLog'))`
-  so a regression to the install.m edit fails fast at the very first `which()`
-  assertion. Phase 1029 closure: 44/44 class-based tests + 47/47
-  function-style assertions green on MATLAB; 47/47 function-style assertions
-  green on Octave. All 5 PLOG-ST-* requirements integration-proven (multiple
-  distinct test paths each). See
-  `.planning/phases/1029-plant-log-storage-foundation/1029-03-install-and-smoke-SUMMARY.md`.
-
-### Phase 1030 — CSV/XLSX Import + Mapping Dialog
-
-- **Plan 01 (reader + helpers, 2026-05-14)** — Shipped `PlantLogReader`
-  handle class (`libs/PlantLog/PlantLogReader.m`) with static `readFile`
-  (headless CSV/XLSX -> `PlantLogEntry[]`) and `autoDetect` (column scoring
-  -> mapping struct) methods. Five private helpers under
-  `libs/PlantLog/private/`: `parseTimestampLadder.m` (7-format ladder
-  handling cell/char/string/numeric/datetime inputs), `scoreColumnAsTimestamp.m`,
-  `scoreColumnAsMessage.m`, `sanitizeFieldName.m` (cross-runtime
-  `matlab.lang.makeValidName` wrapper), and `readtablePortable.m` (CSV+XLSX
-  dispatcher with Octave xlsx gating). Auto-detect thresholds locked at
-  parse-ratio >= 0.9 (timestamp) and text-ness >= 0.7 (message); the
-  scorers expose raw ratios so callers can re-use them. Error namespace
-  `PlantLogReader:fileNotFound / unsupportedFormat / xlsxUnavailable /
-  invalidInput / unknownColumn / readError`. Auto-fixed during execution:
-  (1) added `datetime` input branch to parser because MATLAB readtable
-  auto-promotes ISO timestamps; (2) tightened numeric-datenum sanity gate
-  to values > 1e5 so integer count columns aren't misclassified as
-  timestamps; (3) quoted timestamp values in `yyyy/MM/dd` test fixture
-  because readtable was auto-splitting on '/'; (4) stripped no-longer-emitted
-  `%#ok<NASGU>` suppressions. 15/15 function-style + 10/10 class-based
-  tests PASS on MATLAB; checkcode reports clean on all 8 new files; zero
-  edits to existing files. PLOG-IM-01..05 completed. See
-  `.planning/phases/1030-csv-xlsx-import-mapping-dialog/1030-01-reader-and-helpers-SUMMARY.md`.
-
-- **Plan 02 (import dialog, 2026-05-14)** — Shipped `PlantLogImportDialog`
-  handle class (`libs/PlantLog/PlantLogImportDialog.m`, ~370 LOC) — modal
-  uifigure with two dropdowns (timestamp + message column), explicit
-  format-override edit field, 10-row preview uitable, inline red error
-  label, and Cancel + Confirm buttons. `runModal()` blocks via `uiwait`
-  and returns the mapping struct on Confirm or `[]` on Cancel/CloseRequest.
-  `refreshState_` re-validates on every dropdown / format change via
-  `parseTimestampLadder` (private helper from Plan 01); Confirm gated on
-  parse-success ratio >= 0.9 (matches the autoDetect threshold so the user
-  never sees autoDetect-finds-it / dialog-rejects-it inconsistency).
-  Same-column safeguard: when ts == msg dropdown values, Confirm is disabled
-  with explicit error message (CHECKER REVISION). Theme via
-  `CompanionTheme.get(preset)` with a hardcoded fallback inside
-  `themeStruct_`. Every callback wraps work in try/catch + non-blocking
-  `uialert` (`surfaceError_`); no callback can throw to the user.
-  Auto-fixed during execution: (1) stripped four `%#ok<NASGU>` suppressions
-  on the `assert(isvalid(localHandle))` lines that R2024b checkcode no
-  longer flags; (2) switched `test_explicit_format_revalidates` fixture
-  from `'2025/01/15'` (which `datenum` parses leniently via `'MM/dd/yyyy'`)
-  to `'20250115'` (rejected by every ladder format yet parseable via the
-  explicit `'yyyyMMdd'` hint). Tests are MATLAB-only by design: function-style
-  file gates Octave with a clean SKIP + return; class-based suite is
-  `matlab.unittest.TestCase`. 9/9 function-style + 9/9 class-based PASS on
-  MATLAB; checkcode reports clean on all 3 new files; zero edits to existing
-  files. PLOG-IM-06..08 completed. See
-  `.planning/phases/1030-csv-xlsx-import-mapping-dialog/1030-02-import-dialog-SUMMARY.md`.
-
-- **Plan 03 (openInteractive + smoke, 2026-05-14)** — Shipped
-  `PlantLogReader.openInteractive(filePath, varargin)` as the third
-  static method on the existing `PlantLogReader` handle class
-  (`libs/PlantLog/PlantLogReader.m`, +151 lines). Default form runs the
-  full pipeline: `readtablePortable(filePath)` → `autoDetect(T)` →
-  `PlantLogImportDialog(filePath, T, autoMap, 'Theme', opts.Theme)` →
-  `dlg.runModal()` → `readFile(filePath, confirmedMapping)`. Returns
-  `PlantLogEntry[]` on Confirm or `[]` on Cancel/close.
-  `'Headless', true, 'Mapping', struct(...)` short-circuits the dialog
-  and delegates straight to `readFile` — this is the live-tail /
-  serialization-resume contract Phase 1031 + 1033 will both call.
-  `Headless=true` without `Mapping` throws `PlantLogReader:invalidInput`.
-  Empty-file path in interactive mode surfaces a non-blocking uialert
-  via a transient uifigure with a CloseFcn routed through the named
-  `safeDeleteDialog_` helper (anonymous functions cannot wrap try/catch
-  — CHECKER REVISION applied to plan); falls back to
-  `warning('PlantLogReader:emptyFile', ...)` when uifigure is unavailable
-  (Octave / older MATLAB). Headless mode SKIPS the alert. The
-  `safeDeleteDialog_` local function (added after the classdef closing
-  `end`) is generalized to handle both `PlantLogImportDialog` instances
-  AND raw uigraphics handles via `isa(h, 'PlantLogImportDialog')` /
-  `isgraphics(h)` dispatch — one helper, two cleanup call sites.
-  Caller-supplied partial Mapping in interactive mode merges with
-  `autoDetect` output to ensure shape (Phase 1033 may pass partially-
-  remembered choices). Function-style smoke
-  `tests/test_plant_log_import_smoke.m` ships 8 sub-tests (cross-runtime
-  headless: path pickup × 2, end-to-end + store round-trip, no-mapping
-  throws, missing-file throws, unsupported-format throws, empty CSV
-  returns [], dedup-via-store). Class-based suite
-  `tests/suite/TestPlantLogImportSmoke.m` ships 8 test methods mirroring
-  the function-style coverage AND adding three MATLAB-only tests:
-  programmatic Confirm via `confirmBtn.ButtonPushedFcn([], [])` direct
-  invocation, programmatic Cancel via the same pattern, and the XLSX
-  happy path via `writetable(T, '*.xlsx')` round-trip with
-  `testCase.assumeFail` fallback (PLOG-IM-02 runtime proof on MATLAB
-  R2024b's built-in Excel writer; clean skip on Octave / older MATLAB).
-  Both smoke files deliberately omit any manual `addpath(libs/PlantLog)`
-  — relies on Phase 1029 Plan 03's install.m libs-block edit (regression
-  gate via `which('PlantLogReader')`). Class-based interactive tests
-  bypass `runModal` to avoid hanging the test runner on `uiwait`.
-  Auto-fixed during execution: stripped `%#ok<NASGU>` suppressions on
-  `cleanup = onCleanup(...)` lines (R2024b checkcode no longer emits
-  NASGU on those — same Rule 1 fix Plans 1030-01 and 1030-02 applied
-  uniformly). 8/8 function-style + 8/8 class-based PASS on MATLAB;
-  full Phase 1030 surface 32+27 = 59/59 PASS; Phase 1029 regression
-  intact (47+44 = 91/91 PASS); checkcode clean on the modified
-  PlantLogReader.m and both new test files. Octave 11.1.0 lacks
-  `readtable` (no `io` package — same pre-existing env issue Plan 01
-  documented); function-style smoke is otherwise Octave-compatible.
-  PLOG-IM-01 + PLOG-IM-02 + PLOG-IM-06 + PLOG-IM-08 all have
-  integration-level runtime proof beyond the unit-level coverage from
-  Plans 01 + 02. **Phase 1030 closed; ready for /gsd:verify-phase 1030.**
-  See
-  `.planning/phases/1030-csv-xlsx-import-mapping-dialog/1030-03-open-interactive-and-smoke-SUMMARY.md`.
-
-### Phase 1032 — Per-Widget Plant Log Overlay
-
-- **Plan 01 (widget property + draw, 2026-05-19)** — FastSenseWidget gains
-  a public `ShowPlantLog` boolean property (default false) anchored after
-  ShowEventMarkers, mirroring the Phase 1012 precedent shape. A new
-  `PlantLogXLimListener_` property lives in its own properties block with
-  `SetAccess = {?DashboardEngine, ?FastSenseWidget, ?matlab.unittest.TestCase}`
-  so the engine's `attachPlantLogXLimListener_` can write the handle while
-  public READ stays available (Rule 3 deviation: plan put it in
-  `SetAccess = private`, which made the engine's `addlistener`
-  assignment fail). `setPlantLogMarkers(times, entries)` draws one
-  `xline` per finite timestamp with `Tag='WidgetPlantLogMarker'`,
-  `Color=theme.MarkerPlantLog` (default `[0 0 0]`), `LineWidth=1`,
-  `HitTest='on'`, `PickableParts='all'`. Empty / no-arg input clears
-  via tag-based delete. Non-finite timestamps silently dropped.
-  uistack z-order: sensor trace -> plant-log -> event badges.
-  `setShowPlantLog(tf, engine)` flips the property with prior-state
-  revert + `FastSenseWidget:plantLogToggleFailed` namespaced warning
-  on failure. `delete(widget)` releases the listener BEFORE FastSense
-  teardown deletes the axes. `toStruct`/`fromStruct` round-trip the
-  `showPlantLog` key (default omitted so older serialized dashboards
-  stay byte-identical). DashboardEngine gains three friend-restricted
-  methods in a new
-  `methods (Access = {?FastSenseWidget, ?matlab.unittest.TestCase})`
-  block: `refreshPlantLogOverlayForWidget_` (clear -> store range query
-  -> sub-pixel coalesce `floor(double(times) * pixelsPerDataUnit)`
-  unique-bucket reduction -> `widget.setPlantLogMarkers`),
-  `clearPlantLogOverlaysOnAllWidgets_` (walks `allPageWidgets()` AND
-  `DetachedMirrors`, wipes markers WITHOUT flipping ShowPlantLog),
-  and `attachPlantLogXLimListener_` (XLim PostSet listener that fires
-  refresh). Plan literal `Access = {?FastSenseWidget}` was extended to
-  also include `?matlab.unittest.TestCase` so class-based suite tests
-  can call these directly (Rule 3 deviation; substring intact for the
-  grep acceptance criterion). New private `onPlantLogTailTick_`
-  callback wraps `computePlantLogMarkers` (slider path) + fans out to
-  every ShowPlantLog=true widget across pages + DetachedMirrors
-  (decision G full parity). `setPlantLogLiveTailForTest_` rewired
-  single-line to route the `PlantLogTickListener_` through
-  `onPlantLogTailTick_` so every live-tail tick refreshes both slider
-  AND per-widget overlays. Three new Hidden test seams
-  (`refreshPlantLogOverlayForWidgetForTest_`,
-  `clearPlantLogOverlaysOnAllWidgetsForTest_`,
-  `attachPlantLogXLimListenerForTest_`) route function-style tests to
-  the friend-restricted methods (Phase 1031 idiom). 20/20 function-style
-
-  + 20/20 class-based on MATLAB; Phase 1031 regression intact (22/22
-  class + 19/19 function-style); Phase 1029-1031 broader regression
-  52/52. checkcode reports zero NEW Error- or Critical-level
-  diagnostics on either modified production file (23 pre-existing
-  DashboardEngine warnings unchanged). PLOG-VIZ-03 + PLOG-VIZ-04
-  completed. See
-  `.planning/phases/1032-per-widget-plant-log-overlay/1032-01-widget-property-and-draw-SUMMARY.md`.
-
-- **Plan 02 (toggle button + hover tooltip, 2026-05-19)** — DashboardLayout
-  gains a new public `EngineRef` back-reference property (set in
-  DashboardEngine constructor `obj.Layout.EngineRef = obj`) + a public
-  `addPlantLogToggle(widget, engine)` method (intentional access bump
-  vs. the existing private addInfoIcon/addDetachButton — tests + future
-  Companion paths need to invoke the rebuild directly). The L button is
-  a 24×24 uicontrol pushbutton with `Tag='PlantLogToggleButton'`,
-  `String='L'`, `FontWeight='bold'`, positioned as the LEFTMOST of the
-  three button-bar buttons (x = barW - 84 from right edge). Idempotent:
-  prior tags are deleted before create. Pressed-state colors derived
-  from `theme.MarkerPlantLog` (ON: bg=[0 0 0], fg=[1 1 1]) vs theme
-  defaults (OFF). Disabled with tooltip `'No plant log attached'` when
-  no store is attached. Callback wrapper `onPlantLogTogglePressed_` calls
-  `widget.setShowPlantLog(~ShowPlantLog, engine)` + rebuilds the button
-  look; wraps in try/catch + namespaced warning
-  `DashboardLayout:plantLogToggleParentMissing` + best-effort uialert.
-  Software-level `Enable='off'` guard short-circuits force-call paths.
-  `reflowChrome_` extended to re-anchor all THREE buttons on resize
-  (Detach at barW-24-4, Info at barW-56, PlantLog at barW-84).
-  `realizeWidget` invokes `addPlantLogToggle(widget, obj.EngineRef)` for
-  every FastSenseWidget instance behind the existing `needsBar` chrome
-  path. `DashboardWidget.clearPanelControls` protectedTags extended with
-  `'PlantLogToggleButton'`. New `libs/PlantLog/PlantLogWidgetHover.m`
-  class (~480 LOC) mirrors `PlantLogSliderHover`'s chained-WBM lifecycle
-  exactly with: single-entry vs multi-entry tooltip layout branching;
-  full-metadata rendering (insertion order, value truncated to 39 chars +
-  `char(8230)` Unicode '…' when >40 chars, embedded newlines collapsed
-  to single space); overlap stacking with `'-- ts --'` block headers
-  sorted by Timestamp ASC; 10-entry cap with `'+N more entries near this
-  point'` footer; `simulateHoverAt_` returns the FULL entry array within
-  tolerance (not single nearest pick like the slider hover);
-  `PlantLogWidgetHover:invalidInput` error namespace. DashboardEngine
-  gains a public-read/friend-write `WidgetHovers_` cell of
-  `{widget, PlantLogWidgetHover}` pairs (mirrors Plan 01's
-  PlantLogXLimListener_ access pattern). New friend-restricted methods
-  `attachPlantLogWidgetHover_(widget)` + `detachPlantLogWidgetHover_(widget)`
-  added to the existing Plan 01 `methods (Access = {?FastSenseWidget,
-  ?matlab.unittest.TestCase})` block. `attachPlantLogWidgetHover_` lazy-
-  constructs a `PlantLogWidgetHover` parented to the figure ancestor of
-  the widget axes, routing lookup through `obj.lookupPlantLogEntries_`.
-  `detachPlantLogWidgetHover_` is idempotent (cell-of-pairs walk with
-  logical-mask kept-subset reassignment) and also sweeps stale-widget
-  pairs. `DashboardEngine.delete()` tears down `WidgetHovers_` BEFORE
-  `TimeRangeSelector_` (mirrors Phase 1031's hover-before-selector
-  ordering rule). `FastSenseWidget.setShowPlantLog` extended with two
-  lines: ON branch calls `engine.attachPlantLogWidgetHover_(obj)` after
-  the listener + refresh; OFF branch calls
-  `engine.detachPlantLogWidgetHover_(obj)` BEFORE the marker clear.
-  `char(10)` -> `newline` migration on the tooltip strjoin separator
-  (R2024b CHARTEN advisory). 12/12 layout function-style + 12/12 class
-
-  + 13/13 hover function-style + 13/13 class on MATLAB; Phase 1029-1031
-  + Plan 01 regression intact (126/126 across the v3.1 plant-log suite).
-  checkcode reports zero NEW Error- or Critical-level diagnostics on
-  any modified or new production file. PLOG-VIZ-05 + PLOG-VIZ-07
-  completed. See
-  `.planning/phases/1032-per-widget-plant-log-overlay/1032-02-toggle-button-and-hover-SUMMARY.md`.
-
-- **Plan 03 (detached mirror parity + end-to-end smoke, 2026-05-19)** —
-  Closed Phase 1032 by shipping Decision G full parity and an end-to-end
-  integration smoke. `DetachedMirror.restoreLiveRefs` extended with a
-  triple-guarded copy `cloned.ShowPlantLog = original.ShowPlantLog` when
-  both sides are FastSenseWidget (belt-and-suspenders alongside Plan 01's
-  `toStruct`/`fromStruct` round-trip; protects against future
-  serialization regressions silently breaking detach parity).
-  `DashboardEngine.detachWidget` extended with a tail block that
-  re-invokes `cw.setShowPlantLog(true, obj)` on the mirror's cloned
-  widget when `cw.ShowPlantLog == true` — this is a no-op for the
-  property itself but triggers `attachPlantLogXLimListener_` +
-  `refreshPlantLogOverlayForWidget_` + `attachPlantLogWidgetHover_` on
-  the mirror's standalone figure axes (Decision G full parity wire-up).
-  Wrapped in try/catch + namespaced warning
-  `DashboardEngine:plantLogOverlayFailed` so a failure surfaces but does
-  not break the detach. `removeDetached` (explicit prune from tests +
-  onLiveTick stale scan) extended with `obj.detachPlantLogWidgetHover_(m.Widget)`
-  inside the stale-mirror sweep loop, BEFORE the keep-filter applies.
-  `removeDetachedByRef` (CloseRequestFcn path) similarly extended with
-  `obj.detachPlantLogWidgetHover_(target.Widget)` guarded by `isa(target,
-  'DetachedMirror') && isa(target.Widget, 'FastSenseWidget')`, also
-  BEFORE the keep-filter. The detach helper is idempotent so double-sweep
-  is safe. End-to-end smoke ships in two files:
-  `tests/test_phase_1032_integration_smoke.m` (8 sub-tests, cross-runtime
-  for path-pickup + serialize, MATLAB-only with clean Octave SKIP for
-  toggle / hover / fan-out / detach / cleanup) and
-  `tests/suite/TestPhase1032IntegrationSmoke.m` (9 Test methods mirroring
-  the function-style + adding `testRealTimerRoundTrip` which uses
-  `PlantLogLiveTail` with `Interval=0.2s` + `StartImmediately=true` +
-  `pause(0.6)` to drive the real timer + listener + fan-out chain
-  end-to-end with a CSV containing parseable `yyyy-mm-dd HH:MM:SS`
-  datenum timestamps). Both files deliberately omit any manual
-  `addpath(libs/PlantLog)` — install.m libs-block is the regression
-  gate (sub-test 1 / testPathPickup covers it). Smoke fixtures use
-  `SensorTag`-backed FastSenseWidget (matching
-  `TestDashboardDetach.makeFastSenseWidget`) because
-  `DetachedMirror.stripSensorRefs` unconditionally drops the `source`
-  field on the clone — `restoreLiveRefs`'s `cloned.Sensor =
-  original.Sensor` copy is the live-data restoration path. Auto-fixed
-  during execution: (1) SensorTag fixture replacement (Rule 1); (2)
-  `e.addWidget(w)` added to fan-out-asserting tests (Rule 1 — fan-out
-  walks `obj.Widgets`); (3) `flattenTooltipString_` helper covering 4
-  uicontrol(text) String shapes (Rule 1 — `strfind` needs flat char);
-  (4) real-timer CSV switched to ISO datetime format (Rule 1 —
-  `parseTimestampLadder` rejects numeric < 1e5); (5) checkcode hygiene
-  on both new test files (Rule 2 — ISCL → isscalar, NOCOMMA →
-  multi-line, DATST suppression on call line). 8/8 function-style + 9/9
-  class-based PASS on MATLAB R2025b; full Phase 1029-1032 regression
-  143/143 PASS (TestPlantLogStore 21 + Entry 10 + Reader 10 + LiveTail
-  11 + IntegrationSmoke 7 + SliderHover 12 + SliderOverlay 10 +
-  Phase1031Integration 7 + FastSenseWidgetPlantLog 20 + WidgetHover 13
-
-  + LayoutToggle 12 + DashboardDetach 10 + Phase1032Integration 9 =
-  143). checkcode clean on `DetachedMirror.m` + both new test files;
-  `DashboardEngine.m` pre-existing warnings unchanged. All 4 PLOG-VIZ-*
-  requirements (03/04/05/07) integration-proven end-to-end. **Phase
-  1032 closed; ready for /gsd:verify-phase 1032.** See
-  `.planning/phases/1032-per-widget-plant-log-overlay/1032-03-detached-mirror-and-smoke-SUMMARY.md`.
-
-### Phase 1033 — Dashboard + Companion Integration & Serialization
-
-- **Plan 01 (engine public API, 2026-05-19)** — Shipped
-  `DashboardEngine.attachPlantLog` + `detachPlantLog` public methods
-  replacing the Phase 1031 test seam as the production code path. Four
-  new private serialization-state properties
-  (`PlantLogSourcePath_`/`PlantLogMapping_`/`PlantLogInterval_`/`PlantLogStartTail_`)
-  populated by attach + cleared by detach, ready for Plan 02 serializer
-  read-through via friend access (CONTEXT.md D-01). Idempotent re-attach:
-  `attachPlantLog` calls `detachPlantLog` internally when a prior store
-  exists (D-04). Two new private mapping translation helpers
-  (`plantLogMappingToReaderShape_` + `readerMappingToJsonShape_`) bridge
-  the CONTEXT.md JSON-schema names (`timestampCol`/`messageCol`/`format`)
-  <-> PlantLogReader PascalCase shape with back-compat acceptance of
-  either shape (D-05). Destructor extended with
-  `try obj.detachPlantLog(); catch, end` as the final plant-log teardown
-  step. Phase 1031 test seams `setPlantLogStoreForTest_` +
-  `setPlantLogLiveTailForTest_` preserved on disk -- production
-  `attachPlantLog` REUSES them internally so wire-up code stays
-  single-source-of-truth. After-attach widget rewire (D-09): iterate
-  Widgets and call `setShowPlantLog(true, engine)` on every
-  `ShowPlantLog=true` `FastSenseWidget` so XLim listener + hover attach
-  even when the property was set by `fromStruct`. Auto-fixed during
-  execution: (1) `PlantLogStore` constructor requires `sourceFile` arg
-  (Rule 3 -- plan example `PlantLogStore()` throws
-  `PlantLogStore:invalidInput`; use `PlantLogStore(filePath)` so the
-  store records the source path); (2) Added
-  `PlantLogReader.autoDetectFromFile(filePath)` static helper because
-  `DashboardEngine` cannot reach `libs/PlantLog/private/readtablePortable.m`
-  (Rule 3 -- minimal additive helper, does not conflict with Plan 03's
-  planned `openInteractive` extension); (3) `StartTail` scalar
-  validation added (Rule 2 -- `[true true]` would have passed the
-  type check). 15/15 function-style + 18/18 class-based PASS on MATLAB
-  R2025b; Phase 1029-1032 regression intact (23/23 integration smoke +
-  52/52 plant-log unit surface); checkcode clean on both new test
-  files; `DashboardEngine.m` pre-existing 23 warnings unchanged (zero
-  NEW Error/Critical-level diagnostics). PLOG-INT-01 + PLOG-INT-02
-  unit + integration-proven. See
-  `.planning/phases/1033-dashboard-companion-integration-serialization/1033-01-engine-public-api-SUMMARY.md`.
-
-- **Plan 02 (serializer + load round-trip, 2026-05-19)** — Shipped the
-  full save + load round-trip for the engine's plant-log state through
-  both JSON and .m-script paths with byte-identical back-compat for
-  every v1.0-v3.0 dashboard. Save side: `stampPlantLogIntoConfig_`
-  private helper on `DashboardEngine` stamps the plantLog block onto
-  cfg AFTER widgetsToConfig builds it (omit-when-empty when store OR
-  sourcePath is empty -- test-seam-only attachments by design do NOT
-  serialize); `encodePlantLogBlock_` static helper on
-  `DashboardSerializer` hand-encodes the JSON object bypassing
-  jsonencode's cell-of-cells ambiguity for metadataCols;
-  `linesForPlantLog_` static private helper is shared by all three
-  .m-script export paths (`save`, `exportScript`, `exportScriptPages`)
-  with double-brace `metadataCols, {{...}}` literal so struct()
-  preserves the cell shape on feval reload. Per-widget
-  `'ShowPlantLog', true` NV pair forks BOTH the legacy single-line
-  fastsense writer (`DashboardSerializer.save` ~line 50) AND the
-  modern multi-line writer (`linesForWidget` case 'fastsense') across
-  all four sub-cases (sensor/file/data/otherwise + no-source
-  fallback). Load side: `DashboardEngine.attachPlantLog` accepts the
-  new hidden opt `ContinueOnReadError` (default false). New
-  `surfacePlantLogLoadFailure_` private helper routes
-  `PlantLogReader:fileNotFound` → `warning('DashboardEngine:plantLogPathMissing', ...)`,
-  other read failures → `warning('DashboardEngine:plantLogReadFailed', ...)`.
-  `PlantLogReader:unknownColumn` triggers inline mapping-mismatch
-  recovery: re-run `autoDetectFromFile`, warn
-  `DashboardEngine:plantLogMappingMismatch` showing before/after
-  columns, retry `openInteractive` with the new mapping; on second
-  failure warn plantLogReadFailed and return store=[].
-  `DashboardEngine.load` JSON branch pre-flights `exist(sourcePath,
-  'file')` check (covers the explicit-Mapping case that bypasses
-  autoDetect), validates schema via
-  `error('DashboardSerializer:plantLogSchemaInvalid', ...)` on
-  malformed plantLog block missing sourcePath, and dispatches
-  `attachPlantLog` with `ContinueOnReadError=true`. After successful
-  mapping-mismatch recovery, the `readerMappingToJsonShape_` tail of
-  attachPlantLog overwrites `engine.PlantLogMapping_` so the next
-  save round-trips the new auto-detected shape (CONTEXT.md D-12).
-  Byte-identical back-compat verified via
-  `testSaveJsonBackCompatByteIdentical` (two no-plant-log engines
-  produce identical JSON). Auto-fixed during execution: (1) dashboard
-  name "TestWidgetNoShowPlantLog" renamed to "TestWidgetDefault"
-  (Rule 1 -- substring match on dashboard name produced
-  false-positive assertion failure); (2) 6 stale `%#ok<AGROW>`
-  suppressions stripped from new `attachArgs{end+1}` lines (Rule 2
-  hygiene -- R2025b no longer emits AGROW on these patterns, same
-  Rule 2 fix Plans 1030-1032 applied uniformly). 14/14 function-style
-
-  + 17/17 class-based PASS on MATLAB R2025b; Phase 1029-1032
-  regression intact (TestPlantLogIntegrationSmoke 9/9 +
-  TestPhase1031IntegrationSmoke 7/7 + TestPhase1032IntegrationSmoke
-  9/9 + TestDashboardEngineAttachPlantLog 18/18 +
-  TestDashboardMSerializer 10/10); DashboardSerializer.m checkcode
-  +4 advisory AGROW warnings matching existing linesForWidget style
-  (zero NEW Error/Critical); DashboardEngine.m checkcode improvement
-  via stale-suppression cleanup. PLOG-INT-04 + PLOG-INT-05
-  unit + integration-proven (including 3 rendered round-trip tests:
-  `testRoundTripWidgetShowPlantLog`,
-  `testRoundTripPerWidgetShowPlantLogScriptPath`,
-  `testReAttachAfterLoadIsIdempotent`). See
-  `.planning/phases/1033-dashboard-companion-integration-serialization/1033-02-serializer-and-load-SUMMARY.md`.
-
-- **Plan 03 (companion toolbar + integration smoke, 2026-05-19)** —
-  Closed Phase 1033 + milestone v3.1 by shipping the Companion's
-  one-click "Plant Log…" toolbar entry + the Phase 1033 end-to-end
-  integration smoke. `PlantLogReader.openInteractive` extended with
-  `[entries, varargout] = openInteractive(filePath, varargin)`
-  signature; second optional output is the confirmed mapping struct
-  (echoed for `Headless=true`, from the dialog for interactive paths,
-  `[]` on cancel/empty-file). All four return sites guard with
-  `if nargout >= 2; varargout{1} = ...; end` so single-output Phase
-  1030 + 1031 callers continue to work unchanged (back-compat
-  preserved). `FastSenseCompanion` toolbar grid expanded from `[1 4]`
-  `{110, 110, '1x', 36}` to `[1 5]` `{110, 110, 130, '1x', 36}`. New
-  `hPlantLogBtn_` private property + new uibutton at col 3 with
-  `Tag='CompanionPlantLogBtn'`, `Text=['Plant Log', char(8230)]`
-  ("Plant Log…"), `FontSize=11`, `FontWeight='bold'`,
-  `Tooltip='Attach a plant log to every open dashboard'`. Enable=on
-  with ≥1 engine + Enable=off with tooltip 'No dashboards open'
-  otherwise. `hSettingsBtn_.Layout.Column` moved 4 → 5 (gear stays
-  rightmost). New private `openPlantLogDialog_` method: outer
-  try/catch + final-safety-net `uialert(obj.hFig_, ...)` so no
-  exception ever reaches the console; empty-`Engines_` branch fires
-  'No dashboards are open' uialert; calls
-  `[entries, confirmedMapping] = PlantLogReader.openInteractive('')`
-  (empty path triggers native uigetfile in the reader); cancel branch
-  (entries + mapping both empty) returns silently; empty-file branch
-  (entries empty, mapping non-empty) fires 'no parseable rows' uialert
-  and returns; fan-out loop iterates `obj.Engines_` with `isvalid`
-  check + per-engine try/catch around
-  `eng.attachPlantLog(filePath, 'Mapping', m, 'Interval', 5, 'StartTail', true)`,
-  records failures in a `failedNames` cell, fires
-  `warning('FastSenseCompanion:plantLogAttachFailed', ...)` per
-  failure, and reports a single partial-failure uialert at loop end.
-  Success path is silent (no toast). Public test shims
-  `openPlantLogDialogInternalForTest` + `getPlantLogBtnForTest_`
-  mirror the openEventViewer_internalForTest idiom. Four new test
-  files: 9 function-style + 11 class-based toolbar tests (MATLAB-only
-  with clean Octave SKIP gate); 9 function-style + 13 class-based
-  Phase 1033 end-to-end integration smoke tests (cross-runtime for
-  the headless save/load + Octave-skipped for Companion-touching
-  tests). The v3.1 milestone capstone test
-  `testEndToEndDashboardLifecycle` exercises the FULL surface: build
-  engine -> attach plant log -> save JSON -> save .m -> load JSON ->
-  load .m -> verify both reloaded stores have equivalent counts ->
-  detach all three -> `timerfindall` returns to baseline. The
-  varargout back-compat regression gate
-  (`testVarargoutBackCompatPreserved`) explicitly exercises both
-  single-output and two-output forms of openInteractive. Auto-fixed
-  during execution: (1) `matlab.lang.OnOffSwitchState` class
-  mismatch on three class-based `verifyEqual(btn.Enable, 'on')` calls
-  in R2025b (Rule 1 — Enable is enum, switched to
-  `verifyTrue(strcmp(char(btn.Enable), 'on'))` idiom); (2) checkcode
-  hygiene cleanup on stale `%#ok<NASGU>` + `catch ME` -> `catch` +
-  one `numel(x) == 1` -> `isscalar(x)` per ISCL (Rule 2 hygiene). All
-  four new test files checkcode-clean. 9/9 function-style + 11/11
-  class-based toolbar PASS; 9/9 function-style + 13/13 class-based
-  Phase 1033 smoke PASS; 209/209 PASS across the full v3.1 plant-log
-  test surface (17 test classes including TestPlantLogStore 21 +
-  Entry 10 + Reader 10 + LiveTail 11 + IntegrationSmoke 7 +
-  SliderHover 12 + SliderOverlay 10 + Phase1031Integration 7 +
-  FastSenseWidgetPlantLog 20 + WidgetHover 13 + LayoutToggle 12 +
-  Phase1032Integration 9 + DashboardEngineAttachPlantLog 18 +
-  DashboardSerializerPlantLog 17 + FastSenseCompanionPlantLogToolbar
-  11 + Phase1033IntegrationSmoke 13 + PlantLogImportSmoke 8); 64/64
-  existing TestFastSenseCompanion regression intact (toolbar
-  expansion did not regress Events/Live/Settings button paths).
-  PLOG-INT-03 + all 32/32 v3.1 PLOG-* requirements integration-proven
-  end-to-end. **Phase 1033 closed; milestone v3.1 EXECUTION COMPLETE;
-  ready for /gsd:verify-phase 1033 and /gsd:complete-milestone v3.1.**
-  See `.planning/phases/1033-dashboard-companion-integration-serialization/1033-03-companion-toolbar-and-smoke-SUMMARY.md`.
+- **v2.1 Tag-API Tech Debt Cleanup** — in flight, parallel to v3.0/v4.0. Phases 1012-1017. Does not block v4.0 work.
+- **Pending unscoped phases 1025-1028** — promoted from backlog 2026-05-08; NOT v4.0 scope. 1025 + 1026 largely addressed via quick tasks 260508-d8y / 260508-das. 1027/1027.1 complete. 1028 (Tag update perf — MEX + SIMD) remains on the books, may be re-scoped later.

@@ -11,12 +11,15 @@ classdef FastSenseCompanion < handle
 %   No separate render() call is required.
 %
 %   Constructor name-value options:
-%     Dashboards — cell array of DashboardEngine (default: {})
-%     Registry   — TagRegistry instance (default: TagRegistry singleton)
-%     Name       — window title string (default: 'FastSense Companion')
-%     Theme      — 'dark' | 'light' (default: 'dark')
-%     LivePeriod — seconds between live refreshes (default: 1.0)
-%     EventStore — EventStore handle or [] (default: auto-discover from registry)
+%     Dashboards        — cell array of DashboardEngine (default: {})
+%     Registry          — TagRegistry instance (default: TagRegistry singleton)
+%     Name              — window title string (default: 'FastSense Companion')
+%     Theme             — 'dark' | 'light' (default: 'dark')
+%     LivePeriod        — seconds between live refreshes (default: 1.0)
+%     EventStore        — EventStore handle or [] (default: auto-discover from registry)
+%     SharedRoot        — (cluster mode) path to shared filesystem root; default '' (single-user).
+%     LiveTagPipelines  — (cluster mode) cell array of LiveTagPipeline handles to observe (default: {})
+%     LiveEventPipelines — (cluster mode) cell array of LiveEventPipeline handles to observe (default: {})
 %
 %   Public methods:
 %     setProject(dashboards, registry) — rebuild against new project
@@ -44,12 +47,18 @@ classdef FastSenseCompanion < handle
     end
 
     properties (SetAccess = private)
-        Dashboards = {}       % cell array of DashboardEngine passed by user
-        Registry   = []       % TagRegistry reference
-        Theme      = 'dark'   % preset string ('dark' | 'light')
-        LivePeriod = 1.0      % seconds; user-readable mirror of LivePeriod_
-        IsOpen     = false    % true while uifigure is valid
-        IsLive     = false    % true while LiveTimer_ is running (refreshes inspector)
+        Dashboards             = {}       % cell array of DashboardEngine passed by user
+        Registry               = []       % TagRegistry reference
+        Theme                  = 'dark'   % preset string ('dark' | 'light')
+        LivePeriod             = 1.0      % seconds; user-readable mirror of LivePeriod_
+        IsOpen                 = false    % true while uifigure is valid
+        IsLive                 = false    % true while LiveTimer_ is running (refreshes inspector)
+        SharedRoot             = ''       % cluster shared filesystem root ('' in single-user mode)
+        IsClusterMode          = false    % logical; true iff SharedRoot is non-empty
+        % Phase 1033 Plan 04 — cluster health public surface
+        IsShareReachable       = true     % logical; false when share-loss detected (OPS-01)
+        LastShareError         = []       % struct or [] (populated on first share-loss detection)
+        LastContentionNoticeText = ''     % char; most recent contention or share-loss banner text
     end
 
     properties (GetAccess = public, SetAccess = ?CompanionSettingsDialog)
@@ -92,6 +101,24 @@ classdef FastSenseCompanion < handle
         OriginalLogRowHeight_ = 360    % captured at construction; restored when at least one pane is Inline
         EventStore_  = []   % EventStore handle resolved via constructor option or auto-discovery
         EventViewer_ = []   % CompanionEventViewer handle (single-instance) or [] (Task 13 wires it)
+        % Phase 1033 Plan 01 — cluster mode internal state
+        SharedRoot_               = ''    % internal mirror of public SharedRoot
+        IsClusterMode_            = false % internal cluster-mode gate
+        LastContentionNoticeText_ = ''    % most recent contention notice (Plan 04 surfaces in UI)
+        % Phase 1033 Plan 04 — pipeline observer state
+        LiveTagPipelines_         = {}    % cell of LiveTagPipeline handles observed via onLiveTick_
+        LiveEventPipelines_       = {}    % cell of LiveEventPipeline handles observed via onLiveTick_
+        LastShareStatus_          = 'ok'  % 'ok' | 'unreachable'; tracks share-loss transitions
+        % Quick task 260519-bs4 (merged from main #149) — Tag Status table window.
+        TagStatusTableWindow_ = []   % TagStatusTableWindow handle (or [])
+        hTagStatusBtn_        = []   % toolbar 'Tags' button (cached for theme reapply)
+        % S0Y-01/02 (merged from main #143) — companion-opened figure tracking.
+        OpenedFigures_ = []  % column vector of figure handles the companion opened
+                             % (dashboards via onOpenDashboardRequested_,
+                             %  ad-hoc plots via onOpenAdHocPlotRequested_).
+                             % Pruned of invalid handles before each iteration.
+        hTileBtn_      = []  % toolbar uibutton: Tile windows
+        hCloseAllBtn_  = []  % toolbar uibutton: Close all
     end
 
     methods (Access = public)
@@ -111,8 +138,11 @@ classdef FastSenseCompanion < handle
             userRegistry   = [];
             userName       = 'FastSense Companion';
             userTheme      = 'dark';
-            userLivePeriod = 1.0;
-            userEventStore = [];
+            userLivePeriod         = 1.0;
+            userEventStore         = [];
+            userSharedRoot         = '';
+            userLiveTagPipelines   = {};
+            userLiveEventPipelines = {};
 
             % Step 2b — Override with stored prefdir values (if present and well-formed).
             % Priority: built-in default < prefdir < explicit Name-Value (Step 3).
@@ -160,10 +190,38 @@ classdef FastSenseCompanion < handle
                                 'EventStore must be an EventStore handle or [] (got %s).', class(v));
                         end
                         userEventStore = v;
+                    case 'SharedRoot'
+                        v = varargin{k+1};
+                        if ~isempty(v) && ~(ischar(v) || (isstring(v) && isscalar(v)))
+                            error('FastSenseCompanion:invalidSharedRoot', ...
+                                'SharedRoot must be a non-empty char/string or empty (got %s).', class(v));
+                        end
+                        userSharedRoot = char(v);
+                    case 'LiveTagPipelines'
+                        v = varargin{k+1};
+                        if ~iscell(v); v = {v}; end
+                        for ii = 1:numel(v)
+                            if ~isa(v{ii}, 'LiveTagPipeline')
+                                error('FastSenseCompanion:invalidLiveTagPipeline', ...
+                                    'LiveTagPipelines{%d} must be a LiveTagPipeline handle.', ii);
+                            end
+                        end
+                        userLiveTagPipelines = v;
+                    case 'LiveEventPipelines'
+                        v = varargin{k+1};
+                        if ~iscell(v); v = {v}; end
+                        for ii = 1:numel(v)
+                            if ~isa(v{ii}, 'LiveEventPipeline')
+                                error('FastSenseCompanion:invalidLiveEventPipeline', ...
+                                    'LiveEventPipelines{%d} must be a LiveEventPipeline handle.', ii);
+                            end
+                        end
+                        userLiveEventPipelines = v;
                     otherwise
                         error('FastSenseCompanion:unknownOption', ...
                             ['Unknown option ''%s''. Valid options: ', ...
-                             'Dashboards, Registry, Name, Theme, LivePeriod, EventStore.'], key);
+                             'Dashboards, Registry, Name, Theme, LivePeriod, EventStore, SharedRoot, ', ...
+                             'LiveTagPipelines, LiveEventPipelines.'], key);
                 end
             end
 
@@ -193,13 +251,37 @@ classdef FastSenseCompanion < handle
             obj.LivePeriod_ = userLivePeriod;
             obj.LivePeriod  = userLivePeriod;
 
-            % Step 6b — Resolve EventStore: explicit override wins; otherwise
-            % auto-discover from the first MonitorTag with a non-empty EventStore.
-            if ~isempty(userEventStore)
-                obj.EventStore_ = userEventStore;
-            else
-                obj.EventStore_ = companionDiscoverEventStore();
+            % --- Cluster mode resolution (Phase 1033 Plan 01; OPS-01 partial) ---
+            obj.SharedRoot_     = userSharedRoot;
+            obj.SharedRoot      = userSharedRoot;
+            obj.IsClusterMode_  = ~isempty(userSharedRoot);
+            obj.IsClusterMode   = obj.IsClusterMode_;
+            if obj.IsClusterMode_
+                % Validate the shared root via ClusterConfig — throws
+                % Concurrency:sharedRootUnreachable on a non-existent folder.
+                ClusterConfig.resolve(struct('SharedRoot', userSharedRoot));
+                % IDENT-01 fail-fast guard — throws Concurrency:identityResolutionFailed
+                % when the OS cannot resolve a usable username/hostname (mirrors
+                % EventStore cluster-mode init and LiveTagPipeline pattern).
+                ClusterIdentity.resolve('Strict', true);
+                % Best-effort oplock smoke test — never throws; one-time warning
+                % via warning('Concurrency:smbOplockDetected', ...) on mismatch.
+                try
+                    ClusterConfig.checkSharedConfig(userSharedRoot);
+                catch
+                    % checkSharedConfig is documented to be best-effort and never
+                    % throw, but guard anyway so a stray error from a future
+                    % refactor cannot prevent the companion from opening.
+                end
             end
+
+            % Step 6b — Resolve EventStore: explicit override wins; otherwise
+            % auto-discover from the registry, with cluster-mode upgrade when SharedRoot is set.
+            obj.EventStore_ = companionDiscoverEventStore(obj.SharedRoot_, userEventStore);
+
+            % Phase 1033 Plan 04 — store observed pipeline handles
+            obj.LiveTagPipelines_   = userLiveTagPipelines;
+            obj.LiveEventPipelines_ = userLiveEventPipelines;
 
             % Step 7 — Build uifigure (Visible='off' while building)
             obj.hFig_ = uifigure( ...
@@ -225,14 +307,17 @@ classdef FastSenseCompanion < handle
             obj.hToolbarPanel_.Layout.Column = [1 3];
             obj.hToolbarPanel_.BorderType      = 'none';
             obj.hToolbarPanel_.BackgroundColor = obj.Theme_.WidgetBackground;
-            % Phase 1033 PLOG-INT-03 — expanded to 1x5:
-            % col 1 = Events viewer button (Task 13);
-            % col 2 = Live: ON/OFF button;
-            % col 3 = Plant Log… button (NEW, 130 px wide);
-            % col 4 = flex spacer;
-            % col 5 = gear button.
-            hToolbarGrid = uigridlayout(obj.hToolbarPanel_, [1 5]);
-            hToolbarGrid.ColumnWidth     = {110, 110, 130, '1x', 36};
+            % Inner 1x8 grid (v4.0 + v3.1 merged):
+            %   col 1 = Events viewer button (Task 13)                  (110)
+            %   col 2 = Live: ON/OFF button                             (110)
+            %   col 3 = Tags table launch (quick task 260519-bs4)       (110)
+            %   col 4 = Plant Log… button (v3.1 Phase 1033 PLOG-INT-03) (130)
+            %   col 5 = Tile windows (v4.0 S0Y-01)                      ( 70)
+            %   col 6 = Close all (v4.0 S0Y-02)                         ( 90)
+            %   col 7 = flex spacer                                     ('1x')
+            %   col 8 = Settings gear                                   ( 36)
+            hToolbarGrid = uigridlayout(obj.hToolbarPanel_, [1 8]);
+            hToolbarGrid.ColumnWidth     = {110, 110, 110, 130, 70, 90, '1x', 36};
             hToolbarGrid.RowHeight       = {'1x'};
             hToolbarGrid.Padding         = [4 0 4 0];
             hToolbarGrid.ColumnSpacing   = 8;
@@ -263,10 +348,21 @@ classdef FastSenseCompanion < handle
             obj.hLiveBtn_.Tooltip       = 'Toggle live refresh of the inspector';
             obj.hLiveBtn_.ButtonPushedFcn = @(~,~) obj.toggleLiveMode();
 
-            % Col 3 — Phase 1033 PLOG-INT-03: Plant Log… toolbar button.
+            % Col 3 — v4.0 Tag Status table launch (quick task 260519-bs4).
+            obj.hTagStatusBtn_ = uibutton(hToolbarGrid, 'push');
+            obj.hTagStatusBtn_.Layout.Row    = 1;
+            obj.hTagStatusBtn_.Layout.Column = 3;
+            obj.hTagStatusBtn_.Text          = ['Tags ', char(8599)];   % ↗
+            obj.hTagStatusBtn_.FontSize      = 11;
+            obj.hTagStatusBtn_.FontWeight    = 'bold';
+            obj.hTagStatusBtn_.Tag           = 'CompanionTagStatusBtn';
+            obj.hTagStatusBtn_.Tooltip       = 'Open the tag status table';
+            obj.hTagStatusBtn_.ButtonPushedFcn = @(~,~) obj.openTagStatusTable();
+
+            % Col 4 — v3.1 Phase 1033 PLOG-INT-03: Plant Log… toolbar button.
             obj.hPlantLogBtn_ = uibutton(hToolbarGrid, 'push');
             obj.hPlantLogBtn_.Layout.Row    = 1;
-            obj.hPlantLogBtn_.Layout.Column = 3;
+            obj.hPlantLogBtn_.Layout.Column = 4;
             obj.hPlantLogBtn_.Text          = ['Plant Log', char(8230)];   % "Plant Log…"
             obj.hPlantLogBtn_.FontSize      = 11;
             obj.hPlantLogBtn_.FontWeight    = 'bold';
@@ -278,10 +374,34 @@ classdef FastSenseCompanion < handle
                 obj.hPlantLogBtn_.Tooltip = 'No dashboards open';
             end
 
-            % Col 5 — Settings gear (moved from col 4 by Phase 1033 PLOG-INT-03).
+            % Col 5 — v4.0 Tile windows (S0Y-01).
+            obj.hTileBtn_ = uibutton(hToolbarGrid, 'push');
+            obj.hTileBtn_.Layout.Row    = 1;
+            obj.hTileBtn_.Layout.Column = 5;
+            obj.hTileBtn_.Text          = 'Tile';
+            obj.hTileBtn_.FontSize      = 11;
+            obj.hTileBtn_.FontWeight    = 'bold';
+            obj.hTileBtn_.Tooltip       = 'Arrange companion-opened windows in a grid';
+            obj.hTileBtn_.BackgroundColor = obj.Theme_.WidgetBorderColor;
+            obj.hTileBtn_.FontColor       = obj.Theme_.ForegroundColor;
+            obj.hTileBtn_.ButtonPushedFcn = @(~,~) obj.tileOpenedWindows();
+
+            % Col 6 — v4.0 Close all (S0Y-02). Uses Accent color to signal destructive action.
+            obj.hCloseAllBtn_ = uibutton(hToolbarGrid, 'push');
+            obj.hCloseAllBtn_.Layout.Row    = 1;
+            obj.hCloseAllBtn_.Layout.Column = 6;
+            obj.hCloseAllBtn_.Text          = 'Close all';
+            obj.hCloseAllBtn_.FontSize      = 11;
+            obj.hCloseAllBtn_.FontWeight    = 'bold';
+            obj.hCloseAllBtn_.Tooltip       = 'Close every window the companion opened';
+            obj.hCloseAllBtn_.BackgroundColor = obj.Theme_.Accent;
+            obj.hCloseAllBtn_.FontColor       = obj.Theme_.ForegroundColor;
+            obj.hCloseAllBtn_.ButtonPushedFcn = @(~,~) obj.closeAllOpenedWindows();
+
+            % Col 8 — Settings gear (moved from col 4/5/7 across merges).
             obj.hSettingsBtn_ = uibutton(hToolbarGrid, 'push');
             obj.hSettingsBtn_.Layout.Row    = 1;
-            obj.hSettingsBtn_.Layout.Column = 5;
+            obj.hSettingsBtn_.Layout.Column = 8;
             obj.hSettingsBtn_.Text          = char(9881);   % gear glyph
             obj.hSettingsBtn_.FontSize      = 14;
             obj.hSettingsBtn_.Tooltip       = 'Companion settings';
@@ -428,6 +548,18 @@ classdef FastSenseCompanion < handle
             end
             obj.LiveTimer_ = [];
             obj.IsLive = false;
+            % Tear down the Tag Status table window (quick task 260519-bs4).
+            % Independent try/catch so a stale window handle can't block the
+            % rest of teardown.
+            try
+                if ~isempty(obj.TagStatusTableWindow_) && isvalid(obj.TagStatusTableWindow_)
+                    obj.TagStatusTableWindow_.close();
+                    delete(obj.TagStatusTableWindow_);
+                end
+            catch err
+                fprintf(2, '[FastSenseCompanion] TagStatusTableWindow cleanup failed: %s\n', err.message);
+            end
+            obj.TagStatusTableWindow_ = [];
             % Detach panes (releases their listeners + debounce timers).
             try
                 if ~isempty(obj.CatalogPane_) && isvalid(obj.CatalogPane_)
@@ -553,6 +685,17 @@ classdef FastSenseCompanion < handle
             obj.SelectedDashboardIdx_ = 0;
             obj.LastInteraction_      = '';
             obj.SelectedTagKeys_      = {};
+            % Quick task 260519-bs4: close any open Tag Status table -- the
+            % registry identity may change with the project, so the open
+            % table's row-set is no longer valid.
+            try
+                if ~isempty(obj.TagStatusTableWindow_) && isvalid(obj.TagStatusTableWindow_)
+                    obj.TagStatusTableWindow_.close();
+                    delete(obj.TagStatusTableWindow_);
+                end
+            catch
+            end
+            obj.TagStatusTableWindow_ = [];
             % Rebuild pane placeholders (detach + reattach clears children and re-creates labels)
             obj.CatalogPane_.detach();
             obj.ListPane_.detach();
@@ -843,6 +986,37 @@ classdef FastSenseCompanion < handle
             obj.SettingsDlg_ = CompanionSettingsDialog(obj);
         end
 
+        function w = openTagStatusTable(obj)
+        %OPENTAGSTATUSTABLE Open or focus the singleton TagStatusTableWindow.
+        %   Returns the handle so tests and external callers can drive it.
+        %   Quick task 260519-bs4.
+            if ~isempty(obj.TagStatusTableWindow_) && isvalid(obj.TagStatusTableWindow_) && ...
+                    obj.TagStatusTableWindow_.IsOpen
+                w = obj.TagStatusTableWindow_;
+                % Bring the existing classical figure to the front.
+                try
+                    hf = w.getFigForTest();
+                    if ~isempty(hf) && isvalid(hf)
+                        figure(hf);
+                    end
+                catch
+                end
+                return;
+            end
+            try
+                w = TagStatusTableWindow();
+                w.openWith(obj.Registry_, obj.Theme_, obj);
+                obj.attachStatusTable_(w);
+            catch err
+                if ~isempty(obj.hFig_) && isvalid(obj.hFig_)
+                    uialert(obj.hFig_, ...
+                        sprintf('Failed to open Tag Status table: %s', err.message), ...
+                        'Tag Status', 'Icon', 'error');
+                end
+                w = [];
+            end
+        end
+
         % --- Test helpers (Phase 1027.1) -- do not call from production ---
         % These accessors expose private state to TestFastSenseCompanion only.
         % They are intentionally public (MATLAB has no friend-class scope), but
@@ -910,9 +1084,164 @@ classdef FastSenseCompanion < handle
             s = obj.EventStore_;
         end
 
+        function r = getSharedRoot(obj)
+        %GETSHAREDROOT Return the resolved SharedRoot (or '' if single-user).
+            r = obj.SharedRoot_;
+        end
+
+        function tf = getIsClusterMode(obj)
+        %GETISCLUSTERMODE Return the cluster-mode gate.
+            tf = obj.IsClusterMode_;
+        end
+
+        function s = getLastContentionNoticeText(obj)
+        %GETLASTCONTENTIONNOTICETEXT Return the cluster contention banner text
+        %   (or '' when no contention has been observed since startup).
+        %   Plan 04 wires the live polling that populates this property.
+            s = obj.LastContentionNoticeText_;
+        end
+
         function openEventViewer(obj)
         %OPENEVENTVIEWER Public alias for the toolbar callback (used by tests / scripting).
             obj.openEventViewer_();
+        end
+
+        function trackOpenedFigure(obj, hFig)
+        %TRACKOPENEDFIGURE Register a figure the companion opened so Tile / Close all see it.
+        %   Public hook for code paths that spawn figures DIRECTLY (bypassing the
+        %   OpenAdHocPlotRequested event flow) — for example InspectorPane's single-tag
+        %   "Open Detail" handler, which calls openAdHocPlot inline. Pass the returned
+        %   classical figure handle and the companion will dedupe + prune-aware-append
+        %   it to OpenedFigures_.
+        %
+        %   Silently no-ops on empty / invalid handles.
+            obj.trackOpenedFigure_(hFig);
+        end
+
+        function tileOpenedWindows(obj)
+        %TILEOPENEDWINDOWS Arrange every figure the companion opened in a grid.
+        %   Computes a roughly-square ceil(sqrt(N)) tiling on the monitor the
+        %   companion lives on (or the primary monitor if that can't be determined),
+        %   then sets each tracked figure's Position so the windows do not overlap.
+        %   Figures opened outside the companion are not touched. Closed handles
+        %   are pruned silently.
+        %
+        %   No-op when no tracked figures exist (logs an info line for feedback).
+        %
+        %   Errors: surfaced via uialert + log entry; never throws.
+            try
+                obj.syncOpenedFigures_();
+                figs = obj.OpenedFigures_;
+                n = numel(figs);
+                if n == 0
+                    obj.addLogEntry('info', 'Tile: no companion-opened windows.');
+                    return;
+                end
+
+                % Monitor selection -- use the monitor that contains the companion.
+                mons = get(groot, 'MonitorPositions');   % rows: [x y w h]
+                screenRect = mons(1, :);                 % default = primary
+                if ~isempty(obj.hFig_) && isvalid(obj.hFig_)
+                    cp = obj.hFig_.Position;             % [x y w h]
+                    cx = cp(1) + cp(3)/2; cy = cp(2) + cp(4)/2;
+                    for m = 1:size(mons, 1)
+                        r = mons(m, :);
+                        if cx >= r(1) && cx < r(1)+r(3) && cy >= r(2) && cy < r(2)+r(4)
+                            screenRect = r;
+                            break;
+                        end
+                    end
+                end
+
+                % Reserve a margin so windows aren't flush with screen edges.
+                margin = 24;
+                gx = screenRect(1) + margin;
+                gy = screenRect(2) + margin;
+                gw = max(200, screenRect(3) - 2*margin);
+                gh = max(200, screenRect(4) - 2*margin);
+
+                % Roughly-square grid: cols = ceil(sqrt(n)), rows = ceil(n/cols).
+                cols = ceil(sqrt(n));
+                rows = ceil(n / cols);
+                tileW = floor(gw / cols);
+                tileH = floor(gh / rows);
+
+                for k = 1:n
+                    % Row-major fill, top-down so window 1 ends up top-left.
+                    rIdx = ceil(k / cols);            % 1..rows from top
+                    cIdx = mod(k - 1, cols) + 1;      % 1..cols from left
+                    x = gx + (cIdx - 1) * tileW;
+                    % MATLAB screen y grows upward -- flip so row 1 is at the top.
+                    y = gy + (rows - rIdx) * tileH;
+                    try
+                        % distFig-style robustness: a maximized figure ignores
+                        % set(Position) silently, and normalized units would
+                        % treat our pixel rect as fractions of the screen --
+                        % both make Tile visually a no-op. Coerce both first.
+                        f = figs(k);
+                        try
+                            if isprop(f, 'WindowState') && ...
+                                    ~strcmp(get(f, 'WindowState'), 'normal')
+                                set(f, 'WindowState', 'normal');
+                            end
+                        catch
+                        end
+                        try
+                            set(f, 'Units', 'pixels');
+                        catch
+                        end
+                        set(f, 'Position', [x, y, tileW - 8, tileH - 8]);
+                    catch
+                        % Skip individual failures -- keep tiling the rest.
+                    end
+                end
+                obj.addLogEntry('info', sprintf('Tiled %d window(s).', n));
+            catch err
+                obj.addLogEntry('error', sprintf('Tile failed: %s', err.message));
+                if ~isempty(obj.hFig_) && isvalid(obj.hFig_)
+                    uialert(obj.hFig_, ...
+                        sprintf('Failed to tile windows: %s', err.message), ...
+                        'FastSense Companion', 'Icon', 'error');
+                end
+            end
+        end
+
+        function closeAllOpenedWindows(obj)
+        %CLOSEALLOPENEDWINDOWS Close every figure the companion opened, then clear tracking.
+        %   Iterates a SNAPSHOT of OpenedFigures_ and calls close(h) per handle --
+        %   honoring the figure's CloseRequestFcn (DashboardEngine's stops live +
+        %   deletes the figure; openAdHocPlot's closeFcn_ does the same). Closed
+        %   handles drop out via pruneOpenedFigures_ at the end.
+        %
+        %   Figures opened outside the companion are not affected -- tracking is
+        %   the only source of truth.
+            try
+                obj.syncOpenedFigures_();
+                figs = obj.OpenedFigures_;    % snapshot -- close() callbacks may mutate
+                n = numel(figs);
+                if n == 0
+                    obj.addLogEntry('info', 'Close all: no companion-opened windows.');
+                    return;
+                end
+                for k = 1:n
+                    try
+                        if ishandle(figs(k))
+                            close(figs(k));
+                        end
+                    catch
+                        % Per-figure failure -- continue with the rest.
+                    end
+                end
+                obj.pruneOpenedFigures_();
+                obj.addLogEntry('info', sprintf('Closed %d window(s).', n));
+            catch err
+                obj.addLogEntry('error', sprintf('Close all failed: %s', err.message));
+                if ~isempty(obj.hFig_) && isvalid(obj.hFig_)
+                    uialert(obj.hFig_, ...
+                        sprintf('Failed to close windows: %s', err.message), ...
+                        'FastSense Companion', 'Icon', 'error');
+                end
+            end
         end
 
         function openEventViewer_internalForTest(obj)
@@ -941,6 +1270,40 @@ classdef FastSenseCompanion < handle
         function f = getFigForTest_(obj)
         %GETFIGFORTEST_ Test helper: return the companion uifigure handle.
             f = obj.hFig_;
+        end
+
+        % --- Quick task 260519-bs4 test seams (Hidden, do not call from production) ---
+
+        function w = tagStatusTableWindowForTest_(obj)
+        %TAGSTATUSTABLEWINDOWFORTEST_ Test getter: TagStatusTableWindow_ handle (or []).
+            w = obj.TagStatusTableWindow_;
+        end
+
+        function scanLiveTagUpdatesForTest_(obj)
+        %SCANLIVETAGUPDATESFORTEST_ Test seam: invoke the private live-tag scanner directly.
+        %   Test-only API; production callers use the LiveTimer_ -> onLiveTick_ ->
+        %   scanLiveTagUpdates_ chain.
+            obj.scanLiveTagUpdates_();
+        end
+
+        % --- S0Y-01/02 test seams (Hidden, do not call from production) ---
+
+        function figs = getOpenedFiguresForTest_(obj)
+        %GETOPENEDFIGURESFORTEST_ Test helper: return the OpenedFigures_ tracking list.
+        %   Used by test_companion_tile_close_buttons. Returns the raw column
+        %   vector of figure handles (post-prune so callers see only valid
+        %   handles). Do NOT call from production code -- this is a friend
+        %   accessor for the test suite only.
+            obj.pruneOpenedFigures_();
+            figs = obj.OpenedFigures_;
+        end
+
+        function trackOpenedFigureForTest_(obj, hFig)
+        %TRACKOPENEDFIGUREFORTEST_ Test helper: drive the private trackOpenedFigure_.
+        %   Lets test_companion_tile_close_buttons feed figure handles into
+        %   OpenedFigures_ without spinning up a real DashboardListPane. Same
+        %   dedupe + prune semantics as the production path.
+            obj.trackOpenedFigure_(hFig);
         end
 
     end
@@ -1132,7 +1495,7 @@ classdef FastSenseCompanion < handle
         end
 
         function scanLiveTagUpdates_(obj)
-        %SCANLIVETAGUPDATES_ Walk SensorTag/StateTag in TagRegistry; log size deltas.
+        %SCANLIVETAGUPDATES_ Walk tags in TagRegistry; log size deltas + push to status table.
             % Guard for the truly-uninitialized state (property default is []).
             % Do NOT use isempty() here — isempty(containers.Map) returns true
             % whenever the map has 0 entries, and the map only acquires keys
@@ -1141,12 +1504,22 @@ classdef FastSenseCompanion < handle
             % time the timer fires, LiveSampleCount_ is always a
             % containers.Map handle.
             if ~isa(obj.LiveSampleCount_, 'containers.Map'); return; end
-            if isempty(obj.LiveLogPane_) || ~isvalid(obj.LiveLogPane_); return; end
+            % Decide the scope:
+            % - When the Tag Status table is open, scan ALL Tag kinds so
+            %   monitor / composite / derived rows refresh too.
+            % - Otherwise stick to the original SensorTag / StateTag scope so
+            %   the live log is not flooded with derived-tag noise.
+            scanAll = obj.shouldScanForStatusTable_();
             try
-                tags = TagRegistry.find(@(t) isa(t, 'SensorTag') || isa(t, 'StateTag'));
+                if scanAll
+                    tags = TagRegistry.find(@(t) isa(t, 'Tag'));
+                else
+                    tags = TagRegistry.find(@(t) isa(t, 'SensorTag') || isa(t, 'StateTag'));
+                end
             catch
                 return;
             end
+            updatedKeys = {};
             for k = 1:numel(tags)
                 tg = tags{k};
                 try
@@ -1165,13 +1538,52 @@ classdef FastSenseCompanion < handle
                         if ~isempty(y)
                             if iscell(y); latestY = y{end}; else; latestY = y(end); end
                         end
-                        if last > 0  % skip the first-seen baseline log
+                        % Live log emission is intentionally scoped to Sensor /
+                        % State (the existing audience for the live log).
+                        if last > 0 && (isa(tg, 'SensorTag') || isa(tg, 'StateTag')) && ...
+                                ~isempty(obj.LiveLogPane_) && isvalid(obj.LiveLogPane_)
                             obj.LiveLogPane_.addLiveLogEntry(key, delta, latestY);
                         end
                         obj.LiveSampleCount_(key) = n;
+                        updatedKeys{end+1} = key; %#ok<AGROW>
                     end
                 catch
                 end
+            end
+            if ~isempty(updatedKeys)
+                obj.markStatusTableDirty_(updatedKeys);
+            end
+        end
+
+        function tf = shouldScanForStatusTable_(obj)
+        %SHOULDSCANFORSTATUSTABLE_ True when a TagStatusTableWindow is attached + open.
+            tf = ~isempty(obj.TagStatusTableWindow_) && ...
+                isvalid(obj.TagStatusTableWindow_) && ...
+                obj.TagStatusTableWindow_.IsOpen;
+        end
+
+        function attachStatusTable_(obj, w)
+        %ATTACHSTATUSTABLE_ Register a TagStatusTableWindow; wire its DetachClosed listener.
+        %   Companion forwards scanLiveTagUpdates_ deltas to w.markTagsDirty while attached.
+            obj.TagStatusTableWindow_ = w;
+            obj.Listeners_{end+1} = addlistener(w, 'DetachClosed', ...
+                @(~,~) obj.detachStatusTable_(w));
+        end
+
+        function detachStatusTable_(obj, w) %#ok<INUSD>
+        %DETACHSTATUSTABLE_ Drop reference so scanLiveTagUpdates_ stops pushing rows.
+        %   Called by the DetachClosed listener; safe under double-fire.
+            obj.TagStatusTableWindow_ = [];
+        end
+
+        function markStatusTableDirty_(obj, keys)
+        %MARKSTATUSTABLEDIRTY_ Forward updated tag keys to the attached window, if any.
+            if isempty(obj.TagStatusTableWindow_) || ~isvalid(obj.TagStatusTableWindow_); return; end
+            if ~obj.TagStatusTableWindow_.IsOpen; return; end
+            try
+                obj.TagStatusTableWindow_.markTagsDirty(keys);
+            catch
+                % markTagsDirty must never crash the live tick.
             end
         end
 
@@ -1196,6 +1608,8 @@ classdef FastSenseCompanion < handle
         %   (updates Data/XData/YData on existing widgets) to avoid layout
         %   teardown/rebuild flicker. The catalog and dashboard list are
         %   intentionally NOT refreshed (they would lose selection/scroll).
+        %   Phase 1033 Plan 04: also polls cluster contention + share status
+        %   when in cluster mode (all new code runs AFTER the existing body).
             if ~obj.IsLive || isempty(obj.hFig_) || ~isvalid(obj.hFig_); return; end
             try
                 if ~isempty(obj.InspectorPane_) && isvalid(obj.InspectorPane_) && ...
@@ -1205,6 +1619,11 @@ classdef FastSenseCompanion < handle
                 obj.scanLiveTagUpdates_();
                 if ~isempty(obj.EventsLogPane_) && isvalid(obj.EventsLogPane_)
                     obj.EventsLogPane_.setLastUpdated(datetime('now'));
+                end
+                % Phase 1033 Plan 04 — cluster surfacing (dormant in single-user mode)
+                if obj.IsClusterMode_
+                    obj.pollClusterContention_();
+                    obj.pollShareStatus_();
                 end
             catch
                 % Live ticks must never crash the timer.
@@ -1253,6 +1672,14 @@ classdef FastSenseCompanion < handle
                 obj.resolveInspectorState_();
                 obj.addLogEntry('info', sprintf('Opened dashboard: %s', ...
                     char(ed.Engine.Name)));
+                % S0Y-01: track the freshly opened dashboard figure so Tile / Close all see it.
+                try
+                    if ~isempty(ed.Engine) && isvalid(ed.Engine) && ...
+                            ~isempty(ed.Engine.hFigure) && ishandle(ed.Engine.hFigure)
+                        obj.trackOpenedFigure_(ed.Engine.hFigure);
+                    end
+                catch
+                end
             catch err
                 obj.addLogEntry('error', sprintf('Open dashboard failed: %s', err.message));
                 uialert(obj.hFig_, err.message, 'FastSense Companion');
@@ -1479,6 +1906,57 @@ classdef FastSenseCompanion < handle
             end
         end
 
+        function trackOpenedFigure_(obj, hFig)
+        %TRACKOPENEDFIGURE_ Append a figure handle to OpenedFigures_ (deduped, valid only).
+            if isempty(hFig) || ~ishandle(hFig); return; end
+            % Prune dead handles first; then dedupe by handle equality.
+            obj.pruneOpenedFigures_();
+            for k = 1:numel(obj.OpenedFigures_)
+                if obj.OpenedFigures_(k) == hFig
+                    return;   % already tracked
+                end
+            end
+            obj.OpenedFigures_(end+1, 1) = hFig;
+        end
+
+        function pruneOpenedFigures_(obj)
+        %PRUNEOPENEDFIGURES_ Drop closed / deleted handles from the tracking list.
+            if isempty(obj.OpenedFigures_); return; end
+            keep = arrayfun(@(h) ishandle(h) && isgraphics(h, 'figure'), ...
+                obj.OpenedFigures_);
+            obj.OpenedFigures_ = obj.OpenedFigures_(keep);
+        end
+
+        function syncOpenedFigures_(obj)
+        %SYNCOPENEDFIGURES_ Reconcile OpenedFigures_ with reality before iterating.
+        %   Two reasons we need this before every Tile / Close-all click:
+        %     1. DashboardListPane fires OpenDashboardRequested BEFORE it calls
+        %        engine.render(), so the synchronous listener sees hFigure=[]
+        %        and can't track on first open.
+        %     2. Engines passed into the constructor (or attached via setProject)
+        %        may have already been rendered by the caller — they were never
+        %        opened "through" the companion at all.
+        %   Both cases are covered by pulling every Engines_{k}.hFigure that is
+        %   currently alive into OpenedFigures_. Dead handles are pruned first;
+        %   already-tracked handles are skipped (handle-equality dedupe).
+            obj.pruneOpenedFigures_();
+            for k = 1:numel(obj.Engines_)
+                e = obj.Engines_{k};
+                if isempty(e) || ~isvalid(e); continue; end
+                hFig = e.hFigure;
+                if isempty(hFig) || ~ishandle(hFig); continue; end
+                already = false;
+                for j = 1:numel(obj.OpenedFigures_)
+                    if obj.OpenedFigures_(j) == hFig
+                        already = true; break;
+                    end
+                end
+                if ~already
+                    obj.OpenedFigures_(end+1, 1) = hFig;
+                end
+            end
+        end
+
         function onOpenAdHocPlotRequested_(obj, ~, evt)
         %ONOPENADHOCPLOTREQUESTED_ Listener for OpenAdHocPlotRequested event.
         %   Resolves AdHocPlotEventData.TagKeys to Tag handles via Registry_,
@@ -1514,7 +1992,12 @@ classdef FastSenseCompanion < handle
                         tags{end+1} = obj.Registry_.get(keys{k}); %#ok<AGROW>
                     end
                 end
-                [~, skipped] = openAdHocPlot(tags, mode, obj.Theme);
+                [hFig, skipped] = openAdHocPlot(tags, mode, obj.Theme);
+                % S0Y-01: track the ad-hoc figure so Tile / Close all see it.
+                try
+                    obj.trackOpenedFigure_(hFig);
+                catch
+                end
                 obj.addLogEntry('info', sprintf( ...
                     'Opened ad-hoc plot: %d tag(s) [%s]', ...
                     numel(tags), char(mode)));
@@ -1535,6 +2018,119 @@ classdef FastSenseCompanion < handle
                         sprintf('Failed to open plot: %s', ME.message), ...
                         'FastSense Companion', 'Icon', 'error');
                 end
+            end
+        end
+
+        function pollClusterContention_(obj)
+        %POLLCLUSTERCONTENTION_ Walk LiveTagPipelines_ + LiveEventPipelines_; surface contention.
+        %   Reads LastLockContentionEvent (Phase 1030-02 / 1032-02 surface) from each observed
+        %   pipeline. Populates obj.LastContentionNoticeText_ with the most recent contention
+        %   event observed across all pipelines (age < 30 s). Best-effort — invalid pipeline
+        %   handles are silently skipped. Does not clear the banner (share-status handler does
+        %   that on share return).
+            contentionText = '';
+            contentionAge  = inf;
+            % Scan LiveTagPipeline handles.
+            for k = 1:numel(obj.LiveTagPipelines_)
+                try
+                    p = obj.LiveTagPipelines_{k};
+                    if ~isobject(p) || ~isvalid(p); continue; end
+                    ev = p.LastLockContentionEvent;
+                    if isempty(ev) || ~isstruct(ev) || ~isfield(ev, 'timestamp'); continue; end
+                    age = (now - ev.timestamp) * 86400;  % datenum -> seconds
+                    if age >= 0 && age < 30 && age < contentionAge
+                        holder    = ev.holder;
+                        userPart  = '';
+                        hostPart  = '';
+                        if isfield(holder, 'user'); userPart = char(holder.user); end
+                        if isfield(holder, 'host'); hostPart = char(holder.host); end
+                        contentionText = sprintf('Tag %s is being updated by %s@%s (%.0fs ago)', ...
+                            char(ev.tagKey), userPart, hostPart, age);
+                        contentionAge  = age;
+                    end
+                catch
+                    % skip silently — observer errors must not crash the live timer
+                end
+            end
+            % Scan LiveEventPipeline handles (same logic; produces "Monitor ..." prefix).
+            for k = 1:numel(obj.LiveEventPipelines_)
+                try
+                    p = obj.LiveEventPipelines_{k};
+                    if ~isobject(p) || ~isvalid(p); continue; end
+                    ev = p.LastLockContentionEvent;
+                    if isempty(ev) || ~isstruct(ev) || ~isfield(ev, 'timestamp'); continue; end
+                    age = (now - ev.timestamp) * 86400;
+                    if age >= 0 && age < 30 && age < contentionAge
+                        holder    = ev.holder;
+                        userPart  = '';
+                        hostPart  = '';
+                        if isfield(holder, 'user'); userPart = char(holder.user); end
+                        if isfield(holder, 'host'); hostPart = char(holder.host); end
+                        contentionText = sprintf('Monitor %s is being updated by %s@%s (%.0fs ago)', ...
+                            char(ev.tagKey), userPart, hostPart, age);
+                        contentionAge  = age;
+                    end
+                catch
+                    % skip silently
+                end
+            end
+            % Update the surfaced banner only when contention was observed this tick.
+            if ~isempty(contentionText)
+                obj.LastContentionNoticeText_ = contentionText;
+                obj.LastContentionNoticeText  = contentionText;
+                if ~isempty(obj.LiveLogPane_) && isvalid(obj.LiveLogPane_)
+                    try
+                        obj.LiveLogPane_.addLiveLogEntry('cluster', -1, contentionText);
+                    catch
+                    end
+                end
+            end
+        end
+
+        function pollShareStatus_(obj)
+        %POLLSHARESTATUS_ Probe SharedRoot_ reachability; update share-status surfaces.
+        %   On loss: sets IsShareReachable=false, populates LastShareError + banner text.
+        %   On recovery: sets IsShareReachable=true, clears banner, logs "resuming" message.
+        %   A single dir() probe per tick; exception = unreachable (OPS-01).
+            if ~obj.IsClusterMode_; return; end
+            lossErr = [];
+            try
+                info = dir(obj.SharedRoot_);
+                shareOk = ~isempty(info);
+            catch ME
+                shareOk = false;
+                lossErr = struct('message', ME.message, 'identifier', ME.identifier, ...
+                    'timestamp', now);
+            end
+
+            if shareOk
+                if strcmp(obj.LastShareStatus_, 'unreachable')
+                    % Transition: unreachable -> ok
+                    obj.LastShareStatus_          = 'ok';
+                    obj.IsShareReachable          = true;
+                    obj.LastContentionNoticeText_ = '';
+                    obj.LastContentionNoticeText  = '';
+                    msg = sprintf('Share back online; resuming live mode (%s)', obj.SharedRoot_);
+                    if ~isempty(obj.EventsLogPane_) && isvalid(obj.EventsLogPane_)
+                        try; obj.EventsLogPane_.addEntry('info', msg); catch; end
+                    end
+                end
+            else
+                % Transition: ok -> unreachable (or already unreachable — update banner each tick)
+                if strcmp(obj.LastShareStatus_, 'ok')
+                    obj.LastShareStatus_ = 'unreachable';
+                    if ~isempty(lossErr)
+                        obj.LastShareError = lossErr;
+                    else
+                        obj.LastShareError = struct('message', 'Share directory empty/unreadable', ...
+                            'identifier', 'FastSenseCompanion:shareUnreachable', ...
+                            'timestamp', now);
+                    end
+                end
+                obj.IsShareReachable          = false;
+                obj.LastContentionNoticeText_ = sprintf( ...
+                    'Share unreachable — read-only mode (%s)', obj.SharedRoot_);
+                obj.LastContentionNoticeText  = obj.LastContentionNoticeText_;
             end
         end
 

@@ -46,6 +46,16 @@ jobs:
         run: |
           xvfb-run octave --eval "addpath(pwd); install(); addpath('scripts'); run_ci_benchmark();"
 
+      # Phase 1028 D-07: upload the raw benchmark-results.json so the
+      # 1000-tag harness baseline can be captured without scraping logs.
+      - name: Upload benchmark results artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-tag-pipeline-1k-results
+          path: benchmark-results.json
+          retention-days: 30
+
       - name: Fix git ownership
         run: git config --global --add safe.directory /__w/FastSense/FastSense
 
