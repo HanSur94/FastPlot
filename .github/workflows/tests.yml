@@ -475,6 +475,21 @@ jobs:
           ls -la Concurrency/ 2>&1 | head -5 || echo "(no Concurrency/ at workspace root)"
           ls -la FastSense/mksqlite.* 2>&1 | head -5 || echo "(no FastSense/ at workspace root)"
 
+      - name: Rebuild Concurrency MEX inline
+        # actions/upload-artifact@v7 strips the LCA `libs/` from paths, and
+        # actions/download-artifact@v8 doesn't reliably restore libs/Concurrency/
+        # contents the way it does libs/FastSense/private/. Unlike mksqlite, the
+        # lockfile_mex binary isn't committed to the repo, so the test job has
+        # no copy without rebuild. Compiling lockfile_mex.c is ~5s — cheap.
+        # FastSense/SensorThreshold MEX binaries continue to come from the
+        # cached artifact (they're slower to build and have stable inputs).
+        uses: matlab-actions/run-command@v3
+        with:
+          command: |
+            addpath('libs/Concurrency');
+            build_concurrency_mex();
+            fprintf('lockfile_mex on path: %s\n', which('lockfile_mex'));
+
       - name: MATLAB which-mksqlite check
         if: always()
         continue-on-error: true
@@ -485,6 +500,7 @@ jobs:
             install();
             fprintf('which mksqlite: %s\n', which('mksqlite'));
             fprintf('exist mksqlite: %d (expect 3 if MEX loadable)\n', exist('mksqlite'));
+            fprintf('which lockfile_mex: %s\n', which('lockfile_mex'));
             try
                 mksqlite('version');
                 fprintf('mksqlite call: OK\n');
