@@ -146,20 +146,131 @@ classdef WikiBrowser < handle
             obj.IsOpen = true;
         end
 
-        function navigateTo(obj, pageName)  %#ok<INUSD>
-            % implementation: Task 4.3
+        function navigateTo(obj, pageName)
+        %NAVIGATETO Switch the center pane to a wiki page, push history.
+        %   pageName may be a bare page (e.g. 'Home') or carry a stray
+        %   './' prefix / '.md' suffix — both are normalised. Missing
+        %   pages fall back to Home.md (handled by WikiPageIndex.readPage)
+        %   and the user is informed via the alert_ helper. Rendered HTML
+        %   is cached keyed by 'page|theme' so back / forward navigation
+        %   is instant. The history stack is capped at HistoryCap_ (50)
+        %   entries — new navigations from a middle index truncate the
+        %   forward portion (standard browser semantics).
+            if ~ischar(pageName) || isempty(pageName)
+                return;
+            end
+
+            % Strip './' prefix and '.md' suffix tolerated by readPage.
+            page = regexprep(pageName, '^\./', '');
+            page = regexprep(page, '\.md$', '');
+
+            [mdText, resolvedPath, found] = WikiPageIndex.readPage(obj.WikiDir, page);
+            if ~found
+                obj.alert_(sprintf( ...
+                    'Page ''%s'' not found and Home.md missing.', page));
+                return;
+            end
+
+            % If we fell back to Home, surface that and re-key.
+            [~, resolvedBase, ~] = fileparts(resolvedPath);
+            if ~strcmp(resolvedBase, page)
+                obj.alert_(sprintf( ...
+                    'Page ''%s'' not found %s showing %s.', ...
+                    page, char(8212), resolvedBase));
+                page = resolvedBase;
+            end
+
+            % Render via cache.
+            key = sprintf('%s|%s', page, obj.Theme);
+            if obj.Cache_.isKey(key)
+                html = obj.Cache_(key);
+            else
+                rawHtml = MarkdownRenderer.render(mdText, obj.Theme, obj.WikiDir);
+                html    = obj.rewriteCrossDocLinks_(rawHtml);
+                obj.Cache_(key) = html;
+            end
+
+            if ~isempty(obj.hContent_) && isvalid(obj.hContent_)
+                obj.hContent_.HTMLSource = html;
+            end
+
+            % Push history. If HistoryIdx_ < numel, truncate forward.
+            if obj.HistoryIdx_ < numel(obj.HistoryStack_)
+                obj.HistoryStack_ = obj.HistoryStack_(1:obj.HistoryIdx_);
+            end
+            obj.HistoryStack_{end+1} = page;
+            if numel(obj.HistoryStack_) > obj.HistoryCap_
+                obj.HistoryStack_ = obj.HistoryStack_(end - obj.HistoryCap_ + 1:end);
+            end
+            obj.HistoryIdx_ = numel(obj.HistoryStack_);
+            obj.CurrentPage = page;
+
+            obj.refreshCrumbAndButtons_();
         end
 
-        function back(obj)  %#ok<MANU>
-            % implementation: Task 4.3
+        function back(obj)
+        %BACK Step back one page in history. No-op at the start.
+            if obj.HistoryIdx_ <= 1
+                return;
+            end
+            obj.HistoryIdx_ = obj.HistoryIdx_ - 1;
+            obj.renderHistoryCurrent_();
         end
 
-        function forward(obj)  %#ok<MANU>
-            % implementation: Task 4.3
+        function forward(obj)
+        %FORWARD Step forward one page in history. No-op at the end.
+            if obj.HistoryIdx_ >= numel(obj.HistoryStack_)
+                return;
+            end
+            obj.HistoryIdx_ = obj.HistoryIdx_ + 1;
+            obj.renderHistoryCurrent_();
         end
 
-        function applyTheme(obj, themeName)  %#ok<INUSD>
-            % implementation: Task 4.3
+        function applyTheme(obj, themeName)
+        %APPLYTHEME Re-render the current page with a new theme.
+        %   Called externally by FastSenseCompanion.applyTheme on theme
+        %   switch (Phase 1034 Plan 06). Invalidates the rendered-HTML
+        %   cache (theme-coloured CSS is baked into each entry) and
+        %   restyles sidebar / breadcrumb widgets best-effort. Safe on
+        %   headless instances — falls through cleanly when IsOpen=false.
+            if ~ischar(themeName) || isempty(themeName)
+                return;
+            end
+            obj.Theme = themeName;
+            obj.Cache_ = containers.Map('KeyType', 'char', 'ValueType', 'char');
+
+            if obj.IsOpen && ~isempty(obj.CurrentPage)
+                [mdText, ~, found] = WikiPageIndex.readPage(obj.WikiDir, obj.CurrentPage);
+                if found
+                    rawHtml = MarkdownRenderer.render(mdText, obj.Theme, obj.WikiDir);
+                    html    = obj.rewriteCrossDocLinks_(rawHtml);
+                    key     = sprintf('%s|%s', obj.CurrentPage, obj.Theme);
+                    obj.Cache_(key) = html;
+                    if ~isempty(obj.hContent_) && isvalid(obj.hContent_)
+                        obj.hContent_.HTMLSource = html;
+                    end
+                end
+                % Re-style sidebar + breadcrumb to match — best-effort.
+                try
+                    t = CompanionTheme.get(obj.Theme);
+                    obj.hFig_.Color                   = t.DashboardBackground;
+                    obj.hCrumbLbl_.FontColor          = t.ForegroundColor;
+                    obj.hSearchEdit_.BackgroundColor  = t.WidgetBackground;
+                    obj.hSearchEdit_.FontColor        = t.ForegroundColor;
+                    obj.hTocTree_.BackgroundColor     = t.WidgetBackground;
+                    obj.hTocTree_.FontColor           = t.ForegroundColor;
+                    obj.hSearchResult_.BackgroundColor = t.WidgetBackground;
+                    obj.hSearchResult_.FontColor       = t.ForegroundColor;
+                    obj.hSidebarPanel_.BackgroundColor = t.WidgetBackground;
+                    obj.hBackBtn_.BackgroundColor     = t.WidgetBorderColor;
+                    obj.hBackBtn_.FontColor           = t.ForegroundColor;
+                    obj.hFwdBtn_.BackgroundColor      = t.WidgetBorderColor;
+                    obj.hFwdBtn_.FontColor            = t.ForegroundColor;
+                catch
+                    % Restyle is best-effort — older releases / odd states
+                    % can throw on individual property writes; ignore.
+                end
+            end
         end
 
         function hits = search(obj, query)
@@ -521,6 +632,90 @@ classdef WikiBrowser < handle
                 end
             end
             fprintf(2, '[WikiBrowser] %s\n', msg);
+        end
+
+        function renderHistoryCurrent_(obj)
+        %RENDERHISTORYCURRENT_ Re-render the page at HistoryIdx_ without
+        %   pushing onto the stack. Used by back() and forward().
+            page = obj.HistoryStack_{obj.HistoryIdx_};
+            [mdText, ~, found] = WikiPageIndex.readPage(obj.WikiDir, page);
+            if ~found
+                return;
+            end
+            key = sprintf('%s|%s', page, obj.Theme);
+            if obj.Cache_.isKey(key)
+                html = obj.Cache_(key);
+            else
+                rawHtml = MarkdownRenderer.render(mdText, obj.Theme, obj.WikiDir);
+                html    = obj.rewriteCrossDocLinks_(rawHtml);
+                obj.Cache_(key) = html;
+            end
+            if ~isempty(obj.hContent_) && isvalid(obj.hContent_)
+                obj.hContent_.HTMLSource = html;
+            end
+            obj.CurrentPage = page;
+            obj.refreshCrumbAndButtons_();
+        end
+
+        function refreshCrumbAndButtons_(obj)
+        %REFRESHCRUMBANDBUTTONS_ Sync breadcrumb label + back/forward
+        %   enabled-state with the current HistoryIdx_ position.
+            if ~isempty(obj.hCrumbLbl_) && isvalid(obj.hCrumbLbl_)
+                obj.hCrumbLbl_.Text = obj.CurrentPage;
+            end
+            if ~isempty(obj.hBackBtn_) && isvalid(obj.hBackBtn_)
+                if obj.HistoryIdx_ > 1
+                    obj.hBackBtn_.Enable = 'on';
+                else
+                    obj.hBackBtn_.Enable = 'off';
+                end
+            end
+            if ~isempty(obj.hFwdBtn_) && isvalid(obj.hFwdBtn_)
+                if obj.HistoryIdx_ < numel(obj.HistoryStack_)
+                    obj.hFwdBtn_.Enable = 'on';
+                else
+                    obj.hFwdBtn_.Enable = 'off';
+                end
+            end
+        end
+
+        function html = rewriteCrossDocLinks_(~, html)
+        %REWRITECROSSDOCLINKS_ Mark internal anchors + inject JS bridge.
+        %   Per CONTEXT.md D-10: in-window cross-doc links resolve via
+        %   the JS bridge; external http(s):// and mailto: links open in
+        %   the system browser (default uihtml behaviour, left untouched);
+        %   anchor #section links scroll in place (default behaviour,
+        %   left untouched).
+        %
+        %   Plan-checker I5 fix: a SINGLE regexprep captures the entire
+        %   <a href="..."> opening tag and substitutes a clean replacement
+        %   that preserves the original page name verbatim in data-page.
+        %   No multi-step index juggling that risks orphan href=""
+        %   attributes or dangling fragments. The (?!...) negative
+        %   lookahead skips external + anchor links. The original page
+        %   name authored in the markdown source (with or without
+        %   trailing .md) is preserved verbatim in data-page —
+        %   navigateTo normalises by stripping leading './' and trailing
+        %   '.md', so no mangling here.
+        %
+        %   After rewriting, a tiny <script> is injected just before
+        %   </body> that intercepts clicks on a.wiki-internal and posts
+        %   {page, ts} to htmlComponent.Data — the uihtml
+        %   HTMLEventReceivedFcn (onHtmlEvent_, Task 4.2) maps the
+        %   payload back into navigateTo on the MATLAB side.
+
+            html = regexprep(html, ...
+                '<a href="(?!https?://|mailto:|#)([^"]+)"', ...
+                '<a class="wiki-internal" data-page="$1" href="javascript:void(0)"');
+
+            script = [ ...
+                '<script>document.addEventListener("click", function(e) { ' ...
+                'var a = e.target.closest && e.target.closest("a.wiki-internal"); ' ...
+                'if (!a) return; e.preventDefault(); ' ...
+                'var page = a.getAttribute("data-page"); ' ...
+                'if (window.htmlComponent && page) { ' ...
+                'htmlComponent.Data = {page: page, ts: Date.now()}; } });</script>'];
+            html = strrep(html, '</body>', [script '</body>']);
         end
     end
 end
