@@ -232,15 +232,17 @@ The clear architectural ROI ranking for phase 1029 is: **(1) in-memory propagati
 - `.planning/ROADMAP.md` — Phase 1028 marked `[x]` complete 2026-05-19; progress table row 6/6 plans Complete 2026-05-19; phase-details section retitled "Phase 1028: Tag update perf — MEX + SIMD — COMPLETE" with headline, plans shipped (03/04 marked `[~]` deferred per data), kernels added, architectural seams added, deferred-to-1029 list.
 - `.planning/STATE.md` — status executing → phase 1028 COMPLETE; `completed_phases` 0→1; `completed_plans` 9→10; updated Current Position; added "Decisions (Phase 1028)" subsection with 5 reusable patterns.
 
-## Self-Check: PASSED (will re-verify post-CI)
+## Self-Check: PASSED
 
-Verified before writing this line:
+Verified post-CI:
 
-- `tests/suite/TestFsStatCoalesce.m` exists at the absolute path; `mh_lint` clean.
-- `libs/SensorThreshold/LiveTagPipeline.m` contains `fsCoalesceActive_`, `setFsCoalesceForTesting_`, `lookupFsEntry_`, `LastFsStatCount`; `mh_lint` clean.
+- `tests/suite/TestFsStatCoalesce.m` exists at the absolute path; `mh_lint` clean; **5/5 cases passing on MATLAB R2021b CI** post the mtime-flake fix (commit `5cd6b23`).
+- `libs/SensorThreshold/LiveTagPipeline.m` contains `fsCoalesceActive_`, `setFsCoalesceForTesting_`, `lookupFsEntry_`, `LastFsStatCount`; `mh_lint` clean; post-merge with v4.0 single-user + cluster code paths both intact.
 - `libs/SensorThreshold/BatchTagPipeline.m` contains shape-parity `fsCoalesceActive_` + `setFsCoalesceForTesting_`; `mh_lint` clean.
 - `benchmarks/bench_tag_pipeline_1k.m` contains `--fs-coalesce-on` / `--fs-coalesce-off` parsing and `result.lastFsStatCount`; `mh_lint` clean.
 - `scripts/run_ci_benchmark.m` contains the 4 new fs-coalesce metric emissions; `mh_lint` clean.
-- All 3 plan commits exist on the branch (`c1b3756`, `2cfb3bf`, `aa92d65`); a 4th SUMMARY-final commit lands after this file is staged.
-- Local Octave smoke confirms: 1 syscall coalesce-on; 1600 syscalls coalesce-off; 6/6 byte-equal payload parity; type validation rejects non-logical input; missing-file no-throw on both paths.
-- CI Benchmark workflow currently in_progress on post-Task-2 commit; URL recorded in the CI Evidence section after completion.
+- All 7 plan commits exist on the branch: `c1b3756`, `2cfb3bf`, `aa92d65`, `f2bf5c5`, `99a35ae` (merge), `5cd6b23` (test fix), `54d7733` (SUMMARY final post-CI).
+- Local Octave smoke confirms: 1 syscall coalesce-on; 1600 syscalls coalesce-off; 9/9 byte-equal payload parity (one-tick); type validation rejects non-logical input; missing-file no-throw on both paths.
+- **CI Benchmark workflow GREEN** on both pre-merge (`26089658442`) and post-merge (`26091968063`) runs.
+- **PR #114 un-drafted** via `gh pr ready 114`; title updated; body rewritten with full evidence.
+- **Working tree clean** except the documented untracked local MEX build artifact (per prompt instruction).
