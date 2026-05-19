@@ -562,6 +562,17 @@ classdef FastSenseCompanion < handle
                 fprintf(2, '[FastSenseCompanion] TagStatusTableWindow cleanup failed: %s\n', err.message);
             end
             obj.TagStatusTableWindow_ = [];
+            % Tear down the shared WikiBrowser (Phase 1034).
+            % Independent try/catch so a stale Wiki handle can't block the rest of teardown.
+            try
+                if ~isempty(obj.WikiBrowser_) && isvalid(obj.WikiBrowser_)
+                    obj.WikiBrowser_.close();
+                    delete(obj.WikiBrowser_);
+                end
+            catch err
+                fprintf(2, '[FastSenseCompanion] WikiBrowser cleanup failed: %s\n', err.message);
+            end
+            obj.WikiBrowser_ = [];
             % Detach panes (releases their listeners + debounce timers).
             try
                 if ~isempty(obj.CatalogPane_) && isvalid(obj.CatalogPane_)
@@ -907,6 +918,16 @@ classdef FastSenseCompanion < handle
                 if ~isempty(obj.hFig_) && isvalid(obj.hFig_)
                     applyThemeToChildren_(obj.hFig_, obj.Theme_);
                 end
+                % Phase 1034 — propagate theme to the shared WikiBrowser if open.
+                % Plan 08 keeps WikiBrowserRoot subtree out of applyThemeToChildren_;
+                % we restyle the Wiki window via its own applyTheme.
+                try
+                    if ~isempty(obj.WikiBrowser_) && isvalid(obj.WikiBrowser_) && obj.WikiBrowser_.IsOpen
+                        obj.WikiBrowser_.applyTheme(obj.Theme);
+                    end
+                catch err
+                    fprintf(2, '[FastSenseCompanion] WikiBrowser.applyTheme failed: %s\n', err.message);
+                end
                 % Per-pane setTheme — in-place where safe; setState for inspector.
                 if ~isempty(obj.CatalogPane_) && isvalid(obj.CatalogPane_)
                     obj.CatalogPane_.setTheme(obj.Theme_);
@@ -1106,6 +1127,18 @@ classdef FastSenseCompanion < handle
         function openEventViewer(obj)
         %OPENEVENTVIEWER Public alias for the toolbar callback (used by tests / scripting).
             obj.openEventViewer_();
+        end
+
+        function openWiki(obj, pageName)
+        %OPENWIKI Public alias for the Wiki toolbar button + sibling-window helpers.
+        %   pageName -- char. Default 'Companion-Overview' when omitted or empty.
+        %   Opens (or focuses + navigates) the shared WikiBrowser instance owned
+        %   by this Companion session (CONTEXT.md D-06).
+        %   See also openWiki_ (private impl).
+            if nargin < 2 || isempty(pageName)
+                pageName = 'Companion-Overview';
+            end
+            obj.openWiki_(pageName);
         end
 
         function trackOpenedFigure(obj, hFig)
@@ -1776,6 +1809,45 @@ classdef FastSenseCompanion < handle
             if ~isempty(obj.hEventsBtn_) && isvalid(obj.hEventsBtn_)
                 obj.hEventsBtn_.Enable  = 'off';
                 obj.hEventsBtn_.Tooltip = 'Event viewer is open';
+            end
+        end
+
+        function openWiki_(obj, pageName)
+        %OPENWIKI_ Open or focus the shared WikiBrowser; navigate to pageName.
+        %   Phase 1034 — canonical implementation for the Wiki toolbar button
+        %   and every other Wiki entry point in the Companion subsystem
+        %   (CONTEXT.md D-06). Re-clicks focus + re-navigate the existing
+        %   window; first click constructs a new WikiBrowser and caches its
+        %   handle in obj.WikiBrowser_ for the lifetime of the session.
+        %   On error in any path, surface a non-blocking uialert; never
+        %   crash the companion.
+            if nargin < 2 || isempty(pageName)
+                pageName = 'Companion-Overview';
+            end
+            try
+                % Resolve <repo>/wiki from this file's location
+                % (libs/FastSenseCompanion/FastSenseCompanion.m -> <repo>/wiki).
+                wikiDir = fullfile(fileparts(fileparts(fileparts(mfilename('fullpath')))), 'wiki');
+                if ~isfolder(wikiDir)
+                    wikiDir = '';   % WikiBrowser falls back to its own default
+                end
+                if ~isempty(obj.WikiBrowser_) && isvalid(obj.WikiBrowser_) && obj.WikiBrowser_.IsOpen
+                    obj.WikiBrowser_.navigateTo(pageName);
+                    obj.WikiBrowser_.focus();
+                    return;
+                end
+                nv = {'OpenTo', pageName, 'Theme', obj.Theme, 'ParentForAlerts', obj.hFig_};
+                if ~isempty(wikiDir)
+                    nv = [nv, {'WikiDir', wikiDir}];
+                end
+                obj.WikiBrowser_ = WikiBrowser(nv{:});
+            catch ME
+                try
+                    uialert(obj.hFig_, sprintf('Failed to open Wiki: %s', ME.message), ...
+                        'Wiki Browser', 'Icon', 'error');
+                catch
+                    fprintf(2, '[FastSenseCompanion] openWiki_ failed: %s\n', ME.message);
+                end
             end
         end
 
