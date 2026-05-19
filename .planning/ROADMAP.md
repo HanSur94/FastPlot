@@ -131,7 +131,7 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 | 1029. Plant Log Storage Foundation | v3.1 | 3/3 | Complete    | 2026-05-13 |
 | 1030. CSV/XLSX Import + Mapping Dialog | v3.1 | 3/3 | Complete    | 2026-05-13 |
 | 1031. Live Tail + Slider Preview Overlay | v3.1 | 3/3 | Complete   | 2026-05-14 |
-| 1032. Per-Widget Plant Log Overlay | v3.1 | 3/3 | Complete   | 2026-05-19 |
+| 1032. Per-Widget Plant Log Overlay | v3.1 | 3/3 | Complete    | 2026-05-19 |
 | 1033. Dashboard + Companion Integration & Serialization | v3.1 | 0/? | Not started | — |
 
 ## Phase Details (v3.1 Plant Log Integration)
