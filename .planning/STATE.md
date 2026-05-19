@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Multi-User LAN Concurrency
 status: shipping
-stopped_at: PR #152 ready for merge (16/17 CI green; 7 inherited Octave failures from main, none touch v4.0 code)
-last_updated: "2026-05-19T00:00:00.000Z"
-last_activity: 2026-05-19 -- v4.0 milestone shipping. Merged main #149 (Tag Status Table — PR #149) into branch before final merge. PR #152 ready: 16/17 CI jobs green, including new 3-OS concurrency-smoke matrix (Linux + macOS-14 + Windows) gated by path filter. 9 HUMAN-UAT items remain operator-side (Linux + real SMB + ≥50 MATLAB licenses).
+stopped_at: PR #152 ready for merge (v4.0); PR #114 (Phase 1028 perf) shipped 2026-05-19 on parallel branch.
+last_updated: "2026-05-19T10:00:00Z"
+last_activity: 2026-05-19 -- Phase 1028 (Tag update perf — MEX + SIMD) COMPLETE on parallel branch claude/adoring-ishizaka-edc93c; v4.0 milestone separately shipping via PR #152.
 progress:
-  total_phases: 11
-  completed_phases: 5
-  total_plans: 20
-  completed_plans: 24
+  total_phases: 12
+  completed_phases: 6
+  total_plans: 26
+  completed_plans: 30
 ---
 
 # State
@@ -24,13 +24,19 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 
 ## Current Position
 
-Phase: 1033
-Plan: Not started
-Milestone: v4.0 Multi-User LAN Concurrency
-Status: Ready to ship — PR #152 marked ready for review (was draft).
-Last activity: 2026-05-19 — Merged main #149 (Tag Status Table window) into branch ahead of final merge. Combined private-property declarations from both branches (cluster-mode state + TagStatusTableWindow handle). v4.0 PR #152 ready: 16/17 CI jobs green.
+Phase: 1028 (tag-update-perf-mex-simd) — COMPLETE 2026-05-19 (this branch)
+Plan: 6 of 6 executed (with 03/04 deferred per Plan 02d data). Shipped plans: 01, 02, 02b, 02d, 05, 06.
+Milestone: v3.0 FastSense Companion — SHIPPED 2026-04-30; v4.0 Multi-User LAN Concurrency — shipping via PR #152 (parallel branch); v1.0 perf line tracks phase 1028 — now COMPLETE via PR #114.
+Status: Phase 1028 closed. WithIO `tickMin` reduced 4497 ms → 3603 ms (−19.9%) on Octave Linux x86_64 CI run 26089658442, almost entirely from Plan 02d's in-memory prior-state cache. Plan 06 ships per-tick fs-stat coalescing reducing 1600 → 1 syscalls/tick (−99.94% mechanism-level; wall-time +3.2% within variance on tmpfs CI). PR #114 carries the phase. Follow-up candidates for a future perf phase: in-memory propagation refactor; `containers.Map` → struct-array refactor; `.mat` save-side optimization. K2/K3/K4 deferred per data (target regions bucket as 0 ms post-cache).
+Last activity: 2026-05-19 — Completed phase 1028: Tag update perf — MEX + SIMD. Plan 06 shipped per-tick fs-stat coalescing seam (1600 → 1 syscall/tick = −99.94% reduction; wall-time within variance), phase wrap docs (VERIFICATION.md Final Result, ROADMAP.md, STATE.md, 1028-06-SUMMARY.md). Cumulative phase win: WithIO −19.9% from Plan 02d's read-side cache. K2/K3/K4 deferred per data; in-memory propagation + Map refactor remain as candidates for a follow-up perf phase.
 
-### Note on integrated work from main during v4.0 dev
+### Note on parallel v4.0 work (main branch state)
+
+While Phase 1028 was in flight on this branch, main shipped v4.0 Multi-User LAN Concurrency (phases 1029-1033) via PR #152. The two efforts touched some shared files (`LiveTagPipeline.m`, `build_mex.m`) — merged here on this commit with both feature sets preserved:
+- Plan 02d in-memory prior-state cache + Plan 06 fs-stat coalescing live in the single-user code path of `LiveTagPipeline.processTag_`.
+- v4.0 cluster-mode (TagWriteCoordinator + AtomicWriter) lives in the `if obj.IsClusterMode_` branch.
+- `bench_tag_pipeline_1k` continues to drive the single-user path (no SharedRoot set).
+- v4.0's STATE.md / ROADMAP.md entries (phases 1029-1033 Complete) preserved verbatim; phase 1028 Complete entry added alongside.
 
 Three main PRs touched files v4.0 also modified — all auto/manually merged without functional conflict:
 - PR #143 (260513-s0y) — Tile + Close all toolbar buttons. Tracking fixes (syncOpenedFigures_ Engines_ walk, public trackOpenedFigure hook, de-maximize + Units=pixels coercion) live alongside v4.0 cluster-mode wiring.
@@ -159,6 +165,14 @@ These apply to every phase and are reflected in phase success criteria rather th
 - **1020-02:** applyFilter_() is the single rebuild path for DashboardListPane row list; onRowClicked_ sets SelectedIdx_ then calls applyFilter_() for highlight rather than painting individual buttons
 - **1020-02:** addDashboard uses handle identity (==) for duplicate detection; removeDashboard uses Name (case-sensitive strcmp) for lookup per CONTEXT.md
 - **1020-02:** Listeners re-wired in setProject after detach clears them; SelectedDashboardIdx_ clamped to 0 in refresh() when engine list shrinks
+
+### Decisions (Phase 1028)
+
+- **1028-02b/02d/05/06 DI-seam pattern:** All four mid-phase architectural levers share a single shape — `Access = private` flag (production default true) + `Hidden setFooForTesting_(tf)` setter that validates `logical scalar`. This preserves D-10 (no public API), gives the harness a single flip-point per lever, and makes the test surface uniform. Future phases that add a switchable behaviour to a Tag-pipeline class should follow this pattern.
+- **1028-02d in-memory cache mechanism:** The big win in the phase was a read-side cache, not a write-side coalesce. The original Plan 02d framing ("coalesce within-tick semantics") was wrong — `processTag_` already calls `writeFn_` exactly once per tag per tick. The actual mechanism is a `containers.Map` of `tag.Key -> struct('X', priorX, 'Y', priorY)` populated lazily and refreshed after every write, skipping the per-tick `load()` inside `writeTagMat_('append',...)`. Crash-recovery semantics preserved because `save()` cadence is unchanged.
+- **1028-03/04 deferral was data-driven, not a scope cut:** K2/K3/K4 kernel target regions bucket as 0 ms in the post-cache `tBreakdown` profile. Plans 03/04 PLAN.md files exist on disk and are valid pickup points if a future profile pass with direct `tic/toc` probes finds those regions to be non-trivial. The deferral is documented in VERIFICATION.md and the 1028-06-SUMMARY.md retrospective.
+- **1028-05 null-result ship-the-seam pattern:** When a planned architectural lever's expected mechanism doesn't materialise empirically, ship the lever as an internal seam and surface the null result in VERIFICATION.md. Avoid the false dichotomy of "meets ship-criterion → ship" vs "doesn't → revert"; the third option is "ships as forward-compat, doesn't move today's number". Establishes a precedent for honest measurement reporting.
+- **1028-06 fs-stat coalesce mechanism:** One `dir(parentDir)` per unique parent directory per tick, keyed map populated lazily on first lookup, frozen for the rest of that tick. Octave-safe (no MATLAB-specific syntax). Trade-off: a file appearing mid-tick is NOT visible in that tick. Acceptable because the per-tag mtime check vs `lastModTime` already serialises ingestion at tick boundaries.
 
 ### Carry-Forward
 

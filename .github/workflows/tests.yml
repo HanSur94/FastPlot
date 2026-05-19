@@ -308,6 +308,13 @@ jobs:
             echo "_Results file not produced (test job likely crashed before completion)._" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Phase 1028 D-06: smoke-run the 1000-tag harness on every push so
+      # syntax/regressions in the harness itself surface within the test job
+      # (the gated full bench runs separately in benchmark.yml).
+      - name: Phase 1028 harness smoke
+        run: |
+          xvfb-run octave --eval "addpath(pwd); install(); bench_tag_pipeline_1k('--smoke');"
+
   # Smoke test: ensure Octave MEX sources still compile on macOS.
   # Authoritative prebuilt binaries for releases come from refresh-mex-binaries.yml,
   # which commits platform-specific binaries into libs/.../octave-<platform>/.
