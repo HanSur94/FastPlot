@@ -237,8 +237,290 @@ classdef WikiBrowser < handle
             end
         end
 
-        function buildFigure_(obj)  %#ok<MANU>
-            % implementation: Task 4.2
+        function buildFigure_(obj)
+        %BUILDFIGURE_ Construct the non-modal three-pane uifigure.
+        %   Called from the constructor's interactive-desktop branch
+        %   only. Lays out: row 1 = [< back | fwd > | breadcrumb] in a
+        %   32-px strip, row 2 = [sidebar 260 px | content 1x] body
+        %   grid. The sidebar holds a search uieditfield on top and a
+        %   uitree (TOC) under it, with the search-results uilistbox
+        %   layered into the same uigridlayout cell so non-empty queries
+        %   swap visibility without reshuffling positions.
+        %
+        %   Plan-checker I4 — Option A: TOC tree + search-results
+        %   listbox are direct children of a uigridlayout, NOT of a
+        %   plain uipanel. Children of uigridlayout auto-fill the cell
+        %   and ignore .Position, so resizing the figure reflows the
+        %   tree / listbox correctly. The plain-uipanel approach would
+        %   leave the children stuck at their initial Position size.
+            t = CompanionTheme.get(obj.Theme);
+
+            obj.hFig_ = uifigure( ...
+                'Name',               ['Wiki ' char(8212) ' FastSense'], ...
+                'Position',           [100 100 1100 750], ...
+                'WindowStyle',        'normal', ...
+                'Color',              t.DashboardBackground, ...
+                'AutoResizeChildren', 'off', ...
+                'Visible',            'off', ...
+                'Tag',                'WikiBrowserRoot');
+            obj.hFig_.CloseRequestFcn = @(~, ~) obj.close();
+
+            % Root layout: row 1 = breadcrumb strip (32 px), row 2 = body (1x).
+            obj.hRootGrid_ = uigridlayout(obj.hFig_, [2 1]);
+            obj.hRootGrid_.RowHeight     = {32, '1x'};
+            obj.hRootGrid_.ColumnWidth   = {'1x'};
+            obj.hRootGrid_.Padding       = [8 6 8 6];
+            obj.hRootGrid_.RowSpacing    = 6;
+            obj.hRootGrid_.BackgroundColor = t.DashboardBackground;
+
+            % Breadcrumb strip: [< back | fwd > | crumb label (1x)].
+            obj.hCrumbGrid_ = uigridlayout(obj.hRootGrid_, [1 3]);
+            obj.hCrumbGrid_.Layout.Row     = 1;
+            obj.hCrumbGrid_.Layout.Column  = 1;
+            obj.hCrumbGrid_.ColumnWidth    = {32, 32, '1x'};
+            obj.hCrumbGrid_.RowHeight      = {'1x'};
+            obj.hCrumbGrid_.Padding        = [0 0 0 0];
+            obj.hCrumbGrid_.ColumnSpacing  = 4;
+            obj.hCrumbGrid_.BackgroundColor = t.DashboardBackground;
+
+            obj.hBackBtn_ = uibutton(obj.hCrumbGrid_, 'push');
+            obj.hBackBtn_.Layout.Row    = 1;
+            obj.hBackBtn_.Layout.Column = 1;
+            obj.hBackBtn_.Text          = char(8592);   % left arrow
+            obj.hBackBtn_.Tooltip       = 'Back';
+            obj.hBackBtn_.BackgroundColor = t.WidgetBorderColor;
+            obj.hBackBtn_.FontColor       = t.ForegroundColor;
+            obj.hBackBtn_.Enable          = 'off';   % nothing in history yet
+            obj.hBackBtn_.ButtonPushedFcn = @(~, ~) obj.back();
+
+            obj.hFwdBtn_ = uibutton(obj.hCrumbGrid_, 'push');
+            obj.hFwdBtn_.Layout.Row    = 1;
+            obj.hFwdBtn_.Layout.Column = 2;
+            obj.hFwdBtn_.Text          = char(8594);   % right arrow
+            obj.hFwdBtn_.Tooltip       = 'Forward';
+            obj.hFwdBtn_.BackgroundColor = t.WidgetBorderColor;
+            obj.hFwdBtn_.FontColor       = t.ForegroundColor;
+            obj.hFwdBtn_.Enable          = 'off';
+            obj.hFwdBtn_.ButtonPushedFcn = @(~, ~) obj.forward();
+
+            obj.hCrumbLbl_ = uilabel(obj.hCrumbGrid_);
+            obj.hCrumbLbl_.Layout.Row    = 1;
+            obj.hCrumbLbl_.Layout.Column = 3;
+            obj.hCrumbLbl_.Text          = '';
+            obj.hCrumbLbl_.FontWeight    = 'bold';
+            obj.hCrumbLbl_.FontSize      = 12;
+            obj.hCrumbLbl_.FontColor     = t.ForegroundColor;
+            obj.hCrumbLbl_.HorizontalAlignment = 'left';
+            obj.hCrumbLbl_.VerticalAlignment   = 'center';
+
+            % Body row: [sidebar 260 px | content 1x].
+            obj.hBodyGrid_ = uigridlayout(obj.hRootGrid_, [1 2]);
+            obj.hBodyGrid_.Layout.Row     = 2;
+            obj.hBodyGrid_.Layout.Column  = 1;
+            obj.hBodyGrid_.ColumnWidth    = {260, '1x'};
+            obj.hBodyGrid_.RowHeight      = {'1x'};
+            obj.hBodyGrid_.Padding        = [0 0 0 0];
+            obj.hBodyGrid_.ColumnSpacing  = 8;
+            obj.hBodyGrid_.BackgroundColor = t.DashboardBackground;
+
+            % Sidebar panel hosts the search edit on top and the TOC /
+            % search-results stack below.
+            obj.hSidebarPanel_ = uipanel(obj.hBodyGrid_);
+            obj.hSidebarPanel_.Layout.Row    = 1;
+            obj.hSidebarPanel_.Layout.Column = 1;
+            obj.hSidebarPanel_.BackgroundColor = t.WidgetBackground;
+            obj.hSidebarPanel_.BorderType      = 'line';
+            try
+                obj.hSidebarPanel_.BorderColor = t.WidgetBorderColor;
+            catch
+                % Older releases may not expose BorderColor on uipanel.
+            end
+
+            sidebarGrid = uigridlayout(obj.hSidebarPanel_, [2 1]);
+            sidebarGrid.RowHeight       = {32, '1x'};
+            sidebarGrid.ColumnWidth     = {'1x'};
+            sidebarGrid.Padding         = [6 6 6 6];
+            sidebarGrid.RowSpacing      = 4;
+            sidebarGrid.BackgroundColor = t.WidgetBackground;
+
+            obj.hSearchEdit_ = uieditfield(sidebarGrid, 'text');
+            obj.hSearchEdit_.Layout.Row    = 1;
+            obj.hSearchEdit_.Layout.Column = 1;
+            try
+                obj.hSearchEdit_.Placeholder = ['Search wiki' char(8230)];
+            catch
+                % R2020b lacks the Placeholder property — tolerate.
+            end
+            obj.hSearchEdit_.FontSize        = 11;
+            obj.hSearchEdit_.BackgroundColor = t.WidgetBackground;
+            obj.hSearchEdit_.FontColor       = t.ForegroundColor;
+            obj.hSearchEdit_.ValueChangedFcn = @(s, e) obj.onSearchChanged_(s, e);
+
+            % ---- TOC + search-results stack (plan-checker I4 Option A) ----
+            % Both children sit in the same row/column of hTreeHostGrid_
+            % and are swapped via Visible='on'/'off'. Because they're
+            % uigridlayout children, .Position is ignored — they fill
+            % the cell, so figure resize reflows them cleanly.
+            obj.hTreeHostGrid_ = uigridlayout(sidebarGrid, [1 1]);
+            obj.hTreeHostGrid_.Layout.Row     = 2;
+            obj.hTreeHostGrid_.Layout.Column  = 1;
+            obj.hTreeHostGrid_.Padding        = [4 4 4 4];
+            obj.hTreeHostGrid_.RowHeight      = {'1x'};
+            obj.hTreeHostGrid_.ColumnWidth    = {'1x'};
+            obj.hTreeHostGrid_.BackgroundColor = t.WidgetBackground;
+
+            obj.hTocTree_ = uitree(obj.hTreeHostGrid_);
+            obj.hTocTree_.Layout.Row    = 1;
+            obj.hTocTree_.Layout.Column = 1;
+            obj.hTocTree_.FontColor       = t.ForegroundColor;
+            obj.hTocTree_.BackgroundColor = t.WidgetBackground;
+            obj.hTocTree_.SelectionChangedFcn = @(s, e) obj.onTocSelected_(s, e);
+
+            obj.hSearchResult_ = uilistbox(obj.hTreeHostGrid_);
+            obj.hSearchResult_.Layout.Row    = 1;
+            obj.hSearchResult_.Layout.Column = 1;
+            obj.hSearchResult_.Items         = {};
+            obj.hSearchResult_.FontColor       = t.ForegroundColor;
+            obj.hSearchResult_.BackgroundColor = t.WidgetBackground;
+            obj.hSearchResult_.Visible       = 'off';
+            obj.hSearchResult_.ValueChangedFcn = @(s, e) obj.onSearchHitSelected_(s, e);
+
+            obj.buildTocTree_();
+
+            % Content uihtml.
+            obj.hContent_ = uihtml(obj.hBodyGrid_);
+            obj.hContent_.Layout.Row    = 1;
+            obj.hContent_.Layout.Column = 2;
+            obj.hContent_.HTMLSource    = ['<html><body style="font-family: sans-serif; padding: 20px;">' ...
+                '<p>Loading' char(8230) '</p></body></html>'];
+            % HTMLEventReceivedFcn: when the rendered HTML posts back data
+            % via htmlComponent.Data (the JS bridge injected by Task 4.3's
+            % rewriteCrossDocLinks_), treat it as a navigateTo request.
+            % External http(s):// and mailto: links remain un-rewritten
+            % and the default uihtml behaviour opens them in the system
+            % browser (CONTEXT.md D-10). Older MATLAB releases that lack
+            % HTMLEventReceivedFcn lose in-window navigation gracefully —
+            % all <a href> clicks open in the OS browser instead.
+            try
+                obj.hContent_.HTMLEventReceivedFcn = @(s, e) obj.onHtmlEvent_(s, e);
+            catch
+                % Best effort — silently fall back.
+            end
+
+            movegui(obj.hFig_, 'center');
+            obj.hFig_.Visible = 'on';
+        end
+
+        function buildTocTree_(obj)
+        %BUILDTOCTREE_ Wipe and rebuild children of hTocTree_ from
+        %   WikiPageIndex.buildToc. Cheaper to rebuild than to mutate
+        %   individual nodes; called from buildFigure_ and reused by
+        %   future Companion-driven refresh paths.
+            if isempty(obj.hTocTree_) || ~isvalid(obj.hTocTree_)
+                return;
+            end
+            delete(obj.hTocTree_.Children);
+            toc = WikiPageIndex.buildToc(obj.WikiDir);
+            for gi = 1:numel(toc)
+                groupNode = uitreenode(obj.hTocTree_);
+                groupNode.Text = toc(gi).group;
+                entries = toc(gi).entries;
+                for ei = 1:numel(entries)
+                    leaf = uitreenode(groupNode);
+                    leaf.Text     = entries(ei).title;
+                    leaf.NodeData = entries(ei).pageName;
+                end
+            end
+            expand(obj.hTocTree_);
+        end
+
+        function onTocSelected_(obj, src, ~)
+        %ONTOCSELECTED_ uitree SelectionChangedFcn — leaf-node click navigates.
+            try
+                sel = src.SelectedNodes;
+                if isempty(sel) || isempty(sel.NodeData)
+                    return;
+                end
+                obj.navigateTo(sel.NodeData);
+            catch err
+                obj.alert_(sprintf('TOC navigation failed: %s', err.message));
+            end
+        end
+
+        function onSearchChanged_(obj, ~, ~)
+        %ONSEARCHCHANGED_ Search-field ValueChangedFcn — show / hide results.
+        %   Empty query restores the TOC tree; non-empty query runs
+        %   WikiPageIndex.search and populates the listbox.
+            try
+                q = strtrim(obj.hSearchEdit_.Value);
+                if isempty(q)
+                    obj.hSearchResult_.Visible = 'off';
+                    obj.hTocTree_.Visible      = 'on';
+                    return;
+                end
+                hits = WikiPageIndex.search(obj.WikiDir, q);
+                if isempty(hits)
+                    obj.hSearchResult_.Items     = {'(no matches)'};
+                    obj.hSearchResult_.ItemsData = {''};
+                else
+                    items = arrayfun(@(h) sprintf('%s %s %s', ...
+                        h.title, char(8212), h.excerpt), hits, ...
+                        'UniformOutput', false);
+                    data  = arrayfun(@(h) {h.pageName}, hits);
+                    obj.hSearchResult_.Items     = items;
+                    obj.hSearchResult_.ItemsData = data;
+                end
+                obj.hSearchResult_.Visible = 'on';
+                obj.hTocTree_.Visible      = 'off';
+            catch err
+                obj.alert_(sprintf('Search failed: %s', err.message));
+            end
+        end
+
+        function onSearchHitSelected_(obj, src, ~)
+        %ONSEARCHHITSELECTED_ uilistbox ValueChangedFcn — pick a result.
+            try
+                page = src.Value;
+                if isempty(page) || ~ischar(page)
+                    return;
+                end
+                obj.navigateTo(page);
+            catch err
+                obj.alert_(sprintf('Hit selection failed: %s', err.message));
+            end
+        end
+
+        function onHtmlEvent_(obj, ~, evt)
+        %ONHTMLEVENT_ uihtml HTMLEventReceivedFcn — bridge from JS.
+        %   The JS bridge injected by rewriteCrossDocLinks_ (Task 4.3)
+        %   intercepts clicks on a.wiki-internal and posts
+        %   {page, ts} to htmlComponent.Data. evt.Data carries that
+        %   struct; we forward to navigateTo. External http(s):// and
+        %   mailto: links are NOT rewritten — they keep the default
+        %   uihtml behaviour and open in the system browser
+        %   (CONTEXT.md D-10).
+            try
+                if isstruct(evt.Data) && isfield(evt.Data, 'page')
+                    obj.navigateTo(evt.Data.page);
+                end
+            catch
+                % Best effort — silently ignore malformed payloads.
+            end
+        end
+
+        function alert_(obj, msg)
+        %ALERT_ Non-blocking error surface. Prefers uialert on the
+        %   ParentForAlerts_ uifigure when available; otherwise writes
+        %   to stderr with a [WikiBrowser] prefix.
+            if ~isempty(obj.ParentForAlerts_) && isvalid(obj.ParentForAlerts_)
+                try
+                    uialert(obj.ParentForAlerts_, msg, 'Wiki Browser');
+                    return;
+                catch
+                    % Fall through to stderr.
+                end
+            end
+            fprintf(2, '[WikiBrowser] %s\n', msg);
         end
     end
 end
