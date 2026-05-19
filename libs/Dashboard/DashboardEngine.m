@@ -2296,9 +2296,34 @@ classdef DashboardEngine < handle
             obj.PlantLogTickListener_ = [];
             obj.PlantLogLiveTailInternal_ = tail;
             if ~isempty(tail)
+                % Phase 1032 PLOG-VIZ-08: route ticks through
+                % onPlantLogTailTick_ so slider AND per-widget overlays
+                % refresh on every tail tick (fan-out covers Pages,
+                % single-page Widgets, and DetachedMirrors).
                 obj.PlantLogTickListener_ = addlistener(tail, 'PlantLogTailTick', ...
-                    @(~,~) obj.computePlantLogMarkers());
+                    @(~,~) obj.onPlantLogTailTick_());
             end
+        end
+
+        function refreshPlantLogOverlayForWidgetForTest_(obj, widget)
+        %REFRESHPLANTLOGOVERLAYFORWIDGETFORTEST_ Phase 1032 test seam.
+        %   Routes to refreshPlantLogOverlayForWidget_ from function-style
+        %   tests (which can't satisfy the {?FastSenseWidget, ?matlab.unittest.TestCase}
+        %   access list). Hidden so it doesn't show up in methods(obj).
+            obj.refreshPlantLogOverlayForWidget_(widget);
+        end
+
+        function clearPlantLogOverlaysOnAllWidgetsForTest_(obj)
+        %CLEARPLANTLOGOVERLAYSONALLWIDGETSFORTEST_ Phase 1032 test seam.
+        %   Routes to clearPlantLogOverlaysOnAllWidgets_ from function-style
+        %   tests. Hidden test seam mirroring the Phase 1031 idiom.
+            obj.clearPlantLogOverlaysOnAllWidgets_();
+        end
+
+        function attachPlantLogXLimListenerForTest_(obj, widget)
+        %ATTACHPLANTLOGXLIMLISTENERFORTEST_ Phase 1032 test seam.
+        %   Routes to attachPlantLogXLimListener_ from function-style tests.
+            obj.attachPlantLogXLimListener_(widget);
         end
 
         function setTimeRangeSelectorForTest_(obj, sel)
@@ -2348,6 +2373,140 @@ classdef DashboardEngine < handle
                 ws = [ws, obj.Pages{i}.Widgets]; %#ok<AGROW>
             end
         end
+    end
+
+    % Phase 1032 PLOG-VIZ-03 + PLOG-VIZ-04: per-widget plant-log overlay
+    % helpers. Access restricted to FastSenseWidget so the widget's
+    % setShowPlantLog setter can call these without exposing them as
+    % public API. matlab.unittest.TestCase is included so class-based
+    % suite tests can call these directly without going through the
+    % public surface; function-style tests route through the public
+    % FastSenseWidget.setShowPlantLog setter instead.
+    %
+    % The engine itself can still invoke them via obj.method_().
+    % Octave parsing note: this access spec works on MATLAB R2020b+; the
+    % class-based suite is MATLAB-only (function-style test SKIPs Octave
+    % entirely, so the parse-time check on matlab.unittest is moot).
+    methods (Access = {?FastSenseWidget, ?matlab.unittest.TestCase})
+
+        function refreshPlantLogOverlayForWidget_(obj, widget)
+        %REFRESHPLANTLOGOVERLAYFORWIDGET_ Recompute plant-log overlay for one widget (Phase 1032 PLOG-VIZ-04 + PLOG-VIZ-08).
+        %   Idempotent: safe to call when widget.ShowPlantLog=false (clears
+        %   markers), when the engine has no store (clears markers), or
+        %   when the widget's FastSenseObj is not rendered (no-op).
+        %
+        %   1. Validate widget and inner FastSense are rendered.
+        %   2. Clear all WidgetPlantLogMarker handles on the widget's axes.
+        %   3. Early return when ShowPlantLog=false (clear-only path).
+        %   4. Early return when store is empty / not a PlantLogStore.
+        %   5. Read XLim from the widget's axes.
+        %   6. getEntriesInRange(t0, t1) from PlantLogStoreInternal_.
+        %   7. Sub-pixel coalesce: bucket entries by
+        %      floor(t * pixelsPerDataUnit) and keep one entry per
+        %      unique bucket (stable). pixelsPerDataUnit derived from
+        %      getpixelposition(ax, true).
+        %   8. setPlantLogMarkers(coalescedTimes, coalescedEntries).
+        %
+        %   On failure, fires DashboardEngine:plantLogOverlayFailed warning.
+            try
+                if isempty(widget) || ~isa(widget, 'FastSenseWidget'), return; end
+                if isempty(widget.FastSenseObj) || ...
+                        ~isa(widget.FastSenseObj, 'FastSense') || ...
+                        ~widget.FastSenseObj.IsRendered
+                    return;
+                end
+                ax = widget.FastSenseObj.hAxes;
+                if isempty(ax) || ~ishandle(ax), return; end
+                % Clear stale markers first (idempotent).
+                delete(findobj(ax, 'Tag', 'WidgetPlantLogMarker'));
+                if ~widget.ShowPlantLog, return; end
+                if isempty(obj.PlantLogStoreInternal_) || ...
+                        ~isa(obj.PlantLogStoreInternal_, 'PlantLogStore')
+                    return;
+                end
+                xl = get(ax, 'XLim');
+                t0 = xl(1);
+                t1 = xl(2);
+                entries = obj.PlantLogStoreInternal_.getEntriesInRange(t0, t1);
+                if isempty(entries), return; end
+                times = [entries.Timestamp];
+                % Sub-pixel coalesce (decision D): bucket entries by their
+                % floored pixel index so two timestamps that land in the
+                % same screen pixel render a single line. Hover lookup
+                % uses the full store, not these coalesced timestamps.
+                try
+                    axPosPx = getpixelposition(ax, true);
+                    ax_width_px = max(axPosPx(3), 1);
+                catch
+                    ax_width_px = 600;  % conservative default
+                end
+                pixelsPerDataUnit = ax_width_px / max(t1 - t0, eps);
+                buckets = floor(double(times) * pixelsPerDataUnit);
+                [~, ia] = unique(buckets, 'stable');
+                coalescedTimes = times(ia);
+                coalescedEntries = entries(ia);
+                widget.setPlantLogMarkers(coalescedTimes, coalescedEntries);
+            catch err
+                warning('DashboardEngine:plantLogOverlayFailed', ...
+                    'refreshPlantLogOverlayForWidget_ failed: %s', err.message);
+            end
+        end
+
+        function clearPlantLogOverlaysOnAllWidgets_(obj)
+        %CLEARPLANTLOGOVERLAYSONALLWIDGETS_ Wipe markers on every widget + every detached mirror (Phase 1032).
+        %   Does NOT flip ShowPlantLog on any widget — user state is
+        %   preserved for re-attach. Called from Phase 1033's
+        %   detachPlantLog() entry point and from store swaps that need
+        %   to nuke stale per-widget markers.
+            ws = obj.allPageWidgets();
+            for i = 1:numel(ws)
+                w = ws{i};
+                if isa(w, 'FastSenseWidget') && ~isempty(w.FastSenseObj) && ...
+                        isa(w.FastSenseObj, 'FastSense') && w.FastSenseObj.IsRendered
+                    ax = w.FastSenseObj.hAxes;
+                    if ~isempty(ax) && ishandle(ax)
+                        try delete(findobj(ax, 'Tag', 'WidgetPlantLogMarker')); catch, end
+                    end
+                end
+            end
+            for k = 1:numel(obj.DetachedMirrors)
+                m = obj.DetachedMirrors{k};
+                if isempty(m) || ~isvalid(m), continue; end
+                w = m.Widget;
+                if isa(w, 'FastSenseWidget') && ~isempty(w.FastSenseObj) && ...
+                        isa(w.FastSenseObj, 'FastSense') && w.FastSenseObj.IsRendered
+                    ax = w.FastSenseObj.hAxes;
+                    if ~isempty(ax) && ishandle(ax)
+                        try delete(findobj(ax, 'Tag', 'WidgetPlantLogMarker')); catch, end
+                    end
+                end
+            end
+        end
+
+        function attachPlantLogXLimListener_(obj, widget)
+        %ATTACHPLANTLOGXLIMLISTENER_ Wire an XLim PostSet listener on the widget's axes (Phase 1032).
+        %   Stored in widget.PlantLogXLimListener_; deleted by
+        %   setShowPlantLog(false) AND by widget.delete(). Idempotent:
+        %   replaces any prior listener.
+            if isempty(widget) || ~isa(widget, 'FastSenseWidget'), return; end
+            if ~isempty(widget.PlantLogXLimListener_)
+                try delete(widget.PlantLogXLimListener_); catch, end
+                widget.PlantLogXLimListener_ = [];
+            end
+            if isempty(widget.FastSenseObj) || ~widget.FastSenseObj.IsRendered
+                return;
+            end
+            ax = widget.FastSenseObj.hAxes;
+            if isempty(ax) || ~ishandle(ax), return; end
+            try
+                widget.PlantLogXLimListener_ = addlistener(ax, 'XLim', 'PostSet', ...
+                    @(~,~) obj.refreshPlantLogOverlayForWidget_(widget));
+            catch err
+                warning('DashboardEngine:plantLogOverlayFailed', ...
+                    'attachPlantLogXLimListener_ failed: %s', err.message);
+            end
+        end
+
     end
 
     methods (Access = private)
@@ -3004,6 +3163,37 @@ classdef DashboardEngine < handle
                 obj.TimeRangeSelector_.setPlantLogMarkers(times);
             catch err
                 fprintf('[ENGINE WARN] computePlantLogMarkers: %s\n', err.message);
+            end
+        end
+
+        function onPlantLogTailTick_(obj)
+        %ONPLANTLOGTAILTICK_ PlantLogTailTick callback — fan out slider + widgets + mirrors (Phase 1032 PLOG-VIZ-08).
+        %   Wraps the existing computePlantLogMarkers (slider path) and
+        %   adds the per-widget refresh fan-out for every ShowPlantLog=true
+        %   widget across pages AND every DetachedMirror (decision G —
+        %   full parity).
+            try
+                obj.computePlantLogMarkers();
+            catch err
+                warning('DashboardEngine:plantLogOverlayFailed', ...
+                    'computePlantLogMarkers (tick): %s', err.message);
+            end
+            % Fan out to attached widgets.
+            ws = obj.allPageWidgets();
+            for i = 1:numel(ws)
+                w = ws{i};
+                if isa(w, 'FastSenseWidget') && w.ShowPlantLog
+                    try obj.refreshPlantLogOverlayForWidget_(w); catch, end
+                end
+            end
+            % Fan out to detached mirrors (decision G — full parity).
+            for k = 1:numel(obj.DetachedMirrors)
+                m = obj.DetachedMirrors{k};
+                if isempty(m) || ~isvalid(m), continue; end
+                w = m.Widget;
+                if isa(w, 'FastSenseWidget') && w.ShowPlantLog
+                    try obj.refreshPlantLogOverlayForWidget_(w); catch, end
+                end
             end
         end
 

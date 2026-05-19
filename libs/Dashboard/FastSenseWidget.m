@@ -53,9 +53,18 @@ classdef FastSenseWidget < DashboardWidget
         LastEventIds_      = {}    % Phase 1012 — cell of event Ids at last refresh
         LastEventOpen_     = []    % Phase 1012 — logical array parallel to LastEventIds_
         LastEventSeverity_ = []    % Phase 1012 — numeric array parallel to LastEventIds_
-        PlantLogXLimListener_ = [] % Phase 1032 — addlistener handle for XLim PostSet refresh; non-empty when ShowPlantLog=true and widget is rendered
         PreviewCache_      = []    % 260508-das — cached getPreviewSeries result
         PreviewCacheKey_   = []    % [numel(x), x(1), x(end), nBucketsEff] sentinel
+    end
+
+    % Phase 1032 — XLim listener slot. Public READ (tests + engine
+    % observe), restricted WRITE so only DashboardEngine (via
+    % attachPlantLogXLimListener_) and FastSenseWidget itself (in
+    % setShowPlantLog + delete) can mutate the handle. matlab.unittest.TestCase
+    % is included so class-based suite tests can verify lifecycle by
+    % direct assignment; function-style tests observe via read-only access.
+    properties (SetAccess = {?DashboardEngine, ?FastSenseWidget, ?matlab.unittest.TestCase})
+        PlantLogXLimListener_ = [] % Phase 1032 — addlistener handle for XLim PostSet refresh; non-empty when ShowPlantLog=true and widget is rendered
     end
 
     properties (Access = private, Constant)
@@ -429,6 +438,42 @@ classdef FastSenseWidget < DashboardWidget
             catch ME
                 warning('FastSenseWidget:plantLogToggleFailed', ...
                     'setPlantLogMarkers failed: %s', ME.message);
+            end
+        end
+
+        function setShowPlantLog(obj, tf, engine)
+        %SETSHOWPLANTLOG Toggle the per-widget plant-log overlay (Phase 1032 PLOG-VIZ-03).
+        %   tf     — boolean; true enables overlay + attaches XLim listener,
+        %            false disables overlay + tears down listener + clears markers.
+        %   engine — DashboardEngine handle; required so refresh + listener
+        %            wiring can route through engine.refreshPlantLogOverlayForWidget_
+        %            and engine.attachPlantLogXLimListener_.
+        %
+        %   On failure, ShowPlantLog is REVERTED to its prior value and a
+        %   non-blocking warning fires with namespace
+        %   FastSenseWidget:plantLogToggleFailed (matches existing
+        %   setEventMarkersVisible error-handling style).
+            priorState = obj.ShowPlantLog;
+            try
+                if isempty(engine) || ~isa(engine, 'DashboardEngine')
+                    error('FastSenseWidget:plantLogToggleFailed', ...
+                        'engine must be a DashboardEngine handle.');
+                end
+                obj.ShowPlantLog = logical(tf);
+                if obj.ShowPlantLog
+                    engine.attachPlantLogXLimListener_(obj);
+                    engine.refreshPlantLogOverlayForWidget_(obj);
+                else
+                    if ~isempty(obj.PlantLogXLimListener_)
+                        try delete(obj.PlantLogXLimListener_); catch, end
+                        obj.PlantLogXLimListener_ = [];
+                    end
+                    obj.setPlantLogMarkers([], []);  % clear without engine round-trip
+                end
+            catch ME
+                obj.ShowPlantLog = priorState;
+                warning('FastSenseWidget:plantLogToggleFailed', ...
+                    'setShowPlantLog(%s) failed: %s', mat2str(logical(tf)), ME.message);
             end
         end
 

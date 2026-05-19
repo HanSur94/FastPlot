@@ -313,7 +313,7 @@ function n = test_engine_refresh_for_widget_safe_when_off()
     assert(numel(findobj(ax, 'Tag', 'WidgetPlantLogMarker')) == 1, ...
         'precondition: stale marker seeded');
 
-    e.refreshPlantLogOverlayForWidget_(w);
+    e.refreshPlantLogOverlayForWidgetForTest_(w);
     assert(numel(findobj(ax, 'Tag', 'WidgetPlantLogMarker')) == 0, ...
         'refresh must clear markers when ShowPlantLog=false');
 
@@ -333,7 +333,7 @@ function n = test_engine_refresh_draws_five_markers()
     e.setPlantLogStoreForTest_(store);
 
     w.ShowPlantLog = true;
-    e.refreshPlantLogOverlayForWidget_(w);
+    e.refreshPlantLogOverlayForWidgetForTest_(w);
 
     ax = w.FastSenseObj.hAxes;
     h = findobj(ax, 'Tag', 'WidgetPlantLogMarker');
@@ -365,7 +365,7 @@ function n = test_engine_sub_pixel_coalesce()
     store = make_populated_store_(timesIn, {'a','b','c','d','e','f'});
     e.setPlantLogStoreForTest_(store);
     w.ShowPlantLog = true;
-    e.refreshPlantLogOverlayForWidget_(w);
+    e.refreshPlantLogOverlayForWidgetForTest_(w);
 
     ax = w.FastSenseObj.hAxes;
     h = findobj(ax, 'Tag', 'WidgetPlantLogMarker');
@@ -395,13 +395,13 @@ function n = test_engine_clear_all_widgets_preserves_show_state()
     e.setPlantLogStoreForTest_(store);
 
     w.ShowPlantLog = true;
-    e.refreshPlantLogOverlayForWidget_(w);
+    e.refreshPlantLogOverlayForWidgetForTest_(w);
 
     ax = w.FastSenseObj.hAxes;
     assert(numel(findobj(ax, 'Tag', 'WidgetPlantLogMarker')) == 3, ...
         'precondition: 3 markers drawn');
 
-    e.clearPlantLogOverlaysOnAllWidgets_();
+    e.clearPlantLogOverlaysOnAllWidgetsForTest_();
     assert(numel(findobj(ax, 'Tag', 'WidgetPlantLogMarker')) == 0, ...
         'clearAll must wipe markers');
     assert(w.ShowPlantLog == true, ...
@@ -486,7 +486,7 @@ function n = test_engine_attach_xlim_listener_redraws_on_xlim_change()
     e.setPlantLogStoreForTest_(store);
 
     w.ShowPlantLog = true;
-    e.attachPlantLogXLimListener_(w);
+    e.attachPlantLogXLimListenerForTest_(w);
     assert(~isempty(w.PlantLogXLimListener_), ...
         'attachPlantLogXLimListener_ must populate widget.PlantLogXLimListener_');
 
@@ -524,7 +524,7 @@ function n = test_engine_refresh_clears_when_store_empty()
         'precondition: stale marker seeded');
 
     % No store attached -> refresh must clear markers without throwing.
-    e.refreshPlantLogOverlayForWidget_(w);
+    e.refreshPlantLogOverlayForWidgetForTest_(w);
     assert(numel(findobj(ax, 'Tag', 'WidgetPlantLogMarker')) == 0, ...
         'refresh with no store must clear markers and return silently');
 
