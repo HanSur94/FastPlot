@@ -429,7 +429,10 @@ jobs:
         # TestDashboard* alone is 23 classes (heaviest cluster), so it
         # gets its own batch; the rest of D folds into batch 1.
         batch:
-          - { id: 1, name: "A-D",         pattern: "^Test[ABC]|^TestD(?!ashboard)" }
+          # A-D batch: excludes TestConcurrencyIntegration (moved to batch 6) —
+          # it triggers an R2021b cumulative-state segfault when run after the
+          # ~17 widget/render tests that precede it in this alphabetical range.
+          - { id: 1, name: "A-D",         pattern: "^Test[AB]|^TestC(?!oncurrencyIntegration)|^TestD(?!ashboard)" }
           - { id: 2, name: "Dashboard",   pattern: "^TestDashboard" }
           - { id: 3, name: "E-I",         pattern: "^Test[E-I]" }
           - { id: 4, name: "J-P",         pattern: "^Test[J-P]" }
@@ -438,6 +441,13 @@ jobs:
           # so it will report as skipped/incomplete in CI rather than running, but
           # including it in a batch keeps it discoverable and statused.
           - { id: 5, name: "Q-Z",         pattern: "^Test([Q-Z]|[0-9])" }
+          # Batch 6: TestConcurrencyIntegration runs alone in a fresh MATLAB
+          # process. Background: R2021b headless Linux accumulates state
+          # corruption across the long batch-1 run; by the time
+          # TestConcurrencyIntegration loads `lockfile_mex` it triggers a
+          # segfault inside MATLAB's MEX dispatcher. Running alone in a fresh
+          # process gives the MEX a clean dispatcher state.
+          - { id: 6, name: "Concurrency-Integration", pattern: "^TestConcurrencyIntegration" }
     env:
       FASTSENSE_SKIP_BUILD: "1"
       # v4.0 Phase 1032 SC1: 4-node simulated-cluster smoke. Spawns 4 child
