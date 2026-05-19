@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Plant Log Integration
 status: executing
-stopped_at: Completed 1032-01-widget-property-and-draw-PLAN.md (Phase 1032 Plan 01 of 3)
-last_updated: "2026-05-19T08:22:24.311Z"
+stopped_at: Completed 1032-02-toggle-button-and-hover-PLAN.md (Phase 1032 Plan 02 of 3)
+last_updated: "2026-05-19T09:01:25.817Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # State
@@ -27,10 +27,10 @@ toolbox dependencies.
 ## Current Position
 
 Phase: 1032 (Per-Widget Plant Log Overlay) — EXECUTING
-Plan: 2 of 3 (Plan 01 complete; Plan 02 next)
+Plan: 3 of 3 (Plan 01 + Plan 02 complete; Plan 03 next — detached-mirror parity + smoke)
 Milestone: v3.1 Plant Log Integration
-Status: Ready to execute Plan 02 (toggle button + hover tooltip)
-Last activity: 2026-05-19 — Completed Phase 1032 Plan 01 (widget property + draw)
+Status: Ready to execute Plan 03 (detached-mirror + smoke)
+Last activity: 2026-05-19 — Completed Phase 1032 Plan 02 (toggle button + hover tooltip)
 
 ## Progress Bar
 
@@ -39,11 +39,11 @@ v3.1 Plant Log Integration:
 - [x] Phase 1029: Plant Log Storage Foundation — 3/3 plans
 - [x] Phase 1030: CSV/XLSX Import + Mapping Dialog — 3/3 plans
 - [x] Phase 1031: Live Tail + Slider Preview Overlay — 3/3 plans
-- [ ] Phase 1032: Per-Widget Plant Log Overlay — 1/3 plans
+- [ ] Phase 1032: Per-Widget Plant Log Overlay — 2/3 plans
 - [ ] Phase 1033: Dashboard + Companion Integration & Serialization — 0/? plans
 
 Phases complete: 3/5
-Plans complete: 10/12 (83%) — Phase 1032 Plan 01 shipped 2026-05-19
+Plans complete: 11/12 (92%) — Phase 1032 Plan 02 shipped 2026-05-19
 
 ## Accumulated Context
 
@@ -155,11 +155,14 @@ separate REQ-IDs:
 
 ## Session Continuity
 
-- **Resume point:** Phase 1032 Plan 01 (widget property + draw) is **shipped** (2026-05-19).
-  Next step: execute Phase 1032 Plan 02 (toggle button + hover tooltip), which
-  consumes the public surface delivered here: `FastSenseWidget.ShowPlantLog`,
-  `FastSenseWidget.setShowPlantLog(tf, engine)`, `FastSenseWidget.setPlantLogMarkers`,
-  and the engine fan-out via `onPlantLogTailTick_`.
+- **Resume point:** Phase 1032 Plan 02 (toggle button + hover tooltip) is
+  **shipped** (2026-05-19). Next step: execute Phase 1032 Plan 03 (detached
+  mirror parity + smoke), which exercises the toggle UI + hover lifecycle
+  end-to-end including `DetachedMirror` clone parity (decision G) and the
+  full live-tail tick fan-out. Plan 03 consumes the surface delivered here:
+  `DashboardLayout.addPlantLogToggle` / `EngineRef`, three-button
+  `reflowChrome_`, `PlantLogWidgetHover`, and the engine
+  `attachPlantLogWidgetHover_` / `detachPlantLogWidgetHover_` lifecycle.
 
 - **Order of phases:** 1029 ✅ → 1030 ✅ → 1031 → 1032 → 1033 (each phase depends on
   prior phases; no parallel execution paths).
@@ -171,9 +174,12 @@ separate REQ-IDs:
   (Phase 1030 Plan 02); PLOG-IM-01 + 02 + 06 + 08 have additional
   integration-level proof (Phase 1030 Plan 03 — openInteractive +
   integration smoke). All PLOG-IM-* (8/32) integration-proven at runtime.
-  16 requirements remaining across Phases 1031, 1032, 1033.
+  PLOG-VIZ-03 + PLOG-VIZ-04 unit-proven (Phase 1032 Plan 01); PLOG-VIZ-05 +
+  PLOG-VIZ-07 unit-proven (Phase 1032 Plan 02).
+  14 requirements remaining across Phases 1031 closure + 1032 Plan 03 +
+  Phase 1033.
 
-- **Stopped at:** Completed 1032-01-widget-property-and-draw-PLAN.md (Phase 1032 Plan 01 of 3)
+- **Stopped at:** Completed 1032-02-toggle-button-and-hover-PLAN.md (Phase 1032 Plan 02 of 3)
   (Phase 1030 closed; ready for /gsd:verify-phase 1030).
   `PlantLogReader.openInteractive(filePath, varargin)` ships as the third
   static method, wiring `readtablePortable` → `autoDetect` →
@@ -405,3 +411,60 @@ separate REQ-IDs:
   DashboardEngine warnings unchanged). PLOG-VIZ-03 + PLOG-VIZ-04
   completed. See
   `.planning/phases/1032-per-widget-plant-log-overlay/1032-01-widget-property-and-draw-SUMMARY.md`.
+
+- **Plan 02 (toggle button + hover tooltip, 2026-05-19)** — DashboardLayout
+  gains a new public `EngineRef` back-reference property (set in
+  DashboardEngine constructor `obj.Layout.EngineRef = obj`) + a public
+  `addPlantLogToggle(widget, engine)` method (intentional access bump
+  vs. the existing private addInfoIcon/addDetachButton — tests + future
+  Companion paths need to invoke the rebuild directly). The L button is
+  a 24×24 uicontrol pushbutton with `Tag='PlantLogToggleButton'`,
+  `String='L'`, `FontWeight='bold'`, positioned as the LEFTMOST of the
+  three button-bar buttons (x = barW - 84 from right edge). Idempotent:
+  prior tags are deleted before create. Pressed-state colors derived
+  from `theme.MarkerPlantLog` (ON: bg=[0 0 0], fg=[1 1 1]) vs theme
+  defaults (OFF). Disabled with tooltip `'No plant log attached'` when
+  no store is attached. Callback wrapper `onPlantLogTogglePressed_` calls
+  `widget.setShowPlantLog(~ShowPlantLog, engine)` + rebuilds the button
+  look; wraps in try/catch + namespaced warning
+  `DashboardLayout:plantLogToggleParentMissing` + best-effort uialert.
+  Software-level `Enable='off'` guard short-circuits force-call paths.
+  `reflowChrome_` extended to re-anchor all THREE buttons on resize
+  (Detach at barW-24-4, Info at barW-56, PlantLog at barW-84).
+  `realizeWidget` invokes `addPlantLogToggle(widget, obj.EngineRef)` for
+  every FastSenseWidget instance behind the existing `needsBar` chrome
+  path. `DashboardWidget.clearPanelControls` protectedTags extended with
+  `'PlantLogToggleButton'`. New `libs/PlantLog/PlantLogWidgetHover.m`
+  class (~480 LOC) mirrors `PlantLogSliderHover`'s chained-WBM lifecycle
+  exactly with: single-entry vs multi-entry tooltip layout branching;
+  full-metadata rendering (insertion order, value truncated to 39 chars +
+  `char(8230)` Unicode '…' when >40 chars, embedded newlines collapsed
+  to single space); overlap stacking with `'-- ts --'` block headers
+  sorted by Timestamp ASC; 10-entry cap with `'+N more entries near this
+  point'` footer; `simulateHoverAt_` returns the FULL entry array within
+  tolerance (not single nearest pick like the slider hover);
+  `PlantLogWidgetHover:invalidInput` error namespace. DashboardEngine
+  gains a public-read/friend-write `WidgetHovers_` cell of
+  `{widget, PlantLogWidgetHover}` pairs (mirrors Plan 01's
+  PlantLogXLimListener_ access pattern). New friend-restricted methods
+  `attachPlantLogWidgetHover_(widget)` + `detachPlantLogWidgetHover_(widget)`
+  added to the existing Plan 01 `methods (Access = {?FastSenseWidget,
+  ?matlab.unittest.TestCase})` block. `attachPlantLogWidgetHover_` lazy-
+  constructs a `PlantLogWidgetHover` parented to the figure ancestor of
+  the widget axes, routing lookup through `obj.lookupPlantLogEntries_`.
+  `detachPlantLogWidgetHover_` is idempotent (cell-of-pairs walk with
+  logical-mask kept-subset reassignment) and also sweeps stale-widget
+  pairs. `DashboardEngine.delete()` tears down `WidgetHovers_` BEFORE
+  `TimeRangeSelector_` (mirrors Phase 1031's hover-before-selector
+  ordering rule). `FastSenseWidget.setShowPlantLog` extended with two
+  lines: ON branch calls `engine.attachPlantLogWidgetHover_(obj)` after
+  the listener + refresh; OFF branch calls
+  `engine.detachPlantLogWidgetHover_(obj)` BEFORE the marker clear.
+  `char(10)` -> `newline` migration on the tooltip strjoin separator
+  (R2024b CHARTEN advisory). 12/12 layout function-style + 12/12 class
+  + 13/13 hover function-style + 13/13 class on MATLAB; Phase 1029-1031
+  + Plan 01 regression intact (126/126 across the v3.1 plant-log suite).
+  checkcode reports zero NEW Error- or Critical-level diagnostics on
+  any modified or new production file. PLOG-VIZ-05 + PLOG-VIZ-07
+  completed. See
+  `.planning/phases/1032-per-widget-plant-log-overlay/1032-02-toggle-button-and-hover-SUMMARY.md`.
