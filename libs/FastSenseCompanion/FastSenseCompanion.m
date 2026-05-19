@@ -465,6 +465,14 @@ classdef FastSenseCompanion < handle
             % Phase 1027.1 -- instantiate both panes; wire DetachRequested listeners.
             obj.EventsLogPane_ = EventsLogPane(obj.Theme_);
             obj.LiveLogPane_   = LiveLogPane(obj.Theme_);
+            % Phase 1034 -- wire the Companion handle into both panes so their
+            % detached-header Wiki buttons can route through obj.openWiki().
+            try
+                obj.EventsLogPane_.setCompanion(obj);
+                obj.LiveLogPane_.setCompanion(obj);
+            catch err
+                fprintf(2, '[FastSenseCompanion] setCompanion wiring failed: %s\n', err.message);
+            end
             obj.Listeners_{end+1} = addlistener(obj.EventsLogPane_, 'DetachRequested', ...
                 @(~,~) obj.setLogState_('events', 'Detached'));
             obj.Listeners_{end+1} = addlistener(obj.LiveLogPane_, 'DetachRequested', ...
