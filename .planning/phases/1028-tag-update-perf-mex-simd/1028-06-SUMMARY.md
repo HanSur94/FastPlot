@@ -58,7 +58,7 @@ patterns-established:
 requirements-completed: []   # Phase 1028 has no formal REQ-IDs
 
 # Metrics
-duration: ~45min   # placeholder; updated post-CI
+duration: 90min   # actual; includes 2 CI roundtrips + main-merge integration
 completed: 2026-05-19
 ---
 
@@ -110,24 +110,42 @@ fs-coalesce-off smoke (3 ticks): tickMin=1.1736s  lastFsStatCount=1600
 
 ## CI Evidence
 
+### Pre-merge run (commit `aa92d65`, before main was merged)
+
 - **Benchmark workflow:** https://github.com/HanSur94/FastSense/actions/runs/26089658442 — **success** (23m29s). `bench-tag-pipeline-1k-results` artifact contains all 4 new fs-coalesce metric names and the syscall-count observability counters:
     - `tag_pipeline_1k_withio_fs_coalesce_on_min_ms`: **3602.751** ms
     - `tag_pipeline_1k_withio_fs_coalesce_off_min_ms`: **3490.698** ms (+3.2% — within variance)
     - `tag_pipeline_1k_withio_fs_coalesce_on_lastfsstat_count`: **1** (deterministic)
     - `tag_pipeline_1k_withio_fs_coalesce_off_lastfsstat_count`: **1600** (deterministic; 2 × 800 eligible tags)
-- **Tests workflow:** https://github.com/HanSur94/FastSense/actions/runs/26089658389 — failure (inherited from main pre-existing). `TestFsStatCoalesce` ran on MATLAB R2021b batch E-I: `Running TestFsStatCoalesce ..... Done TestFsStatCoalesce` — **5/5 dots = all 5 cases passed**. `TestPriorStateCacheParity` and `TestListenerCoalesceOrdering` (4/5 cases — testIdempotency errors pre-existed Plan 06, see deferred-items.md update below) also ran.
+- **Tests workflow:** https://github.com/HanSur94/FastSense/actions/runs/26089658389 — failure (inherited from main pre-existing). `TestFsStatCoalesce` ran on MATLAB R2021b batch E-I: `Running TestFsStatCoalesce ..... Done TestFsStatCoalesce` — but `testWithIoBytesOnDiskParity` FAILED on R2021b due to fixture mtime-granularity flake (50 vs 40 row counts). Fixed in commit `5cd6b23` (post-merge).
+
+### Post-merge run (commit `5cd6b23`, after merging v4.0 main + test-fix)
+
+- **Benchmark workflow:** https://github.com/HanSur94/FastSense/actions/runs/26091968063 — **success** (23m21s). Post-merge metrics (within run-to-run variance of pre-merge):
+    - `tag_pipeline_1k_withio_fs_coalesce_on_min_ms`: **3634.232** ms
+    - `tag_pipeline_1k_withio_fs_coalesce_off_min_ms`: **3514.109** ms (+3.4% — within variance)
+    - `tag_pipeline_1k_withio_fs_coalesce_on_lastfsstat_count`: **1** (deterministic)
+    - `tag_pipeline_1k_withio_fs_coalesce_off_lastfsstat_count`: **1600** (deterministic)
+- **Tests workflow:** https://github.com/HanSur94/FastSense/actions/runs/26091968122 — overall failure, but **TestFsStatCoalesce: 5/5 passing on MATLAB R2021b batch E-I** (`Running TestFsStatCoalesce .....`). Only 2 inherited test errors (both pre-existing, both documented in deferred-items.md):
+    - `TestListenerCoalesceOrdering/testIdempotency` (Plan 05-introduced; not Plan 06)
+    - `TestTagPerfRegression/testConsumerMigrationTickGate` (Plan 01-introduced bench bug)
 - **D-08 gates:** all 4 active (`bench_compositetag_merge`, `bench_sensortag_getxy`, `bench_monitortag_append`, `bench_consumer_migration_tick`) green in `benchmark-results.json`; `bench_monitortag_tick` stays assume-skipped per Plan 01 deferred-items.
-- **WithIO cache-off regression check:** 4923.2 ms in this run vs Plan 02b 5225.1 ms baseline = within tolerance.
-- **WithIO coalesce-off regression check (plan 05):** 3513.5 ms ≈ coalesce-on 3602.7 ms = within variance (Plan 05 finding still holds).
+- **WithIO cache-off regression check:** 4923-4929 ms (both runs) vs Plan 02b 5225 ms baseline = within tolerance.
+- **WithIO coalesce-off regression check (plan 05):** ≈ coalesce-on = within variance (Plan 05 finding still holds).
+- **MATLAB Tests batches A-D, E-I, Dashboard, v4-Cluster-Tests:** all green.
+- **Concurrency Smoke (macos-14):** failure — v4.0's responsibility (PR #152 inherited; not Plan 06).
 
 ## Task Commits
 
 1. **Task 1: per-tick fs-stat coalescing in LiveTagPipeline** — `c1b3756` (feat)
 2. **Task 2: wire fs-coalesce into harness + CI runner** — `2cfb3bf` (feat)
 3. **Tasks 3+4+5: phase wrap docs (VERIFICATION.md Final Result + ROADMAP.md + STATE.md)** — `aa92d65` (docs)
-4. **Task 9: SUMMARY.md (this file)** — TBD (final docs commit, before push for CI Benchmark validation)
+4. **Task 9: SUMMARY.md** — `f2bf5c5` (docs)
+5. **Task 6: Merge of `origin/main` (v4.0 Multi-User LAN Concurrency phases 1029-1033)** — `99a35ae` (merge)
+6. **Test-fix follow-on: TestFsStatCoalesce mtime-granularity flake on R2021b** — `5cd6b23` (test) — fixed in same plan because TestFsStatCoalesce was authored in this plan.
+7. **Final SUMMARY update with post-merge CI numbers** — TBD (this commit)
 
-(Tasks 6/7/8 — rebase, PR finalization, working-tree cleanup — recorded under § Phase Wrap below.)
+(Tasks 7/8 — PR finalization, working-tree cleanup — recorded under § Phase Wrap below.)
 
 ## Deviations from Plan
 
@@ -182,11 +200,15 @@ The clear architectural ROI ranking for phase 1029 is: **(1) in-memory propagati
 
 ### Task 6: Rebase against main
 
-**Outcome: no-op.** When the plan began, `git rev-list --count HEAD..origin/main` returned 0 — the branch was already current with main (the most recent Plan 05 merge of main on 2026-05-19 covered the gap). No rebase or merge required. The orchestrator prompt anticipated 107 commits behind based on an earlier state; reality was 0 by the time Plan 06 ran.
+**Outcome: substantive merge required.** When Plan 06 began, the branch was 0 commits behind main. While the plan was in flight, main shipped **v4.0 Multi-User LAN Concurrency** (phases 1029-1033 via PR #152). Re-fetching origin/main mid-execution showed 3 new commits including the v4.0 ship. Resolved via `git merge origin/main`:
+
+- **Code conflicts (`libs/SensorThreshold/LiveTagPipeline.m`, `libs/FastSense/build_mex.m`)** — resolved by combining both feature sets. The single-user code path (`if ~obj.IsClusterMode_`) holds Plan 02d cache + Plan 06 fs-coalesce; the cluster-mode path (`if obj.IsClusterMode_`) holds the v4.0 TagWriteCoordinator + AtomicWriter. `build_mex.m` keeps both the SensorThreshold MEX block (delimited_parse_mex K1) and the new Concurrency MEX block.
+- **Planning-file conflicts (`STATE.md`, `ROADMAP.md`)** — resolved by preserving BOTH milestones' completion entries. v4.0 phases 1029-1033 Complete row + Phase 1028 Complete row coexist in the progress table. v4.0 milestone (now "shipping" per main) carried forward as the current milestone in STATE.md frontmatter; phase 1028's closure recorded as separate parallel-branch completion in Current Position.
+- **Post-merge verification:** local Octave smoke confirmed the bench harness still produces `lastFsStatCount=1` on fs-coalesce-on. Post-merge CI Benchmark run [26091968063](https://github.com/HanSur94/FastSense/actions/runs/26091968063) succeeded with the same syscall-count + within-variance wall-time pattern.
 
 ### Task 7: PR #114 finalization
 
-**Outcome (documented post-CI):** PR #114 title updated from "Phase 1028 Plan 01 — Wave 0 measurement infrastructure" to "Phase 1028: Tag update perf — harness + parser MEX + in-memory cache + fs-stat coalesce"; body rewritten with the cumulative measured win, what shipped, what was deferred, and the CI run URLs that established the final numbers; un-drafted (marked ready-for-review) after CI confirms the 4 active D-08 gates remain green and `TestFsStatCoalesce` passes.
+**Outcome: shipped.** PR #114 title updated to **"Phase 1028: Tag update perf — harness + parser MEX + in-memory cache + listener-coalesce seam + fs-stat coalesce"**. Body rewritten with the cumulative measured win, what shipped, what was deferred, full CI evidence (Benchmark workflow URL, TestFsStatCoalesce 5/5 confirmation, D-08 gate status, pre-existing-failure documentation, deferred-to-follow-up-phase list, complete test plan checklist). **Un-drafted via `gh pr ready 114`** — current state: `isDraft: false`, `mergeable: MERGEABLE`, `state: OPEN`.
 
 ### Task 8: Working tree cleanup
 
