@@ -24,6 +24,15 @@ function test_mksqlite_extended_codes_probe()
             'mksqlite is not on the path (which mksqlite is empty).');
     end
 
+    % Octave gate: the probe records timestamps via `datetime('now')`, which
+    % Octave 11.1.0 only provides through the optional `datatypes` Forge
+    % package. CI doesn't install that package; skip on Octave. MATLAB R2020b+
+    % has datetime as a core builtin.
+    if exist('OCTAVE_VERSION', 'builtin')
+        fprintf('    SKIPPED: Octave detected (probe records via datetime; install datatypes package and remove this skip to enable).\n');
+        return;
+    end
+
     nPassed = 0;
     busyMsg = '';
     snapshotMsg = 'NOT_REPRODUCED_IN_PROBE — capture under multi-process stress in Phase 1032';

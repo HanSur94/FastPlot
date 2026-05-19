@@ -115,9 +115,15 @@ function out = ndjsonDecode_mergeStruct_(out, s, idx)
 
     % Add any fields present in s but missing from the array — set to [] on
     % all existing rows so the array remains valid.
+    %
+    % NOTE: `[out(:).(fB{k})] = deal([])` is the MATLAB-idiomatic broadcast
+    % assignment, but Octave 11.1 rejects it as "invalid assignment to cs-list
+    % outside multiple assignment". The explicit for-loop works in both runtimes.
     for k = 1:numel(fB)
         if ~isfield(out, fB{k})
-            [out(:).(fB{k})] = deal([]);
+            for i = 1:numel(out)
+                out(i).(fB{k}) = [];
+            end
         end
     end
 

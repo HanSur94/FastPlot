@@ -29,6 +29,17 @@ function test_event_log_concurrent()
 
     add_concurrency_path_();
 
+    % Octave gate: ClusterIdentity.resolve() (called transitively via FileLock
+    % during EventLog.append) uses `datetime('now','TimeZone','UTC')`, which
+    % Octave 11.1.0 ships only as a package-level function from the `datatypes`
+    % Octave Forge package. CI doesn't install that package; tests that hit the
+    % datetime call abort. Skip the whole test on Octave — MATLAB R2020b+ has
+    % datetime as a core builtin and exercises every code path here.
+    if exist('OCTAVE_VERSION', 'builtin')
+        fprintf('    SKIPPED: Octave detected (test requires MATLAB datetime; install datatypes package and remove this skip to enable).\n');
+        return;
+    end
+
     nPassed = 0;
 
     % ---- Test 1: in-process append round-trip ----------------------------
