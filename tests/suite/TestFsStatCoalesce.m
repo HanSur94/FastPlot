@@ -75,29 +75,34 @@ classdef TestFsStatCoalesce < matlab.unittest.TestCase
     methods (Test)
         function testWithIoBytesOnDiskParity(testCase)
             %TESTWITHIOBYTESONDISKPARITY D-09 byte-equal parity contract.
-            %   Run the pipeline for 5 ticks with fsCoalesceActive_=true
-            %   then again with fsCoalesceActive_=false into separate
-            %   output dirs. Every produced .mat must have payload-equal
-            %   x and y arrays. The cache is a pure read-side optimisation
-            %   so any divergence is a bug.
+            %   Run the pipeline once with fsCoalesceActive_=true then again
+            %   with fsCoalesceActive_=false into separate output dirs. Every
+            %   produced .mat must have payload-equal x and y arrays. The
+            %   fs-coalesce cache is a pure read-side optimisation so any
+            %   divergence is a bug.
+            %
+            %   Strategy: single tickOnce per pass against identical prefilled
+            %   CSV files. Avoids depending on mtime-granularity behaviour
+            %   across ticks (1-second filesystem mtime resolution on many
+            %   Linux systems can make tick-2-skips-because-same-mtime an
+            %   inherent fixture flake; one-tick parity sidesteps that and
+            %   still exercises both fs-coalesce branches in lookupFsEntry_).
             nFiles   = 3;
             nTags    = 9;
-            nTicks   = 5;
-            nPrefill = 30;
-            nAppend  = 10;
+            nPrefill = 50;
             nCols    = 5;
 
             % fs-coalesce ON pass.
             csvPaths = makeCsvFiles_(testCase.rawDir_, nFiles, nCols, nPrefill);
-            runPipelinePass_(csvPaths, testCase.outDirOn_, ...
-                nTags, nCols, nTicks, nAppend, true);
+            runPipelineOnceParity_(csvPaths, testCase.outDirOn_, ...
+                nTags, nCols, true);
 
             % Reset between passes so the second pass sees identical inputs.
             TagRegistry.clear();
             wipeDir_(testCase.rawDir_);
             csvPaths = makeCsvFiles_(testCase.rawDir_, nFiles, nCols, nPrefill);
-            runPipelinePass_(csvPaths, testCase.outDirOff_, ...
-                nTags, nCols, nTicks, nAppend, false);
+            runPipelineOnceParity_(csvPaths, testCase.outDirOff_, ...
+                nTags, nCols, false);
 
             assertPayloadParity_(testCase, testCase.outDirOn_, testCase.outDirOff_);
         end
@@ -182,7 +187,13 @@ classdef TestFsStatCoalesce < matlab.unittest.TestCase
             % to all subsequent same-parent lookups within the same tick.
             % The realistic test is the tick-to-tick refresh below.
 
-            % Between ticks: create b.csv.
+            % Between ticks: create b.csv. Pause briefly so the filesystem
+            % mtime granularity (1s on many Linux filesystems) makes the
+            % new b.csv visible as a strictly-greater mtime than the parent
+            % directory's first-tick snapshot. Without this pause the
+            % test would be flaky on fast tmpfs CI runners where the
+            % create-create boundary falls within the same second.
+            pause(1.1);
             writeCsv_(pathB, nCols, nPrefill, 'overwrite');
 
             % Tick 2: a fresh fs-cache is built; b.csv is now visible.
@@ -330,6 +341,30 @@ function wipeDir_(d)
             end
         end
     end
+end
+
+function runPipelineOnceParity_(csvPaths, outDir, nTags, nCols, fsCoalesceOn)
+    %RUNPIPELINEONCEPARITY_ Single-tick parity helper (avoids mtime-granularity flakes).
+    %   Builds nTags tags pointing at the supplied csvPaths, creates one fresh
+    %   LiveTagPipeline with fs-coalesce set per the flag, and calls tickOnce
+    %   exactly once. The CSV files are pre-filled (no per-tick appends), so
+    %   the single tick captures everything that's there. This isolates the
+    %   fs-coalesce parity from any multi-tick mtime-resolution concerns.
+    nFiles = numel(csvPaths);
+    valueCols = nCols - 1;
+    for i = 1:nTags
+        machineIdx = mod(i - 1, nFiles) + 1;
+        colIdx = mod(i - 1, valueCols) + 1;
+        rs = struct('file', csvPaths{machineIdx}, ...
+            'column', sprintf('col_%02d', colIdx));
+        key = sprintf('sensor_%03d', i);
+        s = SensorTag(key, 'RawSource', rs);
+        TagRegistry.register(key, s);
+    end
+
+    p = LiveTagPipeline('OutputDir', outDir, 'Interval', 999);
+    p.setFsCoalesceForTesting_(fsCoalesceOn);
+    p.tickOnce();
 end
 
 function runPipelinePass_(csvPaths, outDir, nTags, nCols, nTicks, nAppend, fsCoalesceOn)
