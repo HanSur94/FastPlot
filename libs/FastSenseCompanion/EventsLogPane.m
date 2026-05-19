@@ -46,7 +46,9 @@ classdef EventsLogPane < handle
         hLogSearch_      = []          % uieditfield (search)
         hLogLevelDD_     = []          % uidropdown level filter
         hLastUpdateLbl_  = []          % "Updated: HH:MM:SS" label
-        hPopoutBtn_      = []          % pop-out icon uibutton in header col 5
+        hPopoutBtn_      = []          % pop-out icon uibutton in header col 6 (was 5 pre-Phase 1034)
+        hWikiBtn_       = []          % uibutton: Open Wiki -> Event-Viewer.md (only Visible in detached pane)
+        Companion_      = []          % FastSenseCompanion handle (or []); set via setCompanion(...)
         LogBuffer_       = cell(0, 3)  % {Time, Level, Message} newest first, capped 500
     end
 
@@ -64,6 +66,16 @@ classdef EventsLogPane < handle
             obj.ThemeStruct_ = themeStruct;
             obj.LogBuffer_   = cell(0, 3);
             obj.IsAttached   = false;
+        end
+
+        function setCompanion(obj, companion)
+        %SETCOMPANION Cache a FastSenseCompanion handle so the Wiki button can route through openWiki.
+        %   companion -- FastSenseCompanion instance (or []).
+        %   Phase 1034 -- enables the detached-header Wiki button to call
+        %   obj.Companion_.openWiki('Event-Viewer'). Called once by the
+        %   FastSenseCompanion constructor right after EventsLogPane
+        %   instantiation. Safe to call with [] to detach.
+            obj.Companion_ = companion;
         end
 
         function attach(obj, parent, themeStruct)
@@ -93,11 +105,15 @@ classdef EventsLogPane < handle
             obj.hRoot_.RowSpacing  = 4;
             obj.hRoot_.BackgroundColor = t.WidgetBackground;
 
-            % --- Header (row 1): Events label | search | level dropdown | last-update | pop-out icon ---
-            gHdr = uigridlayout(obj.hRoot_, [1 5]);
+            % --- Header (row 1): Events label | search | level dropdown | last-update | wiki | pop-out icon ---
+            % Phase 1034 -- added a 6th column hosting the Wiki button
+            % (only Visible when this pane is detached into its own
+            % uifigure; inline panes piggyback on the Companion toolbar's
+            % main Wiki button per CONTEXT.md D-13).
+            gHdr = uigridlayout(obj.hRoot_, [1 6]);
             gHdr.Layout.Row    = 1;
             gHdr.Layout.Column = 1;
-            gHdr.ColumnWidth   = {40, '1x', 100, 150, 36};
+            gHdr.ColumnWidth   = {40, '1x', 100, 150, 36, 36};
             gHdr.RowHeight     = {'1x'};
             gHdr.Padding       = [0 0 0 0];
             gHdr.ColumnSpacing = 8;
@@ -133,8 +149,29 @@ classdef EventsLogPane < handle
             obj.hLastUpdateLbl_.VerticalAlignment = 'center';
             obj.hLastUpdateLbl_.Tooltip = 'Time of the last successful live refresh';
 
+            % --- Wiki button (Phase 1034). ---
+            % Only Visible when this pane is detached into its own
+            % uifigure parent; inline (uipanel parent) the button is
+            % hidden because the Companion's main toolbar already
+            % provides a Wiki entry point.
+            obj.hWikiBtn_ = uibutton(gHdr, 'push');
+            obj.hWikiBtn_.Layout.Row = 1; obj.hWikiBtn_.Layout.Column = 5;
+            obj.hWikiBtn_.Text            = char(8689);  % pop-out arrow glyph as Wiki icon
+            obj.hWikiBtn_.FontSize        = 12;
+            obj.hWikiBtn_.Tooltip         = 'Open Wiki: Event Viewer';
+            obj.hWikiBtn_.BackgroundColor = t.WidgetBorderColor;
+            obj.hWikiBtn_.FontColor       = t.ForegroundColor;
+            obj.hWikiBtn_.ButtonPushedFcn = @(~,~) obj.openWiki_();
+            % Per CONTEXT.md D-13: only show on the detached header strip
+            % (when parent is a uifigure, not a uipanel).
+            if isa(parent, 'matlab.ui.Figure')
+                obj.hWikiBtn_.Visible = 'on';
+            else
+                obj.hWikiBtn_.Visible = 'off';
+            end
+
             obj.hPopoutBtn_ = uibutton(gHdr, 'push');
-            obj.hPopoutBtn_.Layout.Row = 1; obj.hPopoutBtn_.Layout.Column = 5;
+            obj.hPopoutBtn_.Layout.Row = 1; obj.hPopoutBtn_.Layout.Column = 6;
             obj.hPopoutBtn_.Text            = char(8689);  % pop-out arrow glyph
             obj.hPopoutBtn_.FontSize        = 14;
             obj.hPopoutBtn_.Tooltip         = 'Detach events log to its own window';
@@ -185,6 +222,7 @@ classdef EventsLogPane < handle
             obj.hLogLevelDD_    = [];
             obj.hLastUpdateLbl_ = [];
             obj.hPopoutBtn_     = [];
+            obj.hWikiBtn_       = [];
             obj.IsAttached      = false;
         end
 
@@ -263,6 +301,11 @@ classdef EventsLogPane < handle
                     obj.hPopoutBtn_.BackgroundColor = t.WidgetBorderColor;
                     obj.hPopoutBtn_.FontColor       = t.ForegroundColor;
                 end
+                % Phase 1034 -- Wiki button uses same accent as pop-out.
+                if ~isempty(obj.hWikiBtn_) && isvalid(obj.hWikiBtn_)
+                    obj.hWikiBtn_.BackgroundColor = t.WidgetBorderColor;
+                    obj.hWikiBtn_.FontColor       = t.ForegroundColor;
+                end
                 % Table: re-assert striped pair so attach() and applyTheme()
                 % share the same logic regardless of walker behavior.
                 isDark = mean(t.DashboardBackground) < 0.5;
@@ -330,6 +373,25 @@ classdef EventsLogPane < handle
     end
 
     methods (Access = private)
+
+        function openWiki_(obj)
+        %OPENWIKI_ Route to the Companion's shared WikiBrowser; fall back to standalone.
+        %   Phase 1034 -- Wiki button click handler (only fires when the
+        %   pane is detached; the inline button is Visible='off'). Prefers
+        %   the Companion's openWiki entry point so one WikiBrowser handle
+        %   is shared across the session.
+            try
+                if ~isempty(obj.Companion_) && isvalid(obj.Companion_) && ...
+                        isa(obj.Companion_, 'FastSenseCompanion') && ...
+                        ismethod(obj.Companion_, 'openWiki')
+                    obj.Companion_.openWiki('Event-Viewer');
+                    return;
+                end
+                WikiBrowser('OpenTo', 'Event-Viewer');
+            catch ME
+                fprintf(2, '[EventsLogPane] openWiki_ failed: %s\n', ME.message);
+            end
+        end
 
         function applyLogFilter_(obj)
         %APPLYLOGFILTER_ Re-apply level + text filter to LogBuffer_ → uitable.Data.
