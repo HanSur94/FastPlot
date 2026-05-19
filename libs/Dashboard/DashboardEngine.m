@@ -1156,6 +1156,22 @@ classdef DashboardEngine < handle
             mirror = DetachedMirror(widget, themeStruct, removeCallback);
             mirrorHolder('mirror') = mirror;
             obj.DetachedMirrors{end+1} = mirror;
+            % Phase 1032 PLOG-VIZ-03/04/07 — re-attach plant-log wire-up on
+            % the mirror's cloned widget so the standalone figure draws lines
+            % + has a hover. The cloned widget has ShowPlantLog already set
+            % (via DetachedMirror.restoreLiveRefs); calling
+            % setShowPlantLog(currentValue, obj) is a no-op for the property
+            % itself but triggers the listener attach + hover construct +
+            % marker draw on the mirror's axes. CONTEXT.md Decision G.
+            try
+                cw = mirror.Widget;
+                if isa(cw, 'FastSenseWidget') && cw.ShowPlantLog
+                    cw.setShowPlantLog(true, obj);
+                end
+            catch err
+                warning('DashboardEngine:plantLogOverlayFailed', ...
+                    'detachWidget plant-log re-attach failed: %s', err.message);
+            end
         end
 
         function removeDetached(obj)
@@ -1168,8 +1184,14 @@ classdef DashboardEngine < handle
 
             keep = true(1, numel(obj.DetachedMirrors));
             for i = 1:numel(obj.DetachedMirrors)
-                if obj.DetachedMirrors{i}.isStale()
+                m = obj.DetachedMirrors{i};
+                if m.isStale()
                     keep(i) = false;
+                    % Phase 1032 PLOG-VIZ-07 — sweep the mirror's hover from
+                    % WidgetHovers_ when the mirror's figure goes stale. Without
+                    % this, closed-but-not-deregistered mirrors leave dangling
+                    % PlantLogWidgetHover instances + stale closures.
+                    try obj.detachPlantLogWidgetHover_(m.Widget); catch, end
                 end
             end
             obj.DetachedMirrors = obj.DetachedMirrors(keep);
@@ -2703,6 +2725,18 @@ classdef DashboardEngine < handle
             target = mirrorHolder('mirror');
             if isempty(target)
                 return;
+            end
+            % Phase 1032 PLOG-VIZ-07 — sweep the closing mirror's hover from
+            % WidgetHovers_ before removing it from DetachedMirrors. We do this
+            % up front (inside the isvalid check) so that even if the
+            % keep-filter loop encounters a stale handle, the cleanup already
+            % ran. The detach helper is idempotent on missing widgets.
+            try
+                if isa(target, 'DetachedMirror') && ...
+                        isa(target.Widget, 'FastSenseWidget')
+                    obj.detachPlantLogWidgetHover_(target.Widget);
+                end
+            catch
             end
             keep = true(1, numel(obj.DetachedMirrors));
             for i = 1:numel(obj.DetachedMirrors)
