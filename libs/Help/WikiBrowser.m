@@ -278,16 +278,78 @@ classdef WikiBrowser < handle
             hits = WikiPageIndex.search(obj.WikiDir, query);
         end
 
-        function focus(obj)  %#ok<MANU>
-            % implementation: Task 4.4
+        function focus(obj)
+        %FOCUS Bring the uifigure to the front. Idempotent; no-op when
+        %   the window is closed or the handle is stale.
+            if obj.IsOpen && ~isempty(obj.hFig_) && isvalid(obj.hFig_)
+                try
+                    figure(obj.hFig_);
+                catch
+                    % Best effort.
+                end
+            end
         end
 
-        function close(obj)  %#ok<MANU>
-            % implementation: Task 4.4
+        function close(obj)
+        %CLOSE Dispose the uifigure and clear all internal state.
+        %   Idempotent — safe to call twice or after the figure has
+        %   already been deleted externally. Listeners_ entries (if any
+        %   addlistener calls were wired in by subsequent phases) are
+        %   torn down before the figure is destroyed.
+            if ~isvalid(obj)
+                return;
+            end
+            if isempty(obj.hFig_) || ~isvalid(obj.hFig_)
+                obj.hFig_  = [];
+                obj.IsOpen = false;
+                return;
+            end
+            try
+                obj.hFig_.CloseRequestFcn = '';   % avoid recursion via X-button
+            catch
+                % Older releases may throw when assigning '' to the
+                % CloseRequestFcn after the figure is already deleting.
+            end
+            for ii = 1:numel(obj.Listeners_)
+                try
+                    lh = obj.Listeners_{ii};
+                    if isobject(lh) && isvalid(lh)
+                        delete(lh);
+                    end
+                catch
+                    % Listener cleanup is best effort.
+                end
+            end
+            obj.Listeners_ = {};
+            try
+                delete(obj.hFig_);
+            catch
+                % Figure may already be in mid-destruction.
+            end
+            obj.hFig_          = [];
+            obj.hRootGrid_     = [];
+            obj.hCrumbGrid_    = [];
+            obj.hBackBtn_      = [];
+            obj.hFwdBtn_       = [];
+            obj.hCrumbLbl_     = [];
+            obj.hBodyGrid_     = [];
+            obj.hSidebarPanel_ = [];
+            obj.hSearchEdit_   = [];
+            obj.hTreeHostGrid_ = [];
+            obj.hTocTree_      = [];
+            obj.hSearchResult_ = [];
+            obj.hContent_      = [];
+            obj.HistoryStack_  = {};
+            obj.HistoryIdx_    = 0;
+            obj.CurrentPage    = '';
+            obj.Cache_         = containers.Map( ...
+                'KeyType', 'char', 'ValueType', 'char');
+            obj.IsOpen         = false;
         end
 
-        function delete(~)
-            % implementation: Task 4.4
+        function delete(obj)
+        %DELETE Handle-class destructor — defer to close().
+            obj.close();
         end
     end
 
