@@ -153,6 +153,12 @@ separate REQ-IDs:
 - **v2.1 Tag-API Tech Debt Cleanup** — phases 1012–1017 (in flight, not blocking)
 - **Floating phase 1028** — Tag update perf (MEX + SIMD); not started, not part of v3.1
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260519-l99 | Wire a plant log into the industrial plant demo (seedPlantLog helper + run_demo attachPlantLog) | 2026-05-19 | 2a8cdf1 | [260519-l99-create-a-plant-log-for-the-industrial-pl](./quick/260519-l99-create-a-plant-log-for-the-industrial-pl/) |
+
 ## Session Continuity
 
 - **Resume point:** Phase 1033 Plan 03 (Companion toolbar + integration
