@@ -420,12 +420,22 @@ classdef TestPhase1032IntegrationSmoke < matlab.unittest.TestCase
 
             % Append two more rows to the file before letting the timer run.
             appendRealTimerCsvDatenum_(csvPath, [ts4 ts5]);
-            pause(0.6);   % wait for at least 1 real tick
 
+            % Poll up to ~6 s for the real timer to read all 5 entries and
+            % fan out to both source + mirror axes. CI runners are slower
+            % than local dev machines, so a fixed pause is flaky.
             sourceAx = w.FastSenseObj.hAxes;
             mirrorAx = mirror.Widget.FastSenseObj.hAxes;
-            nSource = numel(findobj(sourceAx, 'Tag', 'WidgetPlantLogMarker'));
-            nMirror = numel(findobj(mirrorAx, 'Tag', 'WidgetPlantLogMarker'));
+            deadline = cputime() + 6;
+            nSource = 0; nMirror = 0;
+            while cputime() < deadline
+                nSource = numel(findobj(sourceAx, 'Tag', 'WidgetPlantLogMarker'));
+                nMirror = numel(findobj(mirrorAx, 'Tag', 'WidgetPlantLogMarker'));
+                if nSource >= 5 && nMirror >= 5
+                    break;
+                end
+                pause(0.2);
+            end
             % After the real timer fires, source + mirror should both have
             % 5 markers (3 initial + 2 appended, all read by openInteractive
             % headless inside the tail's tick).

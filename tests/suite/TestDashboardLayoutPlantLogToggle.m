@@ -77,10 +77,15 @@ classdef TestDashboardLayoutPlantLogToggle < matlab.unittest.TestCase
         end
 
         function testInitialPositionLeftmostOfThree(testCase)
+            % After the v3.1↔v4.0 merge the right cluster has 4 buttons
+            % (Detach + Create + Info + PlantLog) when CreateEventCallback
+            % is wired — which is always true via DashboardEngine.render.
+            % Each button is 24 px wide with a 4 px gap, so PlantLog (leftmost)
+            % sits at: x = barW - 4*24 - 4*4 = barW - 112.
             testCase.buildWidgetWithChrome(false);
             bar = findobj(testCase.Widget.hCellPanel, 'Tag', 'WidgetButtonBar', '-depth', 1);
             barPos = get(bar(1), 'Position');
-            expectedX = barPos(3) - 24 - 4 - 24 - 4 - 24 - 4;
+            expectedX = barPos(3) - 4*24 - 4*4;
             btnPos = get(testCase.Btn, 'Position');
             testCase.verifyLessThan(abs(btnPos(1) - expectedX), 1e-6);
         end
@@ -120,6 +125,11 @@ classdef TestDashboardLayoutPlantLogToggle < matlab.unittest.TestCase
         end
 
         function testReflowChromeThreeButtons(testCase)
+            % Post-merge: the right cluster is 4 buttons (Detach + Create +
+            % Info + PlantLog) because DashboardEngine.render unconditionally
+            % wires the Create callback (v4.0 260513-snt). Positions from
+            % the right edge: Detach (barW-28), Create (barW-56), Info
+            % (barW-84), PlantLog (barW-112).
             testCase.buildWidgetWithChrome(true);
             set(testCase.Fig, 'Position', [10 10 900 500]);
             drawnow;
@@ -127,18 +137,22 @@ classdef TestDashboardLayoutPlantLogToggle < matlab.unittest.TestCase
             bar = findobj(testCase.Widget.hCellPanel, 'Tag', 'WidgetButtonBar', '-depth', 1);
             barPos = get(bar(1), 'Position');
             barW = barPos(3);
-            det  = findobj(bar(1), 'Tag', 'DetachButton',          '-depth', 1);
-            info = findobj(bar(1), 'Tag', 'InfoIconButton',        '-depth', 1);
-            pl   = findobj(bar(1), 'Tag', 'PlantLogToggleButton',  '-depth', 1);
+            det    = findobj(bar(1), 'Tag', 'DetachButton',          '-depth', 1);
+            create = findobj(bar(1), 'Tag', 'CreateEventButton',     '-depth', 1);
+            info   = findobj(bar(1), 'Tag', 'InfoIconButton',        '-depth', 1);
+            pl     = findobj(bar(1), 'Tag', 'PlantLogToggleButton',  '-depth', 1);
             testCase.verifyNotEmpty(det);
+            testCase.verifyNotEmpty(create);
             testCase.verifyNotEmpty(info);
             testCase.verifyNotEmpty(pl);
-            pDet = get(det(1),  'Position');
-            pInf = get(info(1), 'Position');
-            pPL  = get(pl(1),   'Position');
-            testCase.verifyLessThan(abs(pDet(1) - (barW - 24 - 4)),          1e-6);
-            testCase.verifyLessThan(abs(pInf(1) - (barW - 24 - 24 - 4 - 4)), 1e-6);
-            testCase.verifyLessThan(abs(pPL(1)  - (barW - 84)),              1e-6);
+            pDet = get(det(1),    'Position');
+            pCre = get(create(1), 'Position');
+            pInf = get(info(1),   'Position');
+            pPL  = get(pl(1),     'Position');
+            testCase.verifyLessThan(abs(pDet(1) - (barW -  28)), 1e-6);
+            testCase.verifyLessThan(abs(pCre(1) - (barW -  56)), 1e-6);
+            testCase.verifyLessThan(abs(pInf(1) - (barW -  84)), 1e-6);
+            testCase.verifyLessThan(abs(pPL(1)  - (barW - 112)), 1e-6);
         end
 
         function testClearPanelControlsProtectsToggle(testCase)

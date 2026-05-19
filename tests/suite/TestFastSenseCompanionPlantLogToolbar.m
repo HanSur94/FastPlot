@@ -114,14 +114,18 @@ classdef TestFastSenseCompanionPlantLogToolbar < matlab.unittest.TestCase
         end
 
         function g = findToolbarGrid_(testCase, c) %#ok<INUSL>
+            % After v3.1 + v4.0 merge, the Companion toolbar is a 1x8 grid:
+            %   {110, 110, 110, 130, 70, 90, '1x', 36}
             fig = c.getFigForTest_();
             grids = findobj(fig, 'Type', 'uigridlayout');
             g = [];
             for i = 1:numel(grids)
-                if numel(grids(i).ColumnWidth) == 5
+                if numel(grids(i).ColumnWidth) == 8
                     cw = grids(i).ColumnWidth;
                     if iscell(cw) && isequal(cw{1}, 110) && isequal(cw{2}, 110) && ...
-                            isequal(cw{3}, 130) && isequal(cw{5}, 36)
+                            isequal(cw{3}, 110) && isequal(cw{4}, 130) && ...
+                            isequal(cw{5}, 70)  && isequal(cw{6}, 90)  && ...
+                            isequal(cw{8}, 36)
                         g = grids(i);
                         return;
                     end
@@ -134,17 +138,29 @@ classdef TestFastSenseCompanionPlantLogToolbar < matlab.unittest.TestCase
     methods (Test)
 
         function testToolbarGridIs1x5(testCase)
+            % v3.1 + v4.0 merged: toolbar grew from 1x4 to 1x8.
+            %   col 1 = Events     (110)
+            %   col 2 = Live       (110)
+            %   col 3 = Tags       (110, v4.0 quick task 260519-bs4)
+            %   col 4 = Plant Log  (130, v3.1 Phase 1033 PLOG-INT-03)
+            %   col 5 = Tile       ( 70, v4.0 S0Y-01)
+            %   col 6 = Close all  ( 90, v4.0 S0Y-02)
+            %   col 7 = flex spacer
+            %   col 8 = gear       ( 36)
             d1 = testCase.makeEngine_('A');
             c = testCase.makeCompanion_({d1});
             g = testCase.findToolbarGrid_(c);
             testCase.verifyNotEmpty(g, ...
-                'toolbar grid (1x5 with ColumnWidth {110 110 130 ''1x'' 36}) must exist');
+                'toolbar grid (1x8 with ColumnWidth {110 110 110 130 70 90 ''1x'' 36}) must exist');
             cw = g.ColumnWidth;
-            testCase.verifyEqual(cw{1}, 110, 'ColumnWidth{1}');
-            testCase.verifyEqual(cw{2}, 110, 'ColumnWidth{2}');
-            testCase.verifyEqual(cw{3}, 130, 'ColumnWidth{3} (Plant Log col)');
-            testCase.verifyEqual(cw{4}, '1x', 'ColumnWidth{4} flex spacer');
-            testCase.verifyEqual(cw{5}, 36,  'ColumnWidth{5} (gear col)');
+            testCase.verifyEqual(cw{1}, 110, 'ColumnWidth{1} (Events)');
+            testCase.verifyEqual(cw{2}, 110, 'ColumnWidth{2} (Live)');
+            testCase.verifyEqual(cw{3}, 110, 'ColumnWidth{3} (Tags, v4.0)');
+            testCase.verifyEqual(cw{4}, 130, 'ColumnWidth{4} (Plant Log, v3.1)');
+            testCase.verifyEqual(cw{5}, 70,  'ColumnWidth{5} (Tile, v4.0)');
+            testCase.verifyEqual(cw{6}, 90,  'ColumnWidth{6} (Close all, v4.0)');
+            testCase.verifyEqual(cw{7}, '1x', 'ColumnWidth{7} flex spacer');
+            testCase.verifyEqual(cw{8}, 36,  'ColumnWidth{8} (gear)');
         end
 
         function testPlantLogButtonExists(testCase)
@@ -164,7 +180,8 @@ classdef TestFastSenseCompanionPlantLogToolbar < matlab.unittest.TestCase
             testCase.verifyEqual(btn.FontSize, 11);
             testCase.verifyEqual(btn.FontWeight, 'bold');
             testCase.verifyEqual(btn.Tooltip, 'Attach a plant log to every open dashboard');
-            testCase.verifyEqual(btn.Layout.Column, 3);
+            testCase.verifyEqual(btn.Layout.Column, 4, ...
+                'Plant Log button moved from col 3 to col 4 after v4.0 Tags-table merge');
             testCase.verifyEqual(btn.Layout.Row, 1);
         end
 
@@ -190,12 +207,13 @@ classdef TestFastSenseCompanionPlantLogToolbar < matlab.unittest.TestCase
         end
 
         function testSettingsButtonMovedToCol5(testCase)
+            % After v3.1 + v4.0 merge, gear lives at col 8 (1x8 grid).
             d1 = testCase.makeEngine_('A');
             c = testCase.makeCompanion_({d1});
             gear = findobj(c.getFigForTest_(), 'Tooltip', 'Companion settings');
             testCase.verifyNotEmpty(gear);
-            testCase.verifyEqual(gear.Layout.Column, 5, ...
-                'settings gear must be at col 5 (was col 4 pre-1033)');
+            testCase.verifyEqual(gear.Layout.Column, 8, ...
+                'settings gear must be at col 8 (1x8 grid post-merge: was col 4 pre-1033, col 5 v3.1-only, col 7 v4.0-only)');
         end
 
         function testFindObjResolvesViaTag(testCase)
@@ -320,8 +338,8 @@ classdef TestFastSenseCompanionPlantLogToolbar < matlab.unittest.TestCase
             btn2 = findobj(c.getFigForTest_(), 'Tag', 'CompanionPlantLogBtn');
             testCase.verifyNotEmpty(btn2, ...
                 'Plant Log button must persist across setProject');
-            testCase.verifyEqual(btn2.Layout.Column, 3, ...
-                'Plant Log button Layout.Column must remain 3 after setProject');
+            testCase.verifyEqual(btn2.Layout.Column, 4, ...
+                'Plant Log button Layout.Column must remain 4 (post-merge) after setProject');
             % Verify the FAN-OUT path still reaches the new (empty) Engines_.
             % Calling the shim with zero dashboards should hit the "no
             % dashboards open" branch -- this confirms openPlantLogDialog_
