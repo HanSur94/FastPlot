@@ -186,7 +186,8 @@ classdef TestMonitorTagSingleSource < matlab.unittest.TestCase
             fprintf(fid, '  TagRegistry.register(''m_fn'', mon);\n');
             fprintf(fid, '  monitors = containers.Map({''m_fn''}, {mon});\n');
             fprintf(fid, '  ds = StubDataSource();\n');
-            fprintf(fid, '  ds.setNextResult(struct(''changed'', true, ''X'', 1:15, ''Y'', [0 1 0 0 1 0 0 1 0 0 1 0 0 1 0], ''stateX'', [], ''stateY'', {{}}));\n');
+            fprintf(fid, '  ds.setNextResult(struct(''changed'', true, ''X'', 1:15, ''Y'', ...\n');
+            fprintf(fid, '    [0 1 0 0 1 0 0 1 0 0 1 0 0 1 0], ''stateX'', [], ''stateY'', {{}}));\n');
             fprintf(fid, '  dsMap = DataSourceMap(); dsMap.add(''m_fn'', ds);\n');
             fprintf(fid, '  pipe = LiveEventPipeline(monitors, dsMap, ''SharedRoot'', ''%s'', ''Interval'', 1);\n', sharedRoot);
             fprintf(fid, '  for k = 1:3; pipe.runCycle(); pause(0.3); end\n');

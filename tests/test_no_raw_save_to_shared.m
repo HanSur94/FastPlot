@@ -73,7 +73,6 @@ function test_no_raw_save_to_shared()
     fprintf('    %d/%d tests passed.\n', nPassed, nPassed + nFailed);
 end
 
-
 function out = local_walk_(rootDir)
 %LOCAL_WALK_ Recursively collect all .m files under rootDir.
 %   Uses regexp('\.m$') for file-extension match (not endsWith — endsWith

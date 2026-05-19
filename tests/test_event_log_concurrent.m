@@ -169,7 +169,6 @@ function test_event_log_concurrent()
     fprintf('    All %d event_log_concurrent tests passed (incl. 50-proc stress).\n', nPassed);
 end
 
-
 function add_concurrency_path_()
 %ADD_CONCURRENCY_PATH_ Add repo root and run install() to put libs on path.
     thisDir  = fileparts(mfilename('fullpath'));
@@ -177,7 +176,6 @@ function add_concurrency_path_()
     addpath(repoRoot);
     install();
 end
-
 
 function spawnAppenders_(sharedRoot, tagKey, nProcs, nPerProc, timeoutSec)
 %SPAWNAPPENDERS_ Spawn nProcs matlab children each appending nPerProc events.
@@ -228,7 +226,6 @@ function spawnAppenders_(sharedRoot, tagKey, nProcs, nPerProc, timeoutSec)
         end
     end
 end
-
 
 function cleanupDir_(dirPath)
 %CLEANUPDIR_ Remove directory tree (best-effort; non-fatal on error).

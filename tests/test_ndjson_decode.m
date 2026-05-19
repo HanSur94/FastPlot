@@ -77,7 +77,6 @@ function test_ndjson_decode()
     fprintf('    All %d ndjson_decode tests passed.\n', nPassed);
 end
 
-
 function add_concurrency_path_()
 %ADD_CONCURRENCY_PATH_ Add repo root and run install() to put libs/Concurrency/ on path.
     thisDir  = fileparts(mfilename('fullpath'));
