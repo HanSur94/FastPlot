@@ -1,9 +1,10 @@
 function test_companion_tag_status_table()
 %TEST_COMPANION_TAG_STATUS_TABLE Pure-logic unit tests for TagStatusTableWindow.
-%   Function-style tests (Octave-compatible) for the two static helper methods
+%   Function-style tests (Octave-compatible) for the three static helper methods
 %   on TagStatusTableWindow:
-%     - buildRow_(tag) : 1x10 cell row, handles every Tag subclass + throwing tags.
+%     - buildRow_(tag) : 1x12 cell row, handles every Tag subclass + throwing tags.
 %     - filterRows_(rows, query) : case-insensitive substring filter on Key+Name.
+%     - countEventsForTag_(tag) : O(1)-when-empty event count.
 %
 %   NO UI is built; tests do not require a uifigure or graphical environment.
 %
@@ -36,7 +37,11 @@ function test_companion_tag_status_table()
         @testFilterRows_matchesUnitsField, ...
         @testFilterRows_matchesLabelsField, ...
         @testFilterRows_chipFiltersAndSemantics, ...
-        @testFilterRows_emptyChipGroupExcludesAll };
+        @testFilterRows_emptyChipGroupExcludesAll, ...
+        @testCountEventsForTag_noEventStore, ...
+        @testCountEventsForTag_withStubbedEvents, ...
+        @testBuildRow_includesEventsCountAtCol10, ...
+        @testBuildRow_eventCountsByKeyBucketedMapWins };
     for i = 1:numel(tests)
         name = func2str(tests{i});
         try
@@ -64,7 +69,7 @@ function testBuildRowForSensorTag_basic()
     tag.updateData([1 2 3], [10 20 30]);
 
     row = TagStatusTableWindow.buildRow_(tag);
-    assertSize_(row, [1 11]);
+    assertSize_(row, [1 12]);
     em = char(8212);
     assertEqual_(row{1}, 'k',           'Key');
     assertEqual_(row{2}, 'SensorName',  'Name');
@@ -81,9 +86,10 @@ function testBuildRowForSensorTag_basic()
     % Activity is "Inactive" because X(end)=3 is below 7e5 (the
     % datenum-or-posix anchor threshold in computeActivity_), so we cannot
     % map it to a wall-clock time and defensively render "Inactive".
-    assertEqual_(row{9}, 'Inactive',    'Activity (unanchored X)');
-    assertEqual_(row{10}, '3',          'Samples');
-    assertEqual_(row{11}, '',           'Labels');
+    assertEqual_(row{9},  'Inactive',   'Activity (unanchored X)');
+    assertEqual_(row{10}, '0',          'Events (no EventStore bound)');
+    assertEqual_(row{11}, '3',          'Samples');
+    assertEqual_(row{12}, '',           'Labels');
 end
 
 function testBuildRowForSensorTag_emptyData()
@@ -92,12 +98,13 @@ function testBuildRowForSensorTag_emptyData()
 
     row = TagStatusTableWindow.buildRow_(tag);
     em = char(8212);
-    assertEqual_(row{1}, 'k_empty',  'Key');
-    assertEqual_(row{6}, em,         'Latest');
-    assertEqual_(row{7}, em,         'Status');
-    assertEqual_(row{8}, em,         'Last updated');
-    assertEqual_(row{9}, 'Inactive', 'Activity (empty XY)');
-    assertEqual_(row{10}, '0',       'Samples');
+    assertEqual_(row{1},  'k_empty',  'Key');
+    assertEqual_(row{6},  em,         'Latest');
+    assertEqual_(row{7},  em,         'Status');
+    assertEqual_(row{8},  em,         'Last updated');
+    assertEqual_(row{9},  'Inactive', 'Activity (empty XY)');
+    assertEqual_(row{10}, '0',        'Events (no EventStore bound)');
+    assertEqual_(row{11}, '0',        'Samples');
 end
 
 function testBuildRowForMonitorTag_alarm()
@@ -148,11 +155,12 @@ function testBuildRowForStateTag_emptyValueAt()
 
     row = TagStatusTableWindow.buildRow_(st);
     em = char(8212);
-    assertEqual_(row{6}, em,         'Latest');
-    assertEqual_(row{7}, em,         'Status');
-    assertEqual_(row{8}, em,         'Last updated');
-    assertEqual_(row{9}, 'Inactive', 'Activity (empty state)');
-    assertEqual_(row{10}, '0',       'Samples');
+    assertEqual_(row{6},  em,         'Latest');
+    assertEqual_(row{7},  em,         'Status');
+    assertEqual_(row{8},  em,         'Last updated');
+    assertEqual_(row{9},  'Inactive', 'Activity (empty state)');
+    assertEqual_(row{10}, '0',        'Events (no EventStore bound)');
+    assertEqual_(row{11}, '0',        'Samples');
 end
 
 function testBuildRowForCompositeTag()
@@ -190,19 +198,21 @@ function testBuildRow_getXYThrows()
 
     row = TagStatusTableWindow.buildRow_(stub);
     em = char(8212);
-    assertEqual_(row{1}, 'throw_tag',  'Key');
+    assertEqual_(row{1},  'throw_tag',  'Key');
     % Type/Crit/Units/Labels are from the stub's properties — still readable.
-    assertEqual_(row{6}, em,           'Latest');
-    assertEqual_(row{7}, em,           'Status');
-    assertEqual_(row{8}, em,           'Last updated');
-    assertEqual_(row{9}, 'Inactive',   'Activity (throwing getXY)');
-    assertEqual_(row{10}, '0',         'Samples');
+    assertEqual_(row{6},  em,           'Latest');
+    assertEqual_(row{7},  em,           'Status');
+    assertEqual_(row{8},  em,           'Last updated');
+    assertEqual_(row{9},  'Inactive',   'Activity (throwing getXY)');
+    assertEqual_(row{10}, '0',          'Events (no EventStore bound)');
+    assertEqual_(row{11}, '0',          'Samples');
 end
 
 function testFilterRows_caseInsensitive()
+    % 12-column fixture (Events col inserted at idx 10; Labels now at idx 12).
     rows = { ...
-        'press_a', 'Pressure A', 'Sensor', 'medium', '', '', '', '', '', '', ''; ...
-        'temp_b',  'Temp B',     'Sensor', 'medium', '', '', '', '', '', '', '' };
+        'press_a', 'Pressure A', 'Sensor', 'medium', '', '', '', '', '', '', '', ''; ...
+        'temp_b',  'Temp B',     'Sensor', 'medium', '', '', '', '', '', '', '', '' };
 
     kept = TagStatusTableWindow.filterRows_(rows, 'PRESS');
     assertEqual_(size(kept, 1), 1, 'filter PRESS keeps 1 row');
@@ -216,7 +226,7 @@ function testFilterRows_caseInsensitive()
 end
 
 function testFilterRows_matchesKeyOrName()
-    rows = {'tag_x', 'Foo', 'Sensor', '', '', '', '', '', '', '', ''};
+    rows = {'tag_x', 'Foo', 'Sensor', '', '', '', '', '', '', '', '', ''};
 
     keptName = TagStatusTableWindow.filterRows_(rows, 'foo');
     assertEqual_(size(keptName, 1), 1, 'filter ''foo'' matches Name');
@@ -264,7 +274,7 @@ function testActivityInactive_emptyXY()
 
     row = TagStatusTableWindow.buildRow_(tag, 1.7e9);
     assertEqual_(row{9},  'Inactive', 'Activity should be Inactive when XY is empty');
-    assertEqual_(row{10}, '0',         'Samples should be 0');
+    assertEqual_(row{11}, '0',         'Samples should be 0');
 end
 
 function testActivityInactive_futureTimestamp()
@@ -283,11 +293,11 @@ function testFilterRows_subsetFixture()
     % Regression guard for the search field: filter on a multi-row fixture
     % and confirm we get exactly the expected subset.
     rows = { ...
-        'pressure_inlet',  'Pressure Inlet',  'Sensor',  '', '', '', '', '', '', '', ''; ...
-        'pressure_outlet', 'Pressure Outlet', 'Sensor',  '', '', '', '', '', '', '', ''; ...
-        'temp_a',          'Temperature A',   'Sensor',  '', '', '', '', '', '', '', ''; ...
-        'state_machine',   'State Machine',   'State',   '', '', '', '', '', '', '', ''; ...
-        'alarm_high',      'Alarm High',      'Monitor', '', '', '', '', '', '', '', '' };
+        'pressure_inlet',  'Pressure Inlet',  'Sensor',  '', '', '', '', '', '', '', '', ''; ...
+        'pressure_outlet', 'Pressure Outlet', 'Sensor',  '', '', '', '', '', '', '', '', ''; ...
+        'temp_a',          'Temperature A',   'Sensor',  '', '', '', '', '', '', '', '', ''; ...
+        'state_machine',   'State Machine',   'State',   '', '', '', '', '', '', '', '', ''; ...
+        'alarm_high',      'Alarm High',      'Monitor', '', '', '', '', '', '', '', '', '' };
 
     kept = TagStatusTableWindow.filterRows_(rows, 'pressure');
     assertEqual_(size(kept, 1), 2, 'filter ''pressure'' keeps 2 rows');
@@ -309,8 +319,8 @@ function testFilterRows_matchesUnitsField()
     % Search now matches the Units column (column 5). Mirrors the user's
     % "search for °C" workflow: a row with Units='°C' must match.
     rows = { ...
-        'temp_a',  'Temp A',     'Sensor', 'medium', char([176, 67]), '', '', '', '', '', ''; ...
-        'press_a', 'Pressure A', 'Sensor', 'medium', 'bar',           '', '', '', '', '', '' };
+        'temp_a',  'Temp A',     'Sensor', 'medium', char([176, 67]), '', '', '', '', '', '', ''; ...
+        'press_a', 'Pressure A', 'Sensor', 'medium', 'bar',           '', '', '', '', '', '', '' };
 
     keptDegree = TagStatusTableWindow.filterRows_(rows, char([176, 67]));
     assertEqual_(size(keptDegree, 1), 1, 'filter on Units degC keeps the temperature row');
@@ -322,12 +332,13 @@ function testFilterRows_matchesUnitsField()
 end
 
 function testFilterRows_matchesLabelsField()
-    % Search must match the Labels column (column 11), which is a joined
-    % comma-separated string when there is more than one label.
+    % Search must match the Labels column (column 12 since 260519-bs4-06),
+    % which is a joined comma-separated string when there is more than one
+    % label.
     rows = { ...
-        'k1', 'Tag 1', 'Sensor', 'medium', '', '', '', '', '', '', 'plant, north'; ...
-        'k2', 'Tag 2', 'Sensor', 'medium', '', '', '', '', '', '', 'plant, south'; ...
-        'k3', 'Tag 3', 'Sensor', 'medium', '', '', '', '', '', '', '' };
+        'k1', 'Tag 1', 'Sensor', 'medium', '', '', '', '', '', '', '', 'plant, north'; ...
+        'k2', 'Tag 2', 'Sensor', 'medium', '', '', '', '', '', '', '', 'plant, south'; ...
+        'k3', 'Tag 3', 'Sensor', 'medium', '', '', '', '', '', '', '', '' };
 
     keptNorth = TagStatusTableWindow.filterRows_(rows, 'north');
     assertEqual_(size(keptNorth, 1), 1, 'filter ''north'' on Labels keeps 1 row');
@@ -340,13 +351,14 @@ end
 function testFilterRows_chipFiltersAndSemantics()
     % Verifies AND-across-groups, OR-within-group semantics for the chip
     % filters. Build a small fixture with diverse Type/Crit/Activity cells.
+    % 12-column shape: ..., Activity(9), Events(10), Samples(11), Labels(12).
     rows = { ...
-        'k1', 'Sensor Hi Live',   'Sensor',    'high',   '', '', '', '', 'Live',     '', ''; ...
-        'k2', 'Sensor Med Live',  'Sensor',    'medium', '', '', '', '', 'Live',     '', ''; ...
-        'k3', 'Sensor Hi Inact',  'Sensor',    'high',   '', '', '', '', 'Inactive', '', ''; ...
-        'k4', 'Monitor Hi Live',  'Monitor',   'high',   '', '', '', '', 'Live',     '', ''; ...
-        'k5', 'Compos Low Live',  'Composite', 'low',    '', '', '', '', 'Live',     '', ''; ...
-        'k6', 'State Med Inact',  'State',     'medium', '', '', '', '', 'Inactive', '', '' };
+        'k1', 'Sensor Hi Live',   'Sensor',    'high',   '', '', '', '', 'Live',     '', '', ''; ...
+        'k2', 'Sensor Med Live',  'Sensor',    'medium', '', '', '', '', 'Live',     '', '', ''; ...
+        'k3', 'Sensor Hi Inact',  'Sensor',    'high',   '', '', '', '', 'Inactive', '', '', ''; ...
+        'k4', 'Monitor Hi Live',  'Monitor',   'high',   '', '', '', '', 'Live',     '', '', ''; ...
+        'k5', 'Compos Low Live',  'Composite', 'low',    '', '', '', '', 'Live',     '', '', ''; ...
+        'k6', 'State Med Inact',  'State',     'medium', '', '', '', '', 'Inactive', '', '', '' };
 
     % Type=Sensor only (OR within Type group), all crits, all activities.
     kept = TagStatusTableWindow.filterRows_(rows, '', ...
@@ -382,8 +394,8 @@ end
 function testFilterRows_emptyChipGroupExcludesAll()
     % "Zero chips selected in any group" -> table shows nothing.
     rows = { ...
-        'k1', 'A', 'Sensor', 'high',   '', '', '', '', 'Live',     '', ''; ...
-        'k2', 'B', 'Sensor', 'medium', '', '', '', '', 'Inactive', '', '' };
+        'k1', 'A', 'Sensor', 'high',   '', '', '', '', 'Live',     '', '', ''; ...
+        'k2', 'B', 'Sensor', 'medium', '', '', '', '', 'Inactive', '', '', '' };
 
     % Empty Type group.
     kept = TagStatusTableWindow.filterRows_(rows, '', ...
@@ -400,6 +412,92 @@ function testFilterRows_emptyChipGroupExcludesAll()
         {'sensor', 'monitor', 'composite', 'state', 'derived'}, ...
         {'low', 'medium', 'high', 'safety'}, {});
     assertEqual_(size(kept3, 1), 0, 'empty Activity chip group excludes all rows');
+end
+
+% ===================== Events column (260519-bs4-06 patch) =====================
+
+function testCountEventsForTag_noEventStore()
+    % A vanilla SensorTag has no EventStore bound -> count is 0.
+    resetRegistry_();
+    tag = SensorTag('plain_sensor', 'Name', 'Plain');
+    tag.updateData([1 2 3], [10 20 30]);
+
+    n = TagStatusTableWindow.countEventsForTag_(tag);
+    assertEqual_(n, 0, 'countEventsForTag_ must return 0 for tag with no EventStore');
+end
+
+function testCountEventsForTag_withStubbedEvents()
+    % Bind an EventStore with N events tagged to tag.Key. countEventsForTag_
+    % must return N. Uses the same EventBinding.attach path that MonitorTag
+    % uses in production, so this exercises the real query path end to end.
+    resetRegistry_();
+    EventBinding.clear();
+    store = EventStore('');
+    tag = SensorTag('binds_events', 'Name', 'Has Events');
+    tag.updateData([1 2 3], [10 20 30]);
+    tag.EventStore = store;
+
+    nExpected = 4;
+    for i = 1:nExpected
+        ev = Event(i * 10, i * 10 + 1, 'binds_events', 'thr_label', NaN, 'upper');
+        store.append(ev);
+        ev.TagKeys = {'binds_events'};
+        EventBinding.attach(ev.Id, 'binds_events');
+    end
+
+    n = TagStatusTableWindow.countEventsForTag_(tag);
+    assertEqual_(n, nExpected, ...
+        sprintf('countEventsForTag_ must return %d for a tag with %d stubbed events', ...
+            nExpected, nExpected));
+end
+
+function testBuildRow_includesEventsCountAtCol10()
+    % buildRow_ must put the integer event count at column 10 of the row.
+    resetRegistry_();
+    EventBinding.clear();
+    store = EventStore('');
+    tag = SensorTag('row_events', 'Name', 'Row Events');
+    tag.updateData([1 2 3], [10 20 30]);
+    tag.EventStore = store;
+
+    % Append 2 events bound to the tag.
+    for i = 1:2
+        ev = Event(i, i + 0.5, 'row_events', 'thr', NaN, 'upper');
+        store.append(ev);
+        ev.TagKeys = {'row_events'};
+        EventBinding.attach(ev.Id, 'row_events');
+    end
+
+    row = TagStatusTableWindow.buildRow_(tag);
+    assertSize_(row, [1 12]);
+    assertEqual_(row{10}, '2', 'Events count must appear at column 10');
+end
+
+function testBuildRow_eventCountsByKeyBucketedMapWins()
+    % When the precomputed eventCountsByKey map carries a value for the
+    % tag's Key, buildRow_ must read from the map and NOT call the per-tag
+    % query path. We verify this by passing a value that DIFFERS from
+    % what the per-tag query would compute (here: 42 vs the real 0,
+    % since the tag has no EventStore bound).
+    resetRegistry_();
+    tag = SensorTag('cache_hit', 'Name', 'Cache Hit');
+    tag.updateData([1 2 3], [10 20 30]);
+
+    bucket = containers.Map('KeyType', 'char', 'ValueType', 'double');
+    bucket('cache_hit') = 42;
+
+    row = TagStatusTableWindow.buildRow_(tag, [], bucket);
+    assertEqual_(row{10}, '42', ...
+        'buildRow_ must read Events count from eventCountsByKey when present');
+
+    % And when the key is missing from the bucket, buildRow_ must fall
+    % back to per-tag query (which returns 0 for a tag without an EventStore).
+    bucketMissing = containers.Map('KeyType', 'char', 'ValueType', 'double');
+    bucketMissing('other_key') = 99;
+
+    row2 = TagStatusTableWindow.buildRow_(tag, [], bucketMissing);
+    assertEqual_(row2{10}, '0', ...
+        'buildRow_ must fall back to per-tag query when bucket lacks the key');
 end
 
 % ===================== Helpers =====================

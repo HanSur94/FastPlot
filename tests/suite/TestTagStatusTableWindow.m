@@ -109,14 +109,17 @@ classdef TestTagStatusTableWindow < matlab.unittest.TestCase
 
             app.scanLiveTagUpdatesForTest_();
 
-            % Find tag_a row in the buffer; samples column (now index 10 after
-            % Activity column was inserted at 9) should read '5' and latest
-            % (index 6) should reflect 55.
+            % Find tag_a row in the buffer; samples column (now index 11
+            % after Events column was inserted at 10 in 260519-bs4-06) should
+            % read '5' and latest (index 6) should reflect 55. The Events
+            % column at index 10 must be '0' since no EventStore is bound.
             rowA = findRowByKey_(w, 'tag_a');
             testCase.verifyNotEmpty(rowA, ...
                 'testMarkTagsDirty_updatesRow: tag_a row must exist in buffer');
-            testCase.verifyEqual(rowA{10}, '5', ...
+            testCase.verifyEqual(rowA{11}, '5', ...
                 'testMarkTagsDirty_updatesRow: Samples must reflect new count after tick');
+            testCase.verifyEqual(rowA{10}, '0', ...
+                'testMarkTagsDirty_updatesRow: Events count is 0 with no EventStore');
             testCase.verifyTrue(any(strcmp(rowA{6}, {'55.00', '55', '55.000'})), ...
                 sprintf(['testMarkTagsDirty_updatesRow: Latest must reflect new ' ...
                     'value 55, got ''%s'''], rowA{6}));
@@ -350,6 +353,51 @@ classdef TestTagStatusTableWindow < matlab.unittest.TestCase
             w.setPollingActive(true);
             testCase.verifyEqual(w.pauseBtnLabelForTest(), 'Pause polling', ...
                 'testPauseBtnLabelFlips: label must revert to ''Pause polling'' after resume');
+        end
+
+        function testEventsCountColumnPopulatedFromRegistry(testCase)
+            %TESTEVENTSCOUNTCOLUMNPOPULATEDFROMREGISTRY Tag with events emits real Events count in table.Data.
+            %   Build a fixture where ONE tag has 3 bound events and the
+            %   other has none; open a window; verify the table column 10
+            %   carries the right per-row count. 260519-bs4-06 patch.
+            TagRegistry.clear();
+            EventBinding.clear();
+            testCase.addTeardown(@() TagRegistry.clear());
+            testCase.addTeardown(@() EventBinding.clear());
+
+            % First tag: no EventStore -> Events count must be 0.
+            tA = SensorTag('no_events', 'Name', 'No Events');
+            tA.updateData([1 2 3], [1 2 3]);
+            TagRegistry.register('no_events', tA);
+
+            % Second tag: bind an EventStore with 3 events.
+            store = EventStore('');
+            tB = SensorTag('has_events', 'Name', 'Has Events');
+            tB.updateData([1 2 3], [10 20 30]);
+            tB.EventStore = store;
+            for i = 1:3
+                ev = Event(i, i + 0.5, 'has_events', 'thr', NaN, 'upper');
+                store.append(ev);
+                ev.TagKeys = {'has_events'};
+                EventBinding.attach(ev.Id, 'has_events');
+            end
+            TagRegistry.register('has_events', tB);
+
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() safeClose_(app));
+            w = app.openTagStatusTable();
+            testCase.verifyEqual(w.bufferSize(), 2, ...
+                'precondition: buffer must hold both rows');
+
+            rowNoEvents  = findRowByKey_(w, 'no_events');
+            rowHasEvents = findRowByKey_(w, 'has_events');
+
+            testCase.verifyNotEmpty(rowNoEvents,  'no_events row missing');
+            testCase.verifyNotEmpty(rowHasEvents, 'has_events row missing');
+            testCase.verifyEqual(rowNoEvents{10},  '0', ...
+                'tag with no EventStore must show Events=0');
+            testCase.verifyEqual(rowHasEvents{10}, '3', ...
+                'tag with 3 bound events must show Events=3');
         end
 
         function testRefreshTimerStoppedAndDeletedOnClose(testCase)

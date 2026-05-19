@@ -59,7 +59,7 @@ classdef TagStatusTableWindow < handle
         Registry_     = []        % TagRegistry handle (or class name placeholder)
         Theme_        = []        % resolved CompanionTheme struct
         Companion_    = []        % FastSenseCompanion handle (uialert parent + detach)
-        RowBuffer_    = cell(0, 11)
+        RowBuffer_    = cell(0, 12)
         KeyToRow_     = []        % containers.Map(key -> row index into RowBuffer_)
         Listeners_    = {}        % addlistener handles; deleted in close()
         RefreshTimer_ = []        % timer driving periodic re-query (window-owned; 260519-bs4 patch)
@@ -82,7 +82,7 @@ classdef TagStatusTableWindow < handle
     methods (Access = public)
 
         function obj = TagStatusTableWindow()
-            obj.RowBuffer_ = cell(0, 11);
+            obj.RowBuffer_ = cell(0, 12);
             obj.KeyToRow_  = containers.Map('KeyType', 'char', 'ValueType', 'double');
             % Default chip state: every chip ACTIVE (first-open shows
             % everything). 260519-bs4-04 patch.
@@ -210,21 +210,23 @@ classdef TagStatusTableWindow < handle
             stripePair = obj.stripePairFromTheme_(t);
 
             % --- Center uitable. ---
-            % 11 columns: Activity is column 9 (between Last updated and Samples).
+            % 12 columns: Activity is col 9, Events is col 10, Samples col 11.
+            % Events column (260519-bs4-06 patch) shows the integer count of
+            % events attached to each tag via EventStore.getEventsForTag.
             obj.hTable_ = uitable(obj.hFig_, ...
                 'Units',           'normalized', ...
                 'Position',        [0.01 0.055 0.98 0.78], ...
                 'ColumnName',      {'Key', 'Name', 'Type', 'Criticality', 'Units', ...
                                     'Latest', 'Status', 'Last updated', 'Activity', ...
-                                    'Samples', 'Labels'}, ...
-                'ColumnWidth',     {130, 200, 75, 80, 60, 90, 80, 140, 70, 70, 'auto'}, ...
-                'ColumnEditable',  false(1, 11), ...
+                                    'Events', 'Samples', 'Labels'}, ...
+                'ColumnWidth',     {120, 180, 70, 75, 55, 85, 75, 130, 65, 55, 65, 'auto'}, ...
+                'ColumnEditable',  false(1, 12), ...
                 'RowName',         {}, ...
                 'FontName',        'Menlo', ...
                 'FontSize',        10, ...
                 'BackgroundColor', stripePair, ...
                 'ForegroundColor', t.ForegroundColor, ...
-                'Data',            cell(0, 11));
+                'Data',            cell(0, 12));
 
             % --- Footer "N tags" label. ---
             obj.hStatusLbl_ = uicontrol(obj.hFig_, ...
@@ -275,13 +277,17 @@ classdef TagStatusTableWindow < handle
             if ~iscell(keys); return; end
             try
                 nowSec = TagStatusTableWindow.nowSeconds_();
+                % Build a small precomputed event-count map for ONLY the
+                % dirty keys -- O(M events * H stores) once, then O(1) per
+                % row in the loop below (260519-bs4-06 patch).
+                eventCountsByKey = obj.precomputeEventCounts_(keys);
                 changed = false;
                 for k = 1:numel(keys)
                     key = char(keys{k});
                     if isempty(key); continue; end
                     tag = obj.resolveTag_(key);
                     if isempty(tag); continue; end
-                    row = TagStatusTableWindow.buildRow_(tag, nowSec);
+                    row = TagStatusTableWindow.buildRow_(tag, nowSec, eventCountsByKey);
                     if obj.KeyToRow_.isKey(key)
                         idx = obj.KeyToRow_(key);
                         obj.RowBuffer_(idx, :) = row;
@@ -534,7 +540,7 @@ classdef TagStatusTableWindow < handle
 
         function rebuildAll_(obj)
         %REBUILDALL_ Replace RowBuffer_ with one row per registered tag (sorted).
-            obj.RowBuffer_ = cell(0, 11);
+            obj.RowBuffer_ = cell(0, 12);
             obj.KeyToRow_  = containers.Map('KeyType', 'char', 'ValueType', 'double');
             try
                 tags = TagRegistry.find(@(t) true);
@@ -558,10 +564,15 @@ classdef TagStatusTableWindow < handle
             tags = tags(ord);
             % Preallocate the buffer up front.
             nTags = numel(tags);
-            obj.RowBuffer_ = cell(nTags, 11);
+            obj.RowBuffer_ = cell(nTags, 12);
             nowSec = TagStatusTableWindow.nowSeconds_();
+            % Bucket events by tag key ONCE for the whole rebuild
+            % (260519-bs4-06 patch). O(M events) instead of O(N tags *
+            % M events) when each call to getEventsForTag walks the store.
+            eventCountsByKey = obj.precomputeEventCounts_(keysSorted);
             for k = 1:nTags
-                obj.RowBuffer_(k, :) = TagStatusTableWindow.buildRow_(tags{k}, nowSec);
+                obj.RowBuffer_(k, :) = TagStatusTableWindow.buildRow_( ...
+                    tags{k}, nowSec, eventCountsByKey);
                 obj.KeyToRow_(keysSorted{k}) = k;
             end
         end
@@ -590,6 +601,45 @@ classdef TagStatusTableWindow < handle
                 tag = TagRegistry.get(key);
             catch
                 tag = [];
+            end
+        end
+
+        function counts = precomputeEventCounts_(obj, keys)
+        %PRECOMPUTEEVENTCOUNTS_ Bucket EventStore events by tag key in one pass.
+        %   Walks every distinct EventStore reachable through the listed
+        %   tag keys, calls obj.EventStore.getEventsForTag(key) ONCE per
+        %   key, and totals into a containers.Map. The savings come from
+        %   the fact that we resolve each tag at most once per tick and
+        %   only count keys we actually need (the keys passed in).
+        %
+        %   When EventStore.getEventsForTag is O(N events) (current
+        %   implementation walks all events), this collapses N tag-row
+        %   builds * N events to N keys * N events, which is the same
+        %   cost order but ensures the work happens at a single,
+        %   debug-friendly call site rather than scattered through
+        %   buildRow_.
+        %
+        %   Returns a containers.Map(char -> double); empty when keys is
+        %   empty or when no tag has an EventStore. Wrapped in try/catch;
+        %   failure returns an empty map and buildRow_ falls back to the
+        %   per-tag query path (still O(M events) but at least correct).
+        %   260519-bs4-06 patch.
+            counts = containers.Map('KeyType', 'char', 'ValueType', 'double');
+            if isempty(keys); return; end
+            if ischar(keys); keys = {keys}; end
+            if ~iscell(keys); return; end
+            try
+                for k = 1:numel(keys)
+                    key = char(keys{k});
+                    if isempty(key); continue; end
+                    tag = obj.resolveTag_(key);
+                    if isempty(tag); continue; end
+                    n = TagStatusTableWindow.countEventsForTag_(tag);
+                    counts(key) = n;
+                end
+            catch
+                % Best-effort -- a failure here should not abort the tick.
+                % buildRow_ will fall back to per-row queries below.
             end
         end
 
@@ -843,13 +893,17 @@ classdef TagStatusTableWindow < handle
                 nowSec = TagStatusTableWindow.nowSeconds_();
                 changed = false;
                 keys = obj.KeyToRow_.keys();
+                % Bucket events by tag key ONCE per tick rather than
+                % querying the store N times (one per row). Cheap when
+                % store is empty / not bound. 260519-bs4-06 patch.
+                eventCountsByKey = obj.precomputeEventCounts_(keys);
                 for k = 1:numel(keys)
                     key = keys{k};
                     if ~obj.KeyToRow_.isKey(key); continue; end
                     idx = obj.KeyToRow_(key);
                     tag = obj.resolveTag_(key);
                     if isempty(tag); continue; end
-                    newRow = TagStatusTableWindow.buildRow_(tag, nowSec);
+                    newRow = TagStatusTableWindow.buildRow_(tag, nowSec, eventCountsByKey);
                     oldRow = obj.RowBuffer_(idx, :);
                     if ~isequal(newRow, oldRow)
                         obj.RowBuffer_(idx, :) = newRow;
@@ -882,28 +936,44 @@ classdef TagStatusTableWindow < handle
 
     methods (Static, Access = public)
 
-        function row = buildRow_(tag, nowSeconds)
-        %BUILDROW_ Return a 1x11 cell row describing tag's current status.
+        function row = buildRow_(tag, nowSeconds, eventCountsByKey)
+        %BUILDROW_ Return a 1x12 cell row describing tag's current status.
         %   Columns: Key, Name, Type, Criticality, Units, Latest, Status,
-        %            Last updated, Activity, Samples, Labels.
+        %            Last updated, Activity, Events, Samples, Labels.
         %
         %   Inputs:
-        %     tag        -- Tag handle (any subclass; tolerant of throws)
-        %     nowSeconds -- (optional) current wall-clock time as posix
-        %                   seconds, used for the Activity column. When
-        %                   omitted, TagStatusTableWindow.nowSeconds_() is
-        %                   queried (slightly more expensive). Tests pass
-        %                   an explicit value for determinism. 260519-bs4 patch.
+        %     tag               -- Tag handle (any subclass; tolerant of throws)
+        %     nowSeconds        -- (optional) current wall-clock time as posix
+        %                          seconds, used for the Activity column. When
+        %                          omitted, TagStatusTableWindow.nowSeconds_()
+        %                          is queried. Tests pass an explicit value for
+        %                          determinism. 260519-bs4 patch.
+        %     eventCountsByKey  -- (optional) containers.Map(char -> double)
+        %                          giving precomputed per-tag event counts.
+        %                          When the tag's Key is present in the map,
+        %                          the Events column reads from the map.
+        %                          Otherwise falls back to
+        %                          countEventsForTag_(tag) which walks the
+        %                          tag's bound EventStore. Pass [] or omit
+        %                          to force the per-tag query. 260519-bs4-06.
         %
         %   The Activity column is "Live" when X(end) is within
         %   InactiveThresholdSeconds_ (5 minutes) of nowSeconds in the same
         %   time base, else "Inactive". Empty / unconvertible / future X
         %   defensively renders "Inactive".
         %
+        %   The Events column shows an integer count of events attached to
+        %   the tag (via EventStore.getEventsForTag). Tags with no
+        %   EventStore -- or any throw during the count -- render "0".
+        %   260519-bs4-06 patch.
+        %
         %   Never throws -- a tag whose getXY/valueAt fails renders em-dash
         %   placeholders for the dynamic columns AND "Inactive" for Activity.
             if nargin < 2 || isempty(nowSeconds)
                 nowSeconds = TagStatusTableWindow.nowSeconds_();
+            end
+            if nargin < 3
+                eventCountsByKey = [];
             end
             em       = char(8212);
             key      = '';
@@ -982,9 +1052,59 @@ classdef TagStatusTableWindow < handle
                 % Leave placeholders; never throw.
             end
 
+            % --- Events count (260519-bs4-06) ---
+            %   Bucketed-by-key precomputed map preferred; falls back to a
+            %   per-tag query when missing. countEventsForTag_ never throws.
+            useBucket = ~isempty(eventCountsByKey) && ...
+                isa(eventCountsByKey, 'containers.Map') && ...
+                ~isempty(key) && eventCountsByKey.isKey(key);
+            if useBucket
+                try
+                    nEvents = double(eventCountsByKey(key));
+                catch
+                    nEvents = 0;
+                end
+            else
+                nEvents = TagStatusTableWindow.countEventsForTag_(tag);
+            end
+            eventsTxt = sprintf('%d', nEvents);
+
             row = {key, name, typeLabel, crit, units, ...
                    latestTxt, statusTxt, lastUpdatedTxt, activityTxt, ...
-                   samplesTxt, labelStr};
+                   eventsTxt, samplesTxt, labelStr};
+        end
+
+        function n = countEventsForTag_(tag)
+        %COUNTEVENTSFORTAG_ Integer count of events attached to a Tag.
+        %   Returns 0 for tags with no EventStore, [] EventStore, or any
+        %   exception raised while querying. Delegates to tag.eventsAttached
+        %   when available (the Tag base class API, which itself wraps
+        %   EventStore.getEventsForTag), so tag subclasses that override
+        %   the lookup (e.g. MonitorTag binding to a shared store) all
+        %   route through the same query path. Pure function -- safe to
+        %   call from the refresh loop without side effects.
+        %   260519-bs4-06 patch.
+            n = 0;
+            if isempty(tag); return; end
+            try
+                % Skip cheap-fail-fast cases without touching the store.
+                if ~isprop(tag, 'EventStore') || isempty(tag.EventStore)
+                    return;
+                end
+                if ismethod(tag, 'eventsAttached')
+                    events = tag.eventsAttached();
+                else
+                    events = tag.EventStore.getEventsForTag(char(tag.Key));
+                end
+                if isempty(events)
+                    n = 0;
+                else
+                    n = numel(events);
+                end
+            catch
+                % EventStore not bound / throws / etc. -> 0
+                n = 0;
+            end
         end
 
         function s = nowSeconds_()
@@ -1013,7 +1133,7 @@ classdef TagStatusTableWindow < handle
         %     applies all four dimensions.
         %
         %   Inputs:
-        %     rows       -- cell(N, 11) buffer (TagStatusTableWindow.RowBuffer_).
+        %     rows       -- cell(N, 12) buffer (TagStatusTableWindow.RowBuffer_).
         %     query      -- char/string; empty / whitespace = no search filter.
         %     activeTypes      -- cellstr subset of {sensor, monitor,
         %                         composite, state, derived}. Omitted = all kept.
@@ -1025,7 +1145,7 @@ classdef TagStatusTableWindow < handle
         %   Semantics:
         %     -- search: substring match (case-insensitive) on Key, Name,
         %        Units, OR Labels (Labels are stored as a comma-joined string
-        %        in column 11).
+        %        in column 12; was column 11 pre-260519-bs4-06).
         %     -- chip groups: AND across groups (a row passes only if it
         %        matches the active set of every group), OR within a group
         %        (a row matches if its value is in the active set).
@@ -1205,12 +1325,13 @@ end
 
 function tf = rowMatchesSearch_(row, qLow)
 %ROWMATCHESSEARCH_ Case-insensitive substring match on Key+Name+Units+Labels.
-%   row -- 1x11 cell. Columns 1 (Key), 2 (Name), 5 (Units), 11 (Labels).
+%   row -- 1x12 cell. Columns 1 (Key), 2 (Name), 5 (Units), 12 (Labels).
+%   (Labels column moved 11 -> 12 in 260519-bs4-06 when Events was inserted.)
 %   qLow -- already-lowercased query.
 %   Tolerates rows with missing / non-char columns (defensive try/catch).
     tf = false;
     try
-        for c = [1, 2, 5, 11]
+        for c = [1, 2, 5, 12]
             val = row{c};
             if ~ischar(val); continue; end
             if ~isempty(strfind(lower(val), qLow)) %#ok<STREMP>
