@@ -7,6 +7,13 @@ function test_plant_log_reader()
 
     add_plant_log_path();
 
+    % Octave gate: every test below uses `readtable` (MATLAB-only;
+    % Octave needs the `io` package). Skip cleanly when unavailable.
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('SKIPPED — readtable unavailable on this Octave (install `io` package to enable).\n');
+        return;
+    end
+
     test_auto_detect_iso();
     test_auto_detect_eu();
     test_auto_detect_us();

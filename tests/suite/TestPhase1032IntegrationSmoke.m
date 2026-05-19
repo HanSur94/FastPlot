@@ -421,28 +421,36 @@ classdef TestPhase1032IntegrationSmoke < matlab.unittest.TestCase
             % Append two more rows to the file before letting the timer run.
             appendRealTimerCsvDatenum_(csvPath, [ts4 ts5]);
 
-            % Poll up to ~6 s for the real timer to read all 5 entries and
-            % fan out to both source + mirror axes. CI runners are slower
-            % than local dev machines, so a fixed pause is flaky.
+            % Poll up to ~6 s for the real timer to read all 5 entries.
+            % Verification key: the STORE count (5 — independent of pixel
+            % coalescing) plus a sanity check that BOTH axes received the
+            % fan-out (>=4 markers each, since adjacent 5-min timestamps
+            % across a 2-day XLim can sub-pixel-coalesce on some renders).
             sourceAx = w.FastSenseObj.hAxes;
             mirrorAx = mirror.Widget.FastSenseObj.hAxes;
             deadline = cputime() + 6;
-            nSource = 0; nMirror = 0;
+            nSource = 0; nMirror = 0; storeCount = 0;
             while cputime() < deadline
+                storeCount = store.getCount();
                 nSource = numel(findobj(sourceAx, 'Tag', 'WidgetPlantLogMarker'));
                 nMirror = numel(findobj(mirrorAx, 'Tag', 'WidgetPlantLogMarker'));
-                if nSource >= 5 && nMirror >= 5
+                if storeCount >= 5 && nSource >= 4 && nMirror >= 4
                     break;
                 end
                 pause(0.2);
             end
-            % After the real timer fires, source + mirror should both have
-            % 5 markers (3 initial + 2 appended, all read by openInteractive
-            % headless inside the tail's tick).
-            testCase.verifyEqual(nSource, 5, sprintf( ...
-                'after real timer tick, source must have 5 markers; got %d', nSource));
-            testCase.verifyEqual(nMirror, 5, sprintf( ...
-                'after real timer tick, mirror must have 5 markers; got %d', nMirror));
+            % Live-tail tick contract: every entry reaches the store.
+            testCase.verifyEqual(storeCount, 5, sprintf( ...
+                'after real timer tick, store must have 5 entries; got %d', storeCount));
+            % Fan-out contract: both source + mirror axes get refreshed.
+            % Allow sub-pixel coalescing (CONTEXT decision D) — bucket
+            % count may be <5 when adjacent timestamps share a pixel.
+            testCase.verifyGreaterThanOrEqual(nSource, 4, sprintf( ...
+                'source axes must have >=4 markers (5 minus possible coalesce); got %d', nSource));
+            testCase.verifyGreaterThanOrEqual(nMirror, 4, sprintf( ...
+                'mirror axes must have >=4 markers (5 minus possible coalesce); got %d', nMirror));
+            testCase.verifyEqual(nSource, nMirror, ...
+                'fan-out must produce identical marker counts on source + mirror');
 
             tail.stop();
             e.setPlantLogLiveTailForTest_([]);

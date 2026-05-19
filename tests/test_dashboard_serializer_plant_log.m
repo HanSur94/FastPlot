@@ -34,6 +34,16 @@ function test_dashboard_serializer_plant_log()
 %   Runtime: cross-runtime (MATLAB R2020b+ + Octave 7+).
 
     addPathsViaInstallOnly_();
+
+    % Octave gate: tests that exercise attachPlantLog / load round-trip
+    % go through PlantLogReader.readFile which depends on `readtable`.
+    % `readtable` is part of MATLAB; Octave needs the `io` package.
+    % Skip cleanly when readtable is unavailable.
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('SKIPPED — readtable unavailable on this Octave (install `io` package to enable).\n');
+        return;
+    end
+
     nPassed = 0;
     nFailed = 0;
     testN = 0;

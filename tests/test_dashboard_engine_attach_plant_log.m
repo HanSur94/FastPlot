@@ -37,6 +37,16 @@ function test_dashboard_engine_attach_plant_log()
 %                                  testDetachIdempotent
 
     addPathsViaInstallOnly_();
+
+    % Octave gate: PlantLogReader.readFile uses `readtable`, which is
+    % part of MATLAB but only available in Octave with the `io` package.
+    % Skip cleanly when readtable is unavailable — same pattern Phase 1030
+    % used in tests/test_plant_log_reader.m for the same reason.
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('SKIPPED — readtable unavailable on this Octave (install `io` package to enable).\n');
+        return;
+    end
+
     nPassed = 0;
     nFailed = 0;
     testN = 0;
