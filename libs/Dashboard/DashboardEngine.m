@@ -609,7 +609,14 @@ classdef DashboardEngine < handle
             end
 
             % --- Parse name-value opts (per CONTEXT.md D-02) ---
-            opts = struct('Mapping', [], 'Interval', 5, 'StartTail', true);
+            % Hidden opt ContinueOnReadError (default false): when true,
+            % PlantLogReader:fileNotFound + PlantLogReader:unknownColumn +
+            % PlantLogReader:readError are caught and re-emitted as the
+            % three new namespaced warnings instead of propagating. Used
+            % exclusively by DashboardEngine.load to honour the
+            % CONTEXT.md D-12 "degrade-to-warning" load-failure contract.
+            opts = struct('Mapping', [], 'Interval', 5, 'StartTail', true, ...
+                          'ContinueOnReadError', false);
             if mod(numel(varargin), 2) ~= 0
                 error('DashboardEngine:invalidPlantLogOption', ...
                     'attachPlantLog name-value args must come in pairs; got %d.', numel(varargin));
@@ -665,13 +672,66 @@ classdef DashboardEngine < handle
                 % No mapping supplied -> autoDetect via the public helper
                 % (DashboardEngine cannot reach libs/PlantLog/private, so
                 % PlantLogReader.autoDetectFromFile is the integration point).
-                readerMapping = PlantLogReader.autoDetectFromFile(filePath);
+                try
+                    readerMapping = PlantLogReader.autoDetectFromFile(filePath);
+                catch autoME
+                    if opts.ContinueOnReadError
+                        [recovered, store] = obj.surfacePlantLogLoadFailure_(autoME, filePath);
+                        if ~recovered, return; end
+                        % If recovery succeeded inside surfacePlantLogLoadFailure_,
+                        % store is set and we should NOT continue with the
+                        % normal attach path. surfacePlantLogLoadFailure_
+                        % returns recovered=false for fileNotFound /
+                        % readError; recovered=true with store=[] never
+                        % happens (it always returns store=[] when
+                        % recovered=false). Defensive return below.
+                        return;
+                    else
+                        rethrow(autoME);
+                    end
+                end
             end
 
             % --- Ingest via headless reader ---
-            entries = PlantLogReader.openInteractive(filePath, ...
-                'Headless', true, ...
-                'Mapping',  readerMapping);
+            try
+                entries = PlantLogReader.openInteractive(filePath, ...
+                    'Headless', true, ...
+                    'Mapping',  readerMapping);
+            catch readME
+                if opts.ContinueOnReadError
+                    if strcmp(readME.identifier, 'PlantLogReader:unknownColumn')
+                        % Mapping mismatch -- re-run autoDetect, warn, retry once.
+                        try
+                            newMapping = PlantLogReader.autoDetectFromFile(filePath);
+                            warning('DashboardEngine:plantLogMappingMismatch', ...
+                                ['Saved plant-log mapping (timestamp=%s, ' ...
+                                 'message=%s) no longer matches file columns; ' ...
+                                 'using auto-detected mapping (timestamp=%s, ' ...
+                                 'message=%s) instead.'], ...
+                                readerMapping.TimestampColumn, readerMapping.MessageColumn, ...
+                                newMapping.TimestampColumn, newMapping.MessageColumn);
+                            readerMapping = newMapping;
+                            entries = PlantLogReader.openInteractive(filePath, ...
+                                'Headless', true, ...
+                                'Mapping',  readerMapping);
+                        catch retryME
+                            warning('DashboardEngine:plantLogReadFailed', ...
+                                ['Saved plant-log re-import failed after ' ...
+                                 'mapping-mismatch recovery: %s; ' ...
+                                 'dashboard loaded without overlay.'], ...
+                                retryME.message);
+                            store = [];
+                            return;
+                        end
+                    else
+                        [~, ~] = obj.surfacePlantLogLoadFailure_(readME, filePath);
+                        store = [];
+                        return;
+                    end
+                else
+                    rethrow(readME);
+                end
+            end
 
             % --- Build store + populate ---
             store = PlantLogStore(filePath);
@@ -3663,6 +3723,36 @@ classdef DashboardEngine < handle
             obj.PlantLogSliderHover_ = [];
         end
 
+        function [recovered, store] = surfacePlantLogLoadFailure_(~, ME, filePath)
+        %SURFACEPLANTLOGLOADFAILURE_ Phase 1033 PLOG-INT-05 load-failure warning router.
+        %   Inspects ME.identifier and emits the appropriate namespaced
+        %   warning per CONTEXT.md D-12:
+        %     PlantLogReader:fileNotFound    -> DashboardEngine:plantLogPathMissing
+        %     PlantLogReader:readError       -> DashboardEngine:plantLogReadFailed
+        %     PlantLogReader:unsupportedFormat -> DashboardEngine:plantLogReadFailed
+        %     PlantLogReader:xlsxUnavailable -> DashboardEngine:plantLogReadFailed
+        %     other                          -> DashboardEngine:plantLogReadFailed
+        %
+        %   Returns recovered=false + store=[] in every case. The caller
+        %   is responsible for returning from attachPlantLog so the
+        %   dashboard load proceeds without an overlay.
+            recovered = false;
+            store     = [];
+            switch ME.identifier
+                case 'PlantLogReader:fileNotFound'
+                    warning('DashboardEngine:plantLogPathMissing', ...
+                        ['Saved plant-log path %s no longer exists; ' ...
+                         'dashboard loaded without overlay. Re-attach via ' ...
+                         'DashboardEngine.attachPlantLog or the FastSenseCompanion toolbar.'], ...
+                        filePath);
+                otherwise
+                    warning('DashboardEngine:plantLogReadFailed', ...
+                        ['Saved plant-log re-import failed: %s; ' ...
+                         'dashboard loaded without overlay.'], ...
+                        ME.message);
+            end
+        end
+
         function readerMapping = plantLogMappingToReaderShape_(~, jsonMapping)
         %PLANTLOGMAPPINGTOREADERSHAPE_ Convert CONTEXT.md JSON-schema mapping to PlantLogReader shape.
         %   jsonMapping fields: timestampCol, messageCol, metadataCols, format
@@ -3944,6 +4034,65 @@ classdef DashboardEngine < handle
                         wi = obj.Widgets{i};
                         if isa(wi, 'GroupWidget') && strcmp(wi.Mode, 'collapsible')
                             wi.ReflowCallback = @() obj.reflowAfterCollapse();
+                        end
+                    end
+                end
+
+                % --- Phase 1033 PLOG-INT-05: re-attach plant log when present ---
+                % Per CONTEXT.md D-10..D-13: when config.plantLog is
+                % present, call attachPlantLog with ContinueOnReadError=true
+                % so any saved-path/mapping/read failure degrades to a
+                % warning and the dashboard load completes. When absent,
+                % v1.0-v3.0 dashboards load cleanly with zero warnings.
+                if isfield(config, 'plantLog') && ~isempty(config.plantLog)
+                    pl = config.plantLog;
+                    % Schema validation: sourcePath is required.
+                    if ~isfield(pl, 'sourcePath') || isempty(pl.sourcePath)
+                        error('DashboardSerializer:plantLogSchemaInvalid', ...
+                            'plantLog block must contain a non-empty sourcePath.');
+                    end
+                    sourcePath = char(pl.sourcePath);
+                    mapping  = [];
+                    if isfield(pl, 'mapping') && ~isempty(pl.mapping)
+                        mapping = pl.mapping;
+                    end
+                    interval = 5;
+                    if isfield(pl, 'interval') && ~isempty(pl.interval)
+                        interval = double(pl.interval);
+                    end
+                    startTail = true;
+                    if isfield(pl, 'startTail') && ~isempty(pl.startTail)
+                        startTail = logical(pl.startTail);
+                    end
+                    % Pre-flight: if file is missing, surface the warning
+                    % BEFORE attachPlantLog so callers see the warn even
+                    % when the autoDetect path is bypassed (i.e. caller
+                    % supplied a mapping).
+                    if exist(sourcePath, 'file') ~= 2
+                        warning('DashboardEngine:plantLogPathMissing', ...
+                            ['Saved plant-log path %s no longer exists; ' ...
+                             'dashboard loaded without overlay. Re-attach via ' ...
+                             'DashboardEngine.attachPlantLog or the FastSenseCompanion toolbar.'], ...
+                            sourcePath);
+                    else
+                        attachArgs = {};
+                        if isstruct(mapping)
+                            attachArgs{end+1} = 'Mapping';      %#ok<AGROW>
+                            attachArgs{end+1} = mapping;        %#ok<AGROW>
+                        end
+                        attachArgs{end+1} = 'Interval';      %#ok<AGROW>
+                        attachArgs{end+1} = interval;        %#ok<AGROW>
+                        attachArgs{end+1} = 'StartTail';     %#ok<AGROW>
+                        attachArgs{end+1} = startTail;       %#ok<AGROW>
+                        attachArgs{end+1} = 'ContinueOnReadError'; %#ok<AGROW>
+                        attachArgs{end+1} = true;            %#ok<AGROW>
+                        try
+                            obj.attachPlantLog(sourcePath, attachArgs{:});
+                        catch attachErr
+                            warning('DashboardEngine:plantLogReadFailed', ...
+                                ['Saved plant-log re-import failed: %s; ' ...
+                                 'dashboard loaded without overlay.'], ...
+                                attachErr.message);
                         end
                     end
                 end
