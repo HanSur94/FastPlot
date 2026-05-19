@@ -83,17 +83,12 @@ classdef FastSenseWidget < DashboardWidget
     end
 
     % Phase 1032 — XLim listener slot. Public READ (tests + engine
-    % observe), restricted WRITE so only DashboardEngine (via
-    % attachPlantLogXLimListener_) and FastSenseWidget itself (in
-    % setShowPlantLog + delete) can mutate the handle. matlab.unittest.TestCase
-    % is included so class-based suite tests can verify lifecycle by
-    % direct assignment; function-style tests observe via read-only access.
-    % SetAccess limited to engine + widget itself. Tests that need to
-    % poke this directly route through Hidden setters (mirrors the
-    % Octave-safe idiom used in FastSenseDataStore — Octave has no
-    % matlab.unittest, so {?matlab.unittest.TestCase} breaks classdef
-    % parsing entirely).
-    properties (SetAccess = {?DashboardEngine, ?FastSenseWidget})
+    % observe); WRITE via the Hidden setPlantLogXLimListenerForEngine_
+    % setter just below. Plain SetAccess = private avoids the
+    % friend-access classdef syntax that Octave's parser is fussy with
+    % (mirrors the FastSenseDataStore Octave-safe idiom — Hidden over
+    % {?ClassName}).
+    properties (SetAccess = private)
         PlantLogXLimListener_ = [] % Phase 1032 — addlistener handle for XLim PostSet refresh; non-empty when ShowPlantLog=true and widget is rendered
     end
 
@@ -469,6 +464,15 @@ classdef FastSenseWidget < DashboardWidget
                 warning('FastSenseWidget:plantLogToggleFailed', ...
                     'setPlantLogMarkers failed: %s', ME.message);
             end
+        end
+
+        % Hidden — DashboardEngine writes PlantLogXLimListener_ via this
+        % seam since the property is SetAccess=private. Hidden methods
+        % are callable from anywhere (Octave-safe idiom from
+        % FastSenseDataStore). The listener handle is opaque to the
+        % widget; the engine owns its lifecycle.
+        function setPlantLogXLimListenerForEngine_(obj, lis)
+            obj.PlantLogXLimListener_ = lis;
         end
 
         function setShowPlantLog(obj, tf, engine)

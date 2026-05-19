@@ -2975,7 +2975,7 @@ classdef DashboardEngine < handle
             if isempty(widget) || ~isa(widget, 'FastSenseWidget'), return; end
             if ~isempty(widget.PlantLogXLimListener_)
                 try delete(widget.PlantLogXLimListener_); catch, end
-                widget.PlantLogXLimListener_ = [];
+                widget.setPlantLogXLimListenerForEngine_([]);
             end
             if isempty(widget.FastSenseObj) || ~widget.FastSenseObj.IsRendered
                 return;
@@ -2991,8 +2991,9 @@ classdef DashboardEngine < handle
                 return;
             end
             try
-                widget.PlantLogXLimListener_ = addlistener(ax, 'XLim', 'PostSet', ...
+                lis = addlistener(ax, 'XLim', 'PostSet', ...
                     @(~,~) obj.refreshPlantLogOverlayForWidget_(widget));
+                widget.setPlantLogXLimListenerForEngine_(lis);
             catch err
                 warning('DashboardEngine:plantLogOverlayFailed', ...
                     'attachPlantLogXLimListener_ failed: %s', err.message);
