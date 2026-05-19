@@ -1,28 +1,42 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: FastSense Companion
-status: shipped
-last_updated: "2026-05-12T09:20:00.000Z"
-last_activity: 2026-05-19 - Shipped quick task 260519-bs4 as PR #149: Tag Status Table window in FastSenseCompanion (12-col uitable, window-owned 1s polling, Activity column with 5-min inactive threshold, Type/Criticality/Activity chip filters, Pause/Resume polling toggle, Events count column). Verified on live industrial-plant demo. Filed backlog 999.1 for unified in-app help/wiki system. https://github.com/HanSur94/FastSense/pull/149
+milestone: v4.0
+milestone_name: Multi-User LAN Concurrency
+status: shipping
+stopped_at: PR #152 ready for merge (16/17 CI green; 7 inherited Octave failures from main, none touch v4.0 code)
+last_updated: "2026-05-19T00:00:00.000Z"
+last_activity: 2026-05-19 -- v4.0 milestone shipping. Merged main #149 (Tag Status Table — PR #149) into branch before final merge. PR #152 ready: 16/17 CI jobs green, including new 3-OS concurrency-smoke matrix (Linux + macOS-14 + Windows) gated by path filter. 9 HUMAN-UAT items remain operator-side (Linux + real SMB + ≥50 MATLAB licenses).
 progress:
-  total_phases: 6
-  completed_phases: 2
-  total_plans: 13
-  completed_plans: 13
+  total_phases: 11
+  completed_phases: 5
+  total_plans: 20
+  completed_plans: 24
 ---
 
 # State
 
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-05-13)
+
+**Core value:** A MATLAB engineer can ingest a million-sample sensor stream, monitor thresholds, build sub-second-responsive dashboards, and navigate it all from a single Companion app — without leaving MATLAB and without external toolboxes.
+**Current focus:** Phase 1029 — Concurrency Foundation
+
 ## Current Position
 
-Phase: 1028
+Phase: 1033
 Plan: Not started
-Milestone: v3.0 FastSense Companion — SHIPPED 2026-04-30
-Status: Awaiting next milestone (run `/gsd:new-milestone` to scope v3.x or v4.0)
-Last activity: 2026-05-19 - Shipped quick task 260519-bs4 as PR #149 (commits b2ed937, e8a1be5, 43d2d3b, 2a24965, 50d464c, 10df740, 73a3bf1). FastSenseCompanion: Tag Status Table window — 12-col uitable, window-owned 1s polling (works regardless of companion.IsLive), Activity column with 5-min inactive threshold, Type/Criticality/Activity chip filters, broadened search (Key+Name+Units+Labels), Pause/Resume polling toggle, Events count column, "Last refreshed" header heartbeat. PR conflicted with main #143 (Tile+Close all) on the inner toolbar grid; resolved by combining to 1×7 grid (Events|Live|Tags|Tile|Close all|spacer|gear). Verified end-to-end (104/104 tests post-merge + live industrial-plant demo). Backlog 999.1 filed for unified in-app help/wiki system (deferred from a user-requested info button — escalated to milestone scope).
+Milestone: v4.0 Multi-User LAN Concurrency
+Status: Ready to ship — PR #152 marked ready for review (was draft).
+Last activity: 2026-05-19 — Merged main #149 (Tag Status Table window) into branch ahead of final merge. Combined private-property declarations from both branches (cluster-mode state + TagStatusTableWindow handle). v4.0 PR #152 ready: 16/17 CI jobs green.
 
-Previous activity: 2026-05-14 - Quick task 260513-s0y shipped as PR #143. FastSenseCompanion: Tile + Close all toolbar buttons. https://github.com/HanSur94/FastSense/pull/143
+### Note on integrated work from main during v4.0 dev
+
+Three main PRs touched files v4.0 also modified — all auto/manually merged without functional conflict:
+- PR #143 (260513-s0y) — Tile + Close all toolbar buttons. Tracking fixes (syncOpenedFigures_ Engines_ walk, public trackOpenedFigure hook, de-maximize + Units=pixels coercion) live alongside v4.0 cluster-mode wiring.
+- PR #149 (260519-bs4) — Tag Status Table window. TagStatusTableWindow handle + Tags toolbar button live alongside v4.0 cluster-mode + pipeline-observer state.
+
+Other main PRs (#138, #139, #141, #144, #145, #146) auto-merged without conflict during the earlier sync.
 
 ### Quick Tasks Completed
 
@@ -85,10 +99,12 @@ Phase 1019 [██████████] 100% (3/3 plans complete in Phase 10
 - 2026-04-29 — Milestone v3.0 FastSense Companion started (programmatic MATLAB uifigure companion app; design brainstormed prior; v2.1 Tag-API Tech Debt Cleanup carried forward in parallel)
 - 2026-04-29 — v3.0 roadmap created: 5 phases (1018-1022) covering 28 REQ-IDs across COMPSHELL, CATALOG, BROWSER, INSPECT, ADHOC categories
 - 2026-04-29 — v3.0 phase 1023 added (Industrial Plant Demo Integration): wraps `demo/industrial_plant/run_demo.m` in `FastSenseCompanion`; 4 new COMPDEMO REQ-IDs; total now 6 phases / 32 REQ-IDs
+- 2026-05-13 — Milestone v4.0 Multi-User LAN Concurrency started; PROJECT.md updated, REQUIREMENTS.md created (14 P1 REQ-IDs across CONC/IDENT/EVTLOG/ACK/OPS categories; 6 P2 deferred to v4.1); research/ phase produced SUMMARY/STACK/FEATURES/ARCHITECTURE/PITFALLS markdown
+- 2026-05-13 — v4.0 roadmap created: 5 phases (1029-1033) covering all 14 P1 REQ-IDs, full coverage no orphans; phase structure mirrors research-recommended build order (Foundation → TagWriteCoordinator → EventLog → Single-Source Events → Companion Integration); three PITFALLS corrections (OFD locks, mtime heartbeat, lock-serialised appends) baked into Phase 1029 success criteria
 
 ### Phase Numbering Note
 
-v2.1 phases in the phases/ directory extend to 1017 (1012, 1013, 1014, 1017). v3.0 phases start at 1018 to avoid collision.
+v2.1 phases in the phases/ directory extend to 1017 (1012, 1013, 1014, 1017). v3.0 phases extended to 1023.1. Pending unscoped phases 1025-1028 are carry-forward from a backlog promotion (NOT v4.0). v4.0 phases start at **1029** to leave room for the pending carry-forward and avoid collision.
 
 ### Brainstorm Outcomes (v3.0)
 
@@ -134,6 +150,9 @@ These apply to every phase and are reflected in phase success criteria rather th
 - **Phase 1020 planning:** Read `libs/Dashboard/DashboardPage.m` and `libs/Dashboard/GroupWidget.m` to confirm `Widgets` and `Children` GetAccess. Determines whether `DashboardEngine.getWidgets()` wrapper is required or if `d.Widgets`/`d.Pages{i}.Widgets` suffices.
 - **Phase 1021 planning:** Run 20-line scratch test of `SensorDetailPlot(tag, 'Parent', uipanelHandle)` to verify resize behavior under embedded panel parenting.
 - **Phase 1022 planning:** Write standalone 50-line `FastSenseGrid` + `timer` + `CloseRequestFcn` prototype before full implementation; verify zero orphan timers in `timerfindall` after close.
+- **Phase 1029 planning (v4.0):** `lockfile_mex.c` OFD-vs-`F_SETLK` branching; Win32 `LockFileEx` flag combinations; `F_OFD_SETLK` re-acquire behaviour from same process (LOW confidence per SUMMARY.md); empirical `staleTimeout` calibration on target office LAN; mksqlite `extended_result_codes` pass-through probe (feeds Phase 1032's retry wrapper).
+- **Phase 1031 planning (v4.0):** SMB atomicity stress test on the target file server (Pitfalls 4 + 5 + 12); phase budget includes contingency to re-architect to per-writer-file + merge if SMB atomicity fails.
+- **Phase 1032 planning (v4.0):** SQLite `BUSY_SNAPSHOT` retry semantics under 50-writer contention; retry-loop tuning needs 20-process write-contention test.
 
 ### Decisions (Phase 1020)
 
@@ -143,4 +162,5 @@ These apply to every phase and are reflected in phase success criteria rather th
 
 ### Carry-Forward
 
-- **v2.1 Tag-API Tech Debt Cleanup** — in flight, parallel to v3.0. Phases 1012-1017. Does not block v3.0 work.
+- **v2.1 Tag-API Tech Debt Cleanup** — in flight, parallel to v3.0/v4.0. Phases 1012-1017. Does not block v4.0 work.
+- **Pending unscoped phases 1025-1028** — promoted from backlog 2026-05-08; NOT v4.0 scope. 1025 + 1026 largely addressed via quick tasks 260508-d8y / 260508-das. 1027/1027.1 complete. 1028 (Tag update perf — MEX + SIMD) remains on the books, may be re-scoped later.

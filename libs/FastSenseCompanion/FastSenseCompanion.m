@@ -11,12 +11,15 @@ classdef FastSenseCompanion < handle
 %   No separate render() call is required.
 %
 %   Constructor name-value options:
-%     Dashboards — cell array of DashboardEngine (default: {})
-%     Registry   — TagRegistry instance (default: TagRegistry singleton)
-%     Name       — window title string (default: 'FastSense Companion')
-%     Theme      — 'dark' | 'light' (default: 'dark')
-%     LivePeriod — seconds between live refreshes (default: 1.0)
-%     EventStore — EventStore handle or [] (default: auto-discover from registry)
+%     Dashboards        — cell array of DashboardEngine (default: {})
+%     Registry          — TagRegistry instance (default: TagRegistry singleton)
+%     Name              — window title string (default: 'FastSense Companion')
+%     Theme             — 'dark' | 'light' (default: 'dark')
+%     LivePeriod        — seconds between live refreshes (default: 1.0)
+%     EventStore        — EventStore handle or [] (default: auto-discover from registry)
+%     SharedRoot        — (cluster mode) path to shared filesystem root; default '' (single-user).
+%     LiveTagPipelines  — (cluster mode) cell array of LiveTagPipeline handles to observe (default: {})
+%     LiveEventPipelines — (cluster mode) cell array of LiveEventPipeline handles to observe (default: {})
 %
 %   Public methods:
 %     setProject(dashboards, registry) — rebuild against new project
@@ -44,12 +47,18 @@ classdef FastSenseCompanion < handle
     end
 
     properties (SetAccess = private)
-        Dashboards = {}       % cell array of DashboardEngine passed by user
-        Registry   = []       % TagRegistry reference
-        Theme      = 'dark'   % preset string ('dark' | 'light')
-        LivePeriod = 1.0      % seconds; user-readable mirror of LivePeriod_
-        IsOpen     = false    % true while uifigure is valid
-        IsLive     = false    % true while LiveTimer_ is running (refreshes inspector)
+        Dashboards             = {}       % cell array of DashboardEngine passed by user
+        Registry               = []       % TagRegistry reference
+        Theme                  = 'dark'   % preset string ('dark' | 'light')
+        LivePeriod             = 1.0      % seconds; user-readable mirror of LivePeriod_
+        IsOpen                 = false    % true while uifigure is valid
+        IsLive                 = false    % true while LiveTimer_ is running (refreshes inspector)
+        SharedRoot             = ''       % cluster shared filesystem root ('' in single-user mode)
+        IsClusterMode          = false    % logical; true iff SharedRoot is non-empty
+        % Phase 1033 Plan 04 — cluster health public surface
+        IsShareReachable       = true     % logical; false when share-loss detected (OPS-01)
+        LastShareError         = []       % struct or [] (populated on first share-loss detection)
+        LastContentionNoticeText = ''     % char; most recent contention or share-loss banner text
     end
 
     properties (GetAccess = public, SetAccess = ?CompanionSettingsDialog)
@@ -91,10 +100,18 @@ classdef FastSenseCompanion < handle
         OriginalLogRowHeight_ = 360    % captured at construction; restored when at least one pane is Inline
         EventStore_  = []   % EventStore handle resolved via constructor option or auto-discovery
         EventViewer_ = []   % CompanionEventViewer handle (single-instance) or [] (Task 13 wires it)
-        % Quick task 260519-bs4 -- Tag Status table window.
+        % Phase 1033 Plan 01 — cluster mode internal state
+        SharedRoot_               = ''    % internal mirror of public SharedRoot
+        IsClusterMode_            = false % internal cluster-mode gate
+        LastContentionNoticeText_ = ''    % most recent contention notice (Plan 04 surfaces in UI)
+        % Phase 1033 Plan 04 — pipeline observer state
+        LiveTagPipelines_         = {}    % cell of LiveTagPipeline handles observed via onLiveTick_
+        LiveEventPipelines_       = {}    % cell of LiveEventPipeline handles observed via onLiveTick_
+        LastShareStatus_          = 'ok'  % 'ok' | 'unreachable'; tracks share-loss transitions
+        % Quick task 260519-bs4 (merged from main #149) — Tag Status table window.
         TagStatusTableWindow_ = []   % TagStatusTableWindow handle (or [])
         hTagStatusBtn_        = []   % toolbar 'Tags' button (cached for theme reapply)
-        % S0Y-01/02 -- companion-opened figure tracking.
+        % S0Y-01/02 (merged from main #143) — companion-opened figure tracking.
         OpenedFigures_ = []  % column vector of figure handles the companion opened
                              % (dashboards via onOpenDashboardRequested_,
                              %  ad-hoc plots via onOpenAdHocPlotRequested_).
@@ -120,8 +137,11 @@ classdef FastSenseCompanion < handle
             userRegistry   = [];
             userName       = 'FastSense Companion';
             userTheme      = 'dark';
-            userLivePeriod = 1.0;
-            userEventStore = [];
+            userLivePeriod         = 1.0;
+            userEventStore         = [];
+            userSharedRoot         = '';
+            userLiveTagPipelines   = {};
+            userLiveEventPipelines = {};
 
             % Step 2b — Override with stored prefdir values (if present and well-formed).
             % Priority: built-in default < prefdir < explicit Name-Value (Step 3).
@@ -169,10 +189,38 @@ classdef FastSenseCompanion < handle
                                 'EventStore must be an EventStore handle or [] (got %s).', class(v));
                         end
                         userEventStore = v;
+                    case 'SharedRoot'
+                        v = varargin{k+1};
+                        if ~isempty(v) && ~(ischar(v) || (isstring(v) && isscalar(v)))
+                            error('FastSenseCompanion:invalidSharedRoot', ...
+                                'SharedRoot must be a non-empty char/string or empty (got %s).', class(v));
+                        end
+                        userSharedRoot = char(v);
+                    case 'LiveTagPipelines'
+                        v = varargin{k+1};
+                        if ~iscell(v); v = {v}; end
+                        for ii = 1:numel(v)
+                            if ~isa(v{ii}, 'LiveTagPipeline')
+                                error('FastSenseCompanion:invalidLiveTagPipeline', ...
+                                    'LiveTagPipelines{%d} must be a LiveTagPipeline handle.', ii);
+                            end
+                        end
+                        userLiveTagPipelines = v;
+                    case 'LiveEventPipelines'
+                        v = varargin{k+1};
+                        if ~iscell(v); v = {v}; end
+                        for ii = 1:numel(v)
+                            if ~isa(v{ii}, 'LiveEventPipeline')
+                                error('FastSenseCompanion:invalidLiveEventPipeline', ...
+                                    'LiveEventPipelines{%d} must be a LiveEventPipeline handle.', ii);
+                            end
+                        end
+                        userLiveEventPipelines = v;
                     otherwise
                         error('FastSenseCompanion:unknownOption', ...
                             ['Unknown option ''%s''. Valid options: ', ...
-                             'Dashboards, Registry, Name, Theme, LivePeriod, EventStore.'], key);
+                             'Dashboards, Registry, Name, Theme, LivePeriod, EventStore, SharedRoot, ', ...
+                             'LiveTagPipelines, LiveEventPipelines.'], key);
                 end
             end
 
@@ -202,13 +250,37 @@ classdef FastSenseCompanion < handle
             obj.LivePeriod_ = userLivePeriod;
             obj.LivePeriod  = userLivePeriod;
 
-            % Step 6b — Resolve EventStore: explicit override wins; otherwise
-            % auto-discover from the first MonitorTag with a non-empty EventStore.
-            if ~isempty(userEventStore)
-                obj.EventStore_ = userEventStore;
-            else
-                obj.EventStore_ = companionDiscoverEventStore();
+            % --- Cluster mode resolution (Phase 1033 Plan 01; OPS-01 partial) ---
+            obj.SharedRoot_     = userSharedRoot;
+            obj.SharedRoot      = userSharedRoot;
+            obj.IsClusterMode_  = ~isempty(userSharedRoot);
+            obj.IsClusterMode   = obj.IsClusterMode_;
+            if obj.IsClusterMode_
+                % Validate the shared root via ClusterConfig — throws
+                % Concurrency:sharedRootUnreachable on a non-existent folder.
+                ClusterConfig.resolve(struct('SharedRoot', userSharedRoot));
+                % IDENT-01 fail-fast guard — throws Concurrency:identityResolutionFailed
+                % when the OS cannot resolve a usable username/hostname (mirrors
+                % EventStore cluster-mode init and LiveTagPipeline pattern).
+                ClusterIdentity.resolve('Strict', true);
+                % Best-effort oplock smoke test — never throws; one-time warning
+                % via warning('Concurrency:smbOplockDetected', ...) on mismatch.
+                try
+                    ClusterConfig.checkSharedConfig(userSharedRoot);
+                catch
+                    % checkSharedConfig is documented to be best-effort and never
+                    % throw, but guard anyway so a stray error from a future
+                    % refactor cannot prevent the companion from opening.
+                end
             end
+
+            % Step 6b — Resolve EventStore: explicit override wins; otherwise
+            % auto-discover from the registry, with cluster-mode upgrade when SharedRoot is set.
+            obj.EventStore_ = companionDiscoverEventStore(obj.SharedRoot_, userEventStore);
+
+            % Phase 1033 Plan 04 — store observed pipeline handles
+            obj.LiveTagPipelines_   = userLiveTagPipelines;
+            obj.LiveEventPipelines_ = userLiveEventPipelines;
 
             % Step 7 — Build uifigure (Visible='off' while building)
             obj.hFig_ = uifigure( ...
@@ -995,6 +1067,23 @@ classdef FastSenseCompanion < handle
             s = obj.EventStore_;
         end
 
+        function r = getSharedRoot(obj)
+        %GETSHAREDROOT Return the resolved SharedRoot (or '' if single-user).
+            r = obj.SharedRoot_;
+        end
+
+        function tf = getIsClusterMode(obj)
+        %GETISCLUSTERMODE Return the cluster-mode gate.
+            tf = obj.IsClusterMode_;
+        end
+
+        function s = getLastContentionNoticeText(obj)
+        %GETLASTCONTENTIONNOTICETEXT Return the cluster contention banner text
+        %   (or '' when no contention has been observed since startup).
+        %   Plan 04 wires the live polling that populates this property.
+            s = obj.LastContentionNoticeText_;
+        end
+
         function openEventViewer(obj)
         %OPENEVENTVIEWER Public alias for the toolbar callback (used by tests / scripting).
             obj.openEventViewer_();
@@ -1489,6 +1578,8 @@ classdef FastSenseCompanion < handle
         %   (updates Data/XData/YData on existing widgets) to avoid layout
         %   teardown/rebuild flicker. The catalog and dashboard list are
         %   intentionally NOT refreshed (they would lose selection/scroll).
+        %   Phase 1033 Plan 04: also polls cluster contention + share status
+        %   when in cluster mode (all new code runs AFTER the existing body).
             if ~obj.IsLive || isempty(obj.hFig_) || ~isvalid(obj.hFig_); return; end
             try
                 if ~isempty(obj.InspectorPane_) && isvalid(obj.InspectorPane_) && ...
@@ -1498,6 +1589,11 @@ classdef FastSenseCompanion < handle
                 obj.scanLiveTagUpdates_();
                 if ~isempty(obj.EventsLogPane_) && isvalid(obj.EventsLogPane_)
                     obj.EventsLogPane_.setLastUpdated(datetime('now'));
+                end
+                % Phase 1033 Plan 04 — cluster surfacing (dormant in single-user mode)
+                if obj.IsClusterMode_
+                    obj.pollClusterContention_();
+                    obj.pollShareStatus_();
                 end
             catch
                 % Live ticks must never crash the timer.
@@ -1792,6 +1888,119 @@ classdef FastSenseCompanion < handle
                         sprintf('Failed to open plot: %s', ME.message), ...
                         'FastSense Companion', 'Icon', 'error');
                 end
+            end
+        end
+
+        function pollClusterContention_(obj)
+        %POLLCLUSTERCONTENTION_ Walk LiveTagPipelines_ + LiveEventPipelines_; surface contention.
+        %   Reads LastLockContentionEvent (Phase 1030-02 / 1032-02 surface) from each observed
+        %   pipeline. Populates obj.LastContentionNoticeText_ with the most recent contention
+        %   event observed across all pipelines (age < 30 s). Best-effort — invalid pipeline
+        %   handles are silently skipped. Does not clear the banner (share-status handler does
+        %   that on share return).
+            contentionText = '';
+            contentionAge  = inf;
+            % Scan LiveTagPipeline handles.
+            for k = 1:numel(obj.LiveTagPipelines_)
+                try
+                    p = obj.LiveTagPipelines_{k};
+                    if ~isobject(p) || ~isvalid(p); continue; end
+                    ev = p.LastLockContentionEvent;
+                    if isempty(ev) || ~isstruct(ev) || ~isfield(ev, 'timestamp'); continue; end
+                    age = (now - ev.timestamp) * 86400;  % datenum -> seconds
+                    if age >= 0 && age < 30 && age < contentionAge
+                        holder    = ev.holder;
+                        userPart  = '';
+                        hostPart  = '';
+                        if isfield(holder, 'user'); userPart = char(holder.user); end
+                        if isfield(holder, 'host'); hostPart = char(holder.host); end
+                        contentionText = sprintf('Tag %s is being updated by %s@%s (%.0fs ago)', ...
+                            char(ev.tagKey), userPart, hostPart, age);
+                        contentionAge  = age;
+                    end
+                catch
+                    % skip silently — observer errors must not crash the live timer
+                end
+            end
+            % Scan LiveEventPipeline handles (same logic; produces "Monitor ..." prefix).
+            for k = 1:numel(obj.LiveEventPipelines_)
+                try
+                    p = obj.LiveEventPipelines_{k};
+                    if ~isobject(p) || ~isvalid(p); continue; end
+                    ev = p.LastLockContentionEvent;
+                    if isempty(ev) || ~isstruct(ev) || ~isfield(ev, 'timestamp'); continue; end
+                    age = (now - ev.timestamp) * 86400;
+                    if age >= 0 && age < 30 && age < contentionAge
+                        holder    = ev.holder;
+                        userPart  = '';
+                        hostPart  = '';
+                        if isfield(holder, 'user'); userPart = char(holder.user); end
+                        if isfield(holder, 'host'); hostPart = char(holder.host); end
+                        contentionText = sprintf('Monitor %s is being updated by %s@%s (%.0fs ago)', ...
+                            char(ev.tagKey), userPart, hostPart, age);
+                        contentionAge  = age;
+                    end
+                catch
+                    % skip silently
+                end
+            end
+            % Update the surfaced banner only when contention was observed this tick.
+            if ~isempty(contentionText)
+                obj.LastContentionNoticeText_ = contentionText;
+                obj.LastContentionNoticeText  = contentionText;
+                if ~isempty(obj.LiveLogPane_) && isvalid(obj.LiveLogPane_)
+                    try
+                        obj.LiveLogPane_.addLiveLogEntry('cluster', -1, contentionText);
+                    catch
+                    end
+                end
+            end
+        end
+
+        function pollShareStatus_(obj)
+        %POLLSHARESTATUS_ Probe SharedRoot_ reachability; update share-status surfaces.
+        %   On loss: sets IsShareReachable=false, populates LastShareError + banner text.
+        %   On recovery: sets IsShareReachable=true, clears banner, logs "resuming" message.
+        %   A single dir() probe per tick; exception = unreachable (OPS-01).
+            if ~obj.IsClusterMode_; return; end
+            lossErr = [];
+            try
+                info = dir(obj.SharedRoot_);
+                shareOk = ~isempty(info);
+            catch ME
+                shareOk = false;
+                lossErr = struct('message', ME.message, 'identifier', ME.identifier, ...
+                    'timestamp', now);
+            end
+
+            if shareOk
+                if strcmp(obj.LastShareStatus_, 'unreachable')
+                    % Transition: unreachable -> ok
+                    obj.LastShareStatus_          = 'ok';
+                    obj.IsShareReachable          = true;
+                    obj.LastContentionNoticeText_ = '';
+                    obj.LastContentionNoticeText  = '';
+                    msg = sprintf('Share back online; resuming live mode (%s)', obj.SharedRoot_);
+                    if ~isempty(obj.EventsLogPane_) && isvalid(obj.EventsLogPane_)
+                        try; obj.EventsLogPane_.addEntry('info', msg); catch; end
+                    end
+                end
+            else
+                % Transition: ok -> unreachable (or already unreachable — update banner each tick)
+                if strcmp(obj.LastShareStatus_, 'ok')
+                    obj.LastShareStatus_ = 'unreachable';
+                    if ~isempty(lossErr)
+                        obj.LastShareError = lossErr;
+                    else
+                        obj.LastShareError = struct('message', 'Share directory empty/unreadable', ...
+                            'identifier', 'FastSenseCompanion:shareUnreachable', ...
+                            'timestamp', now);
+                    end
+                end
+                obj.IsShareReachable          = false;
+                obj.LastContentionNoticeText_ = sprintf( ...
+                    'Share unreachable — read-only mode (%s)', obj.SharedRoot_);
+                obj.LastContentionNoticeText  = obj.LastContentionNoticeText_;
             end
         end
 
