@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Plant Log Integration
-status: executing
-stopped_at: Completed 1032-02-toggle-button-and-hover-PLAN.md (Phase 1032 Plan 02 of 3)
-last_updated: "2026-05-19T09:01:25.817Z"
+status: verifying
+stopped_at: Completed 1032-03-detached-mirror-and-smoke-PLAN.md (Phase 1032 closed)
+last_updated: "2026-05-19T09:32:32.747Z"
 last_activity: 2026-05-19
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # State
@@ -26,11 +26,11 @@ toolbox dependencies.
 
 ## Current Position
 
-Phase: 1032 (Per-Widget Plant Log Overlay) — EXECUTING
-Plan: 3 of 3 (Plan 01 + Plan 02 complete; Plan 03 next — detached-mirror parity + smoke)
+Phase: 1032 (Per-Widget Plant Log Overlay) — EXECUTION COMPLETE
+Plan: 3 of 3 — all plans shipped; ready for `/gsd:verify-phase 1032`
 Milestone: v3.1 Plant Log Integration
-Status: Ready to execute Plan 03 (detached-mirror + smoke)
-Last activity: 2026-05-19 — Completed Phase 1032 Plan 02 (toggle button + hover tooltip)
+Status: Phase complete — ready for verification
+Last activity: 2026-05-19 — Phase 1032 closed (all 3 plans + 4 PLOG-VIZ-* requirements complete)
 
 ## Progress Bar
 
@@ -39,11 +39,11 @@ v3.1 Plant Log Integration:
 - [x] Phase 1029: Plant Log Storage Foundation — 3/3 plans
 - [x] Phase 1030: CSV/XLSX Import + Mapping Dialog — 3/3 plans
 - [x] Phase 1031: Live Tail + Slider Preview Overlay — 3/3 plans
-- [ ] Phase 1032: Per-Widget Plant Log Overlay — 2/3 plans
+- [x] Phase 1032: Per-Widget Plant Log Overlay — 3/3 plans
 - [ ] Phase 1033: Dashboard + Companion Integration & Serialization — 0/? plans
 
-Phases complete: 3/5
-Plans complete: 11/12 (92%) — Phase 1032 Plan 02 shipped 2026-05-19
+Phases complete: 4/5
+Plans complete: 12/12 (100% of planned phases) — Phase 1032 closed 2026-05-19
 
 ## Accumulated Context
 
@@ -155,14 +155,11 @@ separate REQ-IDs:
 
 ## Session Continuity
 
-- **Resume point:** Phase 1032 Plan 02 (toggle button + hover tooltip) is
-  **shipped** (2026-05-19). Next step: execute Phase 1032 Plan 03 (detached
-  mirror parity + smoke), which exercises the toggle UI + hover lifecycle
-  end-to-end including `DetachedMirror` clone parity (decision G) and the
-  full live-tail tick fan-out. Plan 03 consumes the surface delivered here:
-  `DashboardLayout.addPlantLogToggle` / `EngineRef`, three-button
-  `reflowChrome_`, `PlantLogWidgetHover`, and the engine
-  `attachPlantLogWidgetHover_` / `detachPlantLogWidgetHover_` lifecycle.
+- **Resume point:** Phase 1032 Plan 03 (detached mirror parity + smoke) is
+  **shipped** (2026-05-19). Phase 1032 is **closed** — all 3 plans complete,
+  all 4 PLOG-VIZ-* requirements (03/04/05/07) integration-proven end-to-end.
+  Next step: run `/gsd:verify-phase 1032` to validate the phase exit,
+  then begin Phase 1033 (Dashboard + Companion Integration & Serialization).
 
 - **Order of phases:** 1029 ✅ → 1030 ✅ → 1031 → 1032 → 1033 (each phase depends on
   prior phases; no parallel execution paths).
@@ -174,30 +171,47 @@ separate REQ-IDs:
   (Phase 1030 Plan 02); PLOG-IM-01 + 02 + 06 + 08 have additional
   integration-level proof (Phase 1030 Plan 03 — openInteractive +
   integration smoke). All PLOG-IM-* (8/32) integration-proven at runtime.
-  PLOG-VIZ-03 + PLOG-VIZ-04 unit-proven (Phase 1032 Plan 01); PLOG-VIZ-05 +
-  PLOG-VIZ-07 unit-proven (Phase 1032 Plan 02).
-  14 requirements remaining across Phases 1031 closure + 1032 Plan 03 +
-  Phase 1033.
+  PLOG-VIZ-03 + PLOG-VIZ-04 + PLOG-VIZ-05 + PLOG-VIZ-07 (4/32) unit-proven
+  in Phase 1032 Plans 01 + 02 AND integration-proven end-to-end in
+  Phase 1032 Plan 03 (tests/test_phase_1032_integration_smoke.m +
+  TestPhase1032IntegrationSmoke.m — 17 tests covering toggle → overlay →
+  hover → live-tail fan-out → detach parity → cleanup).
+  Remaining requirements (Phase 1033): PLOG-VIZ-01 + 02 + 06 + 08 + 09 +
+  PLOG-INT-* etc. — see ROADMAP.md.
 
-- **Stopped at:** Completed 1032-02-toggle-button-and-hover-PLAN.md (Phase 1032 Plan 02 of 3)
-  (Phase 1030 closed; ready for /gsd:verify-phase 1030).
-  `PlantLogReader.openInteractive(filePath, varargin)` ships as the third
-  static method, wiring `readtablePortable` → `autoDetect` →
-  `PlantLogImportDialog` → `readFile` into the v3.1 public entry point.
-  Headless+Mapping mode is the live-tail / serialization-resume contract
-  Phase 1031 + 1033 will both call. Empty-file path in interactive mode
-  surfaces a non-blocking uialert via a transient uifigure with a
-  CloseFcn routed through the named `safeDeleteDialog_` helper (anonymous
-  functions cannot wrap try/catch — CHECKER REVISION applied). The
-  helper is generalized to handle both `PlantLogImportDialog` and raw
-  uigraphics handles. 8/8 function-style + 8/8 class-based PASS on MATLAB
-  (incl. XLSX happy path via writetable round-trip — PLOG-IM-02 runtime
-  proof). Full Phase 1030 surface 32+27 = 59/59 PASS; Phase 1029
-  regression intact (47+44 = 91/91 PASS); checkcode clean on the modified
-  PlantLogReader.m and both new test files. Both smoke files deliberately
-  omit any manual `addpath(libs/PlantLog)` — relies on Phase 1029 Plan
-  03's install.m libs-block edit (regression gate via
-  `which('PlantLogReader')`).
+- **Stopped at:** Completed 1032-03-detached-mirror-and-smoke-PLAN.md
+  (Phase 1032 closed; ready for `/gsd:verify-phase 1032`).
+  `DetachedMirror.restoreLiveRefs` extended to copy `ShowPlantLog` from
+  original to clone (belt-and-suspenders alongside the Plan 01
+  `toStruct`/`fromStruct` round-trip). `DashboardEngine.detachWidget` tail
+  re-invokes `cw.setShowPlantLog(true, obj)` on the mirror's cloned widget
+  so the standalone figure attaches an XLim listener, builds its own
+  `PlantLogWidgetHover`, and draws marker handles (Decision G full
+  parity). `removeDetached` + `removeDetachedByRef` BOTH call
+  `obj.detachPlantLogWidgetHover_` BEFORE the keep-filter applies so a
+  closing mirror cannot leak its hover. End-to-end smoke ships in two
+  files: `tests/test_phase_1032_integration_smoke.m` (8 sub-tests,
+  cross-runtime where possible) and
+  `tests/suite/TestPhase1032IntegrationSmoke.m` (9 Test methods including
+  `testRealTimerRoundTrip` exercising a real `PlantLogLiveTail` with
+  `Interval=0.2s` + `StartImmediately=true`). Smoke fixtures use
+  `SensorTag`-backed FastSenseWidget (matching the existing
+  `TestDashboardDetach.makeFastSenseWidget` pattern) because
+  `DetachedMirror.stripSensorRefs` unconditionally drops the `source`
+  field on the clone. 8/8 function-style + 9/9 class-based PASS on MATLAB
+  R2025b; full Phase 1029-1032 regression intact (143/143 PASS); checkcode
+  clean on `DetachedMirror.m` + both new test files; `DashboardEngine.m`
+  pre-existing 22 warnings unchanged (no NEW Error/Critical-level
+  diagnostics introduced). Auto-fixed during execution: SensorTag-backed
+  test widget (Rule 1 — stripSensorRefs drops inline XData/YData);
+  e.addWidget(w) added to fan-out asserting tests (Rule 1 — fan-out skips
+  widgets not in obj.Widgets); flattenTooltipString_ helper covers 4
+  uicontrol(text) String shapes (Rule 1 — strfind needs flat char);
+  real-timer CSV switched to `yyyy-mm-dd HH:MM:SS` formatted timestamps
+  (Rule 1 — Phase 1030 Plan 01 sanity-gates numeric < 1e5 as
+  non-datenum); checkcode-clean post-pass on both new test files (Rule 2
+  hygiene — ISCL → isscalar, NOCOMMA → multi-line, DATST suppression on
+  the call line).
 
 ## Decisions Log
 
@@ -462,9 +476,68 @@ separate REQ-IDs:
   `engine.detachPlantLogWidgetHover_(obj)` BEFORE the marker clear.
   `char(10)` -> `newline` migration on the tooltip strjoin separator
   (R2024b CHARTEN advisory). 12/12 layout function-style + 12/12 class
+
   + 13/13 hover function-style + 13/13 class on MATLAB; Phase 1029-1031
   + Plan 01 regression intact (126/126 across the v3.1 plant-log suite).
   checkcode reports zero NEW Error- or Critical-level diagnostics on
   any modified or new production file. PLOG-VIZ-05 + PLOG-VIZ-07
   completed. See
   `.planning/phases/1032-per-widget-plant-log-overlay/1032-02-toggle-button-and-hover-SUMMARY.md`.
+
+- **Plan 03 (detached mirror parity + end-to-end smoke, 2026-05-19)** —
+  Closed Phase 1032 by shipping Decision G full parity and an end-to-end
+  integration smoke. `DetachedMirror.restoreLiveRefs` extended with a
+  triple-guarded copy `cloned.ShowPlantLog = original.ShowPlantLog` when
+  both sides are FastSenseWidget (belt-and-suspenders alongside Plan 01's
+  `toStruct`/`fromStruct` round-trip; protects against future
+  serialization regressions silently breaking detach parity).
+  `DashboardEngine.detachWidget` extended with a tail block that
+  re-invokes `cw.setShowPlantLog(true, obj)` on the mirror's cloned
+  widget when `cw.ShowPlantLog == true` — this is a no-op for the
+  property itself but triggers `attachPlantLogXLimListener_` +
+  `refreshPlantLogOverlayForWidget_` + `attachPlantLogWidgetHover_` on
+  the mirror's standalone figure axes (Decision G full parity wire-up).
+  Wrapped in try/catch + namespaced warning
+  `DashboardEngine:plantLogOverlayFailed` so a failure surfaces but does
+  not break the detach. `removeDetached` (explicit prune from tests +
+  onLiveTick stale scan) extended with `obj.detachPlantLogWidgetHover_(m.Widget)`
+  inside the stale-mirror sweep loop, BEFORE the keep-filter applies.
+  `removeDetachedByRef` (CloseRequestFcn path) similarly extended with
+  `obj.detachPlantLogWidgetHover_(target.Widget)` guarded by `isa(target,
+  'DetachedMirror') && isa(target.Widget, 'FastSenseWidget')`, also
+  BEFORE the keep-filter. The detach helper is idempotent so double-sweep
+  is safe. End-to-end smoke ships in two files:
+  `tests/test_phase_1032_integration_smoke.m` (8 sub-tests, cross-runtime
+  for path-pickup + serialize, MATLAB-only with clean Octave SKIP for
+  toggle / hover / fan-out / detach / cleanup) and
+  `tests/suite/TestPhase1032IntegrationSmoke.m` (9 Test methods mirroring
+  the function-style + adding `testRealTimerRoundTrip` which uses
+  `PlantLogLiveTail` with `Interval=0.2s` + `StartImmediately=true` +
+  `pause(0.6)` to drive the real timer + listener + fan-out chain
+  end-to-end with a CSV containing parseable `yyyy-mm-dd HH:MM:SS`
+  datenum timestamps). Both files deliberately omit any manual
+  `addpath(libs/PlantLog)` — install.m libs-block is the regression
+  gate (sub-test 1 / testPathPickup covers it). Smoke fixtures use
+  `SensorTag`-backed FastSenseWidget (matching
+  `TestDashboardDetach.makeFastSenseWidget`) because
+  `DetachedMirror.stripSensorRefs` unconditionally drops the `source`
+  field on the clone — `restoreLiveRefs`'s `cloned.Sensor =
+  original.Sensor` copy is the live-data restoration path. Auto-fixed
+  during execution: (1) SensorTag fixture replacement (Rule 1); (2)
+  `e.addWidget(w)` added to fan-out-asserting tests (Rule 1 — fan-out
+  walks `obj.Widgets`); (3) `flattenTooltipString_` helper covering 4
+  uicontrol(text) String shapes (Rule 1 — `strfind` needs flat char);
+  (4) real-timer CSV switched to ISO datetime format (Rule 1 —
+  `parseTimestampLadder` rejects numeric < 1e5); (5) checkcode hygiene
+  on both new test files (Rule 2 — ISCL → isscalar, NOCOMMA →
+  multi-line, DATST suppression on call line). 8/8 function-style + 9/9
+  class-based PASS on MATLAB R2025b; full Phase 1029-1032 regression
+  143/143 PASS (TestPlantLogStore 21 + Entry 10 + Reader 10 + LiveTail
+  11 + IntegrationSmoke 7 + SliderHover 12 + SliderOverlay 10 +
+  Phase1031Integration 7 + FastSenseWidgetPlantLog 20 + WidgetHover 13
+  + LayoutToggle 12 + DashboardDetach 10 + Phase1032Integration 9 =
+  143). checkcode clean on `DetachedMirror.m` + both new test files;
+  `DashboardEngine.m` pre-existing warnings unchanged. All 4 PLOG-VIZ-*
+  requirements (03/04/05/07) integration-proven end-to-end. **Phase
+  1032 closed; ready for /gsd:verify-phase 1032.** See
+  `.planning/phases/1032-per-widget-plant-log-overlay/1032-03-detached-mirror-and-smoke-SUMMARY.md`.

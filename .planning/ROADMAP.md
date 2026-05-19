@@ -20,7 +20,7 @@
 - [x] **Phase 1029: Plant Log Storage Foundation** — `PlantLogStore` class with time-range queries and timestamp+row-hash dedup (3/3 plans complete, 2026-05-13)
 - [x] **Phase 1030: CSV/XLSX Import + Mapping Dialog** — File reader with auto-detected timestamp/message columns and a uifigure override dialog (3/3 plans complete, 2026-05-13)
 - [x] **Phase 1031: Live Tail + Slider Preview Overlay** — Periodic re-read timer plus black plant-log lines on the dashboard slider with hover tooltips (3/3 plans complete, 2026-05-14)
-- [ ] **Phase 1032: Per-Widget Plant Log Overlay** — Opt-in `ShowPlantLog` toggle that draws black plant-log lines on FastSenseWidget axes with full-metadata tooltips
+- [x] **Phase 1032: Per-Widget Plant Log Overlay** — Opt-in `ShowPlantLog` toggle that draws black plant-log lines on FastSenseWidget axes with full-metadata tooltips (3/3 plans complete, 2026-05-19)
 - [ ] **Phase 1033: Dashboard + Companion Integration & Serialization** — `attachPlantLog`/`detachPlantLog` API, JSON/.m persistence of source path and mapping, and Companion "Open Plant Log…" toolbar entry
 
 </details>
@@ -131,7 +131,7 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 | 1029. Plant Log Storage Foundation | v3.1 | 3/3 | Complete    | 2026-05-13 |
 | 1030. CSV/XLSX Import + Mapping Dialog | v3.1 | 3/3 | Complete    | 2026-05-13 |
 | 1031. Live Tail + Slider Preview Overlay | v3.1 | 3/3 | Complete   | 2026-05-14 |
-| 1032. Per-Widget Plant Log Overlay | v3.1 | 2/3 | In Progress|  |
+| 1032. Per-Widget Plant Log Overlay | v3.1 | 3/3 | Complete   | 2026-05-19 |
 | 1033. Dashboard + Companion Integration & Serialization | v3.1 | 0/? | Not started | — |
 
 ## Phase Details (v3.1 Plant Log Integration)
@@ -201,10 +201,10 @@ Full details: [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
   3. User can toggle `ShowPlantLog` per widget via an icon button in the widget button bar; the overlay appears or disappears immediately on toggle.
   4. Hovering a plant-log line on a widget pops a small tooltip showing the entry's timestamp, message, and every metadata column value; new live-tail rows appear on every `ShowPlantLog=true` widget without a full re-render (extending the Phase 1031 refresh contract to widget overlays).
   5. The widget-overlay insertion path reuses the existing tag-bound event-marker hook in `FastSenseWidget` (verified against the existing event-marker draw path) and the icon-button callback is wrapped in try/catch with non-blocking `uialert`.
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 - [x] 1032-01-widget-property-and-draw-PLAN.md — `ShowPlantLog` property + `setPlantLogMarkers` on `FastSenseWidget`; engine `refreshPlantLogOverlayForWidget_` + `clearPlantLogOverlaysOnAllWidgets_` + `attachPlantLogXLimListener_` + `onPlantLogTailTick_` fan-out; sub-pixel coalesce; uistack z-order; `toStruct`/`fromStruct` round-trip
 - [x] 1032-02-toggle-button-and-hover-PLAN.md — `DashboardLayout.addPlantLogToggle` + three-button `reflowChrome_` + `clearPanelControls` protected-tag list + `PlantLogWidgetHover` chained-WBM helper with full-metadata tooltip + overlap stacking
-- [ ] 1032-03-detached-mirror-and-smoke-PLAN.md — `DetachedMirror.restoreLiveRefs` copies `ShowPlantLog`; engine `detachWidget` re-wires listener + hover + draw on the mirror; Phase 1032 end-to-end integration smoke
+- [x] 1032-03-detached-mirror-and-smoke-PLAN.md — `DetachedMirror.restoreLiveRefs` copies `ShowPlantLog`; engine `detachWidget` re-wires listener + hover + draw on the mirror; Phase 1032 end-to-end integration smoke (completed 2026-05-19)
 **UI hint**: yes
 
 ### Phase 1033: Dashboard + Companion Integration & Serialization

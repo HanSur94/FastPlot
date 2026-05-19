@@ -41,8 +41,8 @@ Requirements for the v3.1 milestone. Each maps to roadmap phases in
 
 - [x] **PLOG-VIZ-01**: When a `PlantLogStore` is attached to a dashboard, the bottom slider preview track shows a black vertical line for every plant-log entry within the slider's visible time range.
 - [x] **PLOG-VIZ-02**: Slider preview plant-log lines are visually distinct from existing sev1/2/3 colored event markers (black, 1px stroke, full opacity).
-- [ ] **PLOG-VIZ-03**: Every `FastSenseWidget` has a `ShowPlantLog` toggle that defaults to off (`false`).
-- [ ] **PLOG-VIZ-04**: When a widget's `ShowPlantLog` is on and a `PlantLogStore` is attached, the widget axes show a black vertical line at each entry timestamp within the widget's current x-axis range.
+- [x] **PLOG-VIZ-03**: Every `FastSenseWidget` has a `ShowPlantLog` toggle that defaults to off (`false`).
+- [x] **PLOG-VIZ-04**: When a widget's `ShowPlantLog` is on and a `PlantLogStore` is attached, the widget axes show a black vertical line at each entry timestamp within the widget's current x-axis range.
 - [x] **PLOG-VIZ-05**: User can toggle `ShowPlantLog` per widget via an icon button in the widget button bar.
 - [x] **PLOG-VIZ-06**: Hovering a plant-log line on the slider preview pops a small tooltip with the entry's timestamp and message.
 - [x] **PLOG-VIZ-07**: Hovering a plant-log line on a FastSenseWidget pops a small tooltip with the entry's timestamp, message, and every metadata column value.
@@ -115,8 +115,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLOG-LT-05 | 1031 | Complete |
 | PLOG-VIZ-01 | 1031 | Complete |
 | PLOG-VIZ-02 | 1031 | Complete |
-| PLOG-VIZ-03 | 1032 | Pending |
-| PLOG-VIZ-04 | 1032 | Pending |
+| PLOG-VIZ-03 | 1032 | Complete |
+| PLOG-VIZ-04 | 1032 | Complete |
 | PLOG-VIZ-05 | 1032 | Complete |
 | PLOG-VIZ-06 | 1031 | Complete |
 | PLOG-VIZ-07 | 1032 | Complete |
