@@ -108,6 +108,9 @@ classdef FastSenseCompanion < handle
         LiveTagPipelines_         = {}    % cell of LiveTagPipeline handles observed via onLiveTick_
         LiveEventPipelines_       = {}    % cell of LiveEventPipeline handles observed via onLiveTick_
         LastShareStatus_          = 'ok'  % 'ok' | 'unreachable'; tracks share-loss transitions
+        % Quick task 260519-bs4 (merged from main #149) — Tag Status table window.
+        TagStatusTableWindow_ = []   % TagStatusTableWindow handle (or [])
+        hTagStatusBtn_        = []   % toolbar 'Tags' button (cached for theme reapply)
         % S0Y-01/02 (merged from main #143) — companion-opened figure tracking.
         OpenedFigures_ = []  % column vector of figure handles the companion opened
                              % (dashboards via onOpenDashboardRequested_,
@@ -303,15 +306,16 @@ classdef FastSenseCompanion < handle
             obj.hToolbarPanel_.Layout.Column = [1 3];
             obj.hToolbarPanel_.BorderType      = 'none';
             obj.hToolbarPanel_.BackgroundColor = obj.Theme_.WidgetBackground;
-            % Inner 1x6 grid:
-            %   col 1 = Events viewer button (Task 13)   (110)
-            %   col 2 = Live: ON/OFF button              (110)
-            %   col 3 = Tile windows (S0Y-01)            ( 70)
-            %   col 4 = Close all (S0Y-02)               ( 90)
-            %   col 5 = flex spacer                      ('1x')
-            %   col 6 = Settings gear                    ( 36)
-            hToolbarGrid = uigridlayout(obj.hToolbarPanel_, [1 6]);
-            hToolbarGrid.ColumnWidth     = {110, 110, 70, 90, '1x', 36};
+            % Inner 1x7 grid:
+            %   col 1 = Events viewer button (Task 13)            (110)
+            %   col 2 = Live: ON/OFF button                       (110)
+            %   col 3 = Tags table launch (quick task 260519-bs4) (110)
+            %   col 4 = Tile windows (S0Y-01)                     ( 70)
+            %   col 5 = Close all (S0Y-02)                        ( 90)
+            %   col 6 = flex spacer                               ('1x')
+            %   col 7 = Settings gear                             ( 36)
+            hToolbarGrid = uigridlayout(obj.hToolbarPanel_, [1 7]);
+            hToolbarGrid.ColumnWidth     = {110, 110, 110, 70, 90, '1x', 36};
             hToolbarGrid.RowHeight       = {'1x'};
             hToolbarGrid.Padding         = [4 0 4 0];
             hToolbarGrid.ColumnSpacing   = 8;
@@ -342,10 +346,21 @@ classdef FastSenseCompanion < handle
             obj.hLiveBtn_.Tooltip       = 'Toggle live refresh of the inspector';
             obj.hLiveBtn_.ButtonPushedFcn = @(~,~) obj.toggleLiveMode();
 
-            % Col 3 — Tile windows (S0Y-01).
+            % Col 3 — Tag Status table launch (quick task 260519-bs4).
+            obj.hTagStatusBtn_ = uibutton(hToolbarGrid, 'push');
+            obj.hTagStatusBtn_.Layout.Row    = 1;
+            obj.hTagStatusBtn_.Layout.Column = 3;
+            obj.hTagStatusBtn_.Text          = ['Tags ', char(8599)];   % ↗
+            obj.hTagStatusBtn_.FontSize      = 11;
+            obj.hTagStatusBtn_.FontWeight    = 'bold';
+            obj.hTagStatusBtn_.Tag           = 'CompanionTagStatusBtn';
+            obj.hTagStatusBtn_.Tooltip       = 'Open the tag status table';
+            obj.hTagStatusBtn_.ButtonPushedFcn = @(~,~) obj.openTagStatusTable();
+
+            % Col 4 — Tile windows (S0Y-01).
             obj.hTileBtn_ = uibutton(hToolbarGrid, 'push');
             obj.hTileBtn_.Layout.Row    = 1;
-            obj.hTileBtn_.Layout.Column = 3;
+            obj.hTileBtn_.Layout.Column = 4;
             obj.hTileBtn_.Text          = 'Tile';
             obj.hTileBtn_.FontSize      = 11;
             obj.hTileBtn_.FontWeight    = 'bold';
@@ -354,10 +369,10 @@ classdef FastSenseCompanion < handle
             obj.hTileBtn_.FontColor       = obj.Theme_.ForegroundColor;
             obj.hTileBtn_.ButtonPushedFcn = @(~,~) obj.tileOpenedWindows();
 
-            % Col 4 — Close all (S0Y-02). Uses Accent color to signal destructive action.
+            % Col 5 — Close all (S0Y-02). Uses Accent color to signal destructive action.
             obj.hCloseAllBtn_ = uibutton(hToolbarGrid, 'push');
             obj.hCloseAllBtn_.Layout.Row    = 1;
-            obj.hCloseAllBtn_.Layout.Column = 4;
+            obj.hCloseAllBtn_.Layout.Column = 5;
             obj.hCloseAllBtn_.Text          = 'Close all';
             obj.hCloseAllBtn_.FontSize      = 11;
             obj.hCloseAllBtn_.FontWeight    = 'bold';
@@ -366,10 +381,10 @@ classdef FastSenseCompanion < handle
             obj.hCloseAllBtn_.FontColor       = obj.Theme_.ForegroundColor;
             obj.hCloseAllBtn_.ButtonPushedFcn = @(~,~) obj.closeAllOpenedWindows();
 
-            % Col 6 — Settings gear.
+            % Col 7 — Settings gear.
             obj.hSettingsBtn_ = uibutton(hToolbarGrid, 'push');
             obj.hSettingsBtn_.Layout.Row    = 1;
-            obj.hSettingsBtn_.Layout.Column = 6;
+            obj.hSettingsBtn_.Layout.Column = 7;
             obj.hSettingsBtn_.Text          = char(9881);   % gear glyph
             obj.hSettingsBtn_.FontSize      = 14;
             obj.hSettingsBtn_.Tooltip       = 'Companion settings';
@@ -516,6 +531,18 @@ classdef FastSenseCompanion < handle
             end
             obj.LiveTimer_ = [];
             obj.IsLive = false;
+            % Tear down the Tag Status table window (quick task 260519-bs4).
+            % Independent try/catch so a stale window handle can't block the
+            % rest of teardown.
+            try
+                if ~isempty(obj.TagStatusTableWindow_) && isvalid(obj.TagStatusTableWindow_)
+                    obj.TagStatusTableWindow_.close();
+                    delete(obj.TagStatusTableWindow_);
+                end
+            catch err
+                fprintf(2, '[FastSenseCompanion] TagStatusTableWindow cleanup failed: %s\n', err.message);
+            end
+            obj.TagStatusTableWindow_ = [];
             % Detach panes (releases their listeners + debounce timers).
             try
                 if ~isempty(obj.CatalogPane_) && isvalid(obj.CatalogPane_)
@@ -641,6 +668,17 @@ classdef FastSenseCompanion < handle
             obj.SelectedDashboardIdx_ = 0;
             obj.LastInteraction_      = '';
             obj.SelectedTagKeys_      = {};
+            % Quick task 260519-bs4: close any open Tag Status table -- the
+            % registry identity may change with the project, so the open
+            % table's row-set is no longer valid.
+            try
+                if ~isempty(obj.TagStatusTableWindow_) && isvalid(obj.TagStatusTableWindow_)
+                    obj.TagStatusTableWindow_.close();
+                    delete(obj.TagStatusTableWindow_);
+                end
+            catch
+            end
+            obj.TagStatusTableWindow_ = [];
             % Rebuild pane placeholders (detach + reattach clears children and re-creates labels)
             obj.CatalogPane_.detach();
             obj.ListPane_.detach();
@@ -931,6 +969,37 @@ classdef FastSenseCompanion < handle
             obj.SettingsDlg_ = CompanionSettingsDialog(obj);
         end
 
+        function w = openTagStatusTable(obj)
+        %OPENTAGSTATUSTABLE Open or focus the singleton TagStatusTableWindow.
+        %   Returns the handle so tests and external callers can drive it.
+        %   Quick task 260519-bs4.
+            if ~isempty(obj.TagStatusTableWindow_) && isvalid(obj.TagStatusTableWindow_) && ...
+                    obj.TagStatusTableWindow_.IsOpen
+                w = obj.TagStatusTableWindow_;
+                % Bring the existing classical figure to the front.
+                try
+                    hf = w.getFigForTest();
+                    if ~isempty(hf) && isvalid(hf)
+                        figure(hf);
+                    end
+                catch
+                end
+                return;
+            end
+            try
+                w = TagStatusTableWindow();
+                w.openWith(obj.Registry_, obj.Theme_, obj);
+                obj.attachStatusTable_(w);
+            catch err
+                if ~isempty(obj.hFig_) && isvalid(obj.hFig_)
+                    uialert(obj.hFig_, ...
+                        sprintf('Failed to open Tag Status table: %s', err.message), ...
+                        'Tag Status', 'Icon', 'error');
+                end
+                w = [];
+            end
+        end
+
         % --- Test helpers (Phase 1027.1) -- do not call from production ---
         % These accessors expose private state to TestFastSenseCompanion only.
         % They are intentionally public (MATLAB has no friend-class scope), but
@@ -1173,6 +1242,22 @@ classdef FastSenseCompanion < handle
             f = obj.hFig_;
         end
 
+        % --- Quick task 260519-bs4 test seams (Hidden, do not call from production) ---
+
+        function w = tagStatusTableWindowForTest_(obj)
+        %TAGSTATUSTABLEWINDOWFORTEST_ Test getter: TagStatusTableWindow_ handle (or []).
+            w = obj.TagStatusTableWindow_;
+        end
+
+        function scanLiveTagUpdatesForTest_(obj)
+        %SCANLIVETAGUPDATESFORTEST_ Test seam: invoke the private live-tag scanner directly.
+        %   Test-only API; production callers use the LiveTimer_ -> onLiveTick_ ->
+        %   scanLiveTagUpdates_ chain.
+            obj.scanLiveTagUpdates_();
+        end
+
+        % --- S0Y-01/02 test seams (Hidden, do not call from production) ---
+
         function figs = getOpenedFiguresForTest_(obj)
         %GETOPENEDFIGURESFORTEST_ Test helper: return the OpenedFigures_ tracking list.
         %   Used by test_companion_tile_close_buttons. Returns the raw column
@@ -1380,7 +1465,7 @@ classdef FastSenseCompanion < handle
         end
 
         function scanLiveTagUpdates_(obj)
-        %SCANLIVETAGUPDATES_ Walk SensorTag/StateTag in TagRegistry; log size deltas.
+        %SCANLIVETAGUPDATES_ Walk tags in TagRegistry; log size deltas + push to status table.
             % Guard for the truly-uninitialized state (property default is []).
             % Do NOT use isempty() here — isempty(containers.Map) returns true
             % whenever the map has 0 entries, and the map only acquires keys
@@ -1389,12 +1474,22 @@ classdef FastSenseCompanion < handle
             % time the timer fires, LiveSampleCount_ is always a
             % containers.Map handle.
             if ~isa(obj.LiveSampleCount_, 'containers.Map'); return; end
-            if isempty(obj.LiveLogPane_) || ~isvalid(obj.LiveLogPane_); return; end
+            % Decide the scope:
+            % - When the Tag Status table is open, scan ALL Tag kinds so
+            %   monitor / composite / derived rows refresh too.
+            % - Otherwise stick to the original SensorTag / StateTag scope so
+            %   the live log is not flooded with derived-tag noise.
+            scanAll = obj.shouldScanForStatusTable_();
             try
-                tags = TagRegistry.find(@(t) isa(t, 'SensorTag') || isa(t, 'StateTag'));
+                if scanAll
+                    tags = TagRegistry.find(@(t) isa(t, 'Tag'));
+                else
+                    tags = TagRegistry.find(@(t) isa(t, 'SensorTag') || isa(t, 'StateTag'));
+                end
             catch
                 return;
             end
+            updatedKeys = {};
             for k = 1:numel(tags)
                 tg = tags{k};
                 try
@@ -1413,13 +1508,52 @@ classdef FastSenseCompanion < handle
                         if ~isempty(y)
                             if iscell(y); latestY = y{end}; else; latestY = y(end); end
                         end
-                        if last > 0  % skip the first-seen baseline log
+                        % Live log emission is intentionally scoped to Sensor /
+                        % State (the existing audience for the live log).
+                        if last > 0 && (isa(tg, 'SensorTag') || isa(tg, 'StateTag')) && ...
+                                ~isempty(obj.LiveLogPane_) && isvalid(obj.LiveLogPane_)
                             obj.LiveLogPane_.addLiveLogEntry(key, delta, latestY);
                         end
                         obj.LiveSampleCount_(key) = n;
+                        updatedKeys{end+1} = key; %#ok<AGROW>
                     end
                 catch
                 end
+            end
+            if ~isempty(updatedKeys)
+                obj.markStatusTableDirty_(updatedKeys);
+            end
+        end
+
+        function tf = shouldScanForStatusTable_(obj)
+        %SHOULDSCANFORSTATUSTABLE_ True when a TagStatusTableWindow is attached + open.
+            tf = ~isempty(obj.TagStatusTableWindow_) && ...
+                isvalid(obj.TagStatusTableWindow_) && ...
+                obj.TagStatusTableWindow_.IsOpen;
+        end
+
+        function attachStatusTable_(obj, w)
+        %ATTACHSTATUSTABLE_ Register a TagStatusTableWindow; wire its DetachClosed listener.
+        %   Companion forwards scanLiveTagUpdates_ deltas to w.markTagsDirty while attached.
+            obj.TagStatusTableWindow_ = w;
+            obj.Listeners_{end+1} = addlistener(w, 'DetachClosed', ...
+                @(~,~) obj.detachStatusTable_(w));
+        end
+
+        function detachStatusTable_(obj, w) %#ok<INUSD>
+        %DETACHSTATUSTABLE_ Drop reference so scanLiveTagUpdates_ stops pushing rows.
+        %   Called by the DetachClosed listener; safe under double-fire.
+            obj.TagStatusTableWindow_ = [];
+        end
+
+        function markStatusTableDirty_(obj, keys)
+        %MARKSTATUSTABLEDIRTY_ Forward updated tag keys to the attached window, if any.
+            if isempty(obj.TagStatusTableWindow_) || ~isvalid(obj.TagStatusTableWindow_); return; end
+            if ~obj.TagStatusTableWindow_.IsOpen; return; end
+            try
+                obj.TagStatusTableWindow_.markTagsDirty(keys);
+            catch
+                % markTagsDirty must never crash the live tick.
             end
         end
 
