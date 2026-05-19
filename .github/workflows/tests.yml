@@ -30,6 +30,7 @@ jobs:
       core: ${{ steps.filter.outputs.core }}
       matlab: ${{ steps.filter.outputs.matlab }}
       mex: ${{ steps.filter.outputs.mex }}
+      concurrency: ${{ steps.filter.outputs.concurrency }}
       test_pattern: ${{ steps.test_pattern.outputs.pattern }}
     steps:
       - uses: actions/checkout@v6
@@ -71,6 +72,36 @@ jobs:
               - 'tests/**'
             examples:
               - 'examples/**'
+            # v4.0 Multi-User LAN Concurrency — files whose behaviour is
+            # platform-divergent at the kernel / filesystem level. Triggers
+            # the cross-OS smoke job (matlab-concurrency-smoke) which runs
+            # only on this subset to catch regressions on Linux (OFD locks),
+            # macOS (F_SETLK fallback), and Windows (LockFileEx). The full
+            # MATLAB test suite still runs Linux-only via the `matlab:` job.
+            concurrency:
+              - 'libs/Concurrency/**'
+              - 'libs/EventDetection/**'
+              - 'libs/SensorThreshold/MonitorTag.m'
+              - 'libs/SensorThreshold/LiveTagPipeline.m'
+              - 'libs/FastSenseCompanion/FastSenseCompanion.m'
+              - 'libs/FastSenseCompanion/private/companionDiscoverEventStore.m'
+              - 'tests/suite/TestFileLock*.m'
+              - 'tests/suite/TestLockfileMex.m'
+              - 'tests/suite/TestAtomicWriter.m'
+              - 'tests/suite/TestCluster*.m'
+              - 'tests/suite/TestTagWriteCoordinator.m'
+              - 'tests/suite/TestEventLog*.m'
+              - 'tests/suite/TestConcurrencyIntegration.m'
+              - 'tests/suite/TestListenerCannotAcquireLock.m'
+              - 'tests/suite/TestMonitorTagSingleSource.m'
+              - 'tests/suite/TestLiveTagPipelineCluster.m'
+              - 'tests/suite/TestShareLossRecovery.m'
+              - 'tests/suite/TestEventAcknowledgement.m'
+              - 'tests/test_ndjson_decode.m'
+              - 'tests/test_event_log_concurrent.m'
+              - 'tests/test_user_identity.m'
+              - 'tests/test_no_raw_save_to_shared.m'
+              - 'tests/test_mksqlite_extended_codes_probe.m'
 
       - name: Compute test pattern
         id: test_pattern
@@ -391,9 +422,20 @@ jobs:
           - { id: 2, name: "Dashboard",   pattern: "^TestDashboard" }
           - { id: 3, name: "E-I",         pattern: "^Test[E-I]" }
           - { id: 4, name: "J-P",         pattern: "^Test[J-P]" }
-          - { id: 5, name: "Q-Z",         pattern: "^Test[Q-Z]" }
+          # Batch 5 also picks up digit-prefixed v4.0 cluster acceptance harness
+          # (Test50CompanionAcceptance). The test self-gates via FASTSENSE_RUN_ACCEPTANCE
+          # so it will report as skipped/incomplete in CI rather than running, but
+          # including it in a batch keeps it discoverable and statused.
+          - { id: 5, name: "Q-Z",         pattern: "^Test([Q-Z]|[0-9])" }
     env:
       FASTSENSE_SKIP_BUILD: "1"
+      # v4.0 Phase 1032 SC1: 4-node simulated-cluster smoke. Spawns 4 child
+      # `matlab -batch` workers that race to emit events through a shared
+      # FileLock + EventStore, asserting exactly-N events for N rising edges
+      # (single-source ACK-04 guarantee). Test gates on isunix() && ~ismac()
+      # so it runs on Ubuntu CI and skips cleanly on macOS / Windows.
+      # Cost: ~30 s per CI run on top of the standard batch.
+      FASTSENSE_STRESS_4: "1"
     steps:
       - uses: actions/checkout@v6
 
@@ -485,3 +527,114 @@ jobs:
           fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # v4.0 Multi-User LAN Concurrency cross-platform smoke.
+  #
+  # Why a separate job: lockfile_mex.c has three kernel branches (LockFileEx on
+  # Win32, F_OFD_SETLK on Linux ≥ 3.15, F_SETLK fallback on macOS). The full
+  # MATLAB test suite only runs on Linux (the `matlab:` job above), so a bad
+  # #ifdef change could break Windows or macOS silently. This job runs a focused
+  # subset of concurrency tests on all three OSes to catch platform-specific
+  # regressions within 24 h.
+  #
+  # Scope: ~10 test files, all in libs/Concurrency/ + the cluster-mode paths in
+  # libs/EventDetection and libs/SensorThreshold. The Dashboard / FastSense /
+  # WebBridge / UI tests stay Linux-only — they're MATLAB-level functionality
+  # without kernel divergence.
+  #
+  # Cost: ~5 min wall-clock per platform on top of the existing matrix.
+  # Gated by path-filter so PRs touching unrelated areas don't pay this cost.
+  matlab-concurrency-smoke:
+    name: Concurrency Smoke (${{ matrix.os }})
+    needs: [changes]
+    timeout-minutes: 30
+    if: github.event_name != 'pull_request' || needs.changes.outputs.concurrency == 'true' || needs.changes.outputs.core == 'true' || needs.changes.outputs.mex == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-latest: kernel 5.x → F_OFD_SETLK branch of lockfile_mex.c
+        # macos-14:      Apple Silicon (ARM64), Darwin → F_SETLK fallback branch
+        # windows-latest: Windows Server 2022, NTFS → LockFileEx branch
+        os: [ubuntu-latest, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      # Phase 1032 SC1: enable the 4-node simulated-cluster smoke. Test self-gates
+      # additionally on isunix() && ~ismac() so it runs on Linux only; macOS and
+      # Windows skip cleanly. Cost ~30s on the Linux job; ~0s on the others.
+      FASTSENSE_STRESS_4: "1"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup MATLAB
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          # Match the main matlab: job. R2021b has best matlab-actions support
+          # across all three OSes. On macos-14 ARM64 this runs under Rosetta;
+          # if Rosetta proves flaky we can bump just this platform later.
+          release: R2021b
+          cache: true
+
+      - name: Build MEX + run concurrency smoke
+        id: smoke
+        # matlab-actions occasionally reports nonzero exit on R2021b shutdown
+        # segfault even when tests pass; the sentinel-file step below is the
+        # source of truth (same pattern as the main matlab: job).
+        continue-on-error: true
+        uses: matlab-actions/run-command@v3
+        with:
+          # install() compiles lockfile_mex on the current platform (LockFileEx
+          # / F_OFD_SETLK / F_SETLK branch selected by #ifdef in lockfile_mex.c
+          # + -D_GNU_SOURCE on Linux from build_concurrency_mex.m).
+          #
+          # Second arg of run_tests_with_coverage is the batch regex; first arg
+          # (path-filter pattern) is empty so the batch regex is the sole filter.
+          # The regex matches the v4.0 concurrency test surface:
+          #   - TestFileLock / TestFileLockStress50 (FASTSENSE_STRESS_50-gated)
+          #   - TestLockfileMex (platform-branch probe)
+          #   - TestAtomicWriter (movefile / rename semantics per FS)
+          #   - TestCluster{Identity,Config,ConfigOplocks,ConfigNfsv3}
+          #   - TestTagWriteCoordinator
+          #   - TestEventLog{,Consolidator,Reader}
+          #   - TestConcurrencyIntegration
+          #   - TestListenerCannotAcquireLock
+          #   - TestMonitorTagSingleSource (FASTSENSE_STRESS_4-gated)
+          #   - TestLiveTagPipelineCluster
+          #   - TestShareLossRecovery
+          #   - TestEventAcknowledgement
+          command: |
+            addpath('.');
+            install();
+            addpath('scripts');
+            run_tests_with_coverage('', '^Test(FileLock|LockfileMex|AtomicWriter|Cluster|TagWriteCoordinator|EventLog|Concurrency|ListenerCannotAcquireLock|MonitorTagSingleSource|LiveTagPipelineCluster|ShareLossRecovery|EventAcknowledgement)');
+
+      - name: Verify smoke pass via sentinel file
+        shell: bash
+        run: |
+          if [[ -f .matlab-tests-passed ]]; then
+            echo "Concurrency smoke passed on ${{ matrix.os }} (sentinel present); ignoring any shutdown-time noise."
+            rm -f .matlab-tests-passed
+          else
+            echo "Concurrency smoke FAILED on ${{ matrix.os }}: .matlab-tests-passed sentinel not written."
+            echo "matlab-actions step outcome: ${{ steps.smoke.outcome }}"
+            exit 1
+          fi
+
+      - name: Write concurrency smoke summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Concurrency Smoke (${{ matrix.os }})"
+            echo ""
+            echo "Validates v4.0 platform-divergent concurrency code paths:"
+            echo "- **ubuntu-latest** → \`F_OFD_SETLK\` branch (kernel ≥ 3.15, OFD locks)"
+            echo "- **macos-14** → \`F_SETLK\` fallback branch (Darwin, no OFD support)"
+            echo "- **windows-latest** → \`LockFileEx\` branch (NTFS, process-scoped advisory locks)"
+            echo ""
+            echo "Tests cover: \`FileLock\`, \`AtomicWriter\`, \`ClusterIdentity\`, \`ClusterConfig\`,"
+            echo "\`TagWriteCoordinator\`, \`EventLog\`/\`EventLogReader\`, ack workflow, and"
+            echo "share-loss recovery. Gated multi-process smokes:"
+            echo "- \`testTwoProcessMutualExclusion\` / \`testTwoProcessWriteRace\` — Linux only (gate: ~ispc() && ~ismac())"
+            echo "- \`testFourNodeRisingEdges\` — Linux only (gates: isunix() && ~ismac() + FASTSENSE_STRESS_4=1)"
+            echo "- \`TestFileLockStress50\` / \`Test50CompanionAcceptance\` — require real SMB share (operator-run; not in CI)"
+          } >> "$GITHUB_STEP_SUMMARY"
