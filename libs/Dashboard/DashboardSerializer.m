@@ -70,14 +70,18 @@ classdef DashboardSerializer
                                     end
                                 otherwise
                                     if showPl
-                                        lines{end+1} = sprintf('    d.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s, ''ShowPlantLog'', true);', ws.title, pos);
+                                        lines{end+1} = sprintf( ...
+                                            '    d.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s, ''ShowPlantLog'', true);', ...
+                                            ws.title, pos);
                                     else
                                         lines{end+1} = sprintf('    d.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s);', ws.title, pos);
                                     end
                             end
                         else
                             if showPl
-                                lines{end+1} = sprintf('    d.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s, ''ShowPlantLog'', true);', ws.title, pos);
+                                lines{end+1} = sprintf( ...
+                                    '    d.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s, ''ShowPlantLog'', true);', ...
+                                    ws.title, pos);
                             else
                                 lines{end+1} = sprintf('    d.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s);', ws.title, pos);
                             end
@@ -720,9 +724,9 @@ classdef DashboardSerializer
                 return;
             end
             mc = {};
-            if isfield(pl, 'mapping') && isstruct(pl.mapping) ...
-                    && isfield(pl.mapping, 'metadataCols') ...
-                    && iscell(pl.mapping.metadataCols)
+            if isfield(pl, 'mapping') && isstruct(pl.mapping) && ...
+                    isfield(pl.mapping, 'metadataCols') && ...
+                    iscell(pl.mapping.metadataCols)
                 mc = pl.mapping.metadataCols;
             end
             if isempty(mc)
@@ -815,14 +819,18 @@ classdef DashboardSerializer
                                 end
                             otherwise
                                 if showPl
-                                    wLines{end+1} = sprintf('%sd.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s, ''ShowPlantLog'', true);', indent, ws.title, pos);
+                                    wLines{end+1} = sprintf( ...
+                                        '%sd.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s, ''ShowPlantLog'', true);', ...
+                                        indent, ws.title, pos);
                                 else
                                     wLines{end+1} = sprintf('%sd.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s);', indent, ws.title, pos);
                                 end
                         end
                     else
                         if showPl
-                            wLines{end+1} = sprintf('%sd.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s, ''ShowPlantLog'', true);', indent, ws.title, pos);
+                            wLines{end+1} = sprintf( ...
+                                '%sd.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s, ''ShowPlantLog'', true);', ...
+                                indent, ws.title, pos);
                         else
                             wLines{end+1} = sprintf('%sd.addWidget(''fastsense'', ''Title'', ''%s'', ''Position'', %s);', indent, ws.title, pos);
                         end

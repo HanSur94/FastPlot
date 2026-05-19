@@ -162,7 +162,7 @@ classdef TestDashboardLayoutPlantLogToggle < matlab.unittest.TestCase
             uicontrol('Parent', p, 'Tag', 'DetachButton',         'Style', 'pushbutton');
             uicontrol('Parent', p, 'Tag', 'PlantLogToggleButton', 'Style', 'pushbutton');
             uicontrol('Parent', p, 'Tag', 'RogueControl',         'Style', 'pushbutton');
-            Probe_DW_PanelClear.clear(p);
+            ProbeDwPanelClear.clear(p);
             rogue = findobj(p, 'Tag', 'RogueControl', '-depth', 1);
             testCase.verifyTrue(isempty(rogue) || all(~ishandle(rogue)));
             pl   = findobj(p, 'Tag', 'PlantLogToggleButton', '-depth', 1);

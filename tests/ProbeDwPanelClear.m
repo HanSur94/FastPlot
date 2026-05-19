@@ -1,4 +1,4 @@
-classdef Probe_DW_PanelClear < DashboardWidget
+classdef ProbeDwPanelClear < DashboardWidget
 %PROBE_DW_PANELCLEAR Test-only DashboardWidget subclass exposing the protected
 %   static clearPanelControls. Used by tests under tests/ to verify the
 %   protected-tag list without bypassing the class's Access spec.
@@ -9,7 +9,7 @@ classdef Probe_DW_PanelClear < DashboardWidget
     methods (Static)
         function clear(hPanel)
         %CLEAR Public probe wrapping the protected clearPanelControls static.
-            Probe_DW_PanelClear.clearPanelControls(hPanel);
+            ProbeDwPanelClear.clearPanelControls(hPanel);
         end
     end
 

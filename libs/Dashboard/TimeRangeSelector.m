@@ -62,7 +62,10 @@ classdef TimeRangeSelector < handle
         hEnvelope   = []   % single patch for aggregate min/max envelope (legacy)
         hPreviewLines = []  % array of line handles, one per widget preview
         hEventMarkers = []  % array of line handles, one per event marker
-        hPlantLogMarkers = []  % Phase 1031 PLOG-VIZ-01/02: array of line handles (NaN-separated polyline) created by setPlantLogMarkers; SEPARATE from hEventMarkers so the two methods do not clobber each other
+        hPlantLogMarkers = []  % Phase 1031 PLOG-VIZ-01/02: array of line handles
+                               % (NaN-separated polyline) created by setPlantLogMarkers;
+                               % SEPARATE from hEventMarkers so the two methods do
+                               % not clobber each other.
         hSelection  = []   % patch for selection rectangle
         hEdgeLeft   = []   % line: left drag handle
         hEdgeRight  = []   % line: right drag handle

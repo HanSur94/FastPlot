@@ -344,8 +344,8 @@ classdef PlantLogSliderHover < handle
 
             % Convert cursor pixel-X to axes data-X.
             xLim = get(obj.SliderAxes, 'XLim');
-            cursorX = xLim(1) + (figPt(1) - axPos(1)) ...
-                / max(axPos(3), 1) * (xLim(2) - xLim(1));
+            cursorX = xLim(1) + (figPt(1) - axPos(1)) / ...
+                max(axPos(3), 1) * (xLim(2) - xLim(1));
 
             % Reuse the same path the test seam uses (lookup + show).
             pick = obj.simulateHoverAt_(cursorX);

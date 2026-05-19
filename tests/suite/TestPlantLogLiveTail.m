@@ -7,7 +7,7 @@ classdef TestPlantLogLiveTail < matlab.unittest.TestCase
 %
 %   Coverage: PLOG-LT-01..05.
 %
-%   Contract: deliberately omits manual `addpath(fullfile(..., 'libs',
+%   Contract: deliberately omits manual `addpath(fullfile( ..., 'libs',
 %   'PlantLog'))` -- install.m's libs-block edit (Phase 1029 Plan 03) is
 %   the regression gate.
 
@@ -78,7 +78,7 @@ classdef TestPlantLogLiveTail < matlab.unittest.TestCase
             m = struct('TimestampColumn', 'timestamp', ...
                        'MessageColumn',   'message', ...
                        'TimestampFormat', '');
-            testCase.verifyError(...
+            testCase.verifyError( ...
                 @() PlantLogLiveTail(struct('foo', 1), '/tmp/x.csv', m), ...
                 'PlantLogLiveTail:invalidInput');
         end
@@ -86,7 +86,7 @@ classdef TestPlantLogLiveTail < matlab.unittest.TestCase
         function testConstructorValidatesMapping(testCase)
             s = PlantLogStore('x');
             badMapping = struct('MessageColumn', 'message');  % no TimestampColumn
-            testCase.verifyError(...
+            testCase.verifyError( ...
                 @() PlantLogLiveTail(s, '/tmp/x.csv', badMapping), ...
                 'PlantLogLiveTail:invalidInput');
         end

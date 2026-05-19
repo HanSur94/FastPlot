@@ -242,7 +242,7 @@ end
 function n = test_clear_panel_controls_protects_toggle()
     % Build a bare uipanel, populate with the three button-bar tags + a rogue
     % uicontrol. Invoke DashboardWidget.clearPanelControls (static protected)
-    % via Probe_DW_PanelClear (a test-only DashboardWidget subclass that
+    % via ProbeDwPanelClear (a test-only DashboardWidget subclass that
     % re-exposes the protected static). Verify rogues die, protected tags
     % survive.
     fig = figure('Visible', 'off');
@@ -252,7 +252,7 @@ function n = test_clear_panel_controls_protects_toggle()
     uicontrol('Parent', p, 'Tag', 'DetachButton',         'Style', 'pushbutton');
     uicontrol('Parent', p, 'Tag', 'PlantLogToggleButton', 'Style', 'pushbutton');
     uicontrol('Parent', p, 'Tag', 'RogueControl',         'Style', 'pushbutton');
-    Probe_DW_PanelClear.clear(p);
+    ProbeDwPanelClear.clear(p);
     rogue = findobj(p, 'Tag', 'RogueControl', '-depth', 1);
     assert(isempty(rogue) || all(~ishandle(rogue)), ...
         'rogue uicontrol must be swept');

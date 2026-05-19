@@ -342,8 +342,8 @@ classdef PlantLogWidgetHover < handle
 
             % Convert cursor pixel-X to axes data-X.
             xLim = get(obj.WidgetAxes, 'XLim');
-            cursorX = xLim(1) + (figPt(1) - axPos(1)) ...
-                / max(axPos(3), 1) * (xLim(2) - xLim(1));
+            cursorX = xLim(1) + (figPt(1) - axPos(1)) / ...
+                max(axPos(3), 1) * (xLim(2) - xLim(1));
 
             picks = obj.simulateHoverAt_(cursorX);
             if ~isempty(picks)

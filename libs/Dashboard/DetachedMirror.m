@@ -273,8 +273,8 @@ classdef DetachedMirror < handle
             % preserves the key, but this explicit copy is a belt-and-
             % suspenders so an accidental future regression in serialization
             % doesn't silently break detach parity (CONTEXT.md Decision G).
-            if isa(cloned, 'FastSenseWidget') && isa(original, 'FastSenseWidget') ...
-                    && isprop(original, 'ShowPlantLog')
+            if isa(cloned, 'FastSenseWidget') && isa(original, 'FastSenseWidget') && ...
+                    isprop(original, 'ShowPlantLog')
                 cloned.ShowPlantLog = original.ShowPlantLog;
             end
         end

@@ -2672,9 +2672,9 @@ classdef DashboardEngine < handle
             % Phase 1031 PLOG-VIZ-06: always tear down any prior hover so
             % closures capturing the previous store handle cannot survive.
             obj.teardownPlantLogSliderHover_();
-            if ~isempty(store) ...
-                    && ~isempty(obj.TimeRangeSelector_) ...
-                    && isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
+            if ~isempty(store) && ...
+                    ~isempty(obj.TimeRangeSelector_) && ...
+                    isa(obj.TimeRangeSelector_, 'TimeRangeSelector')
                 % Lazy-construct hover when the slider is rendered AND a
                 % store is attached. The lookup goes through the engine's
                 % helper (indirect indirection) so future store swaps are
@@ -3875,8 +3875,8 @@ classdef DashboardEngine < handle
         %   without rebuilding the hover closure. Returns [] when no store
         %   is attached or when the lookup throws.
             entries = [];
-            if isempty(obj.PlantLogStoreInternal_) ...
-                    || ~isa(obj.PlantLogStoreInternal_, 'PlantLogStore')
+            if isempty(obj.PlantLogStoreInternal_) || ...
+                    ~isa(obj.PlantLogStoreInternal_, 'PlantLogStore')
                 return;
             end
             try
@@ -3892,8 +3892,8 @@ classdef DashboardEngine < handle
         %   already-deleted, or constructed but never installed. delete()
         %   restores the prior WindowButtonMotionFcn.
             try
-                if ~isempty(obj.PlantLogSliderHover_) ...
-                        && isvalid(obj.PlantLogSliderHover_)
+                if ~isempty(obj.PlantLogSliderHover_) && ...
+                        isvalid(obj.PlantLogSliderHover_)
                     delete(obj.PlantLogSliderHover_);
                 end
             catch
