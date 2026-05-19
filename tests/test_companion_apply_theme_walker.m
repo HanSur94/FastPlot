@@ -103,6 +103,22 @@ function test_companion_apply_theme_walker()
     hSentinelLabel2.Text      = 'sentinel2';
     hSentinelLabel2.FontColor = [0.5 1.0 0.0];      % sentinel chartreuse
 
+    % --- Phase 1034: WikiBrowserRoot skip-rule test fixture ---
+    % A uipanel tagged 'WikiBrowserRoot' must NOT be recursed into by the
+    % walker. The WikiBrowser owns its own theming via WikiBrowser.applyTheme
+    % which FastSenseCompanion.applyTheme invokes explicitly (Plan 06 task
+    % 6.2). The skip rule is symmetric with the LogPaneRoot pattern above.
+    %
+    % Set BackgroundColor to a screaming-red sentinel that no theme will
+    % ever produce, plus a child label with a magenta sentinel FontColor;
+    % if the walker recurses, both will be overwritten and the test fails.
+    hWikiPanelStub = uipanel(hFig);
+    hWikiPanelStub.Tag = 'WikiBrowserRoot';
+    hWikiPanelStub.BackgroundColor = [0.99 0.01 0.01]; % sentinel red
+    hWikiSentinelLabel = uilabel(hWikiPanelStub);
+    hWikiSentinelLabel.Text      = 'wiki_sentinel';
+    hWikiSentinelLabel.FontColor = [0.99 0.01 0.99];   % sentinel magenta
+
     % --- Dark theme apply ---
     darkTheme  = CompanionTheme.get('dark');
     lightTheme = CompanionTheme.get('light');
@@ -123,6 +139,15 @@ function test_companion_apply_theme_walker()
         'Second LogPaneRoot uipanel BackgroundColor should be untouched by walker');
     assertColorEqual(hSentinelLabel2.FontColor, [0.5 1.0 0.0], ...
         'Second LogPaneRoot child label FontColor should be untouched by walker');
+    nPassed = nPassed + 2;
+
+    % Phase 1034 assertions (after dark apply): WikiBrowserRoot subtree
+    % must be left untouched. BackgroundColor stays screaming red, child
+    % label FontColor stays magenta sentinel.
+    assertColorEqual(hWikiPanelStub.BackgroundColor, [0.99 0.01 0.01], ...
+        'WikiBrowserRoot uipanel BackgroundColor should be untouched by walker');
+    assertColorEqual(hWikiSentinelLabel.FontColor, [0.99 0.01 0.99], ...
+        'WikiBrowserRoot child label FontColor should be untouched by walker');
     nPassed = nPassed + 2;
 
     % Test 1-2: uilistbox BackgroundColor + FontColor = dark (the bug fix)
@@ -231,6 +256,13 @@ function test_companion_apply_theme_walker()
         'Second LogPaneRoot child label FontColor untouched after light apply');
     nPassed = nPassed + 2;
 
+    % Phase 1034: WikiBrowserRoot still untouched after light apply.
+    assertColorEqual(hWikiPanelStub.BackgroundColor, [0.99 0.01 0.01], ...
+        'WikiBrowserRoot uipanel BackgroundColor untouched after light apply');
+    assertColorEqual(hWikiSentinelLabel.FontColor, [0.99 0.01 0.99], ...
+        'WikiBrowserRoot child label FontColor untouched after light apply');
+    nPassed = nPassed + 2;
+
     % --- Switch back to dark (verify not one-shot) ---
     applyThemeToChildren_(hFig, darkTheme);
 
@@ -255,6 +287,14 @@ function test_companion_apply_theme_walker()
         'Second LogPaneRoot uipanel BackgroundColor untouched after second dark apply');
     assertColorEqual(hSentinelLabel2.FontColor, [0.5 1.0 0.0], ...
         'Second LogPaneRoot child label FontColor untouched after second dark apply');
+    nPassed = nPassed + 2;
+
+    % Phase 1034: WikiBrowserRoot still untouched after second dark apply
+    % (verifies the skip rule isn't one-shot — survives dark->light->dark).
+    assertColorEqual(hWikiPanelStub.BackgroundColor, [0.99 0.01 0.01], ...
+        'WikiBrowserRoot uipanel BackgroundColor untouched after second dark apply');
+    assertColorEqual(hWikiSentinelLabel.FontColor, [0.99 0.01 0.99], ...
+        'WikiBrowserRoot child label FontColor untouched after second dark apply');
     nPassed = nPassed + 2;
 
     fprintf('    All %d tests passed.\n', nPassed);

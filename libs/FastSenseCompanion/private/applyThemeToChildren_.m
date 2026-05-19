@@ -31,6 +31,12 @@ function applyThemeToChildren_(rootHandle, theme)
 %   Both inner sub-panels carry the LogPaneRoot tag, so the walker skips
 %   both subtrees.
 %
+%   Skip rule (Phase 1034): any uipanel / uifigure with Tag == 'WikiBrowserRoot'
+%   is also treated as opaque. The WikiBrowser owns its own theming via
+%   WikiBrowser.applyTheme, which FastSenseCompanion.applyTheme invokes
+%   explicitly. Walking into the Wiki subtree would stomp its uihtml and
+%   uitree styling.
+%
 %   See also CompanionTheme, FastSenseCompanion.applyTheme.
 
     if isempty(rootHandle) || ~isvalid(rootHandle); return; end
@@ -53,15 +59,21 @@ function applyThemeToChildren_(rootHandle, theme)
         cls = class(ch);
         switch cls
             case 'matlab.ui.container.Panel'
-                % Skip log-pane subtree — EventsLogPane / LiveLogPane each
-                % manage their own theming via FastSenseCompanion.applyTheme
-                % calling obj.EventsLogPane_.applyTheme() and
-                % obj.LiveLogPane_.applyTheme(). The walker recursing into
-                % the inner sub-panels would stomp their accent colors
-                % (PlaceholderTextColor on Updated label, striped uitable
-                % background pair). Both sub-panels in hLogStripGrid_ carry
-                % the LogPaneRoot tag.
-                if isprop(ch, 'Tag') && strcmp(ch.Tag, 'LogPaneRoot')
+                % Skip log-pane and wiki-browser subtrees — they manage
+                % their own theming.
+                % LogPaneRoot: EventsLogPane / LiveLogPane sub-panels
+                %   (Phase 1027.1). The walker recursing into the inner
+                %   sub-panels would stomp their accent colors
+                %   (PlaceholderTextColor on Updated label, striped
+                %   uitable background pair). Both sub-panels in
+                %   hLogStripGrid_ carry the LogPaneRoot tag.
+                % WikiBrowserRoot: WikiBrowser uifigure (Phase 1034 —
+                %   Plan 06 task 6.2 wires FastSenseCompanion.applyTheme
+                %   -> WikiBrowser_.applyTheme). Preventative + symmetric
+                %   with LogPaneRoot — protects against future refactors
+                %   that might embed a WikiBrowser pane inside the
+                %   Companion uifigure.
+                if isprop(ch, 'Tag') && (strcmp(ch.Tag, 'LogPaneRoot') || strcmp(ch.Tag, 'WikiBrowserRoot'))
                     continue;
                 end
                 try; ch.BackgroundColor = theme.WidgetBackground; catch; end
