@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Plant Log Integration
-status: verifying
-stopped_at: Completed 1031-03-hover-tooltip-and-smoke-PLAN.md
-last_updated: "2026-05-14T13:09:20.069Z"
-last_activity: 2026-05-14
+status: planning
+stopped_at: Phase 1031 closed; advancing to Phase 1032
+last_updated: "2026-05-19T00:00:00.000Z"
+last_activity: 2026-05-19
 progress:
   total_phases: 5
   completed_phases: 3
@@ -22,28 +22,28 @@ See: .planning/PROJECT.md (created 2026-05-13)
 **Core value:** Engineers can render millions of sensor points smoothly, organize
 them into navigable dashboards, and surface anomalies — all in pure MATLAB with no
 toolbox dependencies.
-**Current focus:** Phase 1031 — Live Tail + Slider Preview Overlay
+**Current focus:** Phase 1032 — Per-Widget Plant Log Overlay
 
 ## Current Position
 
-Phase: 1031 (Live Tail + Slider Preview Overlay) — EXECUTING
-Plan: 3 of 3
+Phase: 1032 (Per-Widget Plant Log Overlay) — STARTING
+Plan: pending
 Milestone: v3.1 Plant Log Integration
-Status: Phase complete — ready for verification
-Last activity: 2026-05-14
+Status: Phases 1029-1031 closed; entering Phase 1032 discuss
+Last activity: 2026-05-19
 
 ## Progress Bar
 
 v3.1 Plant Log Integration:
 
 - [x] Phase 1029: Plant Log Storage Foundation — 3/3 plans
-- [x] Phase 1030: CSV/XLSX Import + Mapping Dialog — 3/3 plans (executing complete; verify pending)
-- [ ] Phase 1031: Live Tail + Slider Preview Overlay — 0/? plans
+- [x] Phase 1030: CSV/XLSX Import + Mapping Dialog — 3/3 plans
+- [x] Phase 1031: Live Tail + Slider Preview Overlay — 3/3 plans
 - [ ] Phase 1032: Per-Widget Plant Log Overlay — 0/? plans
 - [ ] Phase 1033: Dashboard + Companion Integration & Serialization — 0/? plans
 
-Phases complete: 2/5 (executing); 1/5 verified
-Plans complete: 6/6 (100%) across closed phases
+Phases complete: 3/5
+Plans complete: 9/9 (100%) across closed phases
 
 ## Accumulated Context
 

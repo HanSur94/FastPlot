@@ -18,8 +18,8 @@
 <summary>🚧 v3.1 Plant Log Integration (Phases 1029-1033) — started 2026-05-13</summary>
 
 - [x] **Phase 1029: Plant Log Storage Foundation** — `PlantLogStore` class with time-range queries and timestamp+row-hash dedup (3/3 plans complete, 2026-05-13)
-- [ ] **Phase 1030: CSV/XLSX Import + Mapping Dialog** — File reader with auto-detected timestamp/message columns and a uifigure override dialog
-- [ ] **Phase 1031: Live Tail + Slider Preview Overlay** — Periodic re-read timer plus black plant-log lines on the dashboard slider with hover tooltips
+- [x] **Phase 1030: CSV/XLSX Import + Mapping Dialog** — File reader with auto-detected timestamp/message columns and a uifigure override dialog (3/3 plans complete, 2026-05-13)
+- [x] **Phase 1031: Live Tail + Slider Preview Overlay** — Periodic re-read timer plus black plant-log lines on the dashboard slider with hover tooltips (3/3 plans complete, 2026-05-14)
 - [ ] **Phase 1032: Per-Widget Plant Log Overlay** — Opt-in `ShowPlantLog` toggle that draws black plant-log lines on FastSenseWidget axes with full-metadata tooltips
 - [ ] **Phase 1033: Dashboard + Companion Integration & Serialization** — `attachPlantLog`/`detachPlantLog` API, JSON/.m persistence of source path and mapping, and Companion "Open Plant Log…" toolbar entry
 
