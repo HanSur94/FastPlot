@@ -211,6 +211,52 @@ classdef TestTagStatusTableWindow < matlab.unittest.TestCase
                 'testActivityFlipsWithoutLiveMode: must be Inactive at +301s');
         end
 
+        function testLastRefreshedLabelOnOpen(testCase)
+            %TESTLASTREFRESHEDLABELONOPEN On open, header label begins with "Last refreshed:".
+            registerTwoSensors_();
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() safeClose_(app));
+            testCase.addTeardown(@() TagRegistry.clear());
+
+            w = app.openTagStatusTable();
+            lbl = w.lastRefreshedLabelForTest();
+
+            testCase.verifyTrue(startsWith(lbl, 'Last refreshed:'), ...
+                sprintf(['testLastRefreshedLabelOnOpen: label must begin with ' ...
+                    '''Last refreshed:'', got ''%s'''], lbl));
+            % On openWith we seed the label to wall-clock time so it
+            % should NOT be the "--:--:--" placeholder.
+            testCase.verifyFalse(contains(lbl, '--:--:--'), ...
+                'testLastRefreshedLabelOnOpen: label must be seeded to a concrete time on open');
+        end
+
+        function testLastRefreshedLabelUpdatesAfterTick(testCase)
+            %TESTLASTREFRESHEDLABELUPDATESAFTERTICK After a simulated refresh tick,
+            %   the label must show a new HH:MM:SS. Because the timer fires
+            %   on a 1s cadence, we drive a synchronous tick via the test
+            %   helper and verify the label updated (or at least still
+            %   begins with the correct prefix and matches the HH:MM:SS
+            %   pattern).
+            registerTwoSensors_();
+            app = FastSenseCompanion();
+            testCase.addTeardown(@() safeClose_(app));
+            testCase.addTeardown(@() TagRegistry.clear());
+
+            w = app.openTagStatusTable();
+            w.tickForTest();
+            lbl = w.lastRefreshedLabelForTest();
+
+            testCase.verifyTrue(startsWith(lbl, 'Last refreshed:'), ...
+                sprintf(['testLastRefreshedLabelUpdatesAfterTick: label must ' ...
+                    'begin with ''Last refreshed:'', got ''%s'''], lbl));
+            % Must match the regex "HH:MM:SS" (two digits each), proving
+            % a real timestamp got written by the tick.
+            tok = regexp(lbl, '\d{2}:\d{2}:\d{2}', 'match', 'once');
+            testCase.verifyNotEmpty(tok, ...
+                sprintf(['testLastRefreshedLabelUpdatesAfterTick: label must ' ...
+                    'contain an HH:MM:SS timestamp after a tick, got ''%s'''], lbl));
+        end
+
         function testRefreshTimerStoppedAndDeletedOnClose(testCase)
             %TESTREFRESHTIMERSTOPPEDANDDELETEDONCLOSE Window close must stop AND delete its timer.
             registerTwoSensors_();

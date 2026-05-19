@@ -32,7 +32,11 @@ function test_companion_tag_status_table()
         @testActivityInactive_oldDatenumTimestamp, ...
         @testActivityInactive_emptyXY, ...
         @testActivityInactive_futureTimestamp, ...
-        @testFilterRows_subsetFixture };
+        @testFilterRows_subsetFixture, ...
+        @testFilterRows_matchesUnitsField, ...
+        @testFilterRows_matchesLabelsField, ...
+        @testFilterRows_chipFiltersAndSemantics, ...
+        @testFilterRows_emptyChipGroupExcludesAll };
     for i = 1:numel(tests)
         name = func2str(tests{i});
         try
@@ -297,6 +301,105 @@ function testFilterRows_subsetFixture()
     keptNameOnly = TagStatusTableWindow.filterRows_(rows, 'machine');
     assertEqual_(size(keptNameOnly, 1), 1, 'filter ''machine'' matches Name');
     assertEqual_(keptNameOnly{1, 1}, 'state_machine', 'matched via Name field');
+end
+
+% ===================== Broader search + chip filters (260519-bs4-04 patch) =====================
+
+function testFilterRows_matchesUnitsField()
+    % Search now matches the Units column (column 5). Mirrors the user's
+    % "search for °C" workflow: a row with Units='°C' must match.
+    rows = { ...
+        'temp_a',  'Temp A',     'Sensor', 'medium', char([176, 67]), '', '', '', '', '', ''; ...
+        'press_a', 'Pressure A', 'Sensor', 'medium', 'bar',           '', '', '', '', '', '' };
+
+    keptDegree = TagStatusTableWindow.filterRows_(rows, char([176, 67]));
+    assertEqual_(size(keptDegree, 1), 1, 'filter on Units degC keeps the temperature row');
+    assertEqual_(keptDegree{1, 1}, 'temp_a', 'matched row key');
+
+    keptBar = TagStatusTableWindow.filterRows_(rows, 'bar');
+    assertEqual_(size(keptBar, 1), 1, 'filter ''bar'' on Units keeps press_a');
+    assertEqual_(keptBar{1, 1}, 'press_a', 'matched row key');
+end
+
+function testFilterRows_matchesLabelsField()
+    % Search must match the Labels column (column 11), which is a joined
+    % comma-separated string when there is more than one label.
+    rows = { ...
+        'k1', 'Tag 1', 'Sensor', 'medium', '', '', '', '', '', '', 'plant, north'; ...
+        'k2', 'Tag 2', 'Sensor', 'medium', '', '', '', '', '', '', 'plant, south'; ...
+        'k3', 'Tag 3', 'Sensor', 'medium', '', '', '', '', '', '', '' };
+
+    keptNorth = TagStatusTableWindow.filterRows_(rows, 'north');
+    assertEqual_(size(keptNorth, 1), 1, 'filter ''north'' on Labels keeps 1 row');
+    assertEqual_(keptNorth{1, 1}, 'k1', 'matched row key');
+
+    keptPlant = TagStatusTableWindow.filterRows_(rows, 'plant');
+    assertEqual_(size(keptPlant, 1), 2, 'filter ''plant'' on Labels keeps 2 rows');
+end
+
+function testFilterRows_chipFiltersAndSemantics()
+    % Verifies AND-across-groups, OR-within-group semantics for the chip
+    % filters. Build a small fixture with diverse Type/Crit/Activity cells.
+    rows = { ...
+        'k1', 'Sensor Hi Live',   'Sensor',    'high',   '', '', '', '', 'Live',     '', ''; ...
+        'k2', 'Sensor Med Live',  'Sensor',    'medium', '', '', '', '', 'Live',     '', ''; ...
+        'k3', 'Sensor Hi Inact',  'Sensor',    'high',   '', '', '', '', 'Inactive', '', ''; ...
+        'k4', 'Monitor Hi Live',  'Monitor',   'high',   '', '', '', '', 'Live',     '', ''; ...
+        'k5', 'Compos Low Live',  'Composite', 'low',    '', '', '', '', 'Live',     '', ''; ...
+        'k6', 'State Med Inact',  'State',     'medium', '', '', '', '', 'Inactive', '', '' };
+
+    % Type=Sensor only (OR within Type group), all crits, all activities.
+    kept = TagStatusTableWindow.filterRows_(rows, '', ...
+        {'sensor'}, {'low', 'medium', 'high', 'safety'}, {'live', 'inactive'});
+    assertEqual_(size(kept, 1), 3, 'Type=Sensor keeps 3 sensor rows');
+
+    % Type=Sensor AND Crit=high -> only rows with both.
+    kept2 = TagStatusTableWindow.filterRows_(rows, '', ...
+        {'sensor'}, {'high'}, {'live', 'inactive'});
+    assertEqual_(size(kept2, 1), 2, 'Sensor+high keeps k1 and k3');
+    assertTrue_(any(strcmp(kept2(:, 1), 'k1')), 'kept includes k1');
+    assertTrue_(any(strcmp(kept2(:, 1), 'k3')), 'kept includes k3');
+
+    % Type=Sensor AND Crit=high AND Activity=Live -> only k1.
+    kept3 = TagStatusTableWindow.filterRows_(rows, '', ...
+        {'sensor'}, {'high'}, {'live'});
+    assertEqual_(size(kept3, 1), 1, 'Sensor+high+Live keeps only k1');
+    assertEqual_(kept3{1, 1}, 'k1', 'kept row is k1');
+
+    % OR-within-group: Type=Sensor OR Monitor, all else permissive.
+    kept4 = TagStatusTableWindow.filterRows_(rows, '', ...
+        {'sensor', 'monitor'}, {'low', 'medium', 'high', 'safety'}, ...
+        {'live', 'inactive'});
+    assertEqual_(size(kept4, 1), 4, 'Type=Sensor OR Monitor keeps 4 rows');
+
+    % Combined with search: "Hi" + Type=Sensor.
+    kept5 = TagStatusTableWindow.filterRows_(rows, 'Hi', ...
+        {'sensor'}, {'low', 'medium', 'high', 'safety'}, ...
+        {'live', 'inactive'});
+    assertEqual_(size(kept5, 1), 2, 'search ''Hi'' + Type=Sensor keeps k1+k3');
+end
+
+function testFilterRows_emptyChipGroupExcludesAll()
+    % "Zero chips selected in any group" -> table shows nothing.
+    rows = { ...
+        'k1', 'A', 'Sensor', 'high',   '', '', '', '', 'Live',     '', ''; ...
+        'k2', 'B', 'Sensor', 'medium', '', '', '', '', 'Inactive', '', '' };
+
+    % Empty Type group.
+    kept = TagStatusTableWindow.filterRows_(rows, '', ...
+        {}, {'low', 'medium', 'high', 'safety'}, {'live', 'inactive'});
+    assertEqual_(size(kept, 1), 0, 'empty Type chip group excludes all rows');
+
+    % Empty Criticality group.
+    kept2 = TagStatusTableWindow.filterRows_(rows, '', ...
+        {'sensor', 'monitor', 'composite', 'state', 'derived'}, {}, {'live', 'inactive'});
+    assertEqual_(size(kept2, 1), 0, 'empty Criticality chip group excludes all rows');
+
+    % Empty Activity group.
+    kept3 = TagStatusTableWindow.filterRows_(rows, '', ...
+        {'sensor', 'monitor', 'composite', 'state', 'derived'}, ...
+        {'low', 'medium', 'high', 'safety'}, {});
+    assertEqual_(size(kept3, 1), 0, 'empty Activity chip group excludes all rows');
 end
 
 % ===================== Helpers =====================

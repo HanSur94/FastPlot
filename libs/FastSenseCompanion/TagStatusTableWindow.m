@@ -47,6 +47,13 @@ classdef TagStatusTableWindow < handle
         hStatusLbl_   = []        % "N tags" footer label
         hSearchLbl_   = []        % "Search:" label
         hHeaderLbl_   = []        % "Tags" right-side header label
+        hLastRefreshLbl_ = []     % "Last refreshed: HH:MM:SS" label (260519-bs4-04 patch)
+        hChipsType_     = []      % 1x5 array of uicontrol pushbuttons (Sensor/Monitor/Composite/State/Derived)
+        hChipsCrit_     = []      % 1x4 array of uicontrol pushbuttons (Low/Medium/High/Safety)
+        hChipsActivity_ = []      % 1x2 array of uicontrol pushbuttons (Live/Inactive)
+        ActiveTypeChips_     = {} % active type keys; subset of TypeChipKeys_; empty = none-selected -> excludes all
+        ActiveCritChips_     = {} % active criticality keys; subset of CritChipKeys_
+        ActiveActivityChips_ = {} % active activity keys; subset of ActivityChipKeys_
         Registry_     = []        % TagRegistry handle (or class name placeholder)
         Theme_        = []        % resolved CompanionTheme struct
         Companion_    = []        % FastSenseCompanion handle (uialert parent + detach)
@@ -60,6 +67,14 @@ classdef TagStatusTableWindow < handle
     properties (Constant, Access = private)
         RefreshPeriod_           = 1.0    % seconds between RefreshTimer_ ticks
         InactiveThresholdSeconds_ = 300   % >= 5 min since last sample -> Activity = "Inactive"
+        % Chip filter dimensions (260519-bs4-04 patch). Keys are stored
+        % lower-case (canonical). Labels are display-cased.
+        TypeChipKeys_     = {'sensor', 'monitor', 'composite', 'state', 'derived'}
+        TypeChipLabels_   = {'Sensor', 'Monitor', 'Composite', 'State', 'Derived'}
+        CritChipKeys_     = {'low', 'medium', 'high', 'safety'}
+        CritChipLabels_   = {'Low', 'Medium', 'High', 'Safety'}
+        ActivityChipKeys_   = {'live', 'inactive'}
+        ActivityChipLabels_ = {'Live', 'Inactive'}
     end
 
     methods (Access = public)
@@ -67,6 +82,11 @@ classdef TagStatusTableWindow < handle
         function obj = TagStatusTableWindow()
             obj.RowBuffer_ = cell(0, 11);
             obj.KeyToRow_  = containers.Map('KeyType', 'char', 'ValueType', 'double');
+            % Default chip state: every chip ACTIVE (first-open shows
+            % everything). 260519-bs4-04 patch.
+            obj.ActiveTypeChips_     = obj.TypeChipKeys_;
+            obj.ActiveCritChips_     = obj.CritChipKeys_;
+            obj.ActiveActivityChips_ = obj.ActivityChipKeys_;
         end
 
         function openWith(obj, registry, theme, companion)
@@ -94,21 +114,48 @@ classdef TagStatusTableWindow < handle
             t = theme;
 
             % --- Classical figure window (NOT a uifigure). ---
+            % Window slightly taller than the original 520px to fit the
+            % new last-refreshed label + chip strip introduced by the
+            % 260519-bs4-04 patch without squeezing the table. Window
+            % stays resizable (no 'Resize','off').
             obj.hFig_ = figure( ...
                 'Name',             'Tag Status -- FastSense Companion', ...
                 'NumberTitle',      'off', ...
                 'MenuBar',           'none', ...
                 'ToolBar',           'none', ...
                 'Color',             t.WidgetBackground, ...
-                'Position',          [100 100 1100 520], ...
+                'Position',          [100 100 1100 580], ...
                 'CloseRequestFcn',   @(~,~) obj.onCloseRequest_());
             movegui(obj.hFig_, 'center');
 
-            % --- Top search strip (normalized units) ---
+            % --- Vertical strip layout (top -> bottom):
+            %   Last refreshed label  : y=0.945 .. 0.985  (~4%)
+            %   Search strip          : y=0.890 .. 0.940  (~5%)
+            %   Chip strip            : y=0.840 .. 0.885  (~4.5%)
+            %   Table                 : y=0.055 .. 0.835  (~78%)
+            %   Footer "N / M tags"   : y=0.005 .. 0.045  (~4%)
+            % Adding the label + chip strip leaves enough room for the
+            % uitable at the default ~580px window height (260519-bs4-04).
+
+            % --- Last-refreshed label (top-left, small muted text). ---
+            % Style mirrors EventsLogPane.setLastUpdated convention:
+            % small font, Menlo monospace, PlaceholderTextColor.
+            obj.hLastRefreshLbl_ = uicontrol(obj.hFig_, ...
+                'Style',               'text', ...
+                'Units',               'normalized', ...
+                'Position',            [0.01 0.945 0.98 0.04], ...
+                'String',              'Last refreshed: --:--:--', ...
+                'HorizontalAlignment', 'left', ...
+                'BackgroundColor',     t.WidgetBackground, ...
+                'ForegroundColor',     t.PlaceholderTextColor, ...
+                'FontName',            'Menlo', ...
+                'FontSize',            10);
+
+            % --- Search strip ---
             obj.hSearchLbl_ = uicontrol(obj.hFig_, ...
                 'Style',               'text', ...
                 'Units',               'normalized', ...
-                'Position',            [0.01 0.93 0.06 0.05], ...
+                'Position',            [0.01 0.89 0.06 0.05], ...
                 'String',              'Search:', ...
                 'HorizontalAlignment', 'left', ...
                 'BackgroundColor',     t.WidgetBackground, ...
@@ -118,7 +165,7 @@ classdef TagStatusTableWindow < handle
             obj.hSearch_ = uicontrol(obj.hFig_, ...
                 'Style',               'edit', ...
                 'Units',               'normalized', ...
-                'Position',            [0.07 0.93 0.43 0.055], ...
+                'Position',            [0.07 0.89 0.43 0.05], ...
                 'String',              '', ...
                 'HorizontalAlignment', 'left', ...
                 'BackgroundColor',     t.WidgetBackground, ...
@@ -129,13 +176,16 @@ classdef TagStatusTableWindow < handle
             obj.hHeaderLbl_ = uicontrol(obj.hFig_, ...
                 'Style',               'text', ...
                 'Units',               'normalized', ...
-                'Position',            [0.55 0.93 0.44 0.05], ...
+                'Position',            [0.55 0.89 0.44 0.05], ...
                 'String',              'Tags', ...
                 'HorizontalAlignment', 'right', ...
                 'BackgroundColor',     t.WidgetBackground, ...
                 'ForegroundColor',     t.ForegroundColor, ...
                 'FontSize',            10, ...
                 'FontWeight',          'bold');
+
+            % --- Chip strip: Type / Criticality / Activity ---
+            obj.buildChipStrip_(t);
 
             % --- Striped pair derived from theme (mirrors LiveLogPane). ---
             stripePair = obj.stripePairFromTheme_(t);
@@ -144,7 +194,7 @@ classdef TagStatusTableWindow < handle
             % 11 columns: Activity is column 9 (between Last updated and Samples).
             obj.hTable_ = uitable(obj.hFig_, ...
                 'Units',           'normalized', ...
-                'Position',        [0.01 0.06 0.98 0.86], ...
+                'Position',        [0.01 0.055 0.98 0.78], ...
                 'ColumnName',      {'Key', 'Name', 'Type', 'Criticality', 'Units', ...
                                     'Latest', 'Status', 'Last updated', 'Activity', ...
                                     'Samples', 'Labels'}, ...
@@ -168,9 +218,21 @@ classdef TagStatusTableWindow < handle
                 'ForegroundColor',     t.PlaceholderTextColor, ...
                 'FontSize',            10);
 
+            % --- Reset chip filter state to "show everything" on every
+            %     openWith (defensive in case the singleton is reused).
+            obj.ActiveTypeChips_     = obj.TypeChipKeys_;
+            obj.ActiveCritChips_     = obj.CritChipKeys_;
+            obj.ActiveActivityChips_ = obj.ActivityChipKeys_;
+            obj.applyChipStyles_();
+
             % --- Fill from registry + apply (initial empty) filter. ---
             obj.rebuildAll_();
             obj.applyFilter_();
+
+            % --- Seed the "Last refreshed" label to window-open time so
+            %     the user immediately sees a concrete HH:MM:SS rather
+            %     than the "--:--:--" placeholder.
+            obj.setLastRefreshedNow_();
 
             obj.IsOpen = true;
 
@@ -238,6 +300,13 @@ classdef TagStatusTableWindow < handle
                     obj.hStatusLbl_.BackgroundColor = t.WidgetBackground;
                     obj.hStatusLbl_.ForegroundColor = t.PlaceholderTextColor;
                 end
+                if ~isempty(obj.hLastRefreshLbl_) && isvalid(obj.hLastRefreshLbl_)
+                    obj.hLastRefreshLbl_.BackgroundColor = t.WidgetBackground;
+                    obj.hLastRefreshLbl_.ForegroundColor = t.PlaceholderTextColor;
+                end
+                % Re-apply chip active/inactive styling -- pulls Accent
+                % from the freshly-stored theme.
+                obj.applyChipStyles_();
                 if ~isempty(obj.hTable_) && isvalid(obj.hTable_)
                     stripePair = obj.stripePairFromTheme_(t);
                     obj.hTable_.BackgroundColor = stripePair;
@@ -284,6 +353,23 @@ classdef TagStatusTableWindow < handle
             hf = obj.hFig_;
         end
 
+        function s = lastRefreshedLabelForTest(obj)
+        %LASTREFRESHEDLABELFORTEST Test helper: read the "Last refreshed:" label String.
+        %   Returns '' when the window is detached or the label is invalid.
+            s = '';
+            if ~isempty(obj.hLastRefreshLbl_) && isvalid(obj.hLastRefreshLbl_)
+                s = obj.hLastRefreshLbl_.String;
+            end
+        end
+
+        function tickForTest(obj)
+        %TICKFORTEST Test helper: drive a single onRefreshTick_ synchronously.
+        %   Mirrors what the RefreshTimer_ does on its 1s cadence -- used by
+        %   the UI test that asserts the "Last refreshed" label updates
+        %   after a simulated refresh tick. 260519-bs4-04 patch.
+            obj.onRefreshTick_();
+        end
+
     end
 
     methods (Access = private)
@@ -317,13 +403,17 @@ classdef TagStatusTableWindow < handle
                 end
             catch
             end
-            obj.hFig_       = [];
-            obj.hTable_     = [];
-            obj.hSearch_    = [];
-            obj.hStatusLbl_ = [];
-            obj.hSearchLbl_ = [];
-            obj.hHeaderLbl_ = [];
-            obj.IsOpen      = false;
+            obj.hFig_            = [];
+            obj.hTable_          = [];
+            obj.hSearch_         = [];
+            obj.hStatusLbl_      = [];
+            obj.hSearchLbl_      = [];
+            obj.hHeaderLbl_      = [];
+            obj.hLastRefreshLbl_ = [];
+            obj.hChipsType_      = [];
+            obj.hChipsCrit_      = [];
+            obj.hChipsActivity_  = [];
+            obj.IsOpen           = false;
         end
 
         function rebuildAll_(obj)
@@ -362,12 +452,15 @@ classdef TagStatusTableWindow < handle
 
         function applyFilter_(obj)
         %APPLYFILTER_ Push RowBuffer_ (filtered) into hTable_.Data + update footer.
+        %   Combines the case-insensitive substring search with the three
+        %   chip groups (Type / Criticality / Activity). 260519-bs4-04 patch.
             if isempty(obj.hTable_) || ~isvalid(obj.hTable_); return; end
             qry = '';
             if ~isempty(obj.hSearch_) && isvalid(obj.hSearch_)
                 qry = obj.hSearch_.String;
             end
-            rows = TagStatusTableWindow.filterRows_(obj.RowBuffer_, qry);
+            rows = TagStatusTableWindow.filterRows_(obj.RowBuffer_, qry, ...
+                obj.ActiveTypeChips_, obj.ActiveCritChips_, obj.ActiveActivityChips_);
             obj.hTable_.Data = rows;
             if ~isempty(obj.hStatusLbl_) && isvalid(obj.hStatusLbl_)
                 obj.hStatusLbl_.String = sprintf('%d / %d tags', ...
@@ -392,6 +485,143 @@ classdef TagStatusTableWindow < handle
             else
                 pair = [1.00 1.00 1.00; 0.94 0.94 0.94];
             end
+        end
+
+        function buildChipStrip_(obj, t)
+        %BUILDCHIPSTRIP_ Build the three chip groups (Type / Crit / Activity).
+        %   Layout: 5 Type chips on the left, 4 Criticality chips in the
+        %   middle, 2 Activity chips on the right -- with small visual
+        %   gaps between groups. All chips toggle on click.
+        %   Mirrors the multi-toggle pill pattern from TagCatalogPane.
+        %   260519-bs4-04 patch.
+            nType = numel(obj.TypeChipKeys_);
+            nCrit = numel(obj.CritChipKeys_);
+            nAct  = numel(obj.ActivityChipKeys_);
+
+            % Strip allocation: 0.01 .. 0.99 = 0.98 wide.
+            stripL  = 0.01;
+            stripW  = 0.98;
+            y       = 0.84;
+            h       = 0.045;
+            % Groups occupy roughly 5/11, 4/11, 2/11 of the strip width
+            % with small inter-group gutters.
+            gutter  = 0.012;
+            usable  = stripW - 2 * gutter;
+            wType   = usable * nType / (nType + nCrit + nAct);
+            wCrit   = usable * nCrit / (nType + nCrit + nAct);
+            wAct    = usable * nAct  / (nType + nCrit + nAct);
+
+            % --- Type chips ---
+            obj.hChipsType_ = obj.makeChipRow_(t, ...
+                stripL, y, wType, h, ...
+                obj.TypeChipLabels_, obj.TypeChipKeys_, ...
+                @(key) obj.onTypeChip_(key));
+
+            % --- Criticality chips ---
+            obj.hChipsCrit_ = obj.makeChipRow_(t, ...
+                stripL + wType + gutter, y, wCrit, h, ...
+                obj.CritChipLabels_, obj.CritChipKeys_, ...
+                @(key) obj.onCritChip_(key));
+
+            % --- Activity chips ---
+            obj.hChipsActivity_ = obj.makeChipRow_(t, ...
+                stripL + wType + wCrit + 2 * gutter, y, wAct, h, ...
+                obj.ActivityChipLabels_, obj.ActivityChipKeys_, ...
+                @(key) obj.onActivityChip_(key));
+
+            % Apply initial styling (all active).
+            obj.applyChipStyles_();
+        end
+
+        function btns = makeChipRow_(obj, t, xLeft, yBottom, width, height, ...
+                labels, keys, callbackFn)
+        %MAKECHIPROW_ Create a row of equally-spaced uicontrol pushbuttons.
+        %   Returns a 1xN array of uicontrol handles, one per label.
+            n = numel(labels);
+            btns = gobjects(1, n);
+            chipW = width / n;
+            for i = 1:n
+                x = xLeft + (i - 1) * chipW;
+                btns(i) = uicontrol(obj.hFig_, ...
+                    'Style',               'pushbutton', ...
+                    'Units',               'normalized', ...
+                    'Position',            [x yBottom chipW * 0.96 height], ...
+                    'String',              labels{i}, ...
+                    'BackgroundColor',     t.WidgetBackground, ...
+                    'ForegroundColor',     t.ForegroundColor, ...
+                    'FontSize',            10, ...
+                    'Callback',            chipCallback_(callbackFn, keys{i}));
+            end
+        end
+
+        function applyChipStyles_(obj)
+        %APPLYCHIPSTYLES_ Apply active/inactive visual style to all chip groups.
+        %   Active chips use theme Accent background + bold; inactive chips
+        %   use the theme WidgetBackground + normal weight. No-op when the
+        %   chip arrays are empty (e.g. window detached).
+            if isempty(obj.Theme_); return; end
+            t = obj.Theme_;
+            obj.applyChipStyleGroup_(obj.hChipsType_,     obj.TypeChipKeys_,     obj.ActiveTypeChips_,     t);
+            obj.applyChipStyleGroup_(obj.hChipsCrit_,     obj.CritChipKeys_,     obj.ActiveCritChips_,     t);
+            obj.applyChipStyleGroup_(obj.hChipsActivity_, obj.ActivityChipKeys_, obj.ActiveActivityChips_, t);
+        end
+
+        function applyChipStyleGroup_(~, hChips, allKeys, activeKeys, t)
+        %APPLYCHIPSTYLEGROUP_ Apply per-chip styling for a single group.
+            if isempty(hChips); return; end
+            % Active-state colors mirror TagCatalogPane.applyPillStyle_:
+            % accent bg + dark fg + bold for active; normal otherwise.
+            for i = 1:numel(hChips)
+                btn = hChips(i);
+                if ~isgraphics(btn) || ~isvalid(btn); continue; end
+                isActive = any(strcmp(activeKeys, allKeys{i}));
+                if isActive
+                    btn.BackgroundColor = t.Accent;
+                    btn.ForegroundColor = t.DashboardBackground;
+                    btn.FontWeight      = 'bold';
+                else
+                    btn.BackgroundColor = t.WidgetBackground;
+                    btn.ForegroundColor = t.ForegroundColor;
+                    btn.FontWeight      = 'normal';
+                end
+            end
+        end
+
+        function onTypeChip_(obj, key)
+        %ONTYPECHIP_ Toggle a Type chip and re-apply the filter.
+            obj.ActiveTypeChips_ = toggleKey_(obj.ActiveTypeChips_, key);
+            obj.applyChipStyles_();
+            obj.applyFilter_();
+        end
+
+        function onCritChip_(obj, key)
+        %ONCRITCHIP_ Toggle a Criticality chip and re-apply the filter.
+            obj.ActiveCritChips_ = toggleKey_(obj.ActiveCritChips_, key);
+            obj.applyChipStyles_();
+            obj.applyFilter_();
+        end
+
+        function onActivityChip_(obj, key)
+        %ONACTIVITYCHIP_ Toggle an Activity chip and re-apply the filter.
+            obj.ActiveActivityChips_ = toggleKey_(obj.ActiveActivityChips_, key);
+            obj.applyChipStyles_();
+            obj.applyFilter_();
+        end
+
+        function setLastRefreshedNow_(obj)
+        %SETLASTREFRESHEDNOW_ Update the "Last refreshed: HH:MM:SS" label to now.
+        %   24h clock, second precision, local time. No-op when the label
+        %   is invalid (window detached). 260519-bs4-04 patch.
+            if isempty(obj.hLastRefreshLbl_) || ~isvalid(obj.hLastRefreshLbl_)
+                return;
+            end
+            try
+                ts = char(datetime('now', 'Format', 'HH:mm:ss'));
+            catch
+                % Octave / stripped MATLAB fallback.
+                ts = datestr(now, 'HH:MM:SS');  %#ok<DATST,TNOW1>
+            end
+            obj.hLastRefreshLbl_.String = sprintf('Last refreshed: %s', ts);
         end
 
         function startRefreshTimer_(obj)
@@ -471,6 +701,11 @@ classdef TagStatusTableWindow < handle
                 if changed
                     obj.applyFilter_();
                 end
+                % Always update the "Last refreshed" label after a clean
+                % tick -- even when no rows changed. Proves the polling
+                % is alive and matches the user's expectation that the
+                % label is a heartbeat indicator. 260519-bs4-04 patch.
+                obj.setLastRefreshedNow_();
                 obj.RefreshErrCount_ = 0;   % reset on a clean tick
             catch err
                 obj.RefreshErrCount_ = obj.RefreshErrCount_ + 1;
@@ -613,36 +848,84 @@ classdef TagStatusTableWindow < handle
             end
         end
 
-        function out = filterRows_(rows, query)
-        %FILTERROWS_ Case-insensitive substring filter on columns Key + Name.
-        %   Empty/whitespace query returns rows unchanged.
+        function out = filterRows_(rows, query, activeTypes, activeCrits, activeActivities)
+        %FILTERROWS_ Combined search + chip filter over a buffer of rows.
+        %   filterRows_(rows, query) -- search-only (backward-compatible signature).
+        %   filterRows_(rows, query, activeTypes, activeCrits, activeActivities)
+        %     applies all four dimensions.
+        %
+        %   Inputs:
+        %     rows       -- cell(N, 11) buffer (TagStatusTableWindow.RowBuffer_).
+        %     query      -- char/string; empty / whitespace = no search filter.
+        %     activeTypes      -- cellstr subset of {sensor, monitor,
+        %                         composite, state, derived}. Omitted = all kept.
+        %     activeCrits      -- cellstr subset of {low, medium, high, safety}.
+        %                         Omitted = all kept.
+        %     activeActivities -- cellstr subset of {live, inactive}.
+        %                         Omitted = all kept.
+        %
+        %   Semantics:
+        %     -- search: substring match (case-insensitive) on Key, Name,
+        %        Units, OR Labels (Labels are stored as a comma-joined string
+        %        in column 11).
+        %     -- chip groups: AND across groups (a row passes only if it
+        %        matches the active set of every group), OR within a group
+        %        (a row matches if its value is in the active set).
+        %     -- A chip group with ZERO active entries excludes ALL rows
+        %        for that dimension (the "no selection -> show nothing"
+        %        rule called out in the patch spec).
+        %
+        %   Returns the filtered cell array (preserves row ordering).
+        %   260519-bs4-04 patch.
+            if nargin < 3, activeTypes      = []; end
+            if nargin < 4, activeCrits      = []; end
+            if nargin < 5, activeActivities = []; end
             if isempty(rows)
                 out = rows;
                 return;
             end
+            % --- Search query ---
             qry = '';
             if ischar(query)
                 qry = strtrim(query);
             elseif isstring(query) && isscalar(query)
                 qry = strtrim(char(query));
             end
-            if isempty(qry)
-                out = rows;
+            qLow = lower(qry);
+            haveQuery = ~isempty(qLow);
+            % --- Chip-state interpretation ---
+            % nargin convention separates "argument omitted (skip chip
+            % filter)" from "argument supplied as empty (= zero chips
+            % active -> exclude all)". The internal sentinels NaN/[]
+            % below encode this.
+            applyTypes = ~isempty(activeTypes) || (nargin >= 3 && iscell(activeTypes));
+            applyCrits = ~isempty(activeCrits) || (nargin >= 4 && iscell(activeCrits));
+            applyAct   = ~isempty(activeActivities) || (nargin >= 5 && iscell(activeActivities));
+            % "Zero chips selected" short-circuit: if any group is applied
+            % AND empty, the table is empty.
+            if (applyTypes && isempty(activeTypes)) || ...
+                    (applyCrits && isempty(activeCrits)) || ...
+                    (applyAct   && isempty(activeActivities))
+                out = cell(0, size(rows, 2));
                 return;
             end
-            qLow = lower(qry);
-            keep = false(size(rows, 1), 1);
+            keep = true(size(rows, 1), 1);
             for i = 1:size(rows, 1)
-                k = '';
-                n = '';
-                try
-                    k = lower(rows{i, 1});
-                    n = lower(rows{i, 2});
-                catch
-                    % Row missing string columns -- skip without crashing.
+                if haveQuery && ~rowMatchesSearch_(rows(i, :), qLow)
+                    keep(i) = false;
+                    continue;
                 end
-                if ~isempty(strfind(k, qLow)) || ~isempty(strfind(n, qLow)) %#ok<STREMP>
-                    keep(i) = true;
+                if applyTypes && ~rowMatchesType_(rows(i, :), activeTypes)
+                    keep(i) = false;
+                    continue;
+                end
+                if applyCrits && ~rowMatchesCrit_(rows(i, :), activeCrits)
+                    keep(i) = false;
+                    continue;
+                end
+                if applyAct && ~rowMatchesActivity_(rows(i, :), activeActivities)
+                    keep(i) = false;
+                    continue;
                 end
             end
             out = rows(keep, :);
@@ -742,5 +1025,69 @@ function s = randomTimerSuffix_()
     catch
         % Fallback: timestamp + random digits (no Java).
         s = sprintf('%.0f-%d', now * 86400, randi(1e6));
+    end
+end
+
+function fn = chipCallback_(callbackFn, key)
+%CHIPCALLBACK_ Build a 2-arg uicontrol Callback that closes over a chip key.
+%   Captures `key` at chip-construction time so a single chip-handler
+%   method on the class can route per-chip clicks via a closure. Mirrors
+%   the closure trick used in TagCatalogPane's loop over kindKeys/critKeys.
+    fn = @(~, ~) callbackFn(key);
+end
+
+function out = toggleKey_(activeKeys, key)
+%TOGGLEKEY_ Add `key` to `activeKeys` if absent, else remove it.
+    if any(strcmp(activeKeys, key))
+        out = activeKeys(~strcmp(activeKeys, key));
+    else
+        out = [activeKeys, {key}];
+    end
+end
+
+function tf = rowMatchesSearch_(row, qLow)
+%ROWMATCHESSEARCH_ Case-insensitive substring match on Key+Name+Units+Labels.
+%   row -- 1x11 cell. Columns 1 (Key), 2 (Name), 5 (Units), 11 (Labels).
+%   qLow -- already-lowercased query.
+%   Tolerates rows with missing / non-char columns (defensive try/catch).
+    tf = false;
+    try
+        for c = [1, 2, 5, 11]
+            val = row{c};
+            if ~ischar(val); continue; end
+            if ~isempty(strfind(lower(val), qLow)) %#ok<STREMP>
+                tf = true;
+                return;
+            end
+        end
+    catch
+        % Malformed row -- treat as non-match.
+    end
+end
+
+function tf = rowMatchesType_(row, activeTypes)
+%ROWMATCHESTYPE_ Column 3 (Type, e.g. 'Sensor') in activeTypes (lowercase)?
+    tf = false;
+    try
+        tf = any(strcmpi(activeTypes, row{3}));
+    catch
+    end
+end
+
+function tf = rowMatchesCrit_(row, activeCrits)
+%ROWMATCHESCRIT_ Column 4 (Criticality, lowercase) in activeCrits?
+    tf = false;
+    try
+        tf = any(strcmpi(activeCrits, row{4}));
+    catch
+    end
+end
+
+function tf = rowMatchesActivity_(row, activeActivities)
+%ROWMATCHESACTIVITY_ Column 9 (Activity, 'Live'/'Inactive') in activeActivities?
+    tf = false;
+    try
+        tf = any(strcmpi(activeActivities, row{9}));
+    catch
     end
 end
