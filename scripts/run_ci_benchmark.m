@@ -246,6 +246,23 @@ function run_ci_benchmark()
         'unit',  'ms', ...
         'value', rIOOff.tickMin * 1000); %#ok<AGROW>
 
+    % Phase 1028 plan 05: record WithIO coalesce-off as the A1+A2
+    % regression check. coalesce-on is the production default already
+    % captured above as rIO. The delta (coalesce-on - coalesce-off)
+    % isolates the cost of Tag.invalidateBatch_(updatedSet) at end-of-tick.
+    % Cache stays ON for both runs so the only difference is the listener
+    % coalescing path. Production callers use cache-on + coalesce-on.
+    fprintf('Running bench_tag_pipeline_1k (WithIO, cache-on, coalesce-off, plan 05 regression)...\n');
+    rCoOff = bench_tag_pipeline_1k('Mode', 'WithIO', '--cache-on', '--coalesce-off');
+    results{end+1} = struct( ...
+        'name',  'tag_pipeline_1k_withio_coalesce_on_min_ms', ...
+        'unit',  'ms', ...
+        'value', rIO.tickMin * 1000); %#ok<AGROW>
+    results{end+1} = struct( ...
+        'name',  'tag_pipeline_1k_withio_coalesce_off_min_ms', ...
+        'unit',  'ms', ...
+        'value', rCoOff.tickMin * 1000); %#ok<AGROW>
+
     % Phase 1028 Wave 1: tBreakdown profile run (informational — not gated).
     % Captures per-region wall time so kernel selection in waves 2/3 can be
     % data-driven against the actual hot region rather than RESEARCH's

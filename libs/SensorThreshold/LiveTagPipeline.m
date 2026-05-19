@@ -85,6 +85,21 @@ classdef LiveTagPipeline < handle
                                     %   explicit flag rather than `isequal(writeFn_, @writeTagMat_)` because
                                     %   function-handle equality is unreliable for private/ helpers across
                                     %   MATLAB / Octave versions.
+        coalesceActive_ = true      % Phase 1028 plan 05: production-default for A1+A2 listener fan-out
+                                    %   coalescing. When true, onTick_ accumulates SensorTag handles whose
+                                    %   processTag_ returned true and calls Tag.invalidateBatch_(updatedSet)
+                                    %   once at end-of-tick rather than relying solely on per-tag listener
+                                    %   cascade. Default true (mirrors cacheActive_); Hidden setter flips for
+                                    %   benchmark comparison (cache-off / coalesce-off measurement). NOTE:
+                                    %   in the LiveTagPipeline today, processTag_ writes to .mat files and
+                                    %   does NOT call tag.updateData() — so the upstream listener fan-out is
+                                    %   inert in this code path. The coalesced batch call is therefore a
+                                    %   forward-compatible seam: it has zero observable effect when the
+                                    %   updated SensorTags have no listeners (the case for raw-source-only
+                                    %   sensors typical of the pipeline), and amortizes overhead when
+                                    %   downstream MonitorTags/CompositeTags ARE wired against pipeline
+                                    %   sensors (the Companion / dashboard wiring). See VERIFICATION.md
+                                    %   §"Post-Plan-05 tBreakdown" for measured before/after numbers.
     end
 
     methods
@@ -226,6 +241,25 @@ classdef LiveTagPipeline < handle
             obj.writeFnIsProduction_ = false;
         end
 
+        function setCoalesceActiveForTesting_(obj, tf)
+            %SETCOALESCEACTIVEFORTESTING_ Internal-only setter for end-of-tick listener coalescing.
+            %   Phase 1028 plan 05: enable/disable the A1+A2 end-of-tick
+            %   Tag.invalidateBatch_(updatedSet) call inside onTick_.
+            %   Production callers MUST NOT use this — coalescing-on is the
+            %   production default (coalesceActive_ = true). The setter exists
+            %   so the bench can measure the coalesce-on vs coalesce-off
+            %   delta against the dominant `other` bucket (per-tag dispatch +
+            %   listener cascade — see Plan 02d VERIFICATION.md). Hidden so
+            %   it does not appear in tab-completion / doc() (D-10). Mirrors
+            %   the plan-02b setWriteFnForTesting_ and plan-02d
+            %   setCacheActiveForTesting_ patterns.
+            if ~(islogical(tf) && isscalar(tf))
+                error('TagPipeline:invalidCoalesceActive', ...
+                    'setCoalesceActiveForTesting_ requires a logical scalar (got %s).', class(tf));
+            end
+            obj.coalesceActive_ = tf;
+        end
+
         function setCacheActiveForTesting_(obj, tf)
             %SETCACHEACTIVEFORTESTING_ Internal-only setter for the prior-state cache.
             %   Phase 1028 plan 02d: enable/disable the in-memory priorState_ cache
@@ -257,8 +291,42 @@ classdef LiveTagPipeline < handle
             %ONTICK_ One polling cycle. Mirrors MatFileDataSource.fetchNew
             %   per tag, with a per-tick file cache to de-dup shared files
             %   (D-07) and a per-tag try/catch boundary (D-18).
+            %
+            %   Phase 1028 plan 05 (A1+A2 seam): the loop accumulates the
+            %   handle of every tag whose processTag_ returned true into
+            %   updatedSet. When coalesceActive_ is true (production
+            %   default), the end-of-tick block calls
+            %   Tag.invalidateBatch_(updatedSet) — fanning listener
+            %   invalidate() out across the union of unique downstream
+            %   listeners (MonitorTags / CompositeTags) in a single walk.
+            %
+            %   IMPORTANT — current semantics: the pipeline writes new
+            %   rows to .mat files via writeFn_ / cachedWriteFn_; it
+            %   does NOT update the in-memory SensorTag's X_/Y_ fields.
+            %   Downstream MonitorTag/CompositeTag caches read from
+            %   parent.X_/Y_ (in-memory). Therefore, calling
+            %   invalidateBatch_ here clears monitor caches even though
+            %   the data those caches summarize hasn't moved in memory.
+            %   The recomputed result on next getXY() is bit-for-bit
+            %   identical to the cached one — invalidating is
+            %   semantically a no-op (just wasted work).
+            %
+            %   This makes coalesceActive_ a forward-compatible seam:
+            %   when a future refactor wires processTag_ to also call
+            %   tag.updateData(newX, newY) for in-memory propagation
+            %   (so dashboards don't need explicit tag.load()), the
+            %   end-of-tick batched fan-out is already in place and
+            %   eliminates per-tag cascade cost. For NOW, both
+            %   coalesce-on and coalesce-off produce identical
+            %   downstream observable behavior; coalesce-on adds the
+            %   cost of walking listener lists and clearing caches that
+            %   would be cleared again by the eventual in-memory update
+            %   path. See VERIFICATION.md §"Post-Plan-05 tBreakdown"
+            %   for measured cost numbers and the plan-06 follow-up
+            %   pointer (in-memory propagation refactor).
             report = struct('succeeded', {{}}, 'failed', struct([]));
             tickCache = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            updatedSet = {};   % collect tag handles with processed==true
             try
                 tags = obj.eligibleTags_();
                 obj.gcStaleTagState_(tags);
@@ -271,6 +339,7 @@ classdef LiveTagPipeline < handle
                         processed = obj.processTag_(t, rs, key, tickCache);
                         if processed
                             report.succeeded{end+1} = key; %#ok<AGROW>
+                            updatedSet{end+1} = t;          %#ok<AGROW>
                         end
                     catch ex
                         if obj.Verbose
@@ -294,6 +363,13 @@ classdef LiveTagPipeline < handle
                             report.failed(end+1) = entry; %#ok<AGROW>
                         end
                     end
+                end
+
+                % Phase 1028 plan 05 A1+A2: end-of-tick coalesced
+                % invalidate. Skipped when coalesceActive_ is false (the
+                % bench's --coalesce-off mode for measurement).
+                if obj.coalesceActive_ && ~isempty(updatedSet)
+                    Tag.invalidateBatch_(updatedSet);
                 end
             catch ex
                 if ~isempty(obj.ErrorFcn)

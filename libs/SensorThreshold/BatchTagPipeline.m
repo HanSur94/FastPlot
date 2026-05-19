@@ -57,6 +57,12 @@ classdef BatchTagPipeline < handle
         cacheActive_ = true         % Phase 1028 plan 02d: production-default. Hidden setter mirrors
                                     %   LiveTagPipeline.setCacheActiveForTesting_ for benchmark use.
         writeFnIsProduction_ = true % Phase 1028 plan 02d: tracks whether writeFn_ is the production handle.
+        coalesceActive_ = true      % Phase 1028 plan 05: production-default for symmetry with
+                                    %   LiveTagPipeline. BatchTagPipeline.run() does not currently invoke
+                                    %   Tag.invalidateBatch_ (overwrite-mode writes do not call tag.updateData()
+                                    %   in this code path), so the flag is currently shape-only; the
+                                    %   setCoalesceActiveForTesting_ Hidden setter exists so future
+                                    %   append-mode batch wiring can be configured uniformly with Live.
     end
 
     methods
@@ -185,6 +191,21 @@ classdef BatchTagPipeline < handle
             end
             obj.writeFn_ = fn;
             obj.writeFnIsProduction_ = false;
+        end
+
+        function setCoalesceActiveForTesting_(obj, tf)
+            %SETCOALESCEACTIVEFORTESTING_ Shape-parity setter mirroring LiveTagPipeline (plan 05).
+            %   Phase 1028 plan 05: BatchTagPipeline.run() does not currently
+            %   accumulate a listener cascade (it writes 'overwrite' mode and
+            %   does not call tag.updateData()), so coalescing is a no-op
+            %   here. The setter exists for symmetry with LiveTagPipeline so
+            %   tests/bench scripts can configure both pipelines uniformly.
+            %   Hidden (D-10).
+            if ~(islogical(tf) && isscalar(tf))
+                error('TagPipeline:invalidCoalesceActive', ...
+                    'setCoalesceActiveForTesting_ requires a logical scalar (got %s).', class(tf));
+            end
+            obj.coalesceActive_ = tf;
         end
 
         function setCacheActiveForTesting_(obj, tf)

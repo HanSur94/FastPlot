@@ -13,6 +13,8 @@ function result = bench_tag_pipeline_1k(varargin)
     %     bench_tag_pipeline_1k('--profile')         % NoIO + profile on/off; populates tBreakdown
     %     bench_tag_pipeline_1k('--cache-on')        % default — production cache enabled
     %     bench_tag_pipeline_1k('--cache-off')       % regression check / Plan 02b WithIO baseline
+    %     bench_tag_pipeline_1k('--coalesce-on')     % default — production listener coalescing (Plan 05 A1+A2)
+    %     bench_tag_pipeline_1k('--coalesce-off')    % isolate cost of end-of-tick batch invalidate
     %     result = bench_tag_pipeline_1k(...)        % returns struct with timings
     %
     %   Phase 1028 plan 02d: --cache-on (default) routes per-tick appends
@@ -20,10 +22,17 @@ function result = bench_tag_pipeline_1k(varargin)
     %   writeTagMat_('append',...). --cache-off forces every append to do
     %   load+concat+save (the Plan 02b WithIO behavior). Both modes record
     %   tickMin / tBreakdown so VERIFICATION.md can show before/after.
-    %   The previous "--coalesce-on/--coalesce-off" framing was incorrect
-    %   (the pipeline already calls writeFn_ once per tag per tick — there
-    %   was no within-tick redundancy to coalesce). The actual mechanism
-    %   is read-side cache eliminating per-tick load.
+    %
+    %   Phase 1028 plan 05: --coalesce-on (default) enables the A1+A2
+    %   end-of-tick Tag.invalidateBatch_(updatedSet) call inside
+    %   LiveTagPipeline.onTick_. --coalesce-off skips that call so the
+    %   coalesce-on vs coalesce-off delta isolates the listener-cascade
+    %   amortization win. In the 1000-tag harness, the upstream SensorTags
+    %   have no registered listeners (raw-source-only fixture), so the
+    %   batched call walks zero unique listeners. The delta therefore
+    %   measures the cost of the updatedSet accumulation + the call
+    %   itself (expected sub-1 ms/tick); for richer wiring (Companion /
+    %   dashboard) the delta would scale with listener-cascade depth.
     %
     %   Output struct fields:
     %     tickMin       — minimum tick wall (seconds)
@@ -97,11 +106,12 @@ function result = bench_tag_pipeline_1k(varargin)
     addpath(fullfile(here, '..'));
     install();
 
-    % --------- Mode + smoke + profile + cache parsing ---------
+    % --------- Mode + smoke + profile + cache + coalesce parsing ---------
     mode = 'NoIO';
     smoke = false;
     profileMode = false;
-    cacheActive = true;     % Phase 1028 plan 02d: production default.
+    cacheActive = true;       % Phase 1028 plan 02d: production default.
+    coalesceActive = true;    % Phase 1028 plan 05: production default for A1+A2 listener coalescing.
     i = 1;
     while i <= numel(varargin)
         arg = varargin{i};
@@ -117,6 +127,12 @@ function result = bench_tag_pipeline_1k(varargin)
         elseif ischar(arg) && strcmp(arg, '--cache-off')
             cacheActive = false;
             i = i + 1;
+        elseif ischar(arg) && strcmp(arg, '--coalesce-on')
+            coalesceActive = true;
+            i = i + 1;
+        elseif ischar(arg) && strcmp(arg, '--coalesce-off')
+            coalesceActive = false;
+            i = i + 1;
         elseif ischar(arg) && strcmpi(arg, 'Mode')
             if i + 1 > numel(varargin)
                 error('bench_tag_pipeline_1k:badArgs', ...
@@ -126,7 +142,8 @@ function result = bench_tag_pipeline_1k(varargin)
             i = i + 2;
         else
             error('bench_tag_pipeline_1k:badArgs', ...
-                'Unknown argument %s. Expected ''--smoke'', ''--profile'', ''--cache-on'', ''--cache-off'', or ''Mode''.', ...
+                ['Unknown argument %s. Expected ''--smoke'', ''--profile'', ' ...
+                '''--cache-on'', ''--cache-off'', ''--coalesce-on'', ''--coalesce-off'', or ''Mode''.'], ...
                 disp_(arg));
         end
     end
@@ -200,9 +217,14 @@ function result = bench_tag_pipeline_1k(varargin)
     else
         cacheLbl = 'cache=off';
     end
-    fprintf('\n== bench_tag_pipeline_1k: %d tags (%d sensors + %d state + %d monitor + %d composite), %d machines, mode=%s, %s%s ==\n', ...
+    if coalesceActive
+        coalesceLbl = 'coalesce=on';
+    else
+        coalesceLbl = 'coalesce=off';
+    end
+    fprintf('\n== bench_tag_pipeline_1k: %d tags (%d sensors + %d state + %d monitor + %d composite), %d machines, mode=%s, %s, %s%s ==\n', ...
         nSensors + nState + nMonitor + nComposite, nSensors, nState, nMonitor, nComposite, ...
-        nMachines, mode, cacheLbl, char(repmat('  [SMOKE]', 1, double(smoke))));
+        nMachines, mode, cacheLbl, coalesceLbl, char(repmat('  [SMOKE]', 1, double(smoke))));
 
     % --------- Setup: temp dirs (NoIO is now wired post-construction via DI seam) ---------
     rawDir = setupTempRawDir_('bench_tp1k_raw');
@@ -245,6 +267,17 @@ function result = bench_tag_pipeline_1k(varargin)
     % is the regression-check / Plan 02b WithIO baseline.
     if ~cacheActive
         p.setCacheActiveForTesting_(false);
+    end
+    % Phase 1028 plan 05: opt-out of A1+A2 end-of-tick listener coalescing
+    % when --coalesce-off. Default coalesceActive_=true reflects the
+    % production path; --coalesce-off measures the per-tag-cascade baseline
+    % so the cost of the new Tag.invalidateBatch_ call site can be isolated.
+    % In the 1000-tag harness the upstream SensorTags have no registered
+    % listeners (raw-source-only), so the batched call walks zero unique
+    % listeners — the measurement isolates the cost of the updatedSet
+    % accumulation + the call itself, which is expected to be sub-1 ms/tick.
+    if ~coalesceActive
+        p.setCoalesceActiveForTesting_(false);
     end
 
     tickTimes = nan(1, nTicks);
@@ -300,6 +333,7 @@ function result = bench_tag_pipeline_1k(varargin)
     result.tBreakdown = tBreakdown;
     result.mode       = mode;
     result.cacheActive = cacheActive;   % Phase 1028 plan 02d: record so artifact diffs are unambiguous.
+    result.coalesceActive = coalesceActive;   % Phase 1028 plan 05: record coalesce mode for artifact comparison.
     result.wallTotal  = wallTotal;
     result.nTagsTotal = nTagsTotal;
     result.profiled   = profileMode;
