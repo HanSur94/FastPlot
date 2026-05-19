@@ -1,14 +1,25 @@
 function test_companion_tag_status_table()
 %TEST_COMPANION_TAG_STATUS_TABLE Pure-logic unit tests for TagStatusTableWindow.
-%   Function-style tests (Octave-compatible) for the three static helper methods
-%   on TagStatusTableWindow:
+%   Function-style tests for the three static helper methods on
+%   TagStatusTableWindow:
 %     - buildRow_(tag) : 1x12 cell row, handles every Tag subclass + throwing tags.
 %     - filterRows_(rows, query) : case-insensitive substring filter on Key+Name.
 %     - countEventsForTag_(tag) : O(1)-when-empty event count.
 %
 %   NO UI is built; tests do not require a uifigure or graphical environment.
 %
+%   MATLAB-only -- skipped on Octave. The helpers under test are static
+%   methods on TagStatusTableWindow.m, whose class definition uses
+%   MATLAB-only syntax (uifigure / uitable / properties block) that
+%   Octave cannot parse. Loading the file to reach the static helpers
+%   triggers a parse error, so the test is gated to MATLAB.
+%
 %   See also TagStatusTableWindow, test_companion_filter_tags.
+
+    if exist('OCTAVE_VERSION', 'builtin') ~= 0
+        fprintf('  Skipping test_companion_tag_status_table on Octave (TagStatusTableWindow targets MATLAB R2020b+).\n');
+        return;
+    end
 
     add_companion_path();
 
