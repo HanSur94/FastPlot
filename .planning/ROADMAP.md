@@ -10,18 +10,20 @@
 - 📋 **v2.1 Tag-API Tech Debt Cleanup** — Phases 1012-1017 (carry-forward, parallel — not active)
 - ✅ **v3.0 FastSense Companion** — Phases 1018-1023 + 1023.1 gap closure (shipped 2026-04-30)
 - 🚧 **Pending milestone** — Phases 1025-1028 (promoted from backlog 2026-05-08, awaiting milestone scoping; 1024 closed via quick task 260508-d7k)
-- 🚧 **v3.1 Plant Log Integration** — Phases 1029-1033 (started 2026-05-13)
+- ✅ **v3.1 Plant Log Integration** — Phases 1029-1033 (shipped 2026-05-19)
 
 ## Phases
 
-<details open>
-<summary>🚧 v3.1 Plant Log Integration (Phases 1029-1033) — started 2026-05-13</summary>
+<details>
+<summary>✅ v3.1 Plant Log Integration (Phases 1029-1033) — SHIPPED 2026-05-19</summary>
 
-- [x] **Phase 1029: Plant Log Storage Foundation** — `PlantLogStore` class with time-range queries and timestamp+row-hash dedup (3/3 plans complete, 2026-05-13)
-- [x] **Phase 1030: CSV/XLSX Import + Mapping Dialog** — File reader with auto-detected timestamp/message columns and a uifigure override dialog (3/3 plans complete, 2026-05-13)
-- [x] **Phase 1031: Live Tail + Slider Preview Overlay** — Periodic re-read timer plus black plant-log lines on the dashboard slider with hover tooltips (3/3 plans complete, 2026-05-14)
-- [x] **Phase 1032: Per-Widget Plant Log Overlay** — Opt-in `ShowPlantLog` toggle that draws black plant-log lines on FastSenseWidget axes with full-metadata tooltips (3/3 plans complete, 2026-05-19)
-- [ ] **Phase 1033: Dashboard + Companion Integration & Serialization** — `attachPlantLog`/`detachPlantLog` API, JSON/.m persistence of source path and mapping, and Companion "Open Plant Log…" toolbar entry
+- [x] Phase 1029: Plant Log Storage Foundation (3/3 plans) — completed 2026-05-13
+- [x] Phase 1030: CSV/XLSX Import + Mapping Dialog (3/3 plans) — completed 2026-05-13
+- [x] Phase 1031: Live Tail + Slider Preview Overlay (3/3 plans) — completed 2026-05-14
+- [x] Phase 1032: Per-Widget Plant Log Overlay (3/3 plans) — completed 2026-05-19
+- [x] Phase 1033: Dashboard + Companion Integration & Serialization (3/3 plans) — completed 2026-05-19
+
+Full details: [milestones/v3.1-ROADMAP.md](milestones/v3.1-ROADMAP.md)
 
 </details>
 
