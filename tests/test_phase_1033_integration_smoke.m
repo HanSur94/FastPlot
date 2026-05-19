@@ -30,6 +30,18 @@ function test_phase_1033_integration_smoke()
 %   regression gate.
 
     addPathsViaInstallOnly_();
+
+    % Octave gate: every roundtrip test below exercises
+    % engine.attachPlantLog → PlantLogReader.readFile → `readtable`.
+    % `readtable` is MATLAB-only (Octave needs the `io` package).
+    % Skip cleanly when unavailable; the per-test Octave gate for
+    % testCompanionMultiDashboardFanOut already covers the uifigure
+    % case, but file-import-driven tests need this top-level gate too.
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('SKIPPED — readtable unavailable on this Octave (install `io` package to enable).\n');
+        return;
+    end
+
     nPassed = 0;
     nFailed = 0;
     testN = 0;

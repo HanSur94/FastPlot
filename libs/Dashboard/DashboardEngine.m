@@ -2982,6 +2982,14 @@ classdef DashboardEngine < handle
             end
             ax = widget.FastSenseObj.hAxes;
             if isempty(ax) || ~ishandle(ax), return; end
+            % Octave's addlistener does not support the 4-arg
+            % (object, propName, 'PostSet', callback) form — third arg
+            % must be a callback. Skip the listener on Octave; the
+            % engine's PlantLogTickListener_ + the slider redraw on
+            % render still provide refresh on Octave.
+            if exist('OCTAVE_VERSION', 'builtin')
+                return;
+            end
             try
                 widget.PlantLogXLimListener_ = addlistener(ax, 'XLim', 'PostSet', ...
                     @(~,~) obj.refreshPlantLogOverlayForWidget_(widget));

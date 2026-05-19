@@ -28,6 +28,14 @@ function test_phase_1031_integration_smoke()
 %     PLOG-VIZ-09 (theme token)              -> exercised indirectly via DashboardTheme
 
     add_paths_via_install_only();
+
+    % Octave gate: end-to-end lifecycle exercises PlantLogReader.readFile
+    % (uses `readtable`, MATLAB-only). Skip cleanly on Octave without io.
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('SKIPPED — readtable unavailable on this Octave (install `io` package to enable).\n');
+        return;
+    end
+
     nPassed = 0;
 
     nPassed = nPassed + test_path_pickup();

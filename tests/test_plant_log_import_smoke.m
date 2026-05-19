@@ -16,6 +16,14 @@ function test_plant_log_import_smoke()
 
     test_path_pickup_reader();
     test_path_pickup_dialog();
+
+    % Octave gate: every test below exercises PlantLogReader →
+    % `readtable` (MATLAB-only). Skip cleanly when unavailable.
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('SKIPPED rest of suite — readtable unavailable on this Octave.\n');
+        return;
+    end
+
     test_headless_end_to_end();
     test_headless_without_mapping_throws();
     test_headless_missing_file_throws();

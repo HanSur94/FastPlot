@@ -219,6 +219,14 @@ function n = test_setinterval_validates()
 end
 
 function n = test_tick_ingests_rows()
+    % Octave gate: tick_ calls PlantLogReader.openInteractive →
+    % `readtable` (MATLAB-only) and then fires the PlantLogTailTick
+    % event via `notify` (also MATLAB-only). Skip on Octave.
+    if exist('OCTAVE_VERSION', 'builtin') && isempty(which('readtable'))
+        fprintf('  SKIP: test_tick_ingests_rows (Octave: readtable/notify unavailable).\n');
+        n = 0;
+        return;
+    end
     p = make_temp_csv_path_();
     cleanupP = onCleanup(@() try_delete(p));
     write_csv_(p, { ...
