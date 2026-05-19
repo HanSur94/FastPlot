@@ -45,6 +45,27 @@ classdef PlantLogReader < handle
 
     methods (Static)
 
+        function mapping = autoDetectFromFile(filePath)
+            %AUTODETECTFROMFILE Read filePath and run autoDetect (Phase 1033 PLOG-INT-01).
+            %   Convenience helper for headless callers (e.g.
+            %   DashboardEngine.attachPlantLog) that need an auto-detected
+            %   mapping but live outside libs/PlantLog and therefore
+            %   cannot call the private readtablePortable directly.
+            %
+            %   Returns the autoDetect mapping struct (see autoDetect).
+            %   Propagates PlantLogReader:fileNotFound / unsupportedFormat
+            %   / xlsxUnavailable / readError from readtablePortable.
+            %
+            %   See also autoDetect, readFile, openInteractive.
+            if isstring(filePath); filePath = char(filePath); end
+            if ~ischar(filePath) || isempty(filePath)
+                error('PlantLogReader:invalidInput', ...
+                    'filePath must be a non-empty char/string.');
+            end
+            T = readtablePortable(filePath);
+            mapping = PlantLogReader.autoDetect(T);
+        end
+
         function entries = readFile(filePath, mapping)
             %READFILE Headless read: parse filePath using mapping, return PlantLogEntry[].
             %

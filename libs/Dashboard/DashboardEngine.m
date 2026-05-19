@@ -662,9 +662,10 @@ classdef DashboardEngine < handle
             if isstruct(opts.Mapping)
                 readerMapping = obj.plantLogMappingToReaderShape_(opts.Mapping);
             else
-                % No mapping supplied -> autoDetect
-                rawTable = readtablePortable(filePath);
-                readerMapping = PlantLogReader.autoDetect(rawTable);
+                % No mapping supplied -> autoDetect via the public helper
+                % (DashboardEngine cannot reach libs/PlantLog/private, so
+                % PlantLogReader.autoDetectFromFile is the integration point).
+                readerMapping = PlantLogReader.autoDetectFromFile(filePath);
             end
 
             % --- Ingest via headless reader ---
