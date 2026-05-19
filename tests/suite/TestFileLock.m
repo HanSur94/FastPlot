@@ -1,5 +1,5 @@
 classdef TestFileLock < matlab.unittest.TestCase
-%TESTFILELOCK Tests for FileLock handle class and lockFileFormat private helper.
+%TESTFILELOCK Tests for FileLock handle class and LockFileFormat private helper.
 %
 %   Test methods:
 %     testLockBodyRoundTrip          — encode+decode returns identical struct
@@ -20,7 +20,7 @@ classdef TestFileLock < matlab.unittest.TestCase
 %
 %   REQ coverage: CONC-02 (all five CONC-02 rows in 1029-VALIDATION.md)
 %
-%   See also FileLock, lockFileFormat, ClusterIdentity, lockfile_mex.
+%   See also FileLock, LockFileFormat, ClusterIdentity, lockfile_mex.
 
     properties
         TempDir   % per-suite temp directory for body files
@@ -74,8 +74,8 @@ classdef TestFileLock < matlab.unittest.TestCase
         function testLockBodyRoundTrip(testCase)
             %TESTLOCKBODYROUNDTRIP Encode then decode returns an identical struct.
             id  = ClusterIdentity.resolve();
-            txt = lockFileFormat.encodeBody(id, 'pressure');
-            s   = lockFileFormat.decodeBody(txt);
+            txt = LockFileFormat.encodeBody(id, 'pressure');
+            s   = LockFileFormat.decodeBody(txt);
             testCase.verifyEqual(s.key,  'pressure');
             testCase.verifyEqual(s.user, id.user);
             testCase.verifyEqual(s.host, id.host);
@@ -168,7 +168,7 @@ classdef TestFileLock < matlab.unittest.TestCase
 
             % Write a body file manually with content that matches a real identity struct.
             id  = ClusterIdentity.resolve();
-            txt = lockFileFormat.encodeBody(id, staleKey);
+            txt = LockFileFormat.encodeBody(id, staleKey);
             bp  = lock.bodyPath();
             fid = fopen(bp, 'w');
             testCase.assumeTrue(fid > 0, 'Could not open body path for writing');
@@ -198,7 +198,7 @@ classdef TestFileLock < matlab.unittest.TestCase
 
             % Build a body with heartbeat_at one hour in the future (clock skew simulation).
             id  = ClusterIdentity.resolve();
-            txt = lockFileFormat.encodeBody(id, negKey);
+            txt = LockFileFormat.encodeBody(id, negKey);
             fmt = 'yyyy-MM-dd''T''HH:mm:ss''Z''';
             futureHb = char(datetime('now', 'TimeZone', 'UTC') + hours(1), fmt);
             txt = regexprep(txt, '^heartbeat_at:.*$', ...

@@ -563,7 +563,25 @@ jobs:
       # Windows skip cleanly. Cost ~30s on the Linux job; ~0s on the others.
       FASTSENSE_STRESS_4: "1"
     steps:
+      # Windows-only: wiki/ contains filenames with colons (e.g.
+      # `API-Reference:-Dashboard.md`) which NTFS rejects under git's default
+      # protectNTFS. Same pattern as mex-build-windows. macOS / Linux are no-ops.
+      - name: Allow paths with colons (Windows / wiki files)
+        if: runner.os == 'Windows'
+        run: git config --global core.protectNTFS false
+
+      # Sparse-checkout skips wiki/ entirely on all OSes — fixes Windows checkout
+      # by avoiding the colon-filename files, and trims clone size on the others.
+      # Tests need libs/, tests/, scripts/, install.m. Nothing else.
       - uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            libs
+            tests
+            scripts
+            install.m
+            run_profile.m
+          sparse-checkout-cone-mode: false
 
       - name: Setup MATLAB
         uses: matlab-actions/setup-matlab@v3

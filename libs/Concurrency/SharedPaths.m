@@ -40,8 +40,8 @@ classdef SharedPaths
             %     opts — (optional) struct; may have .SharedRoot field
             %   Output:
             %     root — char; empty string in single-user mode
-            if nargin >= 1 && isstruct(opts) && isfield(opts, 'SharedRoot') ...
-                    && ~isempty(opts.SharedRoot)
+            if nargin >= 1 && isstruct(opts) && isfield(opts, 'SharedRoot') && ...
+                    ~isempty(opts.SharedRoot)
                 root = char(opts.SharedRoot);
                 return;
             end

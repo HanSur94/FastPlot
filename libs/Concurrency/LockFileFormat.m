@@ -1,4 +1,4 @@
-classdef lockFileFormat
+classdef LockFileFormat
 %LOCKFILEFORMAT Encode/decode the body of a FastSense lockfile.
 %
 %   The body is a plain-text key:value file (NOT JSON, to avoid the
@@ -17,9 +17,9 @@ classdef lockFileFormat
 %   The acquired_at and heartbeat_at fields are forensics-only (Pitfall 9).
 %
 %   Methods (Static):
-%     txt = lockFileFormat.encodeBody(identity, key)
-%     s   = lockFileFormat.decodeBody(txt)
-%     txt = lockFileFormat.updateHeartbeat(txt)
+%     txt = LockFileFormat.encodeBody(identity, key)
+%     s   = LockFileFormat.decodeBody(txt)
+%     txt = LockFileFormat.updateHeartbeat(txt)
 %
 %   Errors:
 %     Concurrency:lockFileBodyMalformed — missing or unparseable field
@@ -30,7 +30,7 @@ classdef lockFileFormat
 
         function txt = encodeBody(identity, key)
             %ENCODEBODY Encode a lockfile body string from identity and key.
-            %   txt = lockFileFormat.encodeBody(identity, key)
+            %   txt = LockFileFormat.encodeBody(identity, key)
             %
             %   Input:
             %     identity — struct from ClusterIdentity.resolve() with .user, .host,
@@ -63,7 +63,7 @@ classdef lockFileFormat
 
         function s = decodeBody(txt)
             %DECODEBODY Parse a lockfile body string into a struct.
-            %   s = lockFileFormat.decodeBody(txt)
+            %   s = LockFileFormat.decodeBody(txt)
             %
             %   Input:
             %     txt — char or string; lockfile body as produced by encodeBody
@@ -113,7 +113,7 @@ classdef lockFileFormat
 
         function txt = updateHeartbeat(txt)
             %UPDATEHEARTBEAT Rewrite the heartbeat_at field with the current UTC time.
-            %   txt = lockFileFormat.updateHeartbeat(txt)
+            %   txt = LockFileFormat.updateHeartbeat(txt)
             %
             %   Input:
             %     txt — char; existing lockfile body

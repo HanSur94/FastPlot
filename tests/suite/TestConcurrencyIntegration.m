@@ -51,10 +51,10 @@ classdef TestConcurrencyIntegration < matlab.unittest.TestCase
             %TESTFIVECLASSESALLONPATH Assert all 8 Phase 1029 symbols are discoverable.
             %   Verifies that install() exposes ClusterIdentity, ClusterConfig,
             %   SharedPaths, FileLock, AtomicWriter, lockfile_mex, ndjsonEncode,
-            %   and lockFileFormat on the MATLAB path.
+            %   and LockFileFormat on the MATLAB path.
             names = {'ClusterIdentity', 'ClusterConfig', 'SharedPaths', ...
                      'FileLock', 'AtomicWriter', 'lockfile_mex', ...
-                     'ndjsonEncode', 'lockFileFormat'};
+                     'ndjsonEncode', 'LockFileFormat'};
             for k = 1:numel(names)
                 p = which(names{k});
                 testCase.verifyNotEmpty(p, ...

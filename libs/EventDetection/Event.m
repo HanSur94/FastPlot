@@ -37,7 +37,9 @@ classdef Event < handle
         Id         = ''       % char: unique id assigned by EventStore.append (EVENT-02)
         IsOpen     = false    % logical: true while event is still open (EndTime = NaN) — Phase 1012
         Notes      = ''       % char: free-form user annotation edited via details popup — Phase 1012
-        Identity   = struct() % Phase 1032: {user, host, epoch} captured at emission time (IDENT-02 audit trail). Empty struct in single-user mode AND on backward-compat load of legacy events.
+        % Identity: Phase 1032 {user, host, epoch} captured at emission time (IDENT-02 audit
+        % trail). Empty struct in single-user mode AND on backward-compat load of legacy events.
+        Identity   = struct()
         AckedAt    = []       % numeric epoch (datenum); [] means unacked. Set by EventStore.acknowledgeEvent
         AckedBy    = struct() % {user, host, epoch, comment}; populated by EventStore.acknowledgeEvent
         AckComment = ''       % char: convenience alias; mirrors AckedBy.comment after acknowledgeEvent

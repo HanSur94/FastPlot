@@ -55,7 +55,7 @@ classdef FileLock < handle
 %     Concurrency:lockfileMexUnavailable     — lockfile_mex absent and
 %         Strict=true
 %
-%   See also lockfile_mex, lockFileFormat, ClusterIdentity, AtomicWriter.
+%   See also lockfile_mex, LockFileFormat, ClusterIdentity, AtomicWriter.
 
     % ------------------------------------------------------------------ %
     properties (SetAccess = private)
@@ -300,9 +300,9 @@ classdef FileLock < handle
                 end
                 txt = fread(fid, '*char')';
                 fclose(fid);
-                s = lockFileFormat.decodeBody(txt);
-                tf = strcmp(s.user, id.user) && strcmp(s.host, id.host) ...
-                    && (s.pid == id.pid);
+                s = LockFileFormat.decodeBody(txt);
+                tf = strcmp(s.user, id.user) && strcmp(s.host, id.host) && ...
+                    (s.pid == id.pid);
             catch
                 tf = false;
             end
@@ -373,7 +373,7 @@ classdef FileLock < handle
                 end
                 txt = fread(fid, '*char')';
                 fclose(fid);
-                info = lockFileFormat.decodeBody(txt);
+                info = LockFileFormat.decodeBody(txt);
             catch
                 info = [];
             end
@@ -441,7 +441,7 @@ classdef FileLock < handle
             tmpBody       = sprintf('%s.tmp.%d.%s.%s', obj.bodyPath_, pid, eps, rnd);
 
             % Write tentative body to temp file.
-            txt = lockFileFormat.encodeBody(obj.identity_, obj.Key);
+            txt = LockFileFormat.encodeBody(obj.identity_, obj.Key);
             fid = fopen(tmpBody, 'w');
             if fid < 0
                 acquired = false;
@@ -485,7 +485,7 @@ classdef FileLock < handle
 
         function writeBody_(obj)
             %WRITEBODY_ Write the identity body file atomically.
-            txt    = lockFileFormat.encodeBody(obj.identity_, obj.Key);
+            txt    = LockFileFormat.encodeBody(obj.identity_, obj.Key);
             pid    = double(obj.identity_.pid);
             eps    = char(datetime('now', 'TimeZone', 'UTC'), 'yyyyMMddHHmmssSSS');
             rnd    = sprintf('%06d', randi([0, 999999]));
@@ -532,7 +532,7 @@ classdef FileLock < handle
                 if fid < 0; return; end
                 txt = fread(fid, '*char')';
                 fclose(fid);
-                txt = lockFileFormat.updateHeartbeat(txt);
+                txt = LockFileFormat.updateHeartbeat(txt);
                 pid = double(obj.identity_.pid);
                 eps = char(datetime('now', 'TimeZone', 'UTC'), 'yyyyMMddHHmmssSSS');
                 rnd = sprintf('%06d', randi([0, 999999]));
