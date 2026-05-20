@@ -19,25 +19,26 @@ FastPlot consists of five integrated libraries:
 
 | Library | Description |
 |---------|-------------|
-| **FastSense** | Core plotting engine with dynamic downsampling, dashboard layouts (FastSenseGrid, FastSenseDock), interactive toolbar, themes, and disk-backed storage via FastSenseDataStore |
-| **Dashboard** | Widget-based dashboard engine with 8 widget types, 24-column responsive grid, edit mode, and JSON persistence |
-| **SensorThreshold** | Sensor data containers with state-dependent threshold rules, violation detection, and SensorRegistry catalog |
-| **EventDetection** | Event detection from threshold violations, EventViewer with Gantt timeline, live pipeline with notifications |
-| **WebBridge** | TCP server for web-based visualization with NDJSON protocol |
+| **FastSense** | Core plotting engine with dynamic downsampling, tiled (`FastSenseGrid`) and tabbed (`FastSenseDock`) layouts, interactive toolbar, theme‑based styling, disk‑backed storage via `FastSenseDataStore`, and live file‑polling. |
+| **Dashboard** | Widget‑based dashboard engine with edit mode, JSON persistence, a 24‑column responsive grid, and 20+ widget types (`FastSenseWidget`, `GaugeWidget`, `StatusWidget`, `NumberWidget`, `SparklineCardWidget`, etc.). |
+| **SensorThreshold** | Tag‑based domain model for sensor data (`SensorTag`), discrete states (`StateTag`), derived binary monitors (`MonitorTag`), composite aggregations (`CompositeTag`), and a centralised `TagRegistry` catalogue. |
+| **EventDetection** | Event detection from threshold violations, persistent `EventStore`, `EventViewer` with Gantt timeline, incremental streaming via `MonitorTag.appendData`, and live pipeline with notifications. |
+| **WebBridge** | TCP server for web‑based data relay using NDJSON protocol, enabling direct MATLAB → external clients communication. |
 
 ## Features
 
-- **Smart downsampling** — per-pixel MinMax and LTTB algorithms, auto-selected per zoom level
-- **Pyramid cache** — multi-resolution pre-computation for instant zoom-out on 50M+ datasets  
-- **MEX acceleration** — optional C with SIMD (AVX2/NEON), auto-fallback to pure MATLAB
-- **Dashboard layouts** — tiled grids (FastSenseGrid) and tabbed containers (FastSenseDock)
-- **Interactive toolbar** — data cursor, crosshair, grid/legend toggle, autoscale, PNG export
-- **6 built-in themes** — default, dark, light, industrial, scientific, ocean
-- **Linked axes** — synchronized zoom/pan across subplots
-- **Sensor system** — state-dependent thresholds with condition-based rules and violation markers
-- **Event detection** — group violations into events with statistics, Gantt viewer, click-to-plot
-- **Live mode** — file polling with auto-refresh (preserve/follow/reset view modes)
-- **Disk-backed storage** — SQLite-backed chunked DataStore for 100M+ point datasets
+- **Smart downsampling** — per‑pixel MinMax and LTTB algorithms, user‑selectable per line
+- **Pyramid cache** — multi‑resolution pre‑computation for instant zoom‑out on datasets of 50M+ points  
+- **MEX acceleration** — optional C with SIMD (AVX2/NEON), automatic fallback to pure MATLAB
+- **Dashboard layouts** — tiled grids (`FastSenseGrid`) and tabbed containers (`FastSenseDock`)
+- **Interactive toolbar** — data cursor, crosshair, grid/legend toggle, Y‑autoscale, PNG export, live mode controls
+- **2 built‑in themes** — `light` and `dark` with 4 colour palettes (vibrant, muted, colorblind, ocean)  
+  Legacy preset names (`default`, `industrial`, `scientific`, `ocean`) are automatically aliased to `light`.
+- **Linked axes** — synchronised zoom/pan across subplots via `LinkGroup`
+- **Tag‑based threshold monitoring** — `MonitorTag` with hysteresis, debounce (MinDuration), and streaming tail append
+- **Event detection** — groups violations into events with statistics, Gantt viewer, click‑to‑detail plot
+- **Live mode** — file polling with auto‑refresh (preserve/follow/reset view modes)
+- **Disk‑backed storage** — SQLite‑backed chunked `FastSenseDataStore` for 100M+ point datasets
 
 ## Quick Start
 
@@ -71,19 +72,15 @@ fig.renderAll();
 ```
 
 ```matlab
-% Sensor with state-dependent thresholds
-s = Sensor('pressure', 'Name', 'Chamber Pressure');
-s.X = linspace(0, 100, 1e6);
-s.Y = randn(1, 1e6) * 10 + 50;
+% Using the Tag API: create a sensor and render it
+st = SensorTag('pressure', ...
+               'X', linspace(0, 100, 1e6), ...
+               'Y', randn(1, 1e6)*10 + 50, ...
+               'Units', 'bar');
+TagRegistry.register('pressure', st);
 
-sc = StateChannel('machine');
-sc.X = [0 30 60 80]; sc.Y = [0 1 2 1];
-s.addStateChannel(sc);
-s.addThresholdRule(struct('machine', 1), 70, 'Direction', 'upper', 'Label', 'Run HI');
-s.resolve();
-
-fp = FastSense('Theme', 'industrial');
-fp.addSensor(s, 'ShowThresholds', true);
+fp = FastSense('Theme', 'dark');
+fp.addTag(st);
 fp.render();
 ```
 
@@ -95,20 +92,20 @@ fp.render();
 
 ## Getting Started
 
-Start with the [[Installation]] guide to set up FastPlot and compile MEX acceleration. Then follow the [[Getting Started]] tutorial for step-by-step examples covering basic plotting, dashboards, sensors, and live mode.
+Start with the [[Installation]] guide to set up FastPlot and compile MEX acceleration. Then follow the [[Getting Started]] tutorial for step‑by‑step examples covering basic plotting, dashboards, sensors, and live mode.
 
 ## API Reference
 
 **Core Classes**
 - [[API Reference: FastPlot]] — main plotting engine with dynamic downsampling
-- [[API Reference: Dashboard]] — FastSenseGrid, FastSenseDock, FastSenseToolbar
-- [[API Reference: Sensors]] — Sensor, StateChannel, ThresholdRule, SensorRegistry
-- [[API Reference: Event Detection]] — EventDetector, EventViewer, LiveEventPipeline
-- [[API Reference: Themes]] — theme presets, customization, color palettes
-- [[API Reference: Utilities]] — ConsoleProgressBar, FastSenseDefaults
+- [[API Reference: Dashboard]] — `FastSenseGrid`, `FastSenseDock`, `FastSenseToolbar`, `DashboardEngine` and all widget types
+- [[API Reference: Sensors]] — `Tag`, `SensorTag`, `StateTag`, `MonitorTag`, `CompositeTag`, `TagRegistry`, pipeline pipelines
+- [[API Reference: Event Detection]] — `EventDetector`, `EventStore`, `EventViewer`, `LiveEventPipeline`
+- [[API Reference: Themes]] — theme presets, customisation, colour palettes
+- [[API Reference: Utilities]] — `ConsoleProgressBar`, `FastSenseDefaults`
 
 **Specialized Guides**
 - [[Live Mode Guide]] — file polling, view modes, live dashboards
-- [[Dashboard Engine Guide]] — DashboardEngine with widget-based dashboards
+- [[Dashboard Engine Guide]] — widget‑based dashboards with edit mode and persistence
 - [[Datetime Guide]] — working with time series data
 - [[Examples]] — 40+ categorized runnable examples
